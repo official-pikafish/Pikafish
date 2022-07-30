@@ -43,10 +43,8 @@ struct StateInfo {
   Key    pawnKey;
   Key    materialKey;
   Value  nonPawnMaterial[COLOR_NB];
-  int    castlingRights;
   int    rule50;
   int    pliesFromNull;
-  Square epSquare;
 
   // Not copied when making a move (will be recomputed anyhow)
   Key        key;
@@ -72,7 +70,7 @@ typedef std::unique_ptr<std::deque<StateInfo>> StateListPtr;
 
 
 /// Position class stores information regarding the board representation as
-/// pieces, side to move, hash keys, castling info, etc. Important methods are
+/// pieces, side to move, hash keys, etc. Important methods are
 /// do_move() and undo_move(), used by the search to update node info when
 /// traversing the search tree.
 class Thread;
@@ -86,7 +84,7 @@ public:
   Position& operator=(const Position&) = delete;
 
   // FEN string input/output
-  Position& set(const std::string& fenStr, bool isChess960, StateInfo* si, Thread* th);
+  Position& set(const std::string& fenStr, StateInfo* si, Thread* th);
   Position& set(const std::string& code, Color c, StateInfo* si);
   std::string fen() const;
 
@@ -97,18 +95,11 @@ public:
   Bitboard pieces(Color c, PieceType pt) const;
   Bitboard pieces(Color c, PieceType pt1, PieceType pt2) const;
   Piece piece_on(Square s) const;
-  Square ep_square() const;
   bool empty(Square s) const;
   template<PieceType Pt> int count(Color c) const;
   template<PieceType Pt> int count() const;
   template<PieceType Pt> Square square(Color c) const;
   bool is_on_semiopen_file(Color c, Square s) const;
-
-  // Castling
-  CastlingRights castling_rights(Color c) const;
-  bool can_castle(CastlingRights cr) const;
-  bool castling_impeded(CastlingRights cr) const;
-  Square castling_rook_square(CastlingRights cr) const;
 
   // Checking
   Bitboard checkers() const;
@@ -154,7 +145,6 @@ public:
   // Other properties of the position
   Color side_to_move() const;
   int game_ply() const;
-  bool is_chess960() const;
   Thread* this_thread() const;
   bool is_draw(int ply) const;
   bool has_game_cycle(int ply) const;
@@ -177,29 +167,22 @@ public:
 
 private:
   // Initialization helpers (used while setting up a position)
-  void set_castling_right(Color c, Square rfrom);
   void set_state(StateInfo* si) const;
   void set_check_info(StateInfo* si) const;
 
   // Other helpers
   void move_piece(Square from, Square to);
-  template<bool Do>
-  void do_castling(Color us, Square from, Square& to, Square& rfrom, Square& rto);
 
   // Data members
   Piece board[SQUARE_NB];
   Bitboard byTypeBB[PIECE_TYPE_NB];
   Bitboard byColorBB[COLOR_NB];
   int pieceCount[PIECE_NB];
-  int castlingRightsMask[SQUARE_NB];
-  Square castlingRookSquare[CASTLING_RIGHT_NB];
-  Bitboard castlingPath[CASTLING_RIGHT_NB];
   Thread* thisThread;
   StateInfo* st;
   int gamePly;
   Color sideToMove;
   Score psq;
-  bool chess960;
 };
 
 extern std::ostream& operator<<(std::ostream& os, const Position& pos);
@@ -252,34 +235,6 @@ template<PieceType Pt> inline int Position::count() const {
 template<PieceType Pt> inline Square Position::square(Color c) const {
   assert(count<Pt>(c) == 1);
   return lsb(pieces(c, Pt));
-}
-
-inline Square Position::ep_square() const {
-  return st->epSquare;
-}
-
-inline bool Position::is_on_semiopen_file(Color c, Square s) const {
-  return !(pieces(c, PAWN) & file_bb(s));
-}
-
-inline bool Position::can_castle(CastlingRights cr) const {
-  return st->castlingRights & cr;
-}
-
-inline CastlingRights Position::castling_rights(Color c) const {
-  return c & CastlingRights(st->castlingRights);
-}
-
-inline bool Position::castling_impeded(CastlingRights cr) const {
-  assert(cr == WHITE_OO || cr == WHITE_OOO || cr == BLACK_OO || cr == BLACK_OOO);
-
-  return pieces() & castlingPath[cr];
-}
-
-inline Square Position::castling_rook_square(CastlingRights cr) const {
-  assert(cr == WHITE_OO || cr == WHITE_OOO || cr == BLACK_OO || cr == BLACK_OOO);
-
-  return castlingRookSquare[cr];
 }
 
 inline Bitboard Position::attackers_to(Square s) const {
@@ -369,14 +324,10 @@ inline bool Position::opposite_bishops() const {
         && opposite_colors(square<BISHOP>(WHITE), square<BISHOP>(BLACK));
 }
 
-inline bool Position::is_chess960() const {
-  return chess960;
-}
-
 inline bool Position::capture(Move m) const {
   assert(is_ok(m));
   // Castling is encoded as "king captures rook"
-  return (!empty(to_sq(m)) && type_of(m) != CASTLING) || type_of(m) == EN_PASSANT;
+  return !empty(to_sq(m));
 }
 
 inline Piece Position::captured_piece() const {
