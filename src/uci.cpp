@@ -41,7 +41,7 @@ extern vector<string> setup_bench(const Position&, istream&);
 namespace {
 
   // FEN string for the initial position in standard chess
-  const char* StartFEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+  const char* StartFEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w - - 0 1";
 
 
   // position() is called when the engine receives the "position" UCI command.
@@ -68,7 +68,7 @@ namespace {
         return;
 
     states = StateListPtr(new std::deque<StateInfo>(1)); // Drop the old state and create a new one
-    pos.set(fen, Options["UCI_Chess960"], &states->back(), Threads.main());
+    pos.set(fen, &states->back(), Threads.main());
 
     // Parse the move list, if any
     while (is >> token && (m = UCI::to_move(pos, token)) != MOVE_NONE)
@@ -85,7 +85,7 @@ namespace {
 
     StateListPtr states(new std::deque<StateInfo>(1));
     Position p;
-    p.set(pos.fen(), Options["UCI_Chess960"], &states->back(), Threads.main());
+    p.set(pos.fen(), &states->back(), Threads.main());
 
     Eval::NNUE::verify();
 
@@ -234,7 +234,7 @@ void UCI::loop(int argc, char* argv[]) {
   string token, cmd;
   StateListPtr states(new std::deque<StateInfo>(1));
 
-  pos.set(StartFEN, false, &states->back(), Threads.main());
+  pos.set(StartFEN, &states->back(), Threads.main());
 
   for (int i = 1; i < argc; ++i)
       cmd += std::string(argv[i]) + " ";
@@ -345,10 +345,10 @@ std::string UCI::square(Square s) {
 
 /// UCI::move() converts a Move to a string in coordinate notation (g1f3, a7a8q).
 /// The only special case is castling where the e1g1 notation is printed in
-/// standard chess mode and in e1h1 notation it is printed in Chess960 mode.
+/// standard chess mode.
 /// Internally, all castling moves are always encoded as 'king captures rook'.
 
-string UCI::move(Move m, bool chess960) {
+string UCI::move(Move m) {
 
   Square from = from_sq(m);
   Square to = to_sq(m);
@@ -359,13 +359,7 @@ string UCI::move(Move m, bool chess960) {
   if (m == MOVE_NULL)
       return "0000";
 
-  if (type_of(m) == CASTLING && !chess960)
-      to = make_square(to > from ? FILE_G : FILE_C, rank_of(from));
-
   string move = UCI::square(from) + UCI::square(to);
-
-  if (type_of(m) == PROMOTION)
-      move += " pnbrqk"[promotion_type(m)];
 
   return move;
 }
@@ -380,7 +374,7 @@ Move UCI::to_move(const Position& pos, string& str) {
       str[4] = char(tolower(str[4])); // The promotion piece character must be lowercased
 
   for (const auto& m : MoveList<LEGAL>(pos))
-      if (str == UCI::move(m, pos.is_chess960()))
+      if (str == UCI::move(m))
           return m;
 
   return MOVE_NONE;

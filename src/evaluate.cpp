@@ -258,8 +258,6 @@ namespace {
     S(0, 0), S(3, 44), S(36, 71), S(44, 59), S(0, 39), S(60, 39)
   };
 
-  constexpr Value CorneredBishop = Value(50);
-
   // Assorted bonuses and penalties
   constexpr Score UncontestedOutpost  = S(  0, 10);
   constexpr Score BishopOnKingRing    = S( 24,  0);
@@ -471,18 +469,6 @@ namespace {
                 // Bonus for bishop on a long diagonal which can "see" both center squares
                 if (more_than_one(attacks_bb<BISHOP>(s, pos.pieces(PAWN)) & Center))
                     score += LongDiagonalBishop;
-
-                // An important Chess960 pattern: a cornered bishop blocked by a friendly
-                // pawn diagonally in front of it is a very serious problem, especially
-                // when that pawn is also blocked.
-                if (   pos.is_chess960()
-                    && (s == relative_square(Us, SQ_A1) || s == relative_square(Us, SQ_H1)))
-                {
-                    Direction d = pawn_push(Us) + (file_of(s) == FILE_A ? EAST : WEST);
-                    if (pos.piece_on(s + d) == make_piece(Us, PAWN))
-                        score -= !pos.empty(s + d + pawn_push(Us)) ? 4 * make_score(CorneredBishop, CorneredBishop)
-                                                                   : 3 * make_score(CorneredBishop, CorneredBishop);
-                }
             }
         }
 
@@ -503,12 +489,12 @@ namespace {
                     score -= RookOnClosedFile;
                 }
 
-                // Penalty when trapped by the king, even more if the king cannot castle
+                // Penalty when trapped by the king
                 if (mob <= 3)
                 {
                     File kf = file_of(pos.square<KING>(Us));
                     if ((kf < FILE_E) == (file_of(s) < kf))
-                        score -= TrappedRook * (1 + !pos.castling_rights(Us));
+                        score -= TrappedRook * 2;
                 }
             }
         }

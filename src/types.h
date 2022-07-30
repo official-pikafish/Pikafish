@@ -113,8 +113,6 @@ constexpr int MAX_PLY   = 246;
 ///
 /// bit  0- 5: destination square (from 0 to 63)
 /// bit  6-11: origin square (from 0 to 63)
-/// bit 12-13: promotion piece type - 2 (from KNIGHT-2 to QUEEN-2)
-/// bit 14-15: special move flag: promotion (1), en passant (2), castling (3)
 /// NOTE: en passant bit is set only when a pawn can be captured
 ///
 /// Special cases are MOVE_NONE and MOVE_NULL. We can sneak these in because in
@@ -126,31 +124,8 @@ enum Move : int {
   MOVE_NULL = 65
 };
 
-enum MoveType {
-  NORMAL,
-  PROMOTION = 1 << 14,
-  EN_PASSANT = 2 << 14,
-  CASTLING  = 3 << 14
-};
-
 enum Color {
   WHITE, BLACK, COLOR_NB = 2
-};
-
-enum CastlingRights {
-  NO_CASTLING,
-  WHITE_OO,
-  WHITE_OOO = WHITE_OO << 1,
-  BLACK_OO  = WHITE_OO << 2,
-  BLACK_OOO = WHITE_OO << 3,
-
-  KING_SIDE      = WHITE_OO  | BLACK_OO,
-  QUEEN_SIDE     = WHITE_OOO | BLACK_OOO,
-  WHITE_CASTLING = WHITE_OO  | WHITE_OOO,
-  BLACK_CASTLING = BLACK_OO  | BLACK_OOO,
-  ANY_CASTLING   = WHITE_CASTLING | BLACK_CASTLING,
-
-  CASTLING_RIGHT_NB = 16
 };
 
 enum Phase {
@@ -384,10 +359,6 @@ constexpr Piece operator~(Piece pc) {
   return Piece(pc ^ 8); // Swap color of piece B_KNIGHT <-> W_KNIGHT
 }
 
-constexpr CastlingRights operator&(Color c, CastlingRights cr) {
-  return CastlingRights((c == WHITE ? WHITE_CASTLING : BLACK_CASTLING) & cr);
-}
-
 constexpr Value mate_in(int ply) {
   return VALUE_MATE - ply;
 }
@@ -453,21 +424,12 @@ constexpr int from_to(Move m) {
   return m & 0xFFF;
 }
 
-constexpr MoveType type_of(Move m) {
-  return MoveType(m & (3 << 14));
-}
-
-constexpr PieceType promotion_type(Move m) {
-  return PieceType(((m >> 12) & 3) + KNIGHT);
-}
-
 constexpr Move make_move(Square from, Square to) {
   return Move((from << 6) + to);
 }
 
-template<MoveType T>
 constexpr Move make(Square from, Square to, PieceType pt = KNIGHT) {
-  return Move(T + ((pt - KNIGHT) << 12) + (from << 6) + to);
+  return Move(((pt - KNIGHT) << 12) + (from << 6) + to);
 }
 
 constexpr bool is_ok(Move m) {
