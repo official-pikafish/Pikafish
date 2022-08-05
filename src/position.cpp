@@ -57,15 +57,15 @@ std::ostream& operator<<(std::ostream& os, const Position& pos) {
 
   os << "\n +---+---+---+---+---+---+---+---+\n";
 
-  for (Rank r = RANK_8; r >= RANK_1; --r)
+  for (Rank r = RANK_9; r >= RANK_0; --r)
   {
-      for (File f = FILE_A; f <= FILE_H; ++f)
+      for (File f = FILE_A; f <= FILE_I; ++f)
           os << " | " << PieceToChar[pos.piece_on(make_square(f, r))];
 
-      os << " | " << (1 + r) << "\n +---+---+---+---+---+---+---+---+\n";
+      os << " | " << (1 + r) << "\n +---+---+---+---+---+---+---+---+---+\n";
   }
 
-  os << "   a   b   c   d   e   f   g   h\n"
+  os << "   a   b   c   d   e   f   g   h   i\n"
      << "\nFen: " << pos.fen() << "\nKey: " << std::hex << std::uppercase
      << std::setfill('0') << std::setw(16) << pos.key()
      << std::setfill(' ') << std::dec << "\nCheckers: ";
@@ -96,12 +96,12 @@ std::ostream& operator<<(std::ostream& os, const Position& pos) {
 // https://marcelk.net/2013-04-06/paper/upcoming-rep-v2.pdf
 
 // First and second hash functions for indexing the cuckoo tables
-inline int H1(Key h) { return h & 0x1fff; }
-inline int H2(Key h) { return (h >> 16) & 0x1fff; }
+inline int H1(Key h) { return h & 0x7fff; }
+inline int H2(Key h) { return (h >> 16) & 0x7fff; }
 
 // Cuckoo tables with Zobrist hashes of valid reversible moves, and the moves themselves
-Key cuckoo[8192];
-Move cuckooMove[8192];
+Key cuckoo[0x10000];
+Move cuckooMove[0x10000];
 
 
 /// Position::init() initializes at startup the various arrays used to compute hash keys
@@ -111,7 +111,7 @@ void Position::init() {
   PRNG rng(1070372);
 
   for (Piece pc : Pieces)
-      for (Square s = SQ_A1; s <= SQ_H8; ++s)
+      for (Square s = SQ_A0; s <= SQ_I9; ++s)
           Zobrist::psq[pc][s] = rng.rand<Key>();
 
   Zobrist::side = rng.rand<Key>();
@@ -122,8 +122,8 @@ void Position::init() {
   std::memset(cuckooMove, 0, sizeof(cuckooMove));
   int count = 0;
   for (Piece pc : Pieces)
-      for (Square s1 = SQ_A1; s1 <= SQ_H8; ++s1)
-          for (Square s2 = Square(s1 + 1); s2 <= SQ_H8; ++s2)
+      for (Square s1 = SQ_A0; s1 <= SQ_I9; ++s1)
+          for (Square s2 = Square(s1 + 1); s2 <= SQ_I9; ++s2)
               if ((type_of(pc) != PAWN) && (attacks_bb(type_of(pc), s1, 0) & s2))
               {
                   Move move = make_move(s1, s2);
@@ -139,7 +139,7 @@ void Position::init() {
                   }
                   count++;
              }
-  assert(count == 3668);
+  assert(count == 9344);
 }
 
 
@@ -174,7 +174,7 @@ Position& Position::set(const string& fenStr, StateInfo* si, Thread* th) {
 
   unsigned char token;
   size_t idx;
-  Square sq = SQ_A8;
+  Square sq = SQ_A9;
   std::istringstream ss(fenStr);
 
   std::memset(this, 0, sizeof(Position));
@@ -288,13 +288,16 @@ Position& Position::set(const string& code, Color c, StateInfo* si) {
   string sides[] = { code.substr(code.find('K', 1)),      // Weak
                      code.substr(0, std::min(code.find('v'), code.find('K', 1))) }; // Strong
 
-  assert(sides[0].length() > 0 && sides[0].length() < 8);
-  assert(sides[1].length() > 0 && sides[1].length() < 8);
+  assert(sides[0].length() > 0 && sides[0].length() < FILE_NB);
+  assert(sides[1].length() > 0 && sides[1].length() < FILE_NB);
 
   std::transform(sides[c].begin(), sides[c].end(), sides[c].begin(), tolower);
 
-  string fenStr = "8/" + sides[0] + char(8 - sides[0].length() + '0') + "/8/8/8/8/"
-                       + sides[1] + char(8 - sides[1].length() + '0') + "/8 w - - 0 10";
+  string n = std::to_string(FILE_NB);
+  string fenStr =  n + "/" + sides[0] + char(FILE_NB - sides[0].length() + '0') +
+                  "/" + n + "/" + n + "/" + n + "/" +
+                  n + "/" + sides[1] + char(FILE_NB - sides[1].length() + '0') +
+                  "/" + n + " w - - 0 10";
 
   return set(fenStr, si, nullptr);
 }
@@ -307,21 +310,21 @@ string Position::fen() const {
   int emptyCnt;
   std::ostringstream ss;
 
-  for (Rank r = RANK_8; r >= RANK_1; --r)
+  for (Rank r = RANK_9; r >= RANK_0; --r)
   {
-      for (File f = FILE_A; f <= FILE_H; ++f)
+      for (File f = FILE_A; f <= FILE_I; ++f)
       {
-          for (emptyCnt = 0; f <= FILE_H && empty(make_square(f, r)); ++f)
+          for (emptyCnt = 0; f <= FILE_I && empty(make_square(f, r)); ++f)
               ++emptyCnt;
 
           if (emptyCnt)
               ss << emptyCnt;
 
-          if (f <= FILE_H)
+          if (f <= FILE_I)
               ss << PieceToChar[piece_on(make_square(f, r))];
       }
 
-      if (r > RANK_1)
+      if (r > RANK_0)
           ss << '/';
   }
 
@@ -908,9 +911,9 @@ void Position::flip() {
   string f, token;
   std::stringstream ss(fen());
 
-  for (Rank r = RANK_8; r >= RANK_1; --r) // Piece placement
+  for (Rank r = RANK_9; r >= RANK_0; --r) // Piece placement
   {
-      std::getline(ss, token, r > RANK_1 ? '/' : ' ');
+      std::getline(ss, token, r > RANK_0 ? '/' : ' ');
       f.insert(0, token + (f.empty() ? " " : "/"));
   }
 
