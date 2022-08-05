@@ -26,7 +26,6 @@
 
 #include "bitboard.h"
 #include "evaluate.h"
-#include "psqt.h"
 #include "types.h"
 
 #include "nnue/nnue_accumulator.h"
@@ -40,8 +39,6 @@ namespace Stockfish {
 struct StateInfo {
 
   // Copied when making a move
-  Key    pawnKey;
-  Key    materialKey;
   Value  nonPawnMaterial[COLOR_NB];
   int    rule50;
   int    pliesFromNull;
@@ -99,7 +96,6 @@ public:
   template<PieceType Pt> int count(Color c) const;
   template<PieceType Pt> int count() const;
   template<PieceType Pt> Square square(Color c) const;
-  bool is_on_semiopen_file(Color c, Square s) const;
 
   // Checking
   Bitboard checkers() const;
@@ -121,11 +117,6 @@ public:
   Piece moved_piece(Move m) const;
   Piece captured_piece() const;
 
-  // Piece specific
-  bool pawn_passed(Color c, Square s) const;
-  bool opposite_bishops() const;
-  int  pawns_on_same_color_squares(Color c, Square s) const;
-
   // Doing and undoing moves
   void do_move(Move m, StateInfo& newSt);
   void do_move(Move m, StateInfo& newSt, bool givesCheck);
@@ -139,8 +130,6 @@ public:
   // Accessing hash keys
   Key key() const;
   Key key_after(Move m) const;
-  Key material_key() const;
-  Key pawn_key() const;
 
   // Other properties of the position
   Color side_to_move() const;
@@ -150,8 +139,6 @@ public:
   bool has_game_cycle(int ply) const;
   bool has_repeated() const;
   int rule50_count() const;
-  Score psq_score() const;
-  Value psq_eg_stm() const;
   Value non_pawn_material(Color c) const;
   Value non_pawn_material() const;
 
@@ -182,7 +169,6 @@ private:
   StateInfo* st;
   int gamePly;
   Color sideToMove;
-  Score psq;
 };
 
 extern std::ostream& operator<<(std::ostream& os, const Position& pos);
@@ -244,17 +230,11 @@ inline Bitboard Position::attackers_to(Square s) const {
 template<PieceType Pt>
 inline Bitboard Position::attacks_by(Color c) const {
 
-  if constexpr (Pt == PAWN)
-      return c == WHITE ? pawn_attacks_bb<WHITE>(pieces(WHITE, PAWN))
-                        : pawn_attacks_bb<BLACK>(pieces(BLACK, PAWN));
-  else
-  {
-      Bitboard threats = 0;
-      Bitboard attackers = pieces(c, Pt);
-      while (attackers)
-          threats |= attacks_bb<Pt>(pop_lsb(attackers), pieces());
-      return threats;
-  }
+  Bitboard threats = 0;
+  Bitboard attackers = pieces(c, Pt);
+  while (attackers)
+      threats |= attacks_bb<Pt>(pop_lsb(attackers), pieces());
+  return threats;
 }
 
 inline Bitboard Position::checkers() const {
@@ -273,33 +253,9 @@ inline Bitboard Position::check_squares(PieceType pt) const {
   return st->checkSquares[pt];
 }
 
-inline bool Position::pawn_passed(Color c, Square s) const {
-  return !(pieces(~c, PAWN) & passed_pawn_span(c, s));
-}
-
-inline int Position::pawns_on_same_color_squares(Color c, Square s) const {
-  return popcount(pieces(c, PAWN) & ((DarkSquares & s) ? DarkSquares : ~DarkSquares));
-}
-
 inline Key Position::key() const {
   return st->rule50 < 14 ? st->key
                          : st->key ^ make_key((st->rule50 - 14) / 8);
-}
-
-inline Key Position::pawn_key() const {
-  return st->pawnKey;
-}
-
-inline Key Position::material_key() const {
-  return st->materialKey;
-}
-
-inline Score Position::psq_score() const {
-  return psq;
-}
-
-inline Value Position::psq_eg_stm() const {
-  return (sideToMove == WHITE ? 1 : -1) * eg_value(psq);
 }
 
 inline Value Position::non_pawn_material(Color c) const {
@@ -316,12 +272,6 @@ inline int Position::game_ply() const {
 
 inline int Position::rule50_count() const {
   return st->rule50;
-}
-
-inline bool Position::opposite_bishops() const {
-  return   count<BISHOP>(WHITE) == 1
-        && count<BISHOP>(BLACK) == 1
-        && opposite_colors(square<BISHOP>(WHITE), square<BISHOP>(BLACK));
 }
 
 inline bool Position::capture(Move m) const {
@@ -345,7 +295,6 @@ inline void Position::put_piece(Piece pc, Square s) {
   byColorBB[color_of(pc)] |= s;
   pieceCount[pc]++;
   pieceCount[make_piece(color_of(pc), ALL_PIECES)]++;
-  psq += PSQT::psq[pc][s];
 }
 
 inline void Position::remove_piece(Square s) {
@@ -357,7 +306,6 @@ inline void Position::remove_piece(Square s) {
   board[s] = NO_PIECE;
   pieceCount[pc]--;
   pieceCount[make_piece(color_of(pc), ALL_PIECES)]--;
-  psq -= PSQT::psq[pc][s];
 }
 
 inline void Position::move_piece(Square from, Square to) {
@@ -369,7 +317,6 @@ inline void Position::move_piece(Square from, Square to) {
   byColorBB[color_of(pc)] ^= fromTo;
   board[from] = NO_PIECE;
   board[to] = pc;
-  psq += PSQT::psq[pc][to] - PSQT::psq[pc][from];
 }
 
 inline void Position::do_move(Move m, StateInfo& newSt) {
