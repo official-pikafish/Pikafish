@@ -78,7 +78,7 @@
 
 #if defined(USE_PEXT)
 #  include <immintrin.h> // Header for _pext_u64() intrinsic
-#  define pext(b, m) _pext_u64(b, m)
+#  define pext(b, m) ((_pext_u64(b >> 64, m >> 64) << popcnt(m)) | _pext_u64(b, m))
 #else
 #  define pext(b, m) 0
 #endif
@@ -104,16 +104,15 @@ constexpr bool Is64Bit = false;
 #endif
 
 typedef uint64_t Key;
-typedef uint64_t Bitboard;
+typedef __uint128_t Bitboard;
 
 constexpr int MAX_MOVES = 256;
 constexpr int MAX_PLY   = 246;
 
 /// A move needs 16 bits to be stored
 ///
-/// bit  0- 5: destination square (from 0 to 63)
-/// bit  6-11: origin square (from 0 to 63)
-/// NOTE: en passant bit is set only when a pawn can be captured
+/// bit  0- 6: destination square (from 0 to 89)
+/// bit  7-13: origin square (from 0 to 89)
 ///
 /// Special cases are MOVE_NONE and MOVE_NULL. We can sneak these in because in
 /// any normal move destination square is always different from origin square
@@ -121,7 +120,7 @@ constexpr int MAX_PLY   = 246;
 
 enum Move : int {
   MOVE_NONE,
-  MOVE_NULL = 65
+  MOVE_NULL = 129
 };
 
 enum Color {
@@ -171,7 +170,7 @@ enum Value : int {
 };
 
 enum PieceType {
-  NO_PIECE_TYPE, PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING,
+  NO_PIECE_TYPE, PAWN, KNIGHT, BISHOP, ROOK, ADVISOR, CANNON, KING,
   ALL_PIECES = 0,
   PIECE_TYPE_NB = 8
 };
@@ -203,22 +202,24 @@ enum : int {
 };
 
 enum Square : int {
-  SQ_A1, SQ_B1, SQ_C1, SQ_D1, SQ_E1, SQ_F1, SQ_G1, SQ_H1,
-  SQ_A2, SQ_B2, SQ_C2, SQ_D2, SQ_E2, SQ_F2, SQ_G2, SQ_H2,
-  SQ_A3, SQ_B3, SQ_C3, SQ_D3, SQ_E3, SQ_F3, SQ_G3, SQ_H3,
-  SQ_A4, SQ_B4, SQ_C4, SQ_D4, SQ_E4, SQ_F4, SQ_G4, SQ_H4,
-  SQ_A5, SQ_B5, SQ_C5, SQ_D5, SQ_E5, SQ_F5, SQ_G5, SQ_H5,
-  SQ_A6, SQ_B6, SQ_C6, SQ_D6, SQ_E6, SQ_F6, SQ_G6, SQ_H6,
-  SQ_A7, SQ_B7, SQ_C7, SQ_D7, SQ_E7, SQ_F7, SQ_G7, SQ_H7,
-  SQ_A8, SQ_B8, SQ_C8, SQ_D8, SQ_E8, SQ_F8, SQ_G8, SQ_H8,
+  SQ_A0, SQ_B0, SQ_C0, SQ_D0, SQ_E0, SQ_F0, SQ_G0, SQ_H0, SQ_I0,
+  SQ_A1, SQ_B1, SQ_C1, SQ_D1, SQ_E1, SQ_F1, SQ_G1, SQ_H1, SQ_I1,
+  SQ_A2, SQ_B2, SQ_C2, SQ_D2, SQ_E2, SQ_F2, SQ_G2, SQ_H2, SQ_I2,
+  SQ_A3, SQ_B3, SQ_C3, SQ_D3, SQ_E3, SQ_F3, SQ_G3, SQ_H3, SQ_I3,
+  SQ_A4, SQ_B4, SQ_C4, SQ_D4, SQ_E4, SQ_F4, SQ_G4, SQ_H4, SQ_I4,
+  SQ_A5, SQ_B5, SQ_C5, SQ_D5, SQ_E5, SQ_F5, SQ_G5, SQ_H5, SQ_I5,
+  SQ_A6, SQ_B6, SQ_C6, SQ_D6, SQ_E6, SQ_F6, SQ_G6, SQ_H6, SQ_I6,
+  SQ_A7, SQ_B7, SQ_C7, SQ_D7, SQ_E7, SQ_F7, SQ_G7, SQ_H7, SQ_I7,
+  SQ_A8, SQ_B8, SQ_C8, SQ_D8, SQ_E8, SQ_F8, SQ_G8, SQ_H8, SQ_I8,
+  SQ_A9, SQ_B9, SQ_C9, SQ_D9, SQ_E9, SQ_F9, SQ_G9, SQ_H9, SQ_I9,
   SQ_NONE,
 
   SQUARE_ZERO = 0,
-  SQUARE_NB   = 64
+  SQUARE_NB   = 90
 };
 
 enum Direction : int {
-  NORTH =  8,
+  NORTH =  9,
   EAST  =  1,
   SOUTH = -NORTH,
   WEST  = -EAST,
@@ -230,11 +231,11 @@ enum Direction : int {
 };
 
 enum File : int {
-  FILE_A, FILE_B, FILE_C, FILE_D, FILE_E, FILE_F, FILE_G, FILE_H, FILE_NB
+  FILE_A, FILE_B, FILE_C, FILE_D, FILE_E, FILE_F, FILE_G, FILE_H, FILE_I, FILE_NB
 };
 
 enum Rank : int {
-  RANK_1, RANK_2, RANK_3, RANK_4, RANK_5, RANK_6, RANK_7, RANK_8, RANK_NB
+  RANK_0, RANK_1, RANK_2, RANK_3, RANK_4, RANK_5, RANK_6, RANK_7, RANK_8, RANK_9, RANK_NB
 };
 
 // Keep track of what a move changes on the board (used by NNUE)
@@ -243,14 +244,13 @@ struct DirtyPiece {
   // Number of changed pieces
   int dirty_num;
 
-  // Max 3 pieces can change in one move. A promotion with capture moves
-  // both the pawn and the captured piece to SQ_NONE and the piece promoted
-  // to from SQ_NONE to the capture square.
-  Piece piece[3];
+  // Max 2 pieces can change in one move. A capture moves the captured
+  // piece to SQ_NONE and the piece to the capture square.
+  Piece piece[2];
 
   // From and to squares, which may be SQ_NONE
-  Square from[3];
-  Square to[3];
+  Square from[2];
+  Square to[2];
 };
 
 /// Score enum stores a middlegame and an endgame value in a single integer (enum).
@@ -347,14 +347,6 @@ constexpr Color operator~(Color c) {
   return Color(c ^ BLACK); // Toggle color
 }
 
-constexpr Square flip_rank(Square s) { // Swap A1 <-> A8
-  return Square(s ^ SQ_A8);
-}
-
-constexpr Square flip_file(Square s) { // Swap A1 <-> H1
-  return Square(s ^ SQ_H1);
-}
-
 constexpr Piece operator~(Piece pc) {
   return Piece(pc ^ 8); // Swap color of piece B_KNIGHT <-> W_KNIGHT
 }
@@ -368,7 +360,7 @@ constexpr Value mated_in(int ply) {
 }
 
 constexpr Square make_square(File f, Rank r) {
-  return Square((r << 3) + f);
+  return Square(r * FILE_NB + f);
 }
 
 constexpr Piece make_piece(Color c, PieceType pt) {
@@ -385,23 +377,31 @@ inline Color color_of(Piece pc) {
 }
 
 constexpr bool is_ok(Square s) {
-  return s >= SQ_A1 && s <= SQ_H8;
+  return s >= SQ_A0 && s <= SQ_I9;
 }
 
 constexpr File file_of(Square s) {
-  return File(s & 7);
+  return File(s % FILE_NB);
 }
 
 constexpr Rank rank_of(Square s) {
-  return Rank(s >> 3);
+  return Rank(s / FILE_NB);
+}
+
+constexpr Square flip_rank(Square s) {
+  return make_square(file_of(s), Rank(RANK_9 - rank_of(s)));
+}
+
+constexpr Square flip_file(Square s) {
+  return make_square(File(FILE_I - file_of(s)), rank_of(s));
 }
 
 constexpr Square relative_square(Color c, Square s) {
-  return Square(s ^ (c * 56));
+  return c == WHITE ? s : flip_rank(s);
 }
 
 constexpr Rank relative_rank(Color c, Rank r) {
-  return Rank(r ^ (c * 7));
+  return c == WHITE ? r : Rank(RANK_9 - r);
 }
 
 constexpr Rank relative_rank(Color c, Square s) {
@@ -413,23 +413,19 @@ constexpr Direction pawn_push(Color c) {
 }
 
 constexpr Square from_sq(Move m) {
-  return Square((m >> 6) & 0x3F);
+  return Square(m >> 7);
 }
 
 constexpr Square to_sq(Move m) {
-  return Square(m & 0x3F);
+  return Square(m & 0x7F);
 }
 
 constexpr int from_to(Move m) {
-  return m & 0xFFF;
+  return m;
 }
 
 constexpr Move make_move(Square from, Square to) {
-  return Move((from << 6) + to);
-}
-
-constexpr Move make(Square from, Square to, PieceType pt = KNIGHT) {
-  return Move(((pt - KNIGHT) << 12) + (from << 6) + to);
+  return Move((from << 7) + to);
 }
 
 constexpr bool is_ok(Move m) {

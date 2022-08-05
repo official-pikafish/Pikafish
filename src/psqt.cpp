@@ -116,7 +116,7 @@ void init() {
   {
     Score score = make_score(PieceValue[MG][pc], PieceValue[EG][pc]);
 
-    for (Square s = SQ_A1; s <= SQ_H8; ++s)
+    for (Square s = SQ_A0; s <= SQ_I9; ++s)
     {
       File f = File(edge_distance(file_of(s)));
       psq[ pc][s] = score + (type_of(pc) == PAWN ? PBonus[rank_of(s)][file_of(s)]

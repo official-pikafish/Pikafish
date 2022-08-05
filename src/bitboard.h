@@ -39,10 +39,10 @@ std::string pretty(Bitboard b);
 
 } // namespace Stockfish::Bitboards
 
-constexpr Bitboard AllSquares = ~Bitboard(0);
-constexpr Bitboard DarkSquares = 0xAA55AA55AA55AA55ULL;
+constexpr Bitboard AllSquares = ~Bitboard(0) >> 38;
+constexpr Bitboard Palace = Bitboard(0x70381CULL) << 64 | Bitboard(0xE07038ULL);
 
-constexpr Bitboard FileABB = 0x0101010101010101ULL;
+constexpr Bitboard FileABB = Bitboard(0x20100ULL) << 64 | Bitboard(0x8040201008040201ULL);
 constexpr Bitboard FileBBB = FileABB << 1;
 constexpr Bitboard FileCBB = FileABB << 2;
 constexpr Bitboard FileDBB = FileABB << 3;
@@ -50,16 +50,20 @@ constexpr Bitboard FileEBB = FileABB << 4;
 constexpr Bitboard FileFBB = FileABB << 5;
 constexpr Bitboard FileGBB = FileABB << 6;
 constexpr Bitboard FileHBB = FileABB << 7;
+constexpr Bitboard FileIBB = FileABB << 8;
 
-constexpr Bitboard Rank1BB = 0xFF;
-constexpr Bitboard Rank2BB = Rank1BB << (8 * 1);
-constexpr Bitboard Rank3BB = Rank1BB << (8 * 2);
-constexpr Bitboard Rank4BB = Rank1BB << (8 * 3);
-constexpr Bitboard Rank5BB = Rank1BB << (8 * 4);
-constexpr Bitboard Rank6BB = Rank1BB << (8 * 5);
-constexpr Bitboard Rank7BB = Rank1BB << (8 * 6);
-constexpr Bitboard Rank8BB = Rank1BB << (8 * 7);
+constexpr Bitboard Rank0BB = 0x1FF;
+constexpr Bitboard Rank1BB = Rank0BB << (FILE_NB * 1);
+constexpr Bitboard Rank2BB = Rank0BB << (FILE_NB * 2);
+constexpr Bitboard Rank3BB = Rank0BB << (FILE_NB * 3);
+constexpr Bitboard Rank4BB = Rank0BB << (FILE_NB * 4);
+constexpr Bitboard Rank5BB = Rank0BB << (FILE_NB * 5);
+constexpr Bitboard Rank6BB = Rank0BB << (FILE_NB * 6);
+constexpr Bitboard Rank7BB = Rank0BB << (FILE_NB * 7);
+constexpr Bitboard Rank8BB = Rank0BB << (FILE_NB * 8);
+constexpr Bitboard Rank9BB = Rank0BB << (FILE_NB * 9);
 
+constexpr Bitboard Rank01234BB = Rank0BB | Rank1BB | Rank2BB | Rank3BB | Rank4BB;
 constexpr Bitboard QueenSide   = FileABB | FileBBB | FileCBB | FileDBB;
 constexpr Bitboard CenterFiles = FileCBB | FileDBB | FileEBB | FileFBB;
 constexpr Bitboard KingSide    = FileEBB | FileFBB | FileGBB | FileHBB;
@@ -80,6 +84,7 @@ extern Bitboard LineBB[SQUARE_NB][SQUARE_NB];
 extern Bitboard PseudoAttacks[PIECE_TYPE_NB][SQUARE_NB];
 extern Bitboard PawnAttacks[COLOR_NB][SQUARE_NB];
 
+int popcount(Bitboard b); // required for 128 bit pext
 
 /// Magic holds all magic bitboards relevant data for a single square
 struct Magic {
@@ -94,17 +99,14 @@ struct Magic {
     if (HasPext)
         return unsigned(pext(occupied, mask));
 
-    if (Is64Bit)
-        return unsigned(((occupied & mask) * magic) >> shift);
-
-    unsigned lo = unsigned(occupied) & unsigned(mask);
-    unsigned hi = unsigned(occupied >> 32) & unsigned(mask >> 32);
-    return (lo * unsigned(magic) ^ hi * unsigned(magic >> 32)) >> shift;
+    return unsigned(((occupied & mask) * magic) >> shift);
   }
 };
 
 extern Magic RookMagics[SQUARE_NB];
+extern Magic CannonMagics[SQUARE_NB];
 extern Magic BishopMagics[SQUARE_NB];
+extern Magic KnightMagics[SQUARE_NB];
 
 inline Bitboard square_bb(Square s) {
   assert(is_ok(s));
@@ -141,7 +143,7 @@ constexpr bool opposite_colors(Square s1, Square s2) {
 /// the given file or rank.
 
 constexpr Bitboard rank_bb(Rank r) {
-  return Rank1BB << (8 * r);
+  return Rank0BB << (FILE_NB * r);
 }
 
 constexpr Bitboard rank_bb(Square s) {
@@ -161,11 +163,11 @@ constexpr Bitboard file_bb(Square s) {
 
 template<Direction D>
 constexpr Bitboard shift(Bitboard b) {
-  return  D == NORTH      ?  b             << 8 : D == SOUTH      ?  b             >> 8
-        : D == NORTH+NORTH?  b             <<16 : D == SOUTH+SOUTH?  b             >>16
-        : D == EAST       ? (b & ~FileHBB) << 1 : D == WEST       ? (b & ~FileABB) >> 1
-        : D == NORTH_EAST ? (b & ~FileHBB) << 9 : D == NORTH_WEST ? (b & ~FileABB) << 7
-        : D == SOUTH_EAST ? (b & ~FileHBB) >> 7 : D == SOUTH_WEST ? (b & ~FileABB) >> 9
+  return  D == NORTH      ? (b & ~Rank9BB           ) << NORTH       : D == SOUTH      ?  b             >> NORTH
+        : D == NORTH+NORTH? (b & ~Rank9BB & ~Rank8BB) << NORTH+NORTH : D == SOUTH+SOUTH?  b             >> NORTH+NORTH
+        : D == EAST       ? (b & ~FileIBB           ) << EAST        : D == WEST       ? (b & ~FileABB) >> EAST
+        : D == NORTH_EAST ? (b & ~FileIBB           ) << NORTH_EAST  : D == NORTH_WEST ? (b & ~FileABB) << NORTH_WEST
+        : D == SOUTH_EAST ? (b & ~FileIBB           ) >> NORTH_WEST  : D == SOUTH_WEST ? (b & ~FileABB) >> NORTH_EAST
         : 0;
 }
 
@@ -174,9 +176,12 @@ constexpr Bitboard shift(Bitboard b) {
 /// from the squares in the given bitboard.
 
 template<Color C>
-constexpr Bitboard pawn_attacks_bb(Bitboard b) {
-  return C == WHITE ? shift<NORTH_WEST>(b) | shift<NORTH_EAST>(b)
-                    : shift<SOUTH_WEST>(b) | shift<SOUTH_EAST>(b);
+constexpr Bitboard pawn_attacks_bb(Square s) {
+  Bitboard b = square_bb(s);
+  Bitboard attack = shift<C == WHITE ? NORTH : SOUTH>(b);
+  if ((C == WHITE && rank_of(s) > RANK_4) || (C == BLACK && rank_of(s) < RANK_5))
+    attack |= shift<WEST>(b) | shift<EAST>(b);
+  return attack;
 }
 
 inline Bitboard pawn_attacks_bb(Color c, Square s) {
@@ -311,9 +316,10 @@ inline Bitboard attacks_bb(Square s, Bitboard occupied) {
 
   switch (Pt)
   {
-  case BISHOP: return BishopMagics[s].attacks[BishopMagics[s].index(occupied)];
   case ROOK  : return   RookMagics[s].attacks[  RookMagics[s].index(occupied)];
-  case QUEEN : return attacks_bb<BISHOP>(s, occupied) | attacks_bb<ROOK>(s, occupied);
+  case CANNON: return CannonMagics[s].attacks[CannonMagics[s].index(occupied)];
+  case BISHOP: return BishopMagics[s].attacks[BishopMagics[s].index(occupied)];
+  case KNIGHT: return KnightMagics[s].attacks[KnightMagics[s].index(occupied)];
   default    : return PseudoAttacks[Pt][s];
   }
 }
@@ -324,9 +330,10 @@ inline Bitboard attacks_bb(PieceType pt, Square s, Bitboard occupied) {
 
   switch (pt)
   {
-  case BISHOP: return attacks_bb<BISHOP>(s, occupied);
   case ROOK  : return attacks_bb<  ROOK>(s, occupied);
-  case QUEEN : return attacks_bb<BISHOP>(s, occupied) | attacks_bb<ROOK>(s, occupied);
+  case CANNON: return attacks_bb<CANNON>(s, occupied);
+  case BISHOP: return attacks_bb<BISHOP>(s, occupied);
+  case KNIGHT: return attacks_bb<KNIGHT>(s, occupied);
   default    : return PseudoAttacks[pt][s];
   }
 }
@@ -338,16 +345,17 @@ inline int popcount(Bitboard b) {
 
 #ifndef USE_POPCNT
 
-  union { Bitboard bb; uint16_t u[4]; } v = { b };
-  return PopCnt16[v.u[0]] + PopCnt16[v.u[1]] + PopCnt16[v.u[2]] + PopCnt16[v.u[3]];
+  union { Bitboard bb; uint16_t u[8]; } v = { b };
+  return  PopCnt16[v.u[0]] + PopCnt16[v.u[1]] + PopCnt16[v.u[2]] + PopCnt16[v.u[3]]
+         + PopCnt16[v.u[4]] + PopCnt16[v.u[5]] + PopCnt16[v.u[6]] + PopCnt16[v.u[7]];
 
 #elif defined(_MSC_VER) || defined(__INTEL_COMPILER)
 
-  return (int)_mm_popcnt_u64(b);
+  return (int)_mm_popcnt_u64(b >> 64) + (int)_mm_popcnt_u64(b);
 
 #else // Assumed gcc or compatible compiler
 
-  return __builtin_popcountll(b);
+  return __builtin_popcountll(b >> 64) + __builtin_popcountll(b);
 
 #endif
 }
@@ -359,12 +367,16 @@ inline int popcount(Bitboard b) {
 
 inline Square lsb(Bitboard b) {
   assert(b);
-  return Square(__builtin_ctzll(b));
+  if (uint64_t(b))
+    return Square(__builtin_ctzll(b));
+  return Square(__builtin_ctzll(b >> 64) + 64);
 }
 
 inline Square msb(Bitboard b) {
   assert(b);
-  return Square(63 ^ __builtin_clzll(b));
+  if (b >> 64)
+    return Square(127 ^ __builtin_clzll(b >> 64));
+  return Square(127 ^ (64 + __builtin_clzll(b)));
 }
 
 #elif defined(_MSC_VER)  // MSVC
@@ -374,15 +386,31 @@ inline Square msb(Bitboard b) {
 inline Square lsb(Bitboard b) {
   assert(b);
   unsigned long idx;
-  _BitScanForward64(&idx, b);
-  return (Square) idx;
+  if (uint64_t(b))
+  {
+    _BitScanForward64(&idx, uint64_t(b));
+    return Square(idx);
+  }
+  else
+  {
+    _BitScanForward64(&idx, uint64_t(b >> 64));
+    return Square(idx + 64);
+  }
 }
 
 inline Square msb(Bitboard b) {
   assert(b);
   unsigned long idx;
-  _BitScanReverse64(&idx, b);
-  return (Square) idx;
+  if (b >> 64)
+  {
+    _BitScanReverse64(&idx, uint64_t(b >> 64));
+    return Square(idx + 64);
+  }
+  else
+  {
+    _BitScanReverse64(&idx, uint64_t(b));
+    return Square(idx);
+  }
 }
 
 #else  // MSVC, WIN32
@@ -391,12 +419,18 @@ inline Square lsb(Bitboard b) {
   assert(b);
   unsigned long idx;
 
-  if (b & 0xffffffff) {
-      _BitScanForward(&idx, int32_t(b));
-      return Square(idx);
+  if (b << 96) {
+    _BitScanForward(&idx, uint32_t(b));
+    return Square(idx);
+  } else if (b << 64) {
+    _BitScanForward(&idx, uint32_t(b >> 32));
+    return Square(idx + 32);
+  } else if (b << 32) {
+    _BitScanForward(&idx, uint32_t(b >> 64));
+    return Square(idx + 64);
   } else {
-      _BitScanForward(&idx, int32_t(b >> 32));
-      return Square(idx + 32);
+    _BitScanForward(&idx, uint32_t(b >> 96));
+    return Square(idx + 96);
   }
 }
 
@@ -404,12 +438,19 @@ inline Square msb(Bitboard b) {
   assert(b);
   unsigned long idx;
 
+  if (b >> 96) {
+    _BitScanReverse(&idx, uint32_t(b >> 96));
+    return Square(idx + 96);
+  } else if (b >> 64) {
+    _BitScanReverse(&idx, uint32_t(b >> 64));
+    return Square(idx + 64);
+  } else
   if (b >> 32) {
-      _BitScanReverse(&idx, int32_t(b >> 32));
-      return Square(idx + 32);
+    _BitScanReverse(&idx, uint32_t(b >> 32));
+    return Square(idx + 32);
   } else {
-      _BitScanReverse(&idx, int32_t(b));
-      return Square(idx);
+    _BitScanReverse(&idx, uint32_t(b));
+    return Square(idx);
   }
 }
 
