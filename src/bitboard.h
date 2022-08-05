@@ -25,13 +25,6 @@
 
 namespace Stockfish {
 
-namespace Bitbases {
-
-void init();
-bool probe(Square wksq, Square wpsq, Square bksq, Color us);
-
-} // namespace Stockfish::Bitbases
-
 namespace Bitboards {
 
 void init();
@@ -39,7 +32,6 @@ std::string pretty(Bitboard b);
 
 } // namespace Stockfish::Bitboards
 
-constexpr Bitboard AllSquares = ~Bitboard(0) >> 38;
 constexpr Bitboard Palace = Bitboard(0x70381CULL) << 64 | Bitboard(0xE07038ULL);
 
 constexpr Bitboard FileABB = Bitboard(0x20100ULL) << 64 | Bitboard(0x8040201008040201ULL);
@@ -62,18 +54,7 @@ constexpr Bitboard Rank6BB = Rank0BB << (FILE_NB * 6);
 constexpr Bitboard Rank7BB = Rank0BB << (FILE_NB * 7);
 constexpr Bitboard Rank8BB = Rank0BB << (FILE_NB * 8);
 constexpr Bitboard Rank9BB = Rank0BB << (FILE_NB * 9);
-
 constexpr Bitboard Rank01234BB = Rank0BB | Rank1BB | Rank2BB | Rank3BB | Rank4BB;
-constexpr Bitboard QueenSide   = FileABB | FileBBB | FileCBB | FileDBB;
-constexpr Bitboard CenterFiles = FileCBB | FileDBB | FileEBB | FileFBB;
-constexpr Bitboard KingSide    = FileEBB | FileFBB | FileGBB | FileHBB;
-constexpr Bitboard Center      = (FileDBB | FileEBB) & (Rank4BB | Rank5BB);
-
-constexpr Bitboard KingFlank[FILE_NB] = {
-  QueenSide ^ FileDBB, QueenSide, QueenSide,
-  CenterFiles, CenterFiles,
-  KingSide, KingSide, KingSide ^ FileEBB
-};
 
 extern uint8_t PopCnt16[1 << 16];
 extern uint8_t SquareDistance[SQUARE_NB][SQUARE_NB];
@@ -379,84 +360,7 @@ inline Square msb(Bitboard b) {
   return Square(127 ^ (64 + __builtin_clzll(b)));
 }
 
-#elif defined(_MSC_VER)  // MSVC
-
-#ifdef _WIN64  // MSVC, WIN64
-
-inline Square lsb(Bitboard b) {
-  assert(b);
-  unsigned long idx;
-  if (uint64_t(b))
-  {
-    _BitScanForward64(&idx, uint64_t(b));
-    return Square(idx);
-  }
-  else
-  {
-    _BitScanForward64(&idx, uint64_t(b >> 64));
-    return Square(idx + 64);
-  }
-}
-
-inline Square msb(Bitboard b) {
-  assert(b);
-  unsigned long idx;
-  if (b >> 64)
-  {
-    _BitScanReverse64(&idx, uint64_t(b >> 64));
-    return Square(idx + 64);
-  }
-  else
-  {
-    _BitScanReverse64(&idx, uint64_t(b));
-    return Square(idx);
-  }
-}
-
-#else  // MSVC, WIN32
-
-inline Square lsb(Bitboard b) {
-  assert(b);
-  unsigned long idx;
-
-  if (b << 96) {
-    _BitScanForward(&idx, uint32_t(b));
-    return Square(idx);
-  } else if (b << 64) {
-    _BitScanForward(&idx, uint32_t(b >> 32));
-    return Square(idx + 32);
-  } else if (b << 32) {
-    _BitScanForward(&idx, uint32_t(b >> 64));
-    return Square(idx + 64);
-  } else {
-    _BitScanForward(&idx, uint32_t(b >> 96));
-    return Square(idx + 96);
-  }
-}
-
-inline Square msb(Bitboard b) {
-  assert(b);
-  unsigned long idx;
-
-  if (b >> 96) {
-    _BitScanReverse(&idx, uint32_t(b >> 96));
-    return Square(idx + 96);
-  } else if (b >> 64) {
-    _BitScanReverse(&idx, uint32_t(b >> 64));
-    return Square(idx + 64);
-  } else
-  if (b >> 32) {
-    _BitScanReverse(&idx, uint32_t(b >> 32));
-    return Square(idx + 32);
-  } else {
-    _BitScanReverse(&idx, uint32_t(b));
-    return Square(idx);
-  }
-}
-
-#endif
-
-#else  // Compiler is neither GCC nor MSVC compatible
+#else  // Compiler is not GCC compatible
 
 #error "Compiler not supported."
 
