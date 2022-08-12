@@ -40,7 +40,6 @@ struct StateInfo {
 
   // Copied when making a move
   Value  nonPawnMaterial[COLOR_NB];
-  int    rule50;
   int    pliesFromNull;
 
   // Not copied when making a move (will be recomputed anyhow)
@@ -100,13 +99,13 @@ public:
   // Checking
   Bitboard checkers() const;
   Bitboard blockers_for_king(Color c) const;
+  Bitboard blockers_for_king(Bitboard sliders, Square s, Bitboard& pinners) const;
   Bitboard check_squares(PieceType pt) const;
   Bitboard pinners(Color c) const;
 
   // Attacks to/from a given square
   Bitboard attackers_to(Square s) const;
   Bitboard attackers_to(Square s, Bitboard occupied) const;
-  Bitboard slider_blockers(Bitboard sliders, Square s, Bitboard& pinners) const;
   template<PieceType Pt> Bitboard attacks_by(Color c) const;
 
   // Properties of moves
@@ -136,9 +135,7 @@ public:
   int game_ply() const;
   Thread* this_thread() const;
   bool is_draw(int ply) const;
-  bool has_game_cycle(int ply) const;
   bool has_repeated() const;
-  int rule50_count() const;
   Value non_pawn_material(Color c) const;
   Value non_pawn_material() const;
 
@@ -254,8 +251,7 @@ inline Bitboard Position::check_squares(PieceType pt) const {
 }
 
 inline Key Position::key() const {
-  return st->rule50 < 14 ? st->key
-                         : st->key ^ make_key((st->rule50 - 14) / 8);
+  return st->key;
 }
 
 inline Value Position::non_pawn_material(Color c) const {
@@ -268,10 +264,6 @@ inline Value Position::non_pawn_material() const {
 
 inline int Position::game_ply() const {
   return gamePly;
-}
-
-inline int Position::rule50_count() const {
-  return st->rule50;
 }
 
 inline bool Position::capture(Move m) const {

@@ -78,9 +78,9 @@
 
 #if defined(USE_PEXT)
 #  include <immintrin.h> // Header for _pext_u64() intrinsic
-#  define pext(b, m) ((_pext_u64(b >> 64, m >> 64) << popcnt(m)) | _pext_u64(b, m))
+#  define pext(b, m, s) ((_pext_u64(b >> 64, m >> 64) << s) | _pext_u64(b, m))
 #else
-#  define pext(b, m) 0
+#  define pext(b, m, s) 0
 #endif
 
 namespace Stockfish {
@@ -162,23 +162,23 @@ enum Value : int {
 };
 
 enum PieceType {
-  NO_PIECE_TYPE, ROOK, ADVISOR, CANNON, PAWN, KNIGHT, BISHOP, KING,
+  NO_PIECE_TYPE, ROOK, ADVISOR, CANNON, PAWN, KNIGHT, BISHOP, KING, KNIGHT_TO,
   ALL_PIECES = 0,
   PIECE_TYPE_NB = 8
 };
 
 enum Piece {
   NO_PIECE,
-  W_ROOK, W_ADVISOR, W_CANNON, W_PAWN, W_KNIGHT, W_BISHOP, W_KING,
-  B_ROOK, B_ADVISOR, B_CANNON, B_PAWN, B_KNIGHT, B_BISHOP, B_KING,
+  W_ROOK           , W_ADVISOR, W_CANNON, W_PAWN, W_KNIGHT, W_BISHOP, W_KING,
+  B_ROOK = ROOK + 8, B_ADVISOR, B_CANNON, B_PAWN, B_KNIGHT, B_BISHOP, B_KING,
   PIECE_NB
 };
 
 constexpr Value PieceValue[PHASE_NB][PIECE_NB] = {
   { VALUE_ZERO, RookValueMg, AdvisorValueMg, CannonValueMg, PawnValueMg, KnightValueMg, BishopValueMg, VALUE_ZERO,
-                RookValueMg, AdvisorValueMg, CannonValueMg, PawnValueMg, KnightValueMg, BishopValueMg, VALUE_ZERO },
+    VALUE_ZERO, RookValueMg, AdvisorValueMg, CannonValueMg, PawnValueMg, KnightValueMg, BishopValueMg, VALUE_ZERO },
   { VALUE_ZERO, RookValueEg, AdvisorValueEg, CannonValueEg, PawnValueEg, KnightValueEg, BishopValueEg, VALUE_ZERO,
-                RookValueEg, AdvisorValueEg, CannonValueEg, PawnValueEg, KnightValueEg, BishopValueEg, VALUE_ZERO }
+    VALUE_ZERO, RookValueEg, AdvisorValueEg, CannonValueEg, PawnValueEg, KnightValueEg, BishopValueEg, VALUE_ZERO }
 };
 
 typedef int Depth;

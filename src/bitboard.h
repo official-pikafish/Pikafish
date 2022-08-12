@@ -56,6 +56,10 @@ constexpr Bitboard Rank8BB = Rank0BB << (FILE_NB * 8);
 constexpr Bitboard Rank9BB = Rank0BB << (FILE_NB * 9);
 constexpr Bitboard Rank01234BB = Rank0BB | Rank1BB | Rank2BB | Rank3BB | Rank4BB;
 
+constexpr Bitboard PawnFileBB = FileABB | FileCBB | FileEBB | FileGBB | FileIBB;
+constexpr Bitboard PawnBB[2] = { Rank0BB | Rank1BB | Rank2BB | ((Rank3BB | Rank4BB) & PawnFileBB),
+                                 Rank9BB | Rank8BB | Rank7BB | ((Rank6BB | Rank5BB) & PawnFileBB)};
+
 extern uint8_t PopCnt16[1 << 16];
 extern uint8_t SquareDistance[SQUARE_NB][SQUARE_NB];
 
@@ -64,6 +68,7 @@ extern Bitboard BetweenBB[SQUARE_NB][SQUARE_NB];
 extern Bitboard LineBB[SQUARE_NB][SQUARE_NB];
 extern Bitboard PseudoAttacks[PIECE_TYPE_NB][SQUARE_NB];
 extern Bitboard PawnAttacks[COLOR_NB][SQUARE_NB];
+extern Bitboard PawnAttacksTo[COLOR_NB][SQUARE_NB];
 
 int popcount(Bitboard b); // required for 128 bit pext
 
@@ -78,7 +83,7 @@ struct Magic {
   unsigned index(Bitboard occupied) const {
 
     if (HasPext)
-        return unsigned(pext(occupied, mask));
+        return unsigned(pext(occupied, mask, shift));
 
     return unsigned(((occupied & mask) * magic) >> shift);
   }
@@ -88,6 +93,7 @@ extern Magic RookMagics[SQUARE_NB];
 extern Magic CannonMagics[SQUARE_NB];
 extern Magic BishopMagics[SQUARE_NB];
 extern Magic KnightMagics[SQUARE_NB];
+extern Magic KnightToMagics[SQUARE_NB];
 
 inline Bitboard square_bb(Square s) {
   assert(is_ok(s));
@@ -112,11 +118,6 @@ inline Bitboard  operator|(Square s1, Square s2) { return square_bb(s1) | s2; }
 
 constexpr bool more_than_one(Bitboard b) {
   return b & (b - 1);
-}
-
-
-constexpr bool opposite_colors(Square s1, Square s2) {
-  return (s1 + rank_of(s1) + s2 + rank_of(s2)) & 1;
 }
 
 
@@ -172,21 +173,22 @@ inline Bitboard pawn_attacks_bb(Color c, Square s) {
 }
 
 
-/// pawn_double_attacks_bb() returns the squares doubly attacked by pawns of the
-/// given color from the squares in the given bitboard.
+/// pawn_attacks_to_bb() returns the squares that if there is a pawn
+/// of the given color in there, it can attack the square s
 
 template<Color C>
-constexpr Bitboard pawn_double_attacks_bb(Bitboard b) {
-  return C == WHITE ? shift<NORTH_WEST>(b) & shift<NORTH_EAST>(b)
-                    : shift<SOUTH_WEST>(b) & shift<SOUTH_EAST>(b);
+constexpr Bitboard pawn_attacks_to_bb(Square s) {
+  Bitboard b = square_bb(s);
+  Bitboard attack = shift<C == WHITE ? SOUTH : NORTH>(b);
+  if ((C == WHITE && rank_of(s) > RANK_4) || (C == BLACK && rank_of(s) < RANK_5))
+      attack |= shift<WEST>(b) | shift<EAST>(b);
+  return attack;
 }
 
+inline Bitboard pawn_attacks_to_bb(Color c, Square s) {
 
-/// adjacent_files_bb() returns a bitboard representing all the squares on the
-/// adjacent files of a given square.
-
-constexpr Bitboard adjacent_files_bb(Square s) {
-  return shift<EAST>(file_bb(s)) | shift<WEST>(file_bb(s));
+  assert(is_ok(s));
+  return PawnAttacksTo[c][s];
 }
 
 
@@ -216,41 +218,6 @@ inline Bitboard between_bb(Square s1, Square s2) {
   assert(is_ok(s1) && is_ok(s2));
 
   return BetweenBB[s1][s2];
-}
-
-
-/// forward_ranks_bb() returns a bitboard representing the squares on the ranks in
-/// front of the given one, from the point of view of the given color. For instance,
-/// forward_ranks_bb(BLACK, SQ_D3) will return the 16 squares on ranks 1 and 2.
-
-constexpr Bitboard forward_ranks_bb(Color c, Square s) {
-  return c == WHITE ? ~Rank1BB << 8 * relative_rank(WHITE, s)
-                    : ~Rank8BB >> 8 * relative_rank(BLACK, s);
-}
-
-
-/// forward_file_bb() returns a bitboard representing all the squares along the
-/// line in front of the given one, from the point of view of the given color.
-
-constexpr Bitboard forward_file_bb(Color c, Square s) {
-  return forward_ranks_bb(c, s) & file_bb(s);
-}
-
-
-/// pawn_attack_span() returns a bitboard representing all the squares that can
-/// be attacked by a pawn of the given color when it moves along its file, starting
-/// from the given square.
-
-constexpr Bitboard pawn_attack_span(Color c, Square s) {
-  return forward_ranks_bb(c, s) & adjacent_files_bb(s);
-}
-
-
-/// passed_pawn_span() returns a bitboard which can be used to test if a pawn of
-/// the given color and on the given square is a passed pawn.
-
-constexpr Bitboard passed_pawn_span(Color c, Square s) {
-  return pawn_attack_span(c, s) | forward_file_bb(c, s);
 }
 
 
@@ -297,11 +264,12 @@ inline Bitboard attacks_bb(Square s, Bitboard occupied) {
 
   switch (Pt)
   {
-  case ROOK  : return   RookMagics[s].attacks[  RookMagics[s].index(occupied)];
-  case CANNON: return CannonMagics[s].attacks[CannonMagics[s].index(occupied)];
-  case BISHOP: return BishopMagics[s].attacks[BishopMagics[s].index(occupied)];
-  case KNIGHT: return KnightMagics[s].attacks[KnightMagics[s].index(occupied)];
-  default    : return PseudoAttacks[Pt][s];
+  case ROOK     : return     RookMagics[s].attacks[    RookMagics[s].index(occupied)];
+  case CANNON   : return   CannonMagics[s].attacks[  CannonMagics[s].index(occupied)];
+  case BISHOP   : return   BishopMagics[s].attacks[  BishopMagics[s].index(occupied)];
+  case KNIGHT   : return   KnightMagics[s].attacks[  KnightMagics[s].index(occupied)];
+  case KNIGHT_TO: return KnightToMagics[s].attacks[KnightToMagics[s].index(occupied)];
+  default       : return PseudoAttacks[Pt][s];
   }
 }
 
@@ -330,10 +298,6 @@ inline int popcount(Bitboard b) {
   return  PopCnt16[v.u[0]] + PopCnt16[v.u[1]] + PopCnt16[v.u[2]] + PopCnt16[v.u[3]]
          + PopCnt16[v.u[4]] + PopCnt16[v.u[5]] + PopCnt16[v.u[6]] + PopCnt16[v.u[7]];
 
-#elif defined(_MSC_VER) || defined(__INTEL_COMPILER)
-
-  return (int)_mm_popcnt_u64(b >> 64) + (int)_mm_popcnt_u64(b);
-
 #else // Assumed gcc or compatible compiler
 
   return __builtin_popcountll(b >> 64) + __builtin_popcountll(b);
@@ -344,27 +308,12 @@ inline int popcount(Bitboard b) {
 
 /// lsb() and msb() return the least/most significant bit in a non-zero bitboard
 
-#if defined(__GNUC__)  // GCC, Clang, ICC
-
 inline Square lsb(Bitboard b) {
   assert(b);
   if (uint64_t(b))
     return Square(__builtin_ctzll(b));
   return Square(__builtin_ctzll(b >> 64) + 64);
 }
-
-inline Square msb(Bitboard b) {
-  assert(b);
-  if (b >> 64)
-    return Square(127 ^ __builtin_clzll(b >> 64));
-  return Square(127 ^ (64 + __builtin_clzll(b)));
-}
-
-#else  // Compiler is not GCC compatible
-
-#error "Compiler not supported."
-
-#endif
 
 /// least_significant_square_bb() returns the bitboard of the least significant
 /// square of a non-zero bitboard. It is equivalent to square_bb(lsb(bb)).
@@ -381,14 +330,6 @@ inline Square pop_lsb(Bitboard& b) {
   const Square s = lsb(b);
   b &= b - 1;
   return s;
-}
-
-
-/// frontmost_sq() returns the most advanced square for the given color,
-/// requires a non-zero bitboard.
-inline Square frontmost_sq(Color c, Bitboard b) {
-  assert(b);
-  return c == WHITE ? msb(b) : lsb(b);
 }
 
 } // namespace Stockfish
