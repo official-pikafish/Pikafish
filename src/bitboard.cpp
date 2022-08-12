@@ -33,18 +33,21 @@ Bitboard LineBB[SQUARE_NB][SQUARE_NB];
 Bitboard BetweenBB[SQUARE_NB][SQUARE_NB];
 Bitboard PseudoAttacks[PIECE_TYPE_NB][SQUARE_NB];
 Bitboard PawnAttacks[COLOR_NB][SQUARE_NB];
+Bitboard PawnAttacksTo[COLOR_NB][SQUARE_NB];
 
 Magic RookMagics[SQUARE_NB];
 Magic CannonMagics[SQUARE_NB];
 Magic BishopMagics[SQUARE_NB];
 Magic KnightMagics[SQUARE_NB];
+Magic KnightToMagics[SQUARE_NB];
 
 namespace {
 
-  Bitboard RookTable  [0x108000];  // To store rook attacks
-  Bitboard CannonTable[0x108000];  // To store cannon attacks
-  Bitboard BishopTable[0x350];     // To store bishop attacks
-  Bitboard KnightTable[0x480];     // To store knight attacks
+  Bitboard RookTable    [0x108000];  // To store rook attacks
+  Bitboard CannonTable  [0x108000];  // To store cannon attacks
+  Bitboard BishopTable  [0x2B0];     // To store bishop attacks
+  Bitboard KnightTable  [0x380];     // To store knight attacks
+  Bitboard KnightToTable[0x3DC];     // To store by knight attacks
 
   const std::set<Direction> KnightDirections { 2 * SOUTH + WEST, 2 * SOUTH + EAST, SOUTH + 2 * WEST, SOUTH + 2 * EAST,
                                                NORTH + 2 * WEST, NORTH + 2 * EAST, 2 * NORTH + WEST, 2 * NORTH + EAST };
@@ -53,6 +56,9 @@ namespace {
 
   template <PieceType pt>
   void init_magics(Bitboard table[], Magic magics[]);
+
+  template <PieceType pt>
+  Bitboard lame_leaper_path(Direction d, Square s);
 
 }
 
@@ -100,17 +106,21 @@ void Bitboards::init() {
       for (Square s2 = SQ_A0; s2 <= SQ_I9; ++s2)
           SquareDistance[s1][s2] = std::max(distance<File>(s1, s2), distance<Rank>(s1, s2));
 
-  init_magics<ROOK>  (  RookTable,   RookMagics);
-  init_magics<CANNON>(CannonTable, CannonMagics);
-  init_magics<BISHOP>(BishopTable, BishopMagics);
-  init_magics<KNIGHT>(KnightTable, KnightMagics);
+  init_magics<     ROOK>(    RookTable,     RookMagics);
+  init_magics<   CANNON>(  CannonTable,   CannonMagics);
+  init_magics<   BISHOP>(  BishopTable,   BishopMagics);
+  init_magics<   KNIGHT>(  KnightTable,   KnightMagics);
+  init_magics<KNIGHT_TO>(KnightToTable, KnightToMagics);
 
   for (Square s1 = SQ_A0; s1 <= SQ_I9; ++s1)
   {
       PawnAttacks[WHITE][s1] = pawn_attacks_bb<WHITE>(s1);
       PawnAttacks[BLACK][s1] = pawn_attacks_bb<BLACK>(s1);
 
-      PseudoAttacks  [ROOK][s1] = attacks_bb<ROOK>  (s1, 0);
+      PawnAttacksTo[WHITE][s1] = pawn_attacks_to_bb<WHITE>(s1);
+      PawnAttacksTo[BLACK][s1] = pawn_attacks_to_bb<BLACK>(s1);
+
+      PseudoAttacks[  ROOK][s1] = attacks_bb<  ROOK>(s1, 0);
       PseudoAttacks[BISHOP][s1] = attacks_bb<BISHOP>(s1, 0);
       PseudoAttacks[KNIGHT][s1] = attacks_bb<KNIGHT>(s1, 0);
 
@@ -129,6 +139,10 @@ void Bitboards::init() {
               LineBB[s1][s2]    = (attacks_bb(ROOK, s1, 0) & attacks_bb(ROOK, s2, 0)) | s1 | s2;
               BetweenBB[s1][s2] = (attacks_bb(ROOK, s1, square_bb(s2)) & attacks_bb(ROOK, s2, square_bb(s1)));
           }
+
+          if (PseudoAttacks[KNIGHT][s1] & s2)
+              BetweenBB[s1][s2] |= lame_leaper_path<KNIGHT_TO>(Direction(s2 - s1), s1);
+
           BetweenBB[s1][s2] |= s2;
       }
   }
@@ -138,7 +152,7 @@ namespace {
 
   template <PieceType pt>
   Bitboard sliding_attack(Square sq, Bitboard occupied) {
-    assert(pt != BISHOP && pt != KNIGHT);
+    assert(pt == ROOK || pt == CANNON);
 
     Bitboard attack = 0;
     bool hurdle = false;
@@ -163,13 +177,22 @@ namespace {
     return attack;
   }
 
+  template <PieceType pt>
   Bitboard lame_leaper_path(Direction d, Square s) {
+    Bitboard b = 0;
+    Square to = s + d;
+    if (!is_ok(to) || distance(s, to) >= 4)
+        return b;
+
+    // If piece type is by knight attacks, swap the source and destination square
+    if (pt == KNIGHT_TO) {
+      std::swap(s, to);
+      d = -d;
+    }
+
     Direction dr = d > 0 ? NORTH : SOUTH;
     Direction df = (std::abs(d % NORTH) < NORTH / 2 ? d % NORTH : -(d % NORTH)) < 0 ? WEST : EAST;
-    Square to = s + d;
-    Bitboard b = 0;
-    if (!is_ok(to) || distance(s, to) >= 4)
-      return b;
+
     int diff = std::abs(file_of(to) - file_of(s)) - std::abs(rank_of(to) - rank_of(s));
     if (diff > 0)
       s += df;
@@ -185,8 +208,8 @@ namespace {
   template <PieceType pt>
   Bitboard lame_leaper_path(Square s) {
     Bitboard b = 0;
-    for (const auto& d : pt == KNIGHT ? KnightDirections : BishopDirections)
-      b |= lame_leaper_path(d, s);
+    for (const auto& d : pt == BISHOP ? BishopDirections : KnightDirections)
+        b |= lame_leaper_path<pt>(d, s);
     if (pt == BISHOP)
       b &= rank_of(s) < RANK_5 ? Rank01234BB : ~Rank01234BB;
     return b;
@@ -195,10 +218,10 @@ namespace {
   template <PieceType pt>
   Bitboard lame_leaper_attack(Square s, Bitboard occupied) {
     Bitboard b = 0;
-    for (const auto& d : pt == KNIGHT ? KnightDirections : BishopDirections)
+    for (const auto& d : pt == BISHOP  ? BishopDirections : KnightDirections)
     {
       Square to = s + d;
-      if (is_ok(to) && distance(s, to) < 4 && !(lame_leaper_path(d, s) & occupied))
+        if (is_ok(to) && distance(s, to) < 4 && !(lame_leaper_path<pt>(d, s) & occupied))
         b |= to;
     }
     if (pt == BISHOP)
@@ -232,9 +255,15 @@ namespace {
         // all the attacks for each possible subset of the mask and so is 2 power
         // the number of 1s of the mask.
         Magic& m = magics[s];
-        m.mask = ~edges & (pt == ROOK || pt == CANNON ? sliding_attack<pt>(s, 0) :
-                                                        lame_leaper_path<pt>(s));
-        m.shift = 128 - popcount(m.mask);
+        m.mask = pt == ROOK || pt == CANNON ? sliding_attack<pt>(s, 0) :
+                                              lame_leaper_path<pt>(s);
+        if (pt != KNIGHT_TO)
+          m.mask &= ~edges;
+
+        if (HasPext)
+          m.shift = popcount(uint64_t(m.mask));
+        else
+          m.shift = 128 - popcount(m.mask);
 
         // Set the offset for the attacks table of the square. We have individual
         // table sizes for each square with "Fancy Magic Bitboards".
@@ -249,7 +278,7 @@ namespace {
                                                            lame_leaper_attack<pt>(s, b);
 
             if (HasPext)
-                m.attacks[pext(b, m.mask)] = reference[size];
+                m.attacks[pext(b, m.mask, m.shift)] = reference[size];
 
             size++;
             b = (b - m.mask) & m.mask;
