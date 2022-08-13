@@ -185,7 +185,6 @@ std::string Eval::trace(Position& pos) {
   Value v;
 
   // Reset any global variable used in eval
-  pos.this_thread()->depth           = 0;
   pos.this_thread()->trend           = SCORE_ZERO;
   pos.this_thread()->bestValue       = VALUE_ZERO;
 
