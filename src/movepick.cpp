@@ -53,7 +53,7 @@ namespace {
 /// Constructors of the MovePicker class. As arguments we pass information
 /// to help it to return the (presumably) good moves first, to decide which
 /// moves to return (in the quiescence search, for instance, we only want to
-/// search captures, promotions, and some checks) and how important good move
+/// search captures and some checks) and how important good move
 /// ordering is at the current node.
 
 /// MovePicker constructor for the main search
@@ -104,34 +104,29 @@ MovePicker::MovePicker(const Position& p, Move ttm, Value th, Depth d, const Cap
 template<GenType Type>
 void MovePicker::score() {
 
-  static_assert(Type == CAPTURES || Type == QUIETS || Type == EVASIONS, "Wrong type");
+  static_assert(Type == CAPTURES || Type == QUIETS || Type == PSEUDO_LEGAL, "Wrong type");
 
-  Bitboard threatened, threatenedByPawn, threatenedByMinor, threatenedByRook;
+  [[maybe_unused]] Bitboard threatened, threatenedByPawn, threatenedByDefender, threatenedByMinor;
   if constexpr (Type == QUIETS)
   {
       Color us = pos.side_to_move();
       // squares threatened by pawns
-      threatenedByPawn  = pos.attacks_by<PAWN>(~us);
-      // squares threatened by minors or pawns
-      threatenedByMinor = pos.attacks_by<KNIGHT>(~us) | pos.attacks_by<BISHOP>(~us) | threatenedByPawn;
-      // squares threatened by rooks, minors or pawns
-      threatenedByRook  = pos.attacks_by<ROOK>(~us) | threatenedByMinor;
+      threatenedByPawn     = pos.attacks_by<PAWN>(~us);
+      // squares threatened by defenders or pawns
+      threatenedByDefender = pos.attacks_by<ADVISOR>(~us) | pos.attacks_by<BISHOP>(~us) | threatenedByPawn;
+      // squares threatened by minors, defenders or pawns
+      threatenedByMinor    = pos.attacks_by< KNIGHT>(~us) | pos.attacks_by<CANNON>(~us) | threatenedByDefender;
 
       // pieces threatened by pieces of lesser material value
-      threatened =  (pos.pieces(us, QUEEN) & threatenedByRook)
-                  | (pos.pieces(us, ROOK)  & threatenedByMinor)
-                  | (pos.pieces(us, KNIGHT, BISHOP) & threatenedByPawn);
-  }
-  else
-  {
-      // Silence unused variable warnings
-      (void) threatened;
-      (void) threatenedByPawn;
-      (void) threatenedByMinor;
-      (void) threatenedByRook;
+      threatened =  (pos.pieces(us,            ROOK) & threatenedByMinor)
+                  | (pos.pieces(us,  KNIGHT, CANNON) & threatenedByDefender)
+                  | (pos.pieces(us, ADVISOR, BISHOP) & threatenedByPawn);
   }
 
-  for (auto& m : *this)
+  for (auto& m : *this) {
+      // Type of moved piece
+      PieceType pt = type_of(pos.moved_piece(m));
+
       if constexpr (Type == CAPTURES)
           m.value =  6 * int(PieceValue[MG][pos.piece_on(to_sq(m))])
                    +     (*captureHistory)[pos.moved_piece(m)][to_sq(m)][type_of(pos.piece_on(to_sq(m)))];
@@ -143,22 +138,22 @@ void MovePicker::score() {
                    +     (*continuationHistory[3])[pos.moved_piece(m)][to_sq(m)]
                    +     (*continuationHistory[5])[pos.moved_piece(m)][to_sq(m)]
                    +     (threatened & from_sq(m) ?
-                           (type_of(pos.moved_piece(m)) == QUEEN && !(to_sq(m) & threatenedByRook)  ? 50000
-                          : type_of(pos.moved_piece(m)) == ROOK  && !(to_sq(m) & threatenedByMinor) ? 25000
-                          :                                         !(to_sq(m) & threatenedByPawn)  ? 15000
-                          :                                                                           0)
-                          :                                                                           0);
+                            (pt == ROOK                    && !(to_sq(m) & threatenedByMinor)    ? 50000
+                          : (pt == KNIGHT || pt == CANNON) && !(to_sq(m) & threatenedByDefender) ? 25000
+                          :                                   !(to_sq(m) & threatenedByPawn)     ? 15000
+                          :                                                                        0)
+                          :                                                                        0);
 
-      else // Type == EVASIONS
+      else // Type == PSEUDO_LEGAL
       {
           if (pos.capture(m))
-              m.value =  PieceValue[MG][pos.piece_on(to_sq(m))]
-                       - Value(type_of(pos.moved_piece(m)));
+              m.value =  PieceValue[MG][pos.piece_on(to_sq(m))] - Value(pt);
           else
               m.value =  2 * (*mainHistory)[pos.side_to_move()][from_to(m)]
                        + 2 * (*continuationHistory[0])[pos.moved_piece(m)][to_sq(m)]
                        - (1 << 28);
       }
+  }
 }
 
 /// MovePicker::select() returns the next move satisfying a predicate function.
@@ -264,9 +259,9 @@ top:
 
   case EVASION_INIT:
       cur = moves;
-      endMoves = generate<EVASIONS>(pos, cur);
+      endMoves = generate<PSEUDO_LEGAL>(pos, cur);
 
-      score<EVASIONS>();
+      score<PSEUDO_LEGAL>();
       ++stage;
       [[fallthrough]];
 

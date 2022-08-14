@@ -101,12 +101,12 @@ Position& Position::set(const string& fenStr, StateInfo* si, Thread* th) {
    A FEN string contains six fields separated by a space. The fields are:
 
    1) Piece placement (from white's perspective). Each rank is described, starting
-      with rank 8 and ending with rank 1. Within each rank, the contents of each
-      square are described from file A through file H. Following the Standard
+      with rank 9 and ending with rank 0. Within each rank, the contents of each
+      square are described from file A through file I. Following the Standard
       Algebraic Notation (SAN), each piece is identified by a single letter taken
       from the standard English names. White pieces are designated using upper-case
-      letters ("PNBRQK") whilst Black uses lowercase ("pnbrqk"). Blank squares are
-      noted using digits 1 through 8 (the number of blank squares), and "/"
+      letters ("RACPNBK") whilst Black uses lowercase ("racpnbk"). Blank squares are
+      noted using digits 1 through 9 (the number of blank squares), and "/"
       separates ranks.
 
    2) Active color. "w" means white moves next, "b" means black.
@@ -179,11 +179,11 @@ void Position::set_check_info(StateInfo* si) const {
 
   Square ksq = square<KING>(~sideToMove);
 
-  si->checkSquares[PAWN]    = pawn_attacks_to_bb(sideToMove, ksq);
-  si->checkSquares[KNIGHT]  = attacks_bb<KNIGHT_TO>(ksq, pieces());
-  si->checkSquares[CANNON]  = attacks_bb<CANNON>(ksq, pieces());
-  si->checkSquares[KING]    = si->checkSquares[ROOK]   = attacks_bb<ROOK>(ksq, pieces());
-  si->checkSquares[ADVISOR] = si->checkSquares[BISHOP] = 0;
+  si->checkSquares[PAWN]   = pawn_attacks_to_bb(sideToMove, ksq);
+  si->checkSquares[KNIGHT] = attacks_bb<KNIGHT_TO>(ksq, pieces());
+  si->checkSquares[CANNON] = attacks_bb<CANNON>(ksq, pieces());
+  si->checkSquares[ROOK]   = attacks_bb<ROOK>(ksq, pieces());
+  si->checkSquares[KING]   = si->checkSquares[ADVISOR] = si->checkSquares[BISHOP] = 0;
 }
 
 
@@ -289,17 +289,17 @@ Bitboard Position::blockers_for_king(Bitboard sliders, Square s, Bitboard& pinne
   pinners = 0;
 
   // Snipers are pieces that attack 's' when a piece and other pieces are removed
-  Bitboard snipers = (  (attacks_bb<  ROOK>(s) & (pieces(ROOK) | pieces(CANNON)))
+  Bitboard snipers = (  (attacks_bb<  ROOK>(s) & (pieces(ROOK) | pieces(CANNON) | pieces(KING)))
                       | (attacks_bb<KNIGHT>(s) & pieces(KNIGHT))) & sliders;
-  Bitboard occupancy = pieces() ^ snipers;
+  Bitboard occupancy = pieces() ^ (snipers & ~pieces(CANNON));
 
   while (snipers)
   {
     Square sniperSq = pop_lsb(snipers);
-    Bitboard b = between_bb(s, sniperSq) & occupancy;
+    bool isCannon = type_of(piece_on(sniperSq)) == CANNON;
+    Bitboard b = between_bb(s, sniperSq) & (isCannon ? pieces() ^ sniperSq : occupancy);
 
-    if (b && (!more_than_one(b) || (type_of(piece_on(sniperSq)) == CANNON &&
-                                    popcount(b) == 2)))
+    if (b && ((!isCannon && !more_than_one(b)) || (isCannon && popcount(b) == 2)))
     {
         blockers |= b;
         if (b & pieces(color_of(piece_on(s))))
@@ -335,19 +335,22 @@ bool Position::legal(Move m) const {
   Color us = sideToMove;
   Square from = from_sq(m);
   Square to = to_sq(m);
+  Bitboard occupied = (pieces() ^ from) | to;
 
   assert(color_of(moved_piece(m)) == us);
   assert(piece_on(square<KING>(us)) == make_piece(us, KING));
 
+  // Flying general rule
+  if (attacks_bb<ROOK>(to, occupied) & pieces(~us, KING))
+      return false;
+
   // If the moving piece is a king, check whether the destination square is
   // attacked by the opponent.
   if (type_of(piece_on(from)) == KING)
-      return !(attackers_to(to, pieces() ^ from) & pieces(~us));
+      return !(attackers_to(to, occupied) & pieces(~us));
 
-  // A non-king move is legal if and only if it is not pinned or it
-  // is moving along the ray towards or away from the king.
-  return !(blockers_for_king(us) & from)
-      || aligned(from, to, square<KING>(us));
+  // A non-king move is legal if the king is not under attack after the move.
+  return !(attackers_to(square<KING>(us), occupied) & pieces(~us));
 }
 
 
@@ -371,34 +374,13 @@ bool Position::pseudo_legal(const Move m) const {
   if (pieces(us) & to)
       return false;
 
-  // Handle the special case of a pawn move
+  // Handle the special cases
   if (type_of(pc) == PAWN)
       return pawn_attacks_bb(us, from) & to;
-  else if (!(attacks_bb(type_of(pc), from, pieces()) & to))
-      return false;
-
-  // Evasions generator already takes care to avoid some kind of illegal moves
-  // and legal() relies on this. We therefore have to take care that the same
-  // kind of moves are filtered out here.
-  if (checkers())
-  {
-      if (type_of(pc) != KING)
-      {
-          // Double check? In this case a king move is required
-          if (more_than_one(checkers()))
-              return false;
-
-          // Our move must be a blocking interposition or a capture of the checking piece
-          if (!(between_bb(square<KING>(us), lsb(checkers())) & to))
-              return false;
-      }
-      // In case of king moves under check we have to remove king so as to catch
-      // invalid moves like b1a1 when opposite queen is on c1.
-      else if (attackers_to(to, pieces() ^ from) & pieces(~us))
-          return false;
-  }
-
-  return true;
+  else if (type_of(pc) == CANNON && !capture(m))
+      return attacks_bb<ROOK>(from, pieces()) & ~pieces() & to;
+  else
+      return attacks_bb(type_of(pc), from, pieces()) & to;
 }
 
 
