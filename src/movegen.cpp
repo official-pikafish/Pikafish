@@ -25,7 +25,7 @@ namespace Stockfish {
 
 namespace {
 
-  template<Color Us, PieceType Pt, bool Checks>
+  template<Color Us, PieceType Pt, GenType Type>
   ExtMove* generate_moves(const Position& pos, ExtMove* moveList, Bitboard target) {
 
     static_assert(Pt != KING, "Unsupported piece type in generate_moves()");
@@ -38,8 +38,12 @@ namespace {
         Bitboard b = (Pt != PAWN ? attacks_bb<Pt>(from, pos.pieces())
                                  : pawn_attacks_bb(Us, from)) & target;
 
+        // Generate cannon quite moves.
+        if (Pt == CANNON && Type != CAPTURES)
+            b |= attacks_bb<ROOK>(from, pos.pieces()) & ~pos.pieces();
+
         // To check, you either move freely a blocker or make a direct check.
-        if (Checks && !(pos.blockers_for_king(~Us) & from))
+        if (Type == QUIET_CHECKS && !(pos.blockers_for_king(~Us) & from))
             b &= pos.check_squares(Pt);
 
         while (b)
@@ -53,23 +57,22 @@ namespace {
   template<Color Us, GenType Type>
   ExtMove* generate_all(const Position& pos, ExtMove* moveList) {
 
-    constexpr bool Checks = Type == QUIET_CHECKS; // Reduce template instantiations
     const Square ksq = pos.square<KING>(Us);
     Bitboard target  = Type == PSEUDO_LEGAL ? ~pos.pieces( Us)
                      : Type == CAPTURES     ?  pos.pieces(~Us)
                                             : ~pos.pieces(   ); // QUIETS || QUIET_CHECKS
 
-    moveList = generate_moves<Us,    ROOK, Checks>(pos, moveList, target);
-    moveList = generate_moves<Us, ADVISOR, Checks>(pos, moveList, target);
-    moveList = generate_moves<Us,  CANNON, Checks>(pos, moveList, target);
-    moveList = generate_moves<Us,    PAWN, Checks>(pos, moveList, target);
-    moveList = generate_moves<Us,  KNIGHT, Checks>(pos, moveList, target);
-    moveList = generate_moves<Us,  BISHOP, Checks>(pos, moveList, target);
+    moveList = generate_moves<Us,    ROOK, Type>(pos, moveList, target);
+    moveList = generate_moves<Us, ADVISOR, Type>(pos, moveList, target);
+    moveList = generate_moves<Us,  CANNON, Type>(pos, moveList, target);
+    moveList = generate_moves<Us,    PAWN, Type>(pos, moveList, target);
+    moveList = generate_moves<Us,  KNIGHT, Type>(pos, moveList, target);
+    moveList = generate_moves<Us,  BISHOP, Type>(pos, moveList, target);
 
-    if (!Checks || pos.blockers_for_king(~Us) & ksq)
+    if (Type != QUIET_CHECKS || pos.blockers_for_king(~Us) & ksq)
     {
         Bitboard b = attacks_bb<KING>(ksq) & target;
-        if (Checks)
+        if (Type == QUIET_CHECKS)
             b &= ~attacks_bb<ROOK>(pos.square<KING>(~Us));
 
         while (b)
