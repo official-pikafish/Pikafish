@@ -21,7 +21,6 @@
 #include <sstream>
 
 #include "types.h"
-#include "misc.h"
 #include "uci.h"
 
 using std::string;

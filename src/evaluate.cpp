@@ -31,7 +31,6 @@
 #include "evaluate.h"
 #include "misc.h"
 #include "thread.h"
-#include "timeman.h"
 #include "uci.h"
 #include "incbin/incbin.h"
 

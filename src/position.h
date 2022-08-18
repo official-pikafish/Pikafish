@@ -25,7 +25,6 @@
 #include <string>
 
 #include "bitboard.h"
-#include "evaluate.h"
 #include "types.h"
 
 #include "nnue/nnue_accumulator.h"
@@ -50,7 +49,8 @@ struct StateInfo {
   Bitboard   pinners[COLOR_NB];
   Bitboard   checkSquares[PIECE_TYPE_NB];
   Piece      capturedPiece;
-  int        repetition;
+  Bitboard   chased;
+  Move       move;
 
   // Used by NNUE
   Eval::NNUE::Accumulator accumulator;
@@ -90,6 +90,7 @@ public:
   Bitboard pieces(Color c) const;
   Bitboard pieces(Color c, PieceType pt) const;
   Bitboard pieces(Color c, PieceType pt1, PieceType pt2) const;
+  Bitboard pieces(Color c, PieceType pt1, PieceType pt2, PieceType pt3) const;
   Piece piece_on(Square s) const;
   bool empty(Square s) const;
   template<PieceType Pt> int count(Color c) const;
@@ -134,8 +135,8 @@ public:
   Color side_to_move() const;
   int game_ply() const;
   Thread* this_thread() const;
-  bool is_draw(int ply) const;
-  bool has_repeated() const;
+  bool is_repeated(Value& result, int ply = 0) const;
+  Bitboard chased() const;
   Value non_pawn_material(Color c) const;
   Value non_pawn_material() const;
 
@@ -205,6 +206,10 @@ inline Bitboard Position::pieces(Color c, PieceType pt) const {
 
 inline Bitboard Position::pieces(Color c, PieceType pt1, PieceType pt2) const {
   return pieces(c) & (pieces(pt1) | pieces(pt2));
+}
+
+inline Bitboard Position::pieces(Color c, PieceType pt1, PieceType pt2, PieceType pt3) const {
+    return pieces(c) & (pieces(pt1) | pieces(pt2) | pieces(pt3));
 }
 
 template<PieceType Pt> inline int Position::count(Color c) const {

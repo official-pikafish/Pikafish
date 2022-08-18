@@ -165,8 +165,10 @@ void MainThread::search() {
   if (rootMoves.empty())
   {
       rootMoves.emplace_back(MOVE_NONE);
+      Value result;
+      rootPos.is_repeated(result);
       sync_cout << "info depth 0 score "
-                << UCI::value(rootPos.checkers() ? -VALUE_MATE : VALUE_DRAW)
+                << UCI::value(result ? result : -VALUE_MATE)
                 << sync_endl;
   }
   else
@@ -508,12 +510,13 @@ namespace {
 
     if (!rootNode)
     {
-        // Step 2. Check for aborted search and immediate draw
-        if (   Threads.stop.load(std::memory_order_relaxed)
-            || pos.is_draw(ss->ply)
-            || ss->ply >= MAX_PLY)
-            return (ss->ply >= MAX_PLY && !ss->inCheck) ? evaluate(pos)
-                                                        : value_draw(pos.this_thread());
+        // Step 2. Check for aborted search and repetition
+        Value result;
+        if (pos.is_repeated(result, ss->ply))
+            return result;
+
+        if (Threads.stop.load(std::memory_order_relaxed) || ss->ply >= MAX_PLY)
+            return (ss->ply >= MAX_PLY && !ss->inCheck) ? evaluate(pos) : value_draw(pos.this_thread());
 
         // Step 3. Mate distance pruning. Even if we mate at the next move our score
         // would be at best mate_in(ss->ply+1), but if alpha is already bigger because
@@ -1286,10 +1289,13 @@ moves_loop: // When in check, search starts here
     ss->inCheck = pos.checkers();
     moveCount = 0;
 
-    // Check for an immediate draw or maximum ply reached
-    if (   pos.is_draw(ss->ply)
-        || ss->ply >= MAX_PLY)
-        return (ss->ply >= MAX_PLY && !ss->inCheck) ? evaluate(pos) : VALUE_DRAW;
+    // Check for repetition or maximum ply reached
+    Value result;
+    if (pos.is_repeated(result, ss->ply))
+        return result;
+
+    if (ss->ply >= MAX_PLY)
+        return !ss->inCheck ? evaluate(pos) : VALUE_DRAW;
 
     assert(0 <= ss->ply && ss->ply < MAX_PLY);
 

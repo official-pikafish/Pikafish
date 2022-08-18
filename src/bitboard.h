@@ -54,11 +54,13 @@ constexpr Bitboard Rank6BB = Rank0BB << (FILE_NB * 6);
 constexpr Bitboard Rank7BB = Rank0BB << (FILE_NB * 7);
 constexpr Bitboard Rank8BB = Rank0BB << (FILE_NB * 8);
 constexpr Bitboard Rank9BB = Rank0BB << (FILE_NB * 9);
-constexpr Bitboard Rank01234BB = Rank0BB | Rank1BB | Rank2BB | Rank3BB | Rank4BB;
+
 
 constexpr Bitboard PawnFileBB = FileABB | FileCBB | FileEBB | FileGBB | FileIBB;
-constexpr Bitboard PawnBB[2] = { Rank0BB | Rank1BB | Rank2BB | ((Rank3BB | Rank4BB) & PawnFileBB),
-                                 Rank9BB | Rank8BB | Rank7BB | ((Rank6BB | Rank5BB) & PawnFileBB)};
+constexpr Bitboard HalfBB[2] = { Rank0BB | Rank1BB | Rank2BB | Rank3BB | Rank4BB,
+                                 Rank5BB | Rank6BB | Rank7BB | Rank8BB | Rank9BB };
+constexpr Bitboard PawnBB[2] = { HalfBB[BLACK] | ((Rank3BB | Rank4BB) & PawnFileBB),
+                                 HalfBB[WHITE] | ((Rank6BB | Rank5BB) & PawnFileBB) };
 
 extern uint8_t PopCnt16[1 << 16];
 extern uint8_t SquareDistance[SQUARE_NB][SQUARE_NB];
@@ -118,6 +120,10 @@ inline Bitboard  operator|(Square s1, Square s2) { return square_bb(s1) | s2; }
 
 constexpr bool more_than_one(Bitboard b) {
   return b & (b - 1);
+}
+
+inline Bitboard undo_move_board(Bitboard b, Move m) {
+    return (from_sq(m) != SQ_NONE && (b & to_sq(m))) ? (b ^ to_sq(m)) | from_sq(m) : b;
 }
 
 

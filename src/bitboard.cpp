@@ -209,9 +209,9 @@ namespace {
   Bitboard lame_leaper_path(Square s) {
     Bitboard b = 0;
     for (const auto& d : pt == BISHOP ? BishopDirections : KnightDirections)
-        b |= lame_leaper_path<pt>(d, s);
+      b |= lame_leaper_path<pt>(d, s);
     if (pt == BISHOP)
-      b &= rank_of(s) < RANK_5 ? Rank01234BB : ~Rank01234BB;
+      b &= HalfBB[rank_of(s) > RANK_4];
     return b;
   }
 
@@ -221,11 +221,11 @@ namespace {
     for (const auto& d : pt == BISHOP  ? BishopDirections : KnightDirections)
     {
       Square to = s + d;
-        if (is_ok(to) && distance(s, to) < 4 && !(lame_leaper_path<pt>(d, s) & occupied))
+      if (is_ok(to) && distance(s, to) < 4 && !(lame_leaper_path<pt>(d, s) & occupied))
         b |= to;
     }
     if (pt == BISHOP)
-      b &= rank_of(s) < RANK_5 ? Rank01234BB : ~Rank01234BB;
+      b &= HalfBB[rank_of(s) > RANK_4];
     return b;
   }
 
