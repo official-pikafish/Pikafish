@@ -304,6 +304,10 @@ inline int popcount(Bitboard b) {
   return  PopCnt16[v.u[0]] + PopCnt16[v.u[1]] + PopCnt16[v.u[2]] + PopCnt16[v.u[3]]
          + PopCnt16[v.u[4]] + PopCnt16[v.u[5]] + PopCnt16[v.u[6]] + PopCnt16[v.u[7]];
 
+#elif defined(_MSC_VER) || defined(__INTEL_COMPILER)
+
+    return (int)_mm_popcnt_u64(b >> 64) + (int)_mm_popcnt_u64(b);
+
 #else // Assumed gcc or compatible compiler
 
   return __builtin_popcountll(b >> 64) + __builtin_popcountll(b);
@@ -312,13 +316,32 @@ inline int popcount(Bitboard b) {
 }
 
 
-/// lsb() and msb() return the least/most significant bit in a non-zero bitboard
+/// lsb() return the least significant bit in a non-zero bitboard
 
 inline Square lsb(Bitboard b) {
   assert(b);
+
+#if defined(_MSC_VER) // MSVC
+
+  unsigned long idx;
   if (uint64_t(b))
-    return Square(__builtin_ctzll(b));
-  return Square(__builtin_ctzll(b >> 64) + 64);
+  {
+      _BitScanForward64(&idx, b);
+      return Square(idx);
+  }
+  else
+  {
+      _BitScanForward64(&idx, b >> 64);
+      return Square(idx + 64);
+  }
+
+#else // Assumed gcc or compatible compiler
+
+    if (uint64_t(b))
+        return Square(__builtin_ctzll(b));
+    return Square(__builtin_ctzll(b >> 64) + 64);
+
+#endif
 }
 
 /// least_significant_square_bb() returns the bitboard of the least significant

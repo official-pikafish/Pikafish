@@ -139,8 +139,8 @@ public:
 
 
 /// engine_info() returns the full name of the current Stockfish version. This
-/// will be either "Stockfish <Tag> DD-MM-YY" (where DD-MM-YY is the date when
-/// the program was compiled) or "Stockfish <Version>", depending on whether
+/// will be either "Stockfish-Xiangqi <Tag> DD-MM-YY" (where DD-MM-YY is the date when
+/// the program was compiled) or "Stockfish-Xiangqi <Version>", depending on whether
 /// Version is empty.
 
 string engine_info(bool to_uci) {
@@ -149,16 +149,16 @@ string engine_info(bool to_uci) {
   string month, day, year;
   stringstream ss, date(__DATE__); // From compiler, format is "Sep 21 2008"
 
-  ss << "Stockfish " << Version << setfill('0');
+  ss << "Stockfish-XiangQi " << Version << setfill('0');
 
   if (Version.empty())
   {
       date >> month >> day >> year;
-      ss << setw(2) << day << setw(2) << (1 + months.find(month) / 4) << year.substr(2);
+      ss << year << "-" << setw(2) << (1 + months.find(month) / 4) << "-" << setw(2) << day;
   }
 
-  ss << (to_uci  ? "\nid author ": " by ")
-     << "the Stockfish developers (see AUTHORS file)";
+  ss << (to_uci  ? "\nid author ": " by ") << "PikaCat++"
+     << (to_uci ? "\ninfo string special thanks to VinTeam and Fabian Fichter" : "");
 
   return ss.str();
 }
@@ -510,7 +510,7 @@ int best_node(size_t idx) {
   DWORD byteOffset = 0;
 
   // Early exit if the needed API is not available at runtime
-  HMODULE k32 = GetModuleHandle("Kernel32.dll");
+  HMODULE k32 = GetModuleHandleA("Kernel32.dll");
   auto fun1 = (fun1_t)(void(*)())GetProcAddress(k32, "GetLogicalProcessorInformationEx");
   if (!fun1)
       return -1;
@@ -580,7 +580,7 @@ void bindThisThread(size_t idx) {
       return;
 
   // Early exit if the needed API are not available at runtime
-  HMODULE k32 = GetModuleHandle("Kernel32.dll");
+  HMODULE k32 = GetModuleHandleA("Kernel32.dll");
   auto fun2 = (fun2_t)(void(*)())GetProcAddress(k32, "GetNumaNodeProcessorMaskEx");
   auto fun3 = (fun3_t)(void(*)())GetProcAddress(k32, "SetThreadGroupAffinity");
   auto fun4 = (fun4_t)(void(*)())GetProcAddress(k32, "GetNumaNodeProcessorMask2");
