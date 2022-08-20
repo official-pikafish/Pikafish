@@ -130,6 +130,7 @@ ExtMove* generate<LEGAL>(const Position& pos, ExtMove* moveList) {
   moveList = generate<PSEUDO_LEGAL>(pos, moveList);
   while (cur != moveList)
       // A move is legal when not in check and not moving the king or a pinned piece
+      // We also have to take special cares about the hollow cannon
       if (   (pos.checkers() || (pinned && pinned & from_sq(*cur)) || from_sq(*cur) == ksq ||
               attacks_bb<ROOK>(ksq, pos.pieces() & pos.pieces(~us, CANNON)))
           && !pos.legal(*cur))

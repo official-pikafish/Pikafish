@@ -135,8 +135,6 @@ vector<string> setup_bench(const Position& current, istream& is) {
           ++posCounter;
       }
 
-  list.emplace_back("setoption name Use NNUE value true");
-
   return list;
 }
 
