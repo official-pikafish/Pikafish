@@ -35,12 +35,19 @@ namespace {
     while (bb)
     {
         Square from = pop_lsb(bb);
-        Bitboard b = (Pt != PAWN ? attacks_bb<Pt>(from, pos.pieces())
-                                 : pawn_attacks_bb(Us, from)) & target;
+        Bitboard b = 0;
+        if (Pt != CANNON)
+            b = (Pt != PAWN ? attacks_bb<Pt>(from, pos.pieces())
+                            : pawn_attacks_bb(Us, from)) & target;
+        else {
+            // Generate cannon capture moves.
+            if (Type == CAPTURES || Type == PSEUDO_LEGAL)
+                b |= attacks_bb<CANNON>(from, pos.pieces()) & pos.pieces(~Us);
 
-        // Generate cannon quite moves.
-        if (Pt == CANNON && Type != CAPTURES)
-            b |= attacks_bb<ROOK>(from, pos.pieces()) & ~pos.pieces();
+            // Generate cannon quite moves.
+            if (Type != CAPTURES)
+                b |= attacks_bb<ROOK>(from, pos.pieces()) & ~pos.pieces();
+        }
 
         // To check, you either move freely a blocker or make a direct check.
         if (Type == QUIET_CHECKS && !(pos.blockers_for_king(~Us) & from))
@@ -122,7 +129,9 @@ ExtMove* generate<LEGAL>(const Position& pos, ExtMove* moveList) {
 
   moveList = generate<PSEUDO_LEGAL>(pos, moveList);
   while (cur != moveList)
-      if (  ((pinned && pinned & from_sq(*cur)) || from_sq(*cur) == ksq)
+      // A move is legal when not in check and not moving the king or a pinned piece
+      if (   (pos.checkers() || (pinned && pinned & from_sq(*cur)) || from_sq(*cur) == ksq ||
+              attacks_bb<ROOK>(ksq, pos.pieces() & pos.pieces(~us, CANNON)))
           && !pos.legal(*cur))
           *cur = (--moveList)->move;
       else

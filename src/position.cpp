@@ -343,7 +343,8 @@ bool Position::legal(Move m) const {
   assert(piece_on(square<KING>(us)) == make_piece(us, KING));
 
   // Flying general rule
-  if (attacks_bb<ROOK>(to, occupied) & pieces(~us, KING))
+  Square ksq = type_of(moved_piece(m)) == KING ? to : square<KING>(us);
+  if (attacks_bb<ROOK>(ksq, occupied) & pieces(~us, KING))
       return false;
 
   // If the moving piece is a king, check whether the destination square is
@@ -352,7 +353,7 @@ bool Position::legal(Move m) const {
       return !(attackers_to(to, occupied) & pieces(~us));
 
   // A non-king move is legal if the king is not under attack after the move.
-  return !(attackers_to(square<KING>(us), occupied) & pieces(~us));
+  return !(attackers_to(square<KING>(us), occupied) & pieces(~us) & ~square_bb(to));
 }
 
 

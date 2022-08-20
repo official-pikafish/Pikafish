@@ -23,6 +23,7 @@
 #include "misc.h"
 #include "magics.h"
 #include <set>
+#include <iostream>
 
 namespace Stockfish {
 
@@ -154,12 +155,11 @@ namespace {
   template <PieceType pt>
   Bitboard sliding_attack(Square sq, Bitboard occupied) {
     assert(pt == ROOK || pt == CANNON);
-
     Bitboard attack = 0;
-    bool hurdle = false;
 
     for (auto const& d : { NORTH, SOUTH, EAST, WEST } )
     {
+      bool hurdle = false;
       for (Square s = sq + d; is_ok(s) && distance(s - d, s) == 1; s += d)
       {
         if (pt == ROOK || hurdle)

@@ -39,8 +39,8 @@ extern vector<string> setup_bench(const Position&, istream&);
 
 namespace {
 
-  // FEN string for the initial position in standard chess
-  const char* StartFEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w - - 0 1";
+  // FEN string for the initial position in standard xiangqi
+  const char* StartFEN = "rnbakabnr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C5C1/9/RNBAKABNR w";
 
 
   // position() is called when the engine receives the "position" UCI command.
@@ -235,11 +235,14 @@ void UCI::loop(int argc, char* argv[]) {
 
   pos.set(StartFEN, &states->back(), Threads.main());
 
+//  istringstream is("perft 5");
+//  go(pos, is, states);
+
   for (int i = 1; i < argc; ++i)
       cmd += std::string(argv[i]) + " ";
 
   do {
-      if (argc == 1 && !getline(cin, cmd)) // Wait for an input or an end-of-file (EOF) indication 
+      if (argc == 1 && !getline(cin, cmd)) // Wait for an input or an end-of-file (EOF) indication
           cmd = "quit";
 
       istringstream is(cmd);
@@ -285,11 +288,11 @@ void UCI::loop(int argc, char* argv[]) {
           Eval::NNUE::save_eval(filename);
       }
       else if (token == "--help" || token == "help" || token == "--license" || token == "license")
-          sync_cout << "\nStockfish-Xiangqi is a powerful xiangqi engine for playing and analyzing."
+          sync_cout << "\nStockfish-XiangQi is a powerful xiangqi engine for playing and analyzing."
                        "\nIt is released as free software licensed under the GNU GPLv3 License."
-                       "\nStockfish-Xiangqi is normally used with a graphical user interface (GUI) and implements"
+                       "\nStockfish-XiangQi is normally used with a graphical user interface (GUI) and implements"
                        "\nthe Universal Chess Interface (UCI) protocol to communicate with a GUI, an API, etc."
-                       "\nFor any further information, visit https://github.com/PikaCat-OuO/Stockfish-Xiangqi#readme"
+                       "\nFor any further information, visit https://github.com/PikaCat-OuO/Stockfish-XiangQi#readme"
                        "\nor read the corresponding README.md and Copying.txt files distributed along with this program.\n" << sync_endl;
       else if (!token.empty() && token[0] != '#')
           sync_cout << "Unknown command: '" << cmd << "'. Type help for more information." << sync_endl;
