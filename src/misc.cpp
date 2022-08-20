@@ -138,9 +138,9 @@ public:
 } // namespace
 
 
-/// engine_info() returns the full name of the current Stockfish version. This
-/// will be either "Stockfish-Xiangqi <Tag> DD-MM-YY" (where DD-MM-YY is the date when
-/// the program was compiled) or "Stockfish-Xiangqi <Version>", depending on whether
+/// engine_info() returns the full name of the current Stockfish-XiangQi version. This
+/// will be either "Stockfish-XiangQi <Tag> DD-MM-YY" (where DD-MM-YY is the date when
+/// the program was compiled) or "Stockfish-XianQi <Version>", depending on whether
 /// Version is empty.
 
 string engine_info(bool to_uci) {
