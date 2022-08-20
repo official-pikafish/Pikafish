@@ -41,7 +41,6 @@ void on_clear_hash(const Option&) { Search::clear(); }
 void on_hash_size(const Option& o) { TT.resize(size_t(o)); }
 void on_logger(const Option& o) { start_logger(o); }
 void on_threads(const Option& o) { Threads.set(size_t(o)); }
-void on_use_NNUE(const Option& ) { Eval::NNUE::init(); }
 void on_eval_file(const Option& ) { Eval::NNUE::init(); }
 
 /// Our case insensitive less() function as required by UCI protocol
@@ -69,7 +68,6 @@ void init(OptionsMap& o) {
   o["nodestime"]             << Option(0, 0, 10000);
   o["UCI_AnalyseMode"]       << Option(false);
   o["UCI_ShowWDL"]           << Option(false);
-  o["Use NNUE"]              << Option(true, on_use_NNUE);
   o["EvalFile"]              << Option(EvalFileDefaultName, on_eval_file);
 }
 

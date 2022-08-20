@@ -21,6 +21,7 @@
 
 #include "bitboard.h"
 #include "misc.h"
+#include "magics.h"
 #include <set>
 
 namespace Stockfish {
@@ -45,9 +46,9 @@ namespace {
 
   Bitboard RookTable    [0x108000];  // To store rook attacks
   Bitboard CannonTable  [0x108000];  // To store cannon attacks
-  Bitboard BishopTable  [0x2B0];     // To store bishop attacks
+  Bitboard BishopTable  [0x228];     // To store bishop attacks
   Bitboard KnightTable  [0x380];     // To store knight attacks
-  Bitboard KnightToTable[0x3DC];     // To store by knight attacks
+  Bitboard KnightToTable[0x3E0];     // To store by knight attacks
 
   const std::set<Direction> KnightDirections { 2 * SOUTH + WEST, 2 * SOUTH + EAST, SOUTH + 2 * WEST, SOUTH + 2 * EAST,
                                                NORTH + 2 * WEST, NORTH + 2 * EAST, 2 * NORTH + WEST, 2 * NORTH + EAST };
@@ -55,7 +56,7 @@ namespace {
 
 
   template <PieceType pt>
-  void init_magics(Bitboard table[], Magic magics[]);
+  void init_magics(Bitboard table[], Magic magics[], const Bitboard magicsInit[]);
 
   template <PieceType pt>
   Bitboard lame_leaper_path(Direction d, Square s);
@@ -83,7 +84,7 @@ std::string Bitboards::pretty(Bitboard b) {
       for (File f = FILE_A; f <= FILE_I; ++f)
           s += b & make_square(f, r) ? "| X " : "|   ";
 
-      s += "| " + std::to_string(1 + r) + "\n+---+---+---+---+---+---+---+---+---+\n";
+      s += "| " + std::to_string(r) + "\n+---+---+---+---+---+---+---+---+---+\n";
   }
   s += "  a   b   c   d   e   f   g   h   i\n";
 
@@ -106,11 +107,11 @@ void Bitboards::init() {
       for (Square s2 = SQ_A0; s2 <= SQ_I9; ++s2)
           SquareDistance[s1][s2] = std::max(distance<File>(s1, s2), distance<Rank>(s1, s2));
 
-  init_magics<     ROOK>(    RookTable,     RookMagics);
-  init_magics<   CANNON>(  CannonTable,   CannonMagics);
-  init_magics<   BISHOP>(  BishopTable,   BishopMagics);
-  init_magics<   KNIGHT>(  KnightTable,   KnightMagics);
-  init_magics<KNIGHT_TO>(KnightToTable, KnightToMagics);
+  init_magics<     ROOK>(    RookTable,     RookMagics,     RookMagicsInit);
+  init_magics<   CANNON>(  CannonTable,   CannonMagics,     RookMagicsInit);
+  init_magics<   BISHOP>(  BishopTable,   BishopMagics,   BishopMagicsInit);
+  init_magics<   KNIGHT>(  KnightTable,   KnightMagics,   KnightMagicsInit);
+  init_magics<KNIGHT_TO>(KnightToTable, KnightToMagics, KnightToMagicsInit);
 
   for (Square s1 = SQ_A0; s1 <= SQ_I9; ++s1)
   {
@@ -159,7 +160,7 @@ namespace {
 
     for (auto const& d : { NORTH, SOUTH, EAST, WEST } )
     {
-      for (Square s = sq + d; is_ok(s) && distance(s, s + d) == 1; s += d)
+      for (Square s = sq + d; is_ok(s) && distance(s - d, s) == 1; s += d)
       {
         if (pt == ROOK || hurdle)
           attack |= s;
@@ -236,14 +237,9 @@ namespace {
   // called "fancy" approach.
 
   template <PieceType pt>
-  void init_magics(Bitboard table[], Magic magics[]) {
+  void init_magics(Bitboard table[], Magic magics[], const Bitboard magicsInit[]) {
 
-    // Optimal PRNG seeds to pick the correct magics in the shortest time
-    int seeds[][RANK_NB] = { { 734, 10316, 55013, 32803, 12281, 15100, 16645, 255, 346, 89123 },
-                             { 734, 10316, 55013, 32803, 12281, 15100, 16645, 255, 346, 89123 } };
-
-    Bitboard* occupancy = new Bitboard[0x8000], *reference = new Bitboard[0x8000], edges, b;
-    int* epoch = new int[0x8000] { }, cnt = 0, size = 0;
+    Bitboard edges, b, size = 0;
 
     for (Square s = SQ_A0; s <= SQ_I9; ++s)
     {
@@ -255,8 +251,9 @@ namespace {
         // all the attacks for each possible subset of the mask and so is 2 power
         // the number of 1s of the mask.
         Magic& m = magics[s];
-        m.mask = pt == ROOK || pt == CANNON ? sliding_attack<pt>(s, 0) :
-                                              lame_leaper_path<pt>(s);
+        m.mask = pt == ROOK   ? sliding_attack<pt>(s, 0) :
+                 pt == CANNON ? RookMagics[s].mask       :
+                                lame_leaper_path<pt>(s)  ;
         if (pt != KNIGHT_TO)
           m.mask &= ~edges;
 
@@ -265,61 +262,23 @@ namespace {
         else
           m.shift = 128 - popcount(m.mask);
 
+        m.magic = magicsInit[s];
+
         // Set the offset for the attacks table of the square. We have individual
         // table sizes for each square with "Fancy Magic Bitboards".
         m.attacks = s == SQ_A0 ? table : magics[s - 1].attacks + size;
 
         // Use Carry-Rippler trick to enumerate all subsets of masks[s] and
-        // store the corresponding sliding attack bitboard in reference[].
+        // store the corresponding attack bitboard in m.attacks.
         b = size = 0;
         do {
-            occupancy[size] = b;
-            reference[size] = pt == ROOK || pt == CANNON ? sliding_attack<pt>(s, b) :
-                                                           lame_leaper_attack<pt>(s, b);
-
-            if (HasPext)
-                m.attacks[pext(b, m.mask, m.shift)] = reference[size];
+            m.attacks[m.index(b)] = pt == ROOK || pt == CANNON ? sliding_attack<pt>(s, b) :
+                                                                 lame_leaper_attack<pt>(s, b);
 
             size++;
             b = (b - m.mask) & m.mask;
         } while (b);
-
-        if (HasPext)
-            continue;
-
-        PRNG rng(seeds[Is64Bit][rank_of(s)]);
-
-        // Find a magic for square 's' picking up an (almost) random number
-        // until we find the one that passes the verification test.
-        for (int i = 0; i < size; )
-        {
-            for (m.magic = 0; popcount((m.magic * m.mask) >> 119) < 7; )
-                m.magic = (rng.sparse_rand<Bitboard>() << 64) ^ rng.sparse_rand<Bitboard>();
-
-            // A good magic must map every possible occupancy to an index that
-            // looks up the correct sliding attack in the attacks[s] database.
-            // Note that we build up the database for square 's' as a side
-            // effect of verifying the magic. Keep track of the attempt count
-            // and save it in epoch[], little speed-up trick to avoid resetting
-            // m.attacks[] after every failed attempt.
-            for (++cnt, i = 0; i < size; ++i)
-            {
-                unsigned idx = m.index(occupancy[i]);
-
-                if (epoch[idx] < cnt)
-                {
-                    epoch[idx] = cnt;
-                    m.attacks[idx] = reference[i];
-                }
-                else if (m.attacks[idx] != reference[i])
-                    break;
-            }
-        }
     }
-
-    delete[] occupancy;
-    delete[] reference;
-    delete[] epoch;
   }
 }
 

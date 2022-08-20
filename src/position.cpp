@@ -459,13 +459,10 @@ void Position::do_move(Move m, StateInfo& newSt, bool givesCheck) {
       if (type_of(captured) != PAWN)
           st->nonPawnMaterial[them] -= PieceValue[MG][captured];
 
-      if (Eval::useNNUE)
-      {
-          dp.dirty_num = 2;  // 1 piece moved, 1 piece captured
-          dp.piece[1] = captured;
-          dp.from[1] = capsq;
-          dp.to[1] = SQ_NONE;
-      }
+      dp.dirty_num = 2;  // 1 piece moved, 1 piece captured
+      dp.piece[1] = captured;
+      dp.from[1] = capsq;
+      dp.to[1] = SQ_NONE;
 
       // Update board and piece lists
       remove_piece(capsq);
@@ -478,12 +475,9 @@ void Position::do_move(Move m, StateInfo& newSt, bool givesCheck) {
   k ^= Zobrist::psq[pc][from] ^ Zobrist::psq[pc][to];
 
   // Move the piece.
-  if (Eval::useNNUE)
-  {
-      dp.piece[0] = pc;
-      dp.from[0] = from;
-      dp.to[0] = to;
-  }
+  dp.piece[0] = pc;
+  dp.from[0] = from;
+  dp.to[0] = to;
 
   move_piece(from, to);
 
