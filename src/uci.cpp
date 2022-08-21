@@ -235,9 +235,6 @@ void UCI::loop(int argc, char* argv[]) {
 
   pos.set(StartFEN, &states->back(), Threads.main());
 
-//  istringstream is("perft 5");
-//  go(pos, is, states);
-
   for (int i = 1; i < argc; ++i)
       cmd += std::string(argv[i]) + " ";
 
