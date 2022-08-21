@@ -139,6 +139,7 @@ public:
   Bitboard chased() const;
   Value non_pawn_material(Color c) const;
   Value non_pawn_material() const;
+  Value non_pawn_material_eval() const;
 
   // Position consistency check, for debugging
   bool pos_is_ok() const;
@@ -265,6 +266,10 @@ inline Value Position::non_pawn_material(Color c) const {
 
 inline Value Position::non_pawn_material() const {
   return non_pawn_material(WHITE) + non_pawn_material(BLACK);
+}
+
+inline Value Position::non_pawn_material_eval() const {
+  return non_pawn_material(sideToMove) - non_pawn_material(~sideToMove);
 }
 
 inline int Position::game_ply() const {

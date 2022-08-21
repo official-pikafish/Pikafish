@@ -66,6 +66,8 @@ namespace Eval {
 
   /// NNUE::verify() verifies that the last net used was loaded successfully
   void NNUE::verify() {
+    // For debugging without nnue file
+    return;
 
     string eval_file = string(Options["EvalFile"]);
     if (eval_file.empty())
@@ -104,6 +106,10 @@ using namespace Trace;
 /// evaluation of the position from the point of view of the side to move.
 
 Value Eval::evaluate(const Position& pos, int* complexity) {
+  // For debugging without nnue file
+  if (complexity)
+      *complexity = 0;
+  return pos.non_pawn_material_eval();
 
   Value v = NNUE::evaluate(pos, complexity);
 
@@ -129,7 +135,6 @@ std::string Eval::trace(Position& pos) {
   Value v;
 
   // Reset any global variable used in eval
-  pos.this_thread()->trend           = SCORE_ZERO;
   pos.this_thread()->bestValue       = VALUE_ZERO;
 
   ss << '\n' << NNUE::trace(pos) << '\n';
