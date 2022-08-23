@@ -138,9 +138,9 @@ public:
 } // namespace
 
 
-/// engine_info() returns the full name of the current Stockfish-XiangQi version. This
-/// will be either "Stockfish-XiangQi <Tag> DD-MM-YY" (where DD-MM-YY is the date when
-/// the program was compiled) or "Stockfish-XiangQi <Version>", depending on whether
+/// engine_info() returns the full name of the current PikaFish version. This
+/// will be either "Pikafish YYYY-MM-DD" (where YYYY-MM-DD is the date when
+/// the program was compiled) or "Pikafish <Version>", depending on whether
 /// Version is empty.
 
 string engine_info(bool to_uci) {
@@ -149,7 +149,7 @@ string engine_info(bool to_uci) {
   string month, day, year;
   stringstream ss, date(__DATE__); // From compiler, format is "Sep 21 2008"
 
-  ss << "Stockfish-XiangQi " << Version << setfill('0');
+  ss << "Pikafish " << Version << setfill('0');
 
   if (Version.empty())
   {
@@ -158,7 +158,7 @@ string engine_info(bool to_uci) {
   }
 
   ss << (to_uci  ? "\nid author ": " by ") << "PikaCat++"
-     << (to_uci ? "\ninfo string special thanks to VinTeam and Fabian Fichter" : "");
+     << (to_uci ? "\ninfo string special thanks to Vin Team and Fabian Fichter" : "");
 
   return ss.str();
 }
