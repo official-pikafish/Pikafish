@@ -290,11 +290,11 @@ void UCI::loop(int argc, char* argv[]) {
           position(pos, is, states);
       }
       else if (token == "--help" || token == "help" || token == "--license" || token == "license")
-          sync_cout << "\nStockfish-XiangQi is a powerful xiangqi engine for playing and analyzing."
+          sync_cout << "\nPikafish is a powerful xiangqi engine for playing and analyzing."
                        "\nIt is released as free software licensed under the GNU GPLv3 License."
-                       "\nStockfish-XiangQi is normally used with a graphical user interface (GUI) and implements"
+                       "\nPikafish is normally used with a graphical user interface (GUI) and implements"
                        "\nthe Universal Chess Interface (UCI) protocol to communicate with a GUI, an API, etc."
-                       "\nFor any further information, visit https://github.com/PikaCat-OuO/Stockfish-XiangQi#readme"
+                       "\nFor any further information, visit https://github.com/PikaCat-OuO/Pikafish#readme"
                        "\nor read the corresponding README.md and Copying.txt files distributed along with this program.\n" << sync_endl;
       else if (!token.empty() && token[0] != '#')
           sync_cout << "Unknown command: '" << cmd << "'. Type help for more information." << sync_endl;
