@@ -421,7 +421,7 @@ bool Position::gives_check(Move m) const {
       return true;
 
   // Is there a discovered check?
-  if (check_squares(ROOK) & pieces(sideToMove, CANNON))
+  if (attacks_bb<ROOK>(ksq) & pieces(sideToMove, CANNON))
       return checkers_to(sideToMove, ksq, (pieces() ^ from) | to);
   else if ((blockers_for_king(~sideToMove) & from) && !aligned(from, to, ksq))
       return true;
