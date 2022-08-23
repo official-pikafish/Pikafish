@@ -109,7 +109,7 @@ Value Eval::evaluate(const Position& pos, int* complexity) {
   // For debugging without nnue file
   if (complexity)
       *complexity = 0;
-  return pos.non_pawn_material_eval();
+  return pos.material();
 
   Value v = NNUE::evaluate(pos, complexity);
 

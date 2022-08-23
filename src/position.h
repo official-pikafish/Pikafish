@@ -38,7 +38,7 @@ namespace Stockfish {
 struct StateInfo {
 
   // Copied when making a move
-  Value  nonPawnMaterial[COLOR_NB];
+  Value  material[COLOR_NB];
   int    pliesFromNull;
 
   // Not copied when making a move (will be recomputed anyhow)
@@ -139,9 +139,8 @@ public:
   Thread* this_thread() const;
   bool is_repeated(Value& result, int ply = 0) const;
   Bitboard chased() const;
-  Value non_pawn_material(Color c) const;
-  Value non_pawn_material() const;
-  Value non_pawn_material_eval() const;
+  bool not_only_pawn(Color c) const;
+  Value material() const;
 
   // Position consistency check, for debugging
   bool pos_is_ok() const;
@@ -212,7 +211,7 @@ inline Bitboard Position::pieces(Color c, PieceType pt1, PieceType pt2) const {
 }
 
 inline Bitboard Position::pieces(Color c, PieceType pt1, PieceType pt2, PieceType pt3) const {
-    return pieces(c) & (pieces(pt1) | pieces(pt2) | pieces(pt3));
+  return pieces(c) & (pieces(pt1) | pieces(pt2) | pieces(pt3));
 }
 
 template<PieceType Pt> inline int Position::count(Color c) const {
@@ -269,16 +268,12 @@ inline Key Position::key() const {
   return st->key;
 }
 
-inline Value Position::non_pawn_material(Color c) const {
-  return st->nonPawnMaterial[c];
+inline bool Position::not_only_pawn(Color c) const {
+  return count<ALL_PIECES>(c) - count<PAWN>(c);
 }
 
-inline Value Position::non_pawn_material() const {
-  return non_pawn_material(WHITE) + non_pawn_material(BLACK);
-}
-
-inline Value Position::non_pawn_material_eval() const {
-  return non_pawn_material(sideToMove) - non_pawn_material(~sideToMove);
+inline Value Position::material() const {
+  return st->material[sideToMove] - st->material[~sideToMove];
 }
 
 inline int Position::game_ply() const {
