@@ -605,7 +605,7 @@ namespace {
         if (eval == VALUE_NONE)
             ss->staticEval = eval = evaluate(pos, &complexity);
         else // Fall back to semi classical complexity for TT hits, the NNUE complexity is lost
-            complexity = abs(ss->staticEval - pos.non_pawn_material_eval());
+            complexity = abs(ss->staticEval - pos.material());
 
         // ttValue can be used as a better position evaluation (~4 Elo)
         if (    ttValue != VALUE_NONE
@@ -668,7 +668,7 @@ namespace {
         &&  eval >= ss->staticEval
         &&  ss->staticEval >= beta - 15 * depth - improvement / 15 + 201 + complexity / 24
         && !excludedMove
-        &&  pos.non_pawn_material(us)
+        &&  pos.not_only_pawn(us)
         && (ss->ply >= thisThread->nmpMinPly || us != thisThread->nmpColor))
     {
         assert(eval - beta >= 0);
@@ -857,7 +857,7 @@ moves_loop: // When in check, search starts here
 
       // Step 13. Pruning at shallow depth (~98 Elo). Depth conditions are important for mate finding.
       if (  !rootNode
-          && pos.non_pawn_material(us)
+          && pos.not_only_pawn(us)
           && bestValue > VALUE_MATED_IN_MAX_PLY)
       {
           // Skip quiet moves if movecount exceeds our FutilityMoveCount threshold (~7 Elo)

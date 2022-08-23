@@ -196,7 +196,7 @@ void Position::set_check_info(StateInfo* si) const {
 void Position::set_state(StateInfo* si) const {
 
   si->key = 0;
-  si->nonPawnMaterial[WHITE] = si->nonPawnMaterial[BLACK] = VALUE_ZERO;
+  si->material[WHITE] = si->material[BLACK] = VALUE_ZERO;
   si->checkersBB = checkers_to(~sideToMove, square<KING>(sideToMove));
   si->move = MOVE_NONE;
 
@@ -208,8 +208,8 @@ void Position::set_state(StateInfo* si) const {
       Piece pc = piece_on(s);
       si->key ^= Zobrist::psq[pc][s];
 
-      if (type_of(pc) != KING && type_of(pc) != PAWN)
-          si->nonPawnMaterial[color_of(pc)] += PieceValue[MG][pc];
+      if (type_of(pc) != KING)
+          si->material[color_of(pc)] += PieceValue[MG][pc];
   }
 
   if (sideToMove == BLACK)
@@ -476,9 +476,7 @@ void Position::do_move(Move m, StateInfo& newSt, bool givesCheck) {
   {
       Square capsq = to;
 
-      // If the captured piece is not a pawn, update non-pawn material.
-      if (type_of(captured) != PAWN)
-          st->nonPawnMaterial[them] -= PieceValue[MG][captured];
+      st->material[them] -= PieceValue[MG][captured];
 
       dp.dirty_num = 2;  // 1 piece moved, 1 piece captured
       dp.piece[1] = captured;
