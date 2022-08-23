@@ -107,6 +107,8 @@ public:
   // Attacks to/from a given square
   Bitboard attackers_to(Square s) const;
   Bitboard attackers_to(Square s, Bitboard occupied) const;
+  Bitboard checkers_to(Color c, Square s) const;
+  Bitboard checkers_to(Color c, Square s, Bitboard occupied) const;
   template<PieceType Pt> Bitboard attacks_by(Color c) const;
 
   // Properties of moves
@@ -230,13 +232,20 @@ inline Bitboard Position::attackers_to(Square s) const {
   return attackers_to(s, pieces());
 }
 
+inline Bitboard Position::checkers_to(Color c, Square s) const {
+  return checkers_to(c, s, pieces());
+}
+
 template<PieceType Pt>
 inline Bitboard Position::attacks_by(Color c) const {
 
   Bitboard threats = 0;
   Bitboard attackers = pieces(c, Pt);
   while (attackers)
-      threats |= attacks_bb<Pt>(pop_lsb(attackers), pieces());
+      if (Pt == PAWN)
+          threats |= pawn_attacks_bb(c, pop_lsb(attackers));
+      else
+          threats |= attacks_bb<Pt>(pop_lsb(attackers), pieces());
   return threats;
 }
 
