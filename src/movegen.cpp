@@ -127,7 +127,7 @@ ExtMove* generate<LEGAL>(const Position& pos, ExtMove* moveList) {
   Square ksq = pos.square<KING>(us);
   ExtMove* cur = moveList;
 
-  // We also have to take special cares about the cannon and checks
+  // We have to take special cares about the cannon and checks
   bool notOk = pos.checkers() || (attacks_bb<ROOK>(ksq) & pos.pieces(~us, CANNON));
 
   moveList = generate<PSEUDO_LEGAL>(pos, moveList);

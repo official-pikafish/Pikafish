@@ -53,14 +53,14 @@ constexpr Piece Pieces[] = { W_ROOK, W_ADVISOR, W_CANNON, W_PAWN, W_KNIGHT, W_BI
 
 std::ostream& operator<<(std::ostream& os, const Position& pos) {
 
-  os << "\n +---+---+---+---+---+---+---+---+\n";
+  os << "\n +---+---+---+---+---+---+---+---+---+\n";
 
   for (Rank r = RANK_9; r >= RANK_0; --r)
   {
       for (File f = FILE_A; f <= FILE_I; ++f)
           os << " | " << PieceToChar[pos.piece_on(make_square(f, r))];
 
-      os << " | " << (1 + r) << "\n +---+---+---+---+---+---+---+---+---+\n";
+      os << " | " << r << "\n +---+---+---+---+---+---+---+---+---+\n";
   }
 
   os << "   a   b   c   d   e   f   g   h   i\n"
@@ -197,7 +197,7 @@ void Position::set_state(StateInfo* si) const {
 
   si->key = 0;
   si->nonPawnMaterial[WHITE] = si->nonPawnMaterial[BLACK] = VALUE_ZERO;
-  si->checkersBB = attackers_to(square<KING>(sideToMove)) & pieces(~sideToMove);
+  si->checkersBB = checkers_to(~sideToMove, square<KING>(sideToMove));
   si->move = MOVE_NONE;
 
   set_check_info(si);
@@ -278,7 +278,7 @@ string Position::fen() const {
 }
 
 
-/// Position::slider_blockers() returns a bitboard of all the pieces (both colors)
+/// Position::blockers_for_king() returns a bitboard of all the pieces (both colors)
 /// that are blocking attacks on the square 's' from 'sliders'. A piece blocks a
 /// slider if removing that piece from the board would result in a position where
 /// square 's' is attacked. For example, a king-attack blocking piece can be either
@@ -328,6 +328,19 @@ Bitboard Position::attackers_to(Square s, Bitboard occupied) const {
 }
 
 
+/// Position::checkers_to() computes a bitboard of all pieces of a given color
+/// which gives check to a given square. Slider attacks use the occupied bitboard
+/// to indicate occupancy.
+
+Bitboard Position::checkers_to(Color c, Square s, Bitboard occupied) const {
+
+    return ( (pawn_attacks_to_bb(c, s)           & pieces(   PAWN))
+           | (attacks_bb<KNIGHT_TO>(s, occupied) & pieces( KNIGHT))
+           | (attacks_bb<     ROOK>(s, occupied) & pieces(   ROOK))
+           | (attacks_bb<   CANNON>(s, occupied) & pieces( CANNON)) ) & pieces(c);
+}
+
+
 /// Position::legal() tests whether a pseudo-legal move is legal
 
 bool Position::legal(Move m) const {
@@ -350,10 +363,10 @@ bool Position::legal(Move m) const {
   // If the moving piece is a king, check whether the destination square is
   // attacked by the opponent.
   if (type_of(piece_on(from)) == KING)
-      return !(attackers_to(to, occupied) & pieces(~us));
+      return !(checkers_to(~us, to, occupied));
 
   // A non-king move is legal if the king is not under attack after the move.
-  return !(attackers_to(square<KING>(us), occupied) & pieces(~us) & ~square_bb(to));
+  return !(checkers_to(~us, square<KING>(us), occupied) & ~square_bb(to));
 }
 
 
@@ -381,7 +394,7 @@ bool Position::pseudo_legal(const Move m) const {
   if (type_of(pc) == PAWN)
       return pawn_attacks_bb(us, from) & to;
   else if (type_of(pc) == CANNON && !capture(m))
-      return attacks_bb<ROOK>(from, pieces()) & ~pieces() & to;
+      return attacks_bb<ROOK>(from, pieces()) & to;
   else
       return attacks_bb(type_of(pc), from, pieces()) & to;
 }
@@ -396,14 +409,21 @@ bool Position::gives_check(Move m) const {
 
   Square from = from_sq(m);
   Square to = to_sq(m);
+  Square ksq = square<KING>(~sideToMove);
+
+  PieceType pt = type_of(moved_piece(m));
 
   // Is there a direct check?
-  if (check_squares(type_of(piece_on(from))) & to)
+  if (pt == CANNON) {
+      if (attacks_bb<CANNON>(to, (pieces() ^ from) | to) & ksq)
+          return true;
+  } else if (check_squares(pt) & to)
       return true;
 
   // Is there a discovered check?
-  if (   (blockers_for_king(~sideToMove) & from)
-      && !aligned(from, to, square<KING>(~sideToMove)))
+  if (check_squares(ROOK) & pieces(sideToMove, CANNON))
+      return checkers_to(sideToMove, ksq, (pieces() ^ from) | to);
+  else if ((blockers_for_king(~sideToMove) & from) && !aligned(from, to, ksq))
       return true;
 
   return false;
@@ -489,7 +509,7 @@ void Position::do_move(Move m, StateInfo& newSt, bool givesCheck) {
   st->key = k;
 
   // Calculate checkers bitboard (if move gives check)
-  st->checkersBB = givesCheck ? attackers_to(square<KING>(them)) & pieces(us) : 0;
+  st->checkersBB = givesCheck ? checkers_to(us, square<KING>(them)) : 0;
 
   sideToMove = ~sideToMove;
 
@@ -935,7 +955,7 @@ bool Position::pos_is_ok() const {
 
   if (   pieceCount[W_KING] != 1
       || pieceCount[B_KING] != 1
-      || attackers_to(square<KING>(~sideToMove)) & pieces(sideToMove))
+      || checkers_to(sideToMove, square<KING>(~sideToMove)))
       assert(0 && "pos_is_ok: Kings");
 
   if (   (pieces(WHITE, PAWN) & ~PawnBB[WHITE])
