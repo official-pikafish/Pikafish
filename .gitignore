@@ -4,11 +4,11 @@
 src/.depend
 
 # Files from Qt
-Stockfish.pro
-Stockfish.pro.user
+*.pro
+*.pro.user
 
 # Built binary
-src/stockfish*
+src/pikafish*
 src/-lstdc++.res
 
 # Neural network for the NNUE evaluation

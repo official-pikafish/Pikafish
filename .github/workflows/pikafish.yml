@@ -1,4 +1,4 @@
-name: Stockfish
+name: Pikafish
 on:
   push:
     branches:
@@ -10,7 +10,7 @@ on:
       - master
       - tools
 jobs:
-  Stockfish:
+  Pikafish:
     name: ${{ matrix.config.name }}
     runs-on: ${{ matrix.config.os }}
     env:
