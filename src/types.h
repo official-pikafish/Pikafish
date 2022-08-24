@@ -104,7 +104,118 @@ constexpr bool Is64Bit = false;
 #endif
 
 typedef uint64_t Key;
+
+#if defined(__GNUC__) && defined(IS_64BIT)
 typedef __uint128_t Bitboard;
+#else
+
+struct Bitboard {
+    uint64_t b64[2];
+
+    constexpr Bitboard() : b64{ 0, 0 } {}
+    constexpr Bitboard(uint64_t i) : b64{ 0, i } {}
+    constexpr Bitboard(uint64_t hi, uint64_t lo) : b64{ hi, lo } {};
+
+    constexpr operator bool() const {
+        return b64[0] || b64[1];
+    }
+
+    constexpr operator long long unsigned() const {
+        return b64[1];
+    }
+
+    constexpr operator unsigned() const {
+        return b64[1];
+    }
+
+    constexpr Bitboard operator << (const unsigned int bits) const {
+        return Bitboard(bits >= 64 ? b64[1] << (bits - 64)
+            : bits == 0 ? b64[0]
+            : ((b64[0] << bits) | (b64[1] >> (64 - bits))),
+            bits >= 64 ? 0 : b64[1] << bits);
+    }
+
+    constexpr Bitboard operator >> (const unsigned int bits) const {
+        return Bitboard(bits >= 64 ? 0 : b64[0] >> bits,
+            bits >= 64 ? b64[0] >> (bits - 64)
+            : bits == 0 ? b64[1]
+            : ((b64[1] >> bits) | (b64[0] << (64 - bits))));
+    }
+
+    constexpr Bitboard operator << (const int bits) const {
+        return *this << unsigned(bits);
+    }
+
+    constexpr Bitboard operator >> (const int bits) const {
+        return *this >> unsigned(bits);
+    }
+
+    constexpr bool operator == (const Bitboard y) const {
+        return (b64[0] == y.b64[0]) && (b64[1] == y.b64[1]);
+    }
+
+    constexpr bool operator != (const Bitboard y) const {
+        return !(*this == y);
+    }
+
+    inline Bitboard& operator |=(const Bitboard x) {
+        b64[0] |= x.b64[0];
+        b64[1] |= x.b64[1];
+        return *this;
+    }
+    inline Bitboard& operator &=(const Bitboard x) {
+        b64[0] &= x.b64[0];
+        b64[1] &= x.b64[1];
+        return *this;
+    }
+    inline Bitboard& operator ^=(const Bitboard x) {
+        b64[0] ^= x.b64[0];
+        b64[1] ^= x.b64[1];
+        return *this;
+    }
+
+    constexpr Bitboard operator ~ () const {
+        return Bitboard(~b64[0], ~b64[1]);
+    }
+
+    constexpr Bitboard operator - () const {
+        return Bitboard(-b64[0] - (b64[1] > 0), -b64[1]);
+    }
+
+    constexpr Bitboard operator | (const Bitboard x) const {
+        return Bitboard(b64[0] | x.b64[0], b64[1] | x.b64[1]);
+    }
+
+    constexpr Bitboard operator & (const Bitboard x) const {
+        return Bitboard(b64[0] & x.b64[0], b64[1] & x.b64[1]);
+    }
+
+    constexpr Bitboard operator ^ (const Bitboard x) const {
+        return Bitboard(b64[0] ^ x.b64[0], b64[1] ^ x.b64[1]);
+    }
+
+    constexpr Bitboard operator - (const Bitboard x) const {
+        return Bitboard(b64[0] - x.b64[0] - (b64[1] < x.b64[1]), b64[1] - x.b64[1]);
+    }
+
+    constexpr Bitboard operator - (const int x) const {
+        return *this - Bitboard(x);
+    }
+
+    inline Bitboard operator * (const Bitboard x) const {
+        uint64_t a_lo = (uint32_t)b64[1];
+        uint64_t a_hi = b64[1] >> 32;
+        uint64_t b_lo = (uint32_t)x.b64[1];
+        uint64_t b_hi = x.b64[1] >> 32;
+
+        uint64_t t1 = (a_hi * b_lo) + ((a_lo * b_lo) >> 32);
+        uint64_t t2 = (a_lo * b_hi) + (t1 & 0xFFFFFFFF);
+
+        return Bitboard(b64[0] * x.b64[1] + b64[1] * x.b64[0] + (a_hi * b_hi) + (t1 >> 32) + (t2 >> 32),
+            (t2 << 32) + (a_lo * b_lo & 0xFFFFFFFF));
+    }
+};
+#endif
 
 constexpr int MAX_MOVES = 128;
 constexpr int MAX_PLY   = 246;

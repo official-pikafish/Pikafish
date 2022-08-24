@@ -239,7 +239,8 @@ namespace {
   template <PieceType pt>
   void init_magics(Bitboard table[], Magic magics[], const Bitboard magicsInit[]) {
 
-    Bitboard edges, b, size = 0;
+    Bitboard edges, b;
+    uint64_t size = 0;
 
     for (Square s = SQ_A0; s <= SQ_I9; ++s)
     {
