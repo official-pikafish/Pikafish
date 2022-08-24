@@ -507,7 +507,7 @@ void Position::do_move(Move m, StateInfo& newSt, bool givesCheck) {
   st->key = k;
 
   // Calculate checkers bitboard (if move gives check)
-  st->checkersBB = givesCheck ? checkers_to(us, square<KING>(them)) : 0;
+  st->checkersBB = givesCheck ? checkers_to(us, square<KING>(them)) : Bitboard(0);
 
   sideToMove = ~sideToMove;
 
