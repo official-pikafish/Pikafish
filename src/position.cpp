@@ -805,7 +805,8 @@ Bitboard Position::chased() const {
             // - asymmetric pieces ("impaired knight")
             // - pins
             if (attackerType == KNIGHT)
-                attacks &= ~attacks_bb<KNIGHT_TO>(attackerSq, pieces()) | pins;
+                attacks &= ~(attacks_bb<KNIGHT_TO>(attackerSq, pieces()) &
+                             pieces(~sideToMove, KNIGHT)) | pins;
             else
                 attacks &= ~pieces(sideToMove, attackerType) | pins;
             // Attacks against potentially unprotected pieces
