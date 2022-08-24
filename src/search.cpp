@@ -604,7 +604,7 @@ namespace {
         ss->staticEval = eval = tte->eval();
         if (eval == VALUE_NONE)
             ss->staticEval = eval = evaluate(pos, &complexity);
-        else // Fall back to semi classical complexity for TT hits, the NNUE complexity is lost
+        else // Fall back to material complexity for TT hits, the NNUE complexity is lost
             complexity = abs(ss->staticEval - pos.material());
 
         // ttValue can be used as a better position evaluation (~4 Elo)
@@ -1181,17 +1181,15 @@ moves_loop: // When in check, search starts here
         return VALUE_DRAW;
     */
 
-    // Step 20. Check for mate and stalemate
-    // All legal moves have been searched and if there are no legal moves, it
-    // must be a mate or a stalemate. If we are in a singular extension search then
+    // Step 20. Check for mate
+    // All legal moves have been searched and if there are no legal moves,
+    // it must be a mate. If we are in a singular extension search then
     // return a fail low score.
 
     assert(moveCount || !ss->inCheck || excludedMove || !MoveList<LEGAL>(pos).size());
 
     if (!moveCount)
-        bestValue = excludedMove ? alpha :
-                    ss->inCheck  ? mated_in(ss->ply)
-                                 : VALUE_DRAW;
+        bestValue = excludedMove ? alpha : mated_in(ss->ply);
 
     // If there is a move which produces search value greater than alpha we update stats of searched moves
     else if (bestMove)
@@ -1451,9 +1449,9 @@ moves_loop: // When in check, search starts here
        }
     }
 
-    // All legal moves have been searched. A special case: if we're in check
-    // and no legal moves were found, it is checkmate.
-    if (ss->inCheck && bestValue == -VALUE_INFINITE)
+    // All legal moves have been searched. A special case:
+    // if no legal moves were found, it is checkmate.
+    if (bestValue == -VALUE_INFINITE)
     {
         assert(!MoveList<LEGAL>(pos).size());
 
