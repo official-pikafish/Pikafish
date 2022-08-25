@@ -67,6 +67,10 @@ namespace Eval {
   /// NNUE::verify() verifies that the last net used was loaded successfully
   void NNUE::verify() {
 
+  #ifdef SIMPLE_EVAL
+    return;
+  #endif
+
     string eval_file = string(Options["EvalFile"]);
     if (eval_file.empty())
         eval_file = EvalFileDefaultName;
@@ -104,6 +108,13 @@ using namespace Trace;
 /// evaluation of the position from the point of view of the side to move.
 
 Value Eval::evaluate(const Position& pos, int* complexity) {
+
+#ifdef SIMPLE_EVAL
+  // For debugging without nnue file
+  if (complexity)
+    *complexity = 0;
+  return pos.material();
+#endif
 
   Value v = NNUE::evaluate(pos, complexity);
 
