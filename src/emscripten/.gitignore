@@ -1,2 +1,3 @@
-*.js*
-*.wasm*
+pikafish*.js*
+pikafish*.wasm*
+*.nnue
