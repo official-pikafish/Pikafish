@@ -741,6 +741,7 @@ bool Position::is_repeated(Value& result, int ply) const {
     if (st->pliesFromNull >= 4)
     {
         StateInfo* stp = st->previous->previous;
+        int cnt = 0;
         bool perpetualThem = st->checkersBB && stp->checkersBB;
         bool perpetualUs = st->previous->checkersBB && stp->previous->checkersBB;
         Bitboard chaseThem = undo_move_board(st->chased, st->previous->move) & stp->chased;
@@ -754,8 +755,9 @@ bool Position::is_repeated(Value& result, int ply) const {
             stp = stp->previous->previous;
             perpetualThem &= bool(stp->checkersBB);
 
-            // Return a score if a position repeats once earlier.
-            if (stp->key == st->key)
+            // Return a score if a position repeats once earlier but strictly
+            // after the root, or repeats twice before or at the root.
+            if (stp->key == st->key && ++cnt == (ply > i ? 1 : 2))
             {
                 result = (perpetualThem || perpetualUs) ? (!perpetualUs ? mate_in(ply) : !perpetualThem ? mated_in(ply) : VALUE_DRAW)
                          : (chaseThem || chaseUs) ? (!chaseUs ? mate_in(ply) : !chaseThem ? mated_in(ply) : VALUE_DRAW) : VALUE_DRAW;
@@ -805,8 +807,7 @@ Bitboard Position::chased() const {
             // - asymmetric pieces ("impaired knight")
             // - pins
             if (attackerType == KNIGHT)
-                attacks &= ~(attacks_bb<KNIGHT_TO>(attackerSq, pieces()) &
-                             pieces(~sideToMove, KNIGHT)) | pins;
+                attacks &= ~(attacks_bb<KNIGHT_TO>(attackerSq, pieces()) & pieces(sideToMove, KNIGHT)) | pins;
             else
                 attacks &= ~pieces(sideToMove, attackerType) | pins;
             // Attacks against potentially unprotected pieces
