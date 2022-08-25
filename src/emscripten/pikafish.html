@@ -1,0 +1,25 @@
+<head>
+    <script src="pikafish.js"></script>
+</head>
+
+<body>
+    <input type="text" id="incommand">
+    <input type="button" value="SendCommand" onclick="send_command()">
+    <br />
+    <textarea id="output" readonly rows="50" cols="150">
+    </textarea>
+    <script>
+        var pikafish = null;
+        var input = document.getElementById("incommand");
+        var output = document.getElementById("output");
+
+        Pikafish().then(function (p) {
+            pikafish = p;
+            pikafish.read_stdout = msg => output.value += msg + '\n'
+        });
+
+        function send_command() {
+            pikafish.send_command(input.value)
+        }
+    </script>
+</body>

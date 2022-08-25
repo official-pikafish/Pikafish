@@ -36,8 +36,10 @@ int main(int argc, char* argv[]) {
   Search::clear(); // After threads are up
   Eval::NNUE::init();
 
+#ifndef __EMSCRIPTEN__
   UCI::loop(argc, argv);
 
   Threads.set(0);
+#endif
   return 0;
 }
