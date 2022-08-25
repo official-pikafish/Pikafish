@@ -82,4 +82,7 @@ extern UCI::OptionsMap Options;
 
 } // namespace Stockfish
 
+// For web-assembly, we only execute UCI::loop() once in avoid of blocking main thread.
+extern "C" void wasm_uci_execute();
+
 #endif // #ifndef UCI_H_INCLUDED

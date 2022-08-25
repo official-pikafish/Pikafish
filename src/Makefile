@@ -28,7 +28,9 @@ endif
 ### Target Windows OS
 ifeq ($(OS),Windows_NT)
 	ifneq ($(COMP),ndk)
+	ifneq ($(COMP),emscripten)
 		target_windows = yes
+	endif
 	endif
 else ifeq ($(COMP),mingw)
 	target_windows = yes
@@ -40,6 +42,8 @@ endif
 ### Executable name
 ifeq ($(target_windows),yes)
 	EXE = pikafish.exe
+else ifeq ($(COMP),emscripten)
+	EXE = emscripten/pikafish.js
 else
 	EXE = pikafish
 endif
@@ -116,7 +120,8 @@ ifeq ($(ARCH), $(filter $(ARCH), \
                  x86-64-vnni512 x86-64-vnni256 x86-64-avx512 x86-64-avxvnni x86-64-bmi2 \
                  x86-64-avx2 x86-64-sse41-popcnt x86-64-modern x86-64-ssse3 x86-64-sse3-popcnt \
                  x86-64 x86-32-sse41-popcnt x86-32-sse2 x86-32 ppc-64 ppc-32 e2k \
-                 armv7 armv7-neon armv8 apple-silicon general-64 general-32))
+                 armv7 armv7-neon armv8 apple-silicon general-64 general-32 \
+                 wasm-single wasm-multi))
    SUPPORTED_ARCH=true
 else
    SUPPORTED_ARCH=false
@@ -339,6 +344,22 @@ ifeq ($(findstring e2k,$(ARCH)),e2k)
 	popcnt = yes
 endif
 
+ifeq ($(ARCH),wasm-multi)
+	arch = wasm
+	bits = 64
+	wasm_simd = no
+	wasm_multithread = yes
+	assertion = no
+endif
+
+ifeq ($(ARCH),wasm-single)
+	arch = wasm
+	bits = 64
+	wasm_simd = no
+	wasm_multithread = no
+	assertion = no
+endif
+
 endif
 
 ### ==========================================================================
@@ -477,6 +498,45 @@ ifeq ($(COMP),ndk)
 	LDFLAGS += -static-libstdc++ -pie -lm -latomic
 endif
 
+# Compile for webassembly
+ifeq ($(COMP),emscripten)
+	comp=emscripten
+	CXX=em++
+	CXXFLAGS += -flto -DUSE_POPCNT
+	LDFLAGS += \
+		-flto \
+		--pre-js emscripten/preamble.js \
+		-s ENVIRONMENT=web,worker \
+		-s MODULARIZE=1 \
+		-s EXPORT_NAME="Pikafish" \
+		-s ALLOW_MEMORY_GROWTH=1 -s INITIAL_MEMORY=$$((1 << 27)) -s MAXIMUM_MEMORY=$$((1 << 30)) \
+		-s FILESYSTEM=1 \
+		-s EXPORTED_RUNTIME_METHODS="['cwrap']" \
+		-s EXPORTED_FUNCTIONS="['_main', '_wasm_uci_execute']" \
+		-s ALLOW_UNIMPLEMENTED_SYSCALLS \
+		-s DEMANGLE_SUPPORT=1
+
+	ifeq ($(assertion),yes)
+		LDFLAGS += -s ASSERTIONS=1
+	else
+		LDFLAGS += -s ASSERTIONS=0
+	endif
+
+	ifeq ($(wasm_multithread),yes)
+		CXXFLAGS += -pthread
+		LDFLAGS += -s USE_PTHREADS=1 -s PROXY_TO_PTHREAD=1 \
+				   -s PTHREAD_POOL_SIZE=1+navigator.hardwareConcurrency
+	else
+		CXXFLAGS += -DSINGLE_THREAD
+	endif
+
+	ifeq ($(wasm_simd),yes)
+		CXXFLAGS += -DUSE_WASM_SIMD -msimd128
+		SRCS += emscripten/wasm_simd.cpp
+	endif
+endif
+
+
 ifeq ($(comp),icc)
 	profile_make = icc-profile-make
 	profile_use = icc-profile-use
@@ -513,6 +573,7 @@ endif
 
 ### On mingw use Windows threads, otherwise POSIX
 ifneq ($(comp),mingw)
+ifneq ($(comp),emscripten)
 	CXXFLAGS += -DUSE_PTHREADS
 	# On Android Bionic's C library comes with its own pthread implementation bundled in
 	ifneq ($(OS),Android)
@@ -523,6 +584,7 @@ ifneq ($(comp),mingw)
 			endif
 		endif
 	endif
+endif
 endif
 
 ### 3.2.1 Debugging
@@ -825,12 +887,15 @@ install:
 	$(STRIP) $(BINDIR)/$(EXE)
 
 # clean all
-clean: objclean profileclean
+clean: objclean profileclean wasmclean
 	@rm -f .depend *~ core
 
 # clean binaries and objects
 objclean:
 	@rm -f pikafish pikafish.exe *.o ./syzygy/*.o ./nnue/*.o ./nnue/features/*.o
+
+wasmclean:
+	@rm -f emscripten/pikafish.js emscripten/pikafish.wasm 
 
 # clean auxiliary profiling files
 profileclean:
@@ -889,7 +954,8 @@ config-sanity: net
 	@test "$(SUPPORTED_ARCH)" = "true"
 	@test "$(arch)" = "any" || test "$(arch)" = "x86_64" || test "$(arch)" = "i386" || \
 	 test "$(arch)" = "ppc64" || test "$(arch)" = "ppc" || test "$(arch)" = "e2k" || \
-	 test "$(arch)" = "armv7" || test "$(arch)" = "armv8" || test "$(arch)" = "arm64"
+	 test "$(arch)" = "armv7" || test "$(arch)" = "armv8" || test "$(arch)" = "arm64" || \
+	 test "$(arch)" = "wasm"
 	@test "$(bits)" = "32" || test "$(bits)" = "64"
 	@test "$(prefetch)" = "yes" || test "$(prefetch)" = "no"
 	@test "$(popcnt)" = "yes" || test "$(popcnt)" = "no"
@@ -905,9 +971,10 @@ config-sanity: net
 	@test "$(vnni512)" = "yes" || test "$(vnni512)" = "no"
 	@test "$(neon)" = "yes" || test "$(neon)" = "no"
 	@test "$(comp)" = "gcc" || test "$(comp)" = "icc" || test "$(comp)" = "mingw" || test "$(comp)" = "clang" \
-	|| test "$(comp)" = "armv7a-linux-androideabi16-clang"  || test "$(comp)" = "aarch64-linux-android21-clang"
+	|| test "$(comp)" = "armv7a-linux-androideabi16-clang"  || test "$(comp)" = "aarch64-linux-android21-clang" \
+	|| test "$(comp)" = "emscripten"
 
-$(EXE): $(OBJS)
+$(EXE): $(OBJS) emscripten/preamble.js
 	+$(CXX) -o $@ $(OBJS) $(LDFLAGS)
 
 clang-profile-make:
