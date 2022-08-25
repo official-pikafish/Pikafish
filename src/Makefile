@@ -124,6 +124,7 @@ endif
 
 optimize = yes
 debug = no
+simple_eval = no
 sanitize = none
 bits = 64
 prefetch = no
@@ -533,8 +534,13 @@ endif
 
 ### 3.2.2 Debugging with undefined behavior sanitizers
 ifneq ($(sanitize),none)
-        CXXFLAGS += -g3 $(addprefix -fsanitize=,$(sanitize))
-        LDFLAGS += $(addprefix -fsanitize=,$(sanitize))
+    CXXFLAGS += -g3 $(addprefix -fsanitize=,$(sanitize))
+    LDFLAGS += $(addprefix -fsanitize=,$(sanitize))
+endif
+
+### 3.2.3 Debugging with simple eval (no nnue)
+ifeq ($(simple_eval),yes)
+	CXXFLAGS += -DSIMPLE_EVAL
 endif
 
 ### 3.3 Optimization
