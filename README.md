@@ -229,7 +229,7 @@ Nevertheless, a helpful resource.
 
 * The latest source can always be found on [GitHub](https://github.com/PikaCat-OuO/Pikafish).
 Discussions about Pikafish take place these days mainly in the 
-[Vin象棋 连线 / 分布式训练](https://jq.qq.com/?_wv=1027&k=FORWUh4W) QQ group.
+[Pikafish 分布式训练 / Vin象棋连线](https://jq.qq.com/?_wv=1027&k=FORWUh4W) QQ group.
 The engine testing is done on [Fishtest](http://test.stockfishxq.com).
 If you want to help improve Pikafish, please read this [guideline](https://github.com/glinscott/fishtest/wiki/Creating-my-first-test)
 first, where the basics of Pikafish development are explained.
@@ -252,3 +252,15 @@ source code, these changes must also be made available under the GPL v3.
 
 For full details, read the copy of the GPL v3 found in the file named
 [*Copying.txt*](https://github.com/PikaCat-OuO/Pikafish/blob/master/Copying.txt).
+
+The following individuals and organizations are prohibited from using the nnue 
+weights file derived from this program due to their unfriendly actions, activities, and 
+license violations（鉴于近期出现的种种不友好的行为，以下个人和组织将被禁止使用
+由本程序引申出的所有 nnue 权重文件）：
++ 国圣
++ 飞风追云
++ 静香
+
+同时再次强调，根据GPLv3协议，所有基于本程序的修改在做软件分发时需要公开源代码，
+或者指出能编译对应发行版的源代码，否则都是违反GPLv3协议的行为。
+我们所有的引擎发行版可执行文件都可以找到对应的源码，不存在所谓的闭源行为。
