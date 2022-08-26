@@ -51,8 +51,9 @@ namespace {
 
         // To check, you either move freely a blocker or make a direct check.
         if (Type == QUIET_CHECKS)
-            b &= (pos.blockers_for_king(~Us) & from) ? ~line_bb(from, pos.square<KING>(~Us)) :
-                                                       pos.check_squares(Pt);
+            b &= Pt == CANNON ? ~line_bb(from, pos.square<KING>(~Us)) & pos.check_squares(Pt)
+                              : (pos.blockers_for_king(~Us) & from) ? ~line_bb(from, pos.square<KING>(~Us))
+                              : pos.check_squares(Pt);
 
         while (b)
             *moveList++ = make_move(from, pop_lsb(b));
