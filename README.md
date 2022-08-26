@@ -2,7 +2,7 @@
 
 [![Build Status](https://github.com/PikaCat-OuO/Pikafish/actions/workflows/pikafish.yml/badge.svg)](https://github.com/PikaCat-OuO/Pikafish/actions)
 
-[Pikafish](https://stockfishxq.com) is a free, powerful UCI xiangqi engine
+[Pikafish](http://pikafish.org) is a free, powerful UCI xiangqi engine
 derived from Stockfish. Pikafish is not a complete xiangqi program and requires a
 UCI-compatible graphical user interface (GUI) (e.g. VinXiangQi, PengfeiChess or
 BHGUI) in order to be used comfortably. Read the documentation for your GUI of
@@ -147,8 +147,8 @@ network that is guaranteed to be compatible with that binary.
 
 2) to use the NNUE evaluation, the additional data file with neural network parameters
 needs to be available. The filename for the default (recommended) net can be found as 
-the default value of the `EvalFile` UCI option, with the format `xiangqi-weights.nnue`. 
-This file can be downloaded from `http://test.stockfishxq.com`.
+the default value of the `EvalFile` UCI option, with the format `pikafish.nnue`. 
+This file can be downloaded from `http://test.pikafish.org`.
 
 ## Large Pages
 
@@ -213,7 +213,7 @@ effort. There are a few ways to help contribute to its growth.
 Improving Pikafish requires a massive amount of testing. You can donate
 your hardware resources by installing the 
 [Fishtest Worker](https://github.com/xyztnecniV/Fairy-Stockfish-Fishtest-worker)
-and view the current tests on [Fishtest](http://test.stockfishxq.com).
+and view the current tests on [Fishtest](http://test.pikafish.org).
 
 ### Improving the code
 
@@ -230,7 +230,7 @@ Nevertheless, a helpful resource.
 * The latest source can always be found on [GitHub](https://github.com/PikaCat-OuO/Pikafish).
 Discussions about Pikafish take place these days mainly in the 
 [Pikafish 分布式训练 / Vin象棋连线](https://jq.qq.com/?_wv=1027&k=FORWUh4W) QQ group.
-The engine testing is done on [Fishtest](http://test.stockfishxq.com).
+The engine testing is done on [Fishtest](http://test.pikafish.org).
 If you want to help improve Pikafish, please read this [guideline](https://github.com/glinscott/fishtest/wiki/Creating-my-first-test)
 first, where the basics of Pikafish development are explained.
 
@@ -253,6 +253,9 @@ source code, these changes must also be made available under the GPL v3.
 For full details, read the copy of the GPL v3 found in the file named
 [*Copying.txt*](https://github.com/PikaCat-OuO/Pikafish/blob/master/Copying.txt).
 
+
+## Hall of shame
+
 The following individuals and organizations are prohibited from using the nnue 
 weights file derived from this program due to their unfriendly actions, activities, and 
 license violations（鉴于近期出现的种种不友好的行为，以下个人和组织将被禁止使用
@@ -260,7 +263,3 @@ license violations（鉴于近期出现的种种不友好的行为，以下个�
 + 国圣
 + 飞风追云
 + 静香
-
-同时再次强调，根据GPLv3协议，所有基于本程序的修改在做软件分发时需要公开源代码，
-或者指出能编译对应发行版的源代码，否则都是违反GPLv3协议的行为。
-我们所有的引擎发行版可执行文件都可以找到对应的源码，不存在所谓的闭源行为。
