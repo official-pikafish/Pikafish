@@ -1,3 +1,38 @@
+# List of authors for Pikafish
+
+# Founders of the Pikafish project
+PikaCat++ (PikaCat-OuO)
+New Horizons (skystarspython)
+d:blue (dhbloo)
+Vincentzyx
+
+# Founders of the fishtest infrastructure, spsa tuner
+Vincentzyx
+d:blue (dhbloo)
+
+# NNUE trainer, Distributed training
+d:blue (dhbloo)
+Vincentzyx
+张大仙 (fengxs001)
+New Horizons (skystarspython)
+
+# Training data generator
+d:blue (dhbloo)
+张大仙 (fengxs001)
+Vincentzyx
+PikaCat++ (PikaCat-OuO)
+New Horizons (skystarspython)
+
+# Technical support
+Fabian Fichter (ianfab)
+陶然
+
+# Bug hunting
+New Horizons (skystarspython)
+陶然
+afkbad (xiangqishare)
+wxc
+
 # List of authors for Stockfish
 
 # Founders of the Stockfish project and fishtest infrastructure

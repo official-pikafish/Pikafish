@@ -34,6 +34,7 @@ Bitboard SquareBB[SQUARE_NB];
 Bitboard LineBB[SQUARE_NB][SQUARE_NB];
 Bitboard BetweenBB[SQUARE_NB][SQUARE_NB];
 Bitboard PseudoAttacks[PIECE_TYPE_NB][SQUARE_NB];
+Bitboard FullAttacks[PIECE_TYPE_NB][SQUARE_NB];
 Bitboard PawnAttacks[COLOR_NB][SQUARE_NB];
 Bitboard PawnAttacksTo[COLOR_NB][SQUARE_NB];
 
@@ -136,6 +137,13 @@ void Bitboards::init() {
               PseudoAttacks[ADVISOR][s1] |= safe_destination(s1, step);
           PseudoAttacks[ADVISOR][s1] &= Palace;
       }
+
+      // Generate full attacks for king and advisor for discovered attacks detection in chase
+      for (int step : { NORTH, SOUTH, WEST, EAST } )
+          FullAttacks[KING][s1] |= safe_destination(s1, step);
+
+      for (int step : { NORTH_WEST, NORTH_EAST, SOUTH_WEST, SOUTH_EAST } )
+          FullAttacks[ADVISOR][s1] |= safe_destination(s1, step);
 
       for (Square s2 = SQ_A0; s2 <= SQ_I9; ++s2)
       {

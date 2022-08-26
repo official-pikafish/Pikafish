@@ -835,8 +835,8 @@ Bitboard Position::chased() const {
     }
 
     // Discovered attacks
-    Bitboard discoveryCandidates = (KnightMagics[from].mask & pieces(~sideToMove, KNIGHT))
-                                   | (KnightToMagics[from].mask & pieces(~sideToMove, BISHOP))
+    Bitboard discoveryCandidates = (FullAttacks[KING][from] & pieces(~sideToMove, KNIGHT))
+                                   | (FullAttacks[ADVISOR][from] & pieces(~sideToMove, BISHOP))
                                    | (attacks_bb<ROOK>(from) & pieces(~sideToMove, CANNON, ROOK))
                                    | (attacks_bb<ROOK>(to, pieces()) & pieces(~sideToMove, CANNON));
     while (discoveryCandidates)

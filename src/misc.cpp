@@ -157,8 +157,8 @@ string engine_info(bool to_uci) {
       ss << year << "-" << setw(2) << (1 + months.find(month) / 4) << "-" << setw(2) << day;
   }
 
-  ss << (to_uci  ? "\nid author ": " by ") << "PikaCat++"
-     << (to_uci ? "\ninfo string special thanks to Vin Team and Fabian Fichter" : "");
+  ss << (to_uci  ? "\nid author ": " by ") << "the Pikafish developers (see AUTHORS file)"
+     << (to_uci  ? "" : "\nPikafish (http://pikafish.org/) is a free and open source xiangqi engine");
 
   return ss.str();
 }
