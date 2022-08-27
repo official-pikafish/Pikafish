@@ -678,14 +678,6 @@ bool Position::see_ge(Move m, Value threshold) const {
           attackers = nonCannons | cannons;
       }
 
-      else if ((bb = stmAttackers & pieces(BISHOP)))
-      {
-          if ((swap = BishopValueMg - swap) < res)
-              break;
-
-          occupied ^= least_significant_square_bb(bb);
-      }
-
       else if ((bb = stmAttackers & pieces(ADVISOR)))
       {
           if ((swap = AdvisorValueMg - swap) < res)
@@ -696,14 +688,12 @@ bool Position::see_ge(Move m, Value threshold) const {
           attackers = nonCannons | cannons;
       }
 
-      else if ((bb = stmAttackers & pieces(CANNON)))
+      else if ((bb = stmAttackers & pieces(BISHOP)))
       {
-          if ((swap = CannonValueMg - swap) < res)
+          if ((swap = BishopValueMg - swap) < res)
               break;
 
           occupied ^= least_significant_square_bb(bb);
-          cannons = attacks_bb<CANNON>(to, occupied);
-          attackers = nonCannons | cannons;
       }
 
       else if ((bb = stmAttackers & pieces(KNIGHT)))
@@ -712,6 +702,16 @@ bool Position::see_ge(Move m, Value threshold) const {
               break;
 
           occupied ^= least_significant_square_bb(bb);
+      }
+
+      else if ((bb = stmAttackers & pieces(CANNON)))
+      {
+          if ((swap = CannonValueMg - swap) < res)
+              break;
+
+          occupied ^= least_significant_square_bb(bb);
+          cannons = attacks_bb<CANNON>(to, occupied);
+          attackers = nonCannons | cannons;
       }
 
       else if ((bb = stmAttackers & pieces(ROOK)))
