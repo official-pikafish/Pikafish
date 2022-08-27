@@ -28,7 +28,7 @@ jobs:
       - uses: actions/upload-artifact@v3	
         with:	
           name: pikafish	
-          path: src/x86-64*.exe	
+          path: src/x86-64*.exe
 
   linux:
     strategy:
@@ -46,3 +46,18 @@ jobs:
         with:	
           name: pikafish	
           path: src/x86-64-bmi2
+
+  copyleft:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: actions/upload-artifact@v3	
+        with:	
+          name: pikafish	
+          path: |
+            AUTHORS
+            Copying.txt
+            README.md
+            Top CPU Contributors.txt
