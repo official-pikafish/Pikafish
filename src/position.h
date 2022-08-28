@@ -81,7 +81,7 @@ public:
 
   // FEN string input/output
   Position& set(const std::string& fenStr, StateInfo* si, Thread* th);
-  Position& set(const std::string& code, Color c, StateInfo* si);
+  Position& set(const Position& pos, StateInfo* si, Thread* th);
   std::string fen() const;
 
   // Position representation
@@ -169,6 +169,9 @@ private:
   StateInfo* st;
   int gamePly;
   Color sideToMove;
+
+  // Bloom filter for fast repetition filtering
+  BloomFilter filter;
 };
 
 extern std::ostream& operator<<(std::ostream& os, const Position& pos);
@@ -277,7 +280,7 @@ inline Value Position::material() const {
 }
 
 inline int Position::game_ply() const {
-  return gamePly;
+    return gamePly;
 }
 
 inline bool Position::capture(Move m) const {
@@ -332,6 +335,16 @@ inline void Position::do_move(Move m, StateInfo& newSt) {
 inline StateInfo* Position::state() const {
 
   return st;
+}
+
+inline Position& Position::set(const Position& pos, StateInfo* si, Thread* th) {
+
+    set(pos.fen(), si, th);
+
+    // Special cares for bloom filter
+    std::memcpy(&filter, &pos.filter, sizeof(BloomFilter));
+
+    return *this;
 }
 
 } // namespace Stockfish
