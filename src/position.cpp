@@ -217,32 +217,6 @@ void Position::set_state(StateInfo* si) const {
 }
 
 
-/// Position::set() is an overload to initialize the position object with
-/// the given endgame code string like "KBPKN". It is mainly a helper to
-/// get the material key out of an endgame code.
-
-Position& Position::set(const string& code, Color c, StateInfo* si) {
-
-  assert(code[0] == 'K');
-
-  string sides[] = { code.substr(code.find('K', 1)),      // Weak
-                     code.substr(0, std::min(code.find('v'), code.find('K', 1))) }; // Strong
-
-  assert(sides[0].length() > 0 && sides[0].length() < FILE_NB);
-  assert(sides[1].length() > 0 && sides[1].length() < FILE_NB);
-
-  std::transform(sides[c].begin(), sides[c].end(), sides[c].begin(), tolower);
-
-  string n = std::to_string(FILE_NB);
-  string fenStr =  n + "/" + sides[0] + char(FILE_NB - sides[0].length() + '0') +
-                  "/" + n + "/" + n + "/" + n + "/" +
-                  n + "/" + sides[1] + char(FILE_NB - sides[1].length() + '0') +
-                  "/" + n + " w - - 0 10";
-
-  return set(fenStr, si, nullptr);
-}
-
-
 /// Position::fen() returns a FEN representation of the position.
 
 string Position::fen() const {
@@ -439,6 +413,9 @@ void Position::do_move(Move m, StateInfo& newSt, bool givesCheck) {
   assert(is_ok(m));
   assert(&newSt != st);
 
+  // Update the bloom filter
+  ++filter[st->key];
+
   thisThread->nodes.fetch_add(1, std::memory_order_relaxed);
   Key k = st->key ^ Zobrist::side;
 
@@ -450,8 +427,7 @@ void Position::do_move(Move m, StateInfo& newSt, bool givesCheck) {
   st = &newSt;
   st->move = m;
 
-  // Increment ply counters. In particular, rule50 will be reset to zero later on
-  // in case of a capture or a pawn move.
+  // Increment ply counters.
   ++gamePly;
   ++st->pliesFromNull;
 
@@ -546,6 +522,9 @@ void Position::undo_move(Move m) {
   st = st->previous;
   --gamePly;
 
+  // Update the bloom filter
+  --filter[st->key];
+
   assert(pos_is_ok());
 }
 
@@ -557,6 +536,9 @@ void Position::do_null_move(StateInfo& newSt) {
 
   assert(!checkers());
   assert(&newSt != st);
+
+  // Update the bloom filter
+  ++filter[st->key];
 
   std::memcpy(&newSt, st, offsetof(StateInfo, accumulator));
 
@@ -589,6 +571,9 @@ void Position::undo_null_move() {
 
   st = st->previous;
   sideToMove = ~sideToMove;
+
+  // Update the bloom filter
+  --filter[st->key];
 }
 
 
@@ -738,7 +723,8 @@ bool Position::see_ge(Move m, Value threshold) const {
 /// check repetition or perpetual chase repetition that allows a player to claim a game result.
 
 bool Position::is_repeated(Value& result, int ply) const {
-    if (st->pliesFromNull >= 4)
+
+    if (st->pliesFromNull >= 4 && filter[st->key])
     {
         StateInfo* stp = st->previous->previous;
         bool perpetualThem = st->checkersBB && stp->checkersBB;
