@@ -61,11 +61,11 @@ private:
 
 struct BloomFilter {
     constexpr static uint64_t FILTER_SIZE = 1 << 14;
-    uint8_t  operator[](Key key) const { return table[key & (FILTER_SIZE - 1)]; }
-    uint8_t& operator[](Key key)       { return table[key & (FILTER_SIZE - 1)]; }
+    uint16_t  operator[](Key key) const { return table[key & (FILTER_SIZE - 1)]; }
+    uint16_t& operator[](Key key)       { return table[key & (FILTER_SIZE - 1)]; }
 
 private:
-    uint8_t table[1 << 14];
+    uint16_t table[1 << 14];
 };
 
 
