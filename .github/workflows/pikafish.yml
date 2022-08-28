@@ -10,8 +10,8 @@ jobs:
   windows:	
     strategy:	
       matrix:	
-        arch: ["x86-64-vnni512", "x86-64-avx512", "x86-64-bmi2", "x86-64-avx2", "x86-64-modern", "x86-64"]	
-    runs-on: windows-latest	
+        arch: ["-vnni512", "-avx512", "-bmi2", "-avx2", "-modern", ""]	
+    runs-on: windows-latest
 
     steps:	
       - uses: al-cheb/configure-pagefile-action@v1.2	
@@ -23,29 +23,26 @@ jobs:
       - uses: actions/checkout@v3	
 
       - name: make	
-        run: cd src && make clean && make -j build COMP=mingw ARCH=${{ matrix.arch }} EXE=${{ matrix.arch }}.exe && strip ${{ matrix.arch }}.exe	
+        run: cd src && make clean && make -j build COMP=mingw ARCH=x86-64${{ matrix.arch }} EXE=pikafish${{ matrix.arch }}.exe && strip pikafish${{ matrix.arch }}.exe	
 
       - uses: actions/upload-artifact@v3	
         with:	
           name: pikafish	
-          path: src/x86-64*.exe
+          path: src/pikafish*.exe
 
   linux:
-    strategy:
-      matrix:
-        arch: ["x86-64-bmi2"]
     runs-on: ubuntu-18.04
 
     steps:
       - uses: actions/checkout@v3
 
       - name: make
-        run: cd src && make clean && make -j build COMP=gcc ARCH=${{ matrix.arch }} EXE=${{ matrix.arch }} && strip ${{ matrix.arch }}
+        run: cd src && make clean && make -j build COMP=gcc ARCH=x86-64-bmi2 EXE=pikafish-bmi2 && strip pikafish-bmi2
 
       - uses: actions/upload-artifact@v3	
         with:	
           name: pikafish	
-          path: src/x86-64-bmi2
+          path: src/pikafish-bmi2
 
   copyleft:
     runs-on: windows-latest
