@@ -183,8 +183,22 @@ void Position::set_check_info(StateInfo* si) const {
   si->checkSquares[CANNON] = attacks_bb<CANNON>(ksq, pieces());
   si->checkSquares[ROOK]   = attacks_bb<ROOK>(ksq, pieces());
   si->checkSquares[KING]   = si->checkSquares[ADVISOR] = si->checkSquares[BISHOP] = 0;
+}
 
-  si->chased = chased();
+
+/// Position::set_chase_info() sets the chase information from state st - pilesFromNull to state st
+
+void Position::set_chase_info(int pilesFromNull) const {
+
+  // Copy the current position to a rollback struct, so we don't need to do those moves again
+  Position rollback;
+  memcpy((void *)&rollback, (const void *)this, offsetof(Position, filter));
+
+  // Rollback until we reached st - pilesFromNull
+  for (int i = 0; i < pilesFromNull; ++i) {
+      rollback.st->chased = rollback.chased();
+      rollback.undo_move(rollback.st->move);
+  }
 }
 
 
@@ -729,31 +743,52 @@ bool Position::is_repeated(Value& result, int ply) const {
         StateInfo* stp = st->previous->previous;
         bool perpetualThem = st->checkersBB && stp->checkersBB;
         bool perpetualUs = st->previous->checkersBB && stp->previous->checkersBB;
-        Bitboard chaseThem = undo_move_board(st->chased, st->previous->move) & stp->chased;
-        Bitboard chaseUs = undo_move_board(st->previous->chased, stp->move) & stp->previous->chased;
 
         for (int i = 4; i <= st->pliesFromNull; i += 2)
         {
-            // Chased pieces are empty when there is no previous move
-            if (i != st->pliesFromNull)
-                chaseThem = undo_move_board(chaseThem, stp->previous->move) & stp->previous->previous->chased;
             stp = stp->previous->previous;
             perpetualThem &= bool(stp->checkersBB);
 
             // Return a score if a position repeats once earlier.
             if (stp->key == st->key)
             {
-                result = (perpetualThem || perpetualUs) ? (!perpetualUs ? mate_in(ply) : !perpetualThem ? mated_in(ply) : VALUE_DRAW)
-                         : (chaseThem || chaseUs) ? (!chaseUs ? mate_in(ply) : !chaseThem ? mated_in(ply) : VALUE_DRAW) : VALUE_DRAW;
-                return true;
+                if (perpetualThem || perpetualUs) {
+                    result = !perpetualUs ? mate_in(ply) : !perpetualThem ? mated_in(ply) : VALUE_DRAW;
+                    return true;
+                }
+                goto chasing_check;
             }
 
             if (i + 1 <= st->pliesFromNull)
-            {
                 perpetualUs &= bool(stp->previous->checkersBB);
-                chaseUs = undo_move_board(chaseUs, stp->move) & stp->previous->chased;
-            }
         }
+    }
+
+    return false;
+
+chasing_check:
+    set_chase_info(st->pliesFromNull);
+
+    StateInfo* stp = st->previous->previous;
+    Bitboard chaseThem = undo_move_board(st->chased, st->previous->move) & stp->chased;
+    Bitboard chaseUs = undo_move_board(st->previous->chased, stp->move) & stp->previous->chased;
+
+    for (int i = 4; i <= st->pliesFromNull; i += 2)
+    {
+        // Chased pieces are empty when there is no previous move
+        if (i != st->pliesFromNull)
+            chaseThem = undo_move_board(chaseThem, stp->previous->move) & stp->previous->previous->chased;
+        stp = stp->previous->previous;
+
+        // Return a score if a position repeats once earlier.
+        if (stp->key == st->key)
+        {
+            result = (chaseThem || chaseUs) ? (!chaseUs ? mate_in(ply) : !chaseThem ? mated_in(ply) : VALUE_DRAW) : VALUE_DRAW;
+            return true;
+        }
+
+        if (i + 1 <= st->pliesFromNull)
+            chaseUs = undo_move_board(chaseUs, stp->move) & stp->previous->chased;
     }
 
     return false;
@@ -781,6 +816,9 @@ Bitboard Position::chased() const {
         {
             // Exclude attacks on unpromoted pawns and checks
             attacks &= ~(pieces(sideToMove, KING, PAWN) ^ (pieces(sideToMove, PAWN) & HalfBB[~sideToMove]));
+            // Restrict to pinners if pinned
+            if (blockers_for_king(~sideToMove) & attackerSq)
+                attacks &= pinners(sideToMove);
             // Attacks against stronger pieces
             if (attackerType == KNIGHT || attackerType == CANNON)
                 b |= attacks & pieces(sideToMove, ROOK);
@@ -819,6 +857,7 @@ Bitboard Position::chased() const {
     }
 
     // Discovered attacks
+    Bitboard previousOccupancy = (captured_piece() ? pieces() : pieces() ^ to) ^ from;
     Bitboard discoveryCandidates = (FullAttacks[KING][from] & pieces(~sideToMove, KNIGHT))
                                    | (FullAttacks[ADVISOR][from] & pieces(~sideToMove, BISHOP))
                                    | (attacks_bb<ROOK>(from) & pieces(~sideToMove, CANNON, ROOK))
@@ -829,8 +868,42 @@ Bitboard Position::chased() const {
         PieceType discoveryPiece = type_of(piece_on(s));
         Bitboard discoveries = pieces(sideToMove)
                                & attacks_bb(discoveryPiece, s, pieces())
-                               & ~attacks_bb(discoveryPiece, s, (captured_piece() ? pieces() : pieces() ^ to) ^ from);
+                               & ~attacks_bb(discoveryPiece, s, previousOccupancy);
         addChased(s, discoveryPiece, discoveries);
+    }
+
+    // Undermined root
+    Bitboard rootCandidates =  (FullAttacks[KING][to] & pieces(sideToMove, KNIGHT))
+                              | (FullAttacks[ADVISOR][to] & pieces(sideToMove, BISHOP))
+                              | (PseudoAttacks[ROOK][to] & pieces(sideToMove, ROOK, CANNON))
+                              | (PseudoAttacks[ROOK][from] & pieces(sideToMove, CANNON));
+    Bitboard undermineCandidates = 0;
+    // Discover changed roots
+    while (rootCandidates)
+    {
+        Square s = pop_lsb(rootCandidates);
+        PieceType rootPiece = type_of(piece_on(s));
+        undermineCandidates |=   pieces(sideToMove)
+                               & (  (attacks_bb(rootPiece, s, pieces()) & pieces(sideToMove))
+                                  ^ (attacks_bb(rootPiece, s, previousOccupancy) & pieces(sideToMove)));
+    }
+    // Validate effect of changed roots
+    while (undermineCandidates)
+    {
+        Square s = pop_lsb(undermineCandidates);
+        // Ignore pinned attackers unless they capture the pinner
+        Bitboard attackers = attackers_to(s) & pieces(~sideToMove);
+        if (!(pinners(sideToMove) & s))
+            attackers &= ~blockers_for_king(~sideToMove);
+        while (attackers)
+        {
+            Square s2 = pop_lsb(attackers);
+            if (!(attackers_to(s, pieces() ^ s2) & pieces(sideToMove) & ~pins) && (attackers_to(s, previousOccupancy ^ s2) & pieces(sideToMove) & ~pins))
+            {
+                b |= s;
+                break;
+            }
+        }
     }
 
     // Changes in real roots and discovered checks

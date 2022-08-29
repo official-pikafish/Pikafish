@@ -4,9 +4,9 @@
 
 [Pikafish](http://pikafish.org) is a free, powerful UCI xiangqi engine
 derived from Stockfish. Pikafish is not a complete xiangqi program and requires a
-UCI-compatible graphical user interface (GUI) (e.g. VinXiangQi, PengfeiChess or
-BHGUI) in order to be used comfortably. Read the documentation for your GUI of
-choice for information about how to use Pikafish with it.
+UCI-compatible graphical user interface (GUI) (e.g. VinXiangQi or BHGUI) in order
+to be used comfortably. Read the documentation for your GUI of choice for information
+about how to use Pikafish with it.
 
 The Pikafish engine features the efficiently updatable neural network (NNUE) based
 evaluation for xiangqi, which is by far the strongest. The strongest network can be 
@@ -254,12 +254,17 @@ For full details, read the copy of the GPL v3 found in the file named
 [*Copying.txt*](https://github.com/PikaCat-OuO/Pikafish/blob/master/Copying.txt).
 
 
+## Goal of the project
+The current goal of the project is to make Pikafish suppress all commercial engines and become the top 1. Terminating the domination of those commercial engines like AlphaCat, BugChess, and Cyclone in xiangqi. Making the strongest xiangqi engine free and open source to everyone.
+
+I believe if Stockfish can do that for chess, Pikafish can do that for xiangqi.
+
+
 ## Hall of shame
 
 The following individuals and organizations are prohibited from using the nnue 
 weights file derived from this program due to their unfriendly actions, activities, and 
-license violations（鉴于近期出现的种种不友好的行为，以下个人和组织将被禁止使用
-由本程序引申出的所有 nnue 权重文件）：
+license violations（鉴于近期出现的种种不友好的行为，以下个人和组织将被禁止使用由本程序引申出的所有 nnue 权重文件）：
++ AlanThinker (鹏飞象棋)
 + 国圣
 + 飞风追云
-+ 静香
