@@ -816,6 +816,9 @@ Bitboard Position::chased() const {
         {
             // Exclude attacks on unpromoted pawns and checks
             attacks &= ~(pieces(sideToMove, KING, PAWN) ^ (pieces(sideToMove, PAWN) & HalfBB[~sideToMove]));
+            // Restrict to pinners if pinned
+            if (blockers_for_king(~sideToMove) & attackerSq)
+                attacks &= pinners(sideToMove);
             // Attacks against stronger pieces
             if (attackerType == KNIGHT || attackerType == CANNON)
                 b |= attacks & pieces(sideToMove, ROOK);
@@ -854,6 +857,7 @@ Bitboard Position::chased() const {
     }
 
     // Discovered attacks
+    Bitboard previousOccupancy = (captured_piece() ? pieces() : pieces() ^ to) ^ from;
     Bitboard discoveryCandidates = (FullAttacks[KING][from] & pieces(~sideToMove, KNIGHT))
                                    | (FullAttacks[ADVISOR][from] & pieces(~sideToMove, BISHOP))
                                    | (attacks_bb<ROOK>(from) & pieces(~sideToMove, CANNON, ROOK))
@@ -864,8 +868,42 @@ Bitboard Position::chased() const {
         PieceType discoveryPiece = type_of(piece_on(s));
         Bitboard discoveries = pieces(sideToMove)
                                & attacks_bb(discoveryPiece, s, pieces())
-                               & ~attacks_bb(discoveryPiece, s, (captured_piece() ? pieces() : pieces() ^ to) ^ from);
+                               & ~attacks_bb(discoveryPiece, s, previousOccupancy);
         addChased(s, discoveryPiece, discoveries);
+    }
+
+    // Undermined root
+    Bitboard rootCandidates =  (FullAttacks[KING][to] & pieces(sideToMove, KNIGHT))
+                              | (FullAttacks[ADVISOR][to] & pieces(sideToMove, BISHOP))
+                              | (PseudoAttacks[ROOK][to] & pieces(sideToMove, ROOK, CANNON))
+                              | (PseudoAttacks[ROOK][from] & pieces(sideToMove, CANNON));
+    Bitboard undermineCandidates = 0;
+    // Discover changed roots
+    while (rootCandidates)
+    {
+        Square s = pop_lsb(rootCandidates);
+        PieceType rootPiece = type_of(piece_on(s));
+        undermineCandidates |=   pieces(sideToMove)
+                               & (  (attacks_bb(rootPiece, s, pieces()) & pieces(sideToMove))
+                                  ^ (attacks_bb(rootPiece, s, previousOccupancy) & pieces(sideToMove)));
+    }
+    // Validate effect of changed roots
+    while (undermineCandidates)
+    {
+        Square s = pop_lsb(undermineCandidates);
+        // Ignore pinned attackers unless they capture the pinner
+        Bitboard attackers = attackers_to(s) & pieces(~sideToMove);
+        if (!(pinners(sideToMove) & s))
+            attackers &= ~blockers_for_king(~sideToMove);
+        while (attackers)
+        {
+            Square s2 = pop_lsb(attackers);
+            if (!(attackers_to(s, pieces() ^ s2) & pieces(sideToMove) & ~pins) && (attackers_to(s, previousOccupancy ^ s2) & pieces(sideToMove) & ~pins))
+            {
+                b |= s;
+                break;
+            }
+        }
     }
 
     // Changes in real roots and discovered checks
