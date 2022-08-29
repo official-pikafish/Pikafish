@@ -4,9 +4,9 @@
 
 [Pikafish](http://pikafish.org) is a free, powerful UCI xiangqi engine
 derived from Stockfish. Pikafish is not a complete xiangqi program and requires a
-UCI-compatible graphical user interface (GUI) (e.g. VinXiangQi, PengfeiChess or
-BHGUI) in order to be used comfortably. Read the documentation for your GUI of
-choice for information about how to use Pikafish with it.
+UCI-compatible graphical user interface (GUI) (e.g. VinXiangQi or BHGUI) in order
+to be used comfortably. Read the documentation for your GUI of choice for information
+about how to use Pikafish with it.
 
 The Pikafish engine features the efficiently updatable neural network (NNUE) based
 evaluation for xiangqi, which is by far the strongest. The strongest network can be 
