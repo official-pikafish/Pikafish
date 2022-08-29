@@ -159,6 +159,7 @@ private:
 
   // Other helpers
   void move_piece(Square from, Square to);
+  void set_chase_info(int pilesFromNull) const;
 
   // Data members
   Piece board[SQUARE_NB];
