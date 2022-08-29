@@ -183,8 +183,22 @@ void Position::set_check_info(StateInfo* si) const {
   si->checkSquares[CANNON] = attacks_bb<CANNON>(ksq, pieces());
   si->checkSquares[ROOK]   = attacks_bb<ROOK>(ksq, pieces());
   si->checkSquares[KING]   = si->checkSquares[ADVISOR] = si->checkSquares[BISHOP] = 0;
+}
 
-  si->chased = chased();
+
+/// Position::set_chase_info() sets the chase information from state st - pilesFromNull to state st
+
+void Position::set_chase_info(int pilesFromNull) const {
+
+  // Copy the current position to a rollback struct, so we don't need to do those moves again
+  Position rollback;
+  memcpy((void *)&rollback, (const void *)this, offsetof(Position, filter));
+
+  // Rollback until we reached st - pilesFromNull
+  for (int i = 0; i < pilesFromNull; ++i) {
+      rollback.st->chased = rollback.chased();
+      rollback.undo_move(rollback.st->move);
+  }
 }
 
 
@@ -729,31 +743,52 @@ bool Position::is_repeated(Value& result, int ply) const {
         StateInfo* stp = st->previous->previous;
         bool perpetualThem = st->checkersBB && stp->checkersBB;
         bool perpetualUs = st->previous->checkersBB && stp->previous->checkersBB;
-        Bitboard chaseThem = undo_move_board(st->chased, st->previous->move) & stp->chased;
-        Bitboard chaseUs = undo_move_board(st->previous->chased, stp->move) & stp->previous->chased;
 
         for (int i = 4; i <= st->pliesFromNull; i += 2)
         {
-            // Chased pieces are empty when there is no previous move
-            if (i != st->pliesFromNull)
-                chaseThem = undo_move_board(chaseThem, stp->previous->move) & stp->previous->previous->chased;
             stp = stp->previous->previous;
             perpetualThem &= bool(stp->checkersBB);
 
             // Return a score if a position repeats once earlier.
             if (stp->key == st->key)
             {
-                result = (perpetualThem || perpetualUs) ? (!perpetualUs ? mate_in(ply) : !perpetualThem ? mated_in(ply) : VALUE_DRAW)
-                         : (chaseThem || chaseUs) ? (!chaseUs ? mate_in(ply) : !chaseThem ? mated_in(ply) : VALUE_DRAW) : VALUE_DRAW;
-                return true;
+                if (perpetualThem || perpetualUs) {
+                    result = !perpetualUs ? mate_in(ply) : !perpetualThem ? mated_in(ply) : VALUE_DRAW;
+                    return true;
+                }
+                goto chasing_check;
             }
 
             if (i + 1 <= st->pliesFromNull)
-            {
                 perpetualUs &= bool(stp->previous->checkersBB);
-                chaseUs = undo_move_board(chaseUs, stp->move) & stp->previous->chased;
-            }
         }
+    }
+
+    return false;
+
+chasing_check:
+    set_chase_info(st->pliesFromNull);
+
+    StateInfo* stp = st->previous->previous;
+    Bitboard chaseThem = undo_move_board(st->chased, st->previous->move) & stp->chased;
+    Bitboard chaseUs = undo_move_board(st->previous->chased, stp->move) & stp->previous->chased;
+
+    for (int i = 4; i <= st->pliesFromNull; i += 2)
+    {
+        // Chased pieces are empty when there is no previous move
+        if (i != st->pliesFromNull)
+            chaseThem = undo_move_board(chaseThem, stp->previous->move) & stp->previous->previous->chased;
+        stp = stp->previous->previous;
+
+        // Return a score if a position repeats once earlier.
+        if (stp->key == st->key)
+        {
+            result = (chaseThem || chaseUs) ? (!chaseUs ? mate_in(ply) : !chaseThem ? mated_in(ply) : VALUE_DRAW) : VALUE_DRAW;
+            return true;
+        }
+
+        if (i + 1 <= st->pliesFromNull)
+            chaseUs = undo_move_board(chaseUs, stp->move) & stp->previous->chased;
     }
 
     return false;
