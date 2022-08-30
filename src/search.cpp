@@ -52,7 +52,7 @@ namespace {
 
   // Futility margin
   Value futility_margin(Depth d, bool improving) {
-    return Value(108 * (d - improving));
+    return Value(96 * (d - improving));
   }
 
   // Reductions lookup table, initialized at startup
@@ -60,7 +60,7 @@ namespace {
 
   Depth reduction(bool i, Depth d, int mn, Value delta, Value rootDelta) {
     int r = Reductions[d] * Reductions[mn];
-    return (r + 1463 - int(delta) * 1024 / int(rootDelta)) / 1024 + (!i && r > 1010);
+    return (r + 1662 - int(delta) * 1024 / int(rootDelta)) / 1024 + (!i && r > 969);
   }
 
   constexpr int futility_move_count(bool improving, Depth depth) {
@@ -70,7 +70,7 @@ namespace {
 
   // History and stats update bonus, based on depth
   int stat_bonus(Depth d) {
-    return std::min((8 * d + 240) * d - 276 , 1907);
+    return std::min((8 * d + 241) * d - 282, 1790);
   }
 
   // Add a small random component to draw evaluations to avoid 3-fold blindness
@@ -128,7 +128,7 @@ namespace {
 void Search::init() {
 
   for (int i = 1; i < MAX_MOVES; ++i)
-      Reductions[i] = int((20.81 + std::log(Threads.size()) / 2) * std::log(i));
+      Reductions[i] = int((19.21 + std::log(Threads.size()) / 2) * std::log(i));
 }
 
 
@@ -269,7 +269,7 @@ void Thread::search() {
 
   multiPV = std::min(multiPV, rootMoves.size());
 
-  complexityAverage.set(174, 1);
+  complexityAverage.set(172, 1);
 
   int searchAgainCounter = 0;
 
@@ -644,7 +644,7 @@ namespace {
     // return a fail low.
     if (   !PvNode
         && depth <= 7
-        && eval < alpha - 348 - 258 * depth * depth)
+        && eval < alpha - 356 - 237 * depth * depth)
     {
         value = qsearch<NonPV>(pos, ss, alpha - 1, alpha);
         if (value < alpha)
@@ -655,18 +655,18 @@ namespace {
     // The depth condition is important for mate finding.
     if (   !ss->ttPv
         &&  depth < 8
-        &&  eval - futility_margin(depth, improving) - (ss-1)->statScore / 213 >= beta
+        &&  eval - futility_margin(depth, improving) - (ss-1)->statScore / 220 >= beta
         &&  eval >= beta
-        &&  eval < 26305) // larger than VALUE_KNOWN_WIN, but smaller than TB wins.
+        &&  eval < 25199) // larger than VALUE_KNOWN_WIN, but smaller than TB wins.
         return eval;
 
     // Step 8. Null move search with verification search (~22 Elo)
     if (   !PvNode
         && (ss-1)->currentMove != MOVE_NULL
-        && (ss-1)->statScore < 14695
+        && (ss-1)->statScore < 14449
         &&  eval >= beta
         &&  eval >= ss->staticEval
-        &&  ss->staticEval >= beta - 15 * depth - improvement / 15 + 201 + complexity / 24
+        &&  ss->staticEval >= beta - 15 * depth - improvement / 15 + 152 + complexity / 24
         && !excludedMove
         &&  pos.not_only_pawn(us)
         && (ss->ply >= thisThread->nmpMinPly || us != thisThread->nmpColor))
@@ -674,7 +674,7 @@ namespace {
         assert(eval - beta >= 0);
 
         // Null move dynamic reduction based on depth, eval and complexity of position
-        Depth R = std::min(int(eval - beta) / 147, 5) + depth / 3 + 4 - (complexity > 650);
+        Depth R = std::min(int(eval - beta) / 146, 5) + depth / 3 + 4 - (complexity > 635);
 
         ss->currentMove = MOVE_NULL;
         ss->continuationHistory = &thisThread->continuationHistory[0][0][NO_PIECE][0];
@@ -876,7 +876,7 @@ moves_loop: // When in check, search starts here
                   continue;
 
               // SEE based pruning (~9 Elo)
-              if (!pos.see_ge(move, Value(-203) * depth))
+              if (!pos.see_ge(move, Value(-210) * depth + Value(10)))
                   continue;
           }
           else
@@ -895,11 +895,11 @@ moves_loop: // When in check, search starts here
               // Futility pruning: parent node (~9 Elo)
               if (   !ss->inCheck
                   && lmrDepth < 11
-                  && ss->staticEval + 124 + 140 * lmrDepth + history / 62 <= alpha)
+                  && ss->staticEval + 128 + 134 * lmrDepth + history / 66 <= alpha)
                   continue;
 
               // Prune moves with negative SEE (~3 Elo)
-              if (!pos.see_ge(move, Value(-25 * lmrDepth * lmrDepth - 20 * lmrDepth)))
+              if (!pos.see_ge(move, Value(-26 * lmrDepth * lmrDepth - 21 * lmrDepth)))
                   continue;
           }
       }
