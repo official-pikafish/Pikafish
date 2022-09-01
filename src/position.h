@@ -139,7 +139,6 @@ public:
   Thread* this_thread() const;
   bool is_repeated(Value& result, int ply = 0) const;
   Bitboard chased(Color c);
-  bool not_only_pawn(Color c) const;
   Value material_sum() const;
   Value material() const;
 
@@ -273,10 +272,6 @@ inline Bitboard Position::check_squares(PieceType pt) const {
 
 inline Key Position::key() const {
   return st->key;
-}
-
-inline bool Position::not_only_pawn(Color c) const {
-  return count<ALL_PIECES>(c) - count<PAWN>(c);
 }
 
 inline Value Position::material_sum() const {
