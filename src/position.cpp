@@ -758,12 +758,12 @@ void Position::light_undo_move(Move m, Piece captured) {
 }
 
 
-/// Position::set_chase_info() sets the chase information from state st - pilesFromNull to state st
+/// Position::set_chase_info() sets the chase information from state st - d to state st
 
-void Position::set_chase_info(int pilesFromNull) {
+void Position::set_chase_info(int d) {
 
-    // Rollback until we reached st - pilesFromNull
-    for (int i = 0; i < pilesFromNull; ++i) {
+    // Rollback until we reached st - d
+    for (int i = 0; i < d; ++i) {
         Bitboard chase = chased(~sideToMove);
         light_undo_move(st->move, st->capturedPiece);
         // Take the exact diff to detect the chase
@@ -784,7 +784,8 @@ Bitboard Position::chased(Color c) {
 
     // King and pawn can legally perpetual chase
     Bitboard attackers = pieces(sideToMove) & ~pieces(sideToMove, KING, PAWN);
-    while (attackers) {
+    while (attackers)
+    {
         Square from = pop_lsb(attackers);
         PieceType attackerType = type_of(piece_on(from));
         Bitboard attacks = attacks_bb(attackerType, from, pieces()) & pieces(~sideToMove) & ~b;
@@ -799,22 +800,26 @@ Bitboard Position::chased(Color c) {
         if (attackerType == BISHOP || attackerType == ADVISOR)
             candidates = attacks & pieces(~sideToMove, ROOK, CANNON, KNIGHT);
         attacks ^= candidates;
-        while (candidates) {
+        while (candidates)
+        {
             Square to = pop_lsb(candidates);
             if (legal(make_move(from, to)))
                 b |= to;
         }
 
         // Attacks against potentially unprotected pieces
-        while (attacks) {
+        while (attacks)
+        {
             Square to = pop_lsb(attacks);
             Move m = make_move(from, to);
 
-            if (legal(m)) {
+            if (legal(m))
+            {
                 bool trueChase = true;
                 Piece captured = light_do_move(m);
                 Bitboard recaptures = attackers_to(to) & pieces(sideToMove);
-                while (recaptures) {
+                while (recaptures)
+                {
                     Square s = pop_lsb(recaptures);
                     if (legal(make_move(s, to))) {
                         trueChase = false;
@@ -822,9 +827,12 @@ Bitboard Position::chased(Color c) {
                     }
                 }
                 light_undo_move(m, captured);
-                if (trueChase) {
+
+                if (trueChase)
+                {
                     // Exclude mutual/symmetric attacks except pins
-                    if (attackerType == type_of(piece_on(to))) {
+                    if (attackerType == type_of(piece_on(to)))
+                    {
                         sideToMove = ~sideToMove;
                         if (!legal(make_move(to, from)))
                             b |= to;
@@ -863,47 +871,45 @@ bool Position::is_repeated(Value& result, int ply) const {
         // Return a score if a position repeats once earlier.
         if (stp->key == st->key)
         {
-            if (perpetualThem || perpetualUs) {
+            if (perpetualThem || perpetualUs)
+            {
                 result = !perpetualUs ? mate_in(ply) : !perpetualThem ? mated_in(ply) : VALUE_DRAW;
                 return true;
             }
-            goto chasing_check;
+
+            // Copy the current position to a rollback struct, so we don't need to do those moves again
+            Position rollback;
+            memcpy((void *)&rollback, (const void *)this, offsetof(Position, filter));
+
+            // Set up chase information
+            rollback.set_chase_info(std::min(i + 1, st->pliesFromNull));
+
+            // Chasing detection
+            stp = st->previous->previous;
+            Bitboard chaseThem = undo_move_board(st->chased, st->previous->move) & stp->chased;
+            Bitboard chaseUs = undo_move_board(st->previous->chased, stp->move) & stp->previous->chased;
+
+            for (i = 4; i <= st->pliesFromNull; i += 2)
+            {
+                // Chased pieces are empty when there is no previous move
+                if (i != st->pliesFromNull)
+                    chaseThem = undo_move_board(chaseThem, stp->previous->move) & stp->previous->previous->chased;
+                stp = stp->previous->previous;
+
+                // Return a score if a position repeats once earlier.
+                if (stp->key == st->key)
+                {
+                    result = (chaseThem || chaseUs) ? (!chaseUs ? mate_in(ply) : !chaseThem ? mated_in(ply) : VALUE_DRAW) : VALUE_DRAW;
+                    return true;
+                }
+
+                if (i + 1 <= st->pliesFromNull)
+                    chaseUs = undo_move_board(chaseUs, stp->move) & stp->previous->chased;
+            }
         }
 
         if (i + 1 <= st->pliesFromNull)
             perpetualUs &= bool(stp->previous->checkersBB);
-    }
-
-    return false;
-
-chasing_check:
-    // Copy the current position to a rollback struct, so we don't need to do those moves again
-    Position rollback;
-    memcpy((void *)&rollback, (const void *)this, offsetof(Position, filter));
-
-    // Set up chase information
-    rollback.set_chase_info(st->pliesFromNull);
-
-    stp = st->previous->previous;
-    Bitboard chaseThem = undo_move_board(st->chased, st->previous->move) & stp->chased;
-    Bitboard chaseUs = undo_move_board(st->previous->chased, stp->move) & stp->previous->chased;
-
-    for (int i = 4; i <= st->pliesFromNull; i += 2)
-    {
-        // Chased pieces are empty when there is no previous move
-        if (i != st->pliesFromNull)
-            chaseThem = undo_move_board(chaseThem, stp->previous->move) & stp->previous->previous->chased;
-        stp = stp->previous->previous;
-
-        // Return a score if a position repeats once earlier.
-        if (stp->key == st->key)
-        {
-            result = (chaseThem || chaseUs) ? (!chaseUs ? mate_in(ply) : !chaseThem ? mated_in(ply) : VALUE_DRAW) : VALUE_DRAW;
-            return true;
-        }
-
-        if (i + 1 <= st->pliesFromNull)
-            chaseUs = undo_move_board(chaseUs, stp->move) & stp->previous->chased;
     }
 
     return false;

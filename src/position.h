@@ -161,7 +161,7 @@ private:
   void move_piece(Square from, Square to);
   Piece light_do_move(Move m);
   void light_undo_move(Move m, Piece captured);
-  void set_chase_info(int pilesFromNull);
+  void set_chase_info(int d);
 
   // Data members
   Piece board[SQUARE_NB];
