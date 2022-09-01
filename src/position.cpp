@@ -186,22 +186,6 @@ void Position::set_check_info(StateInfo* si) const {
 }
 
 
-/// Position::set_chase_info() sets the chase information from state st - pilesFromNull to state st
-
-void Position::set_chase_info(int pilesFromNull) const {
-
-  // Copy the current position to a rollback struct, so we don't need to do those moves again
-  Position rollback;
-  memcpy((void *)&rollback, (const void *)this, offsetof(Position, filter));
-
-  // Rollback until we reached st - pilesFromNull
-  for (int i = 0; i < pilesFromNull; ++i) {
-      rollback.st->chased = rollback.chased();
-      rollback.undo_move(rollback.st->move);
-  }
-}
-
-
 /// Position::set_state() computes the hash keys of the position, and other
 /// data that once computed is updated incrementally as moves are made.
 /// The function is only used when a new position is set up, and to verify
@@ -733,227 +717,202 @@ bool Position::see_ge(Move m, Value threshold) const {
   return bool(res);
 }
 
+
+/// light_do_move() just like do move, but a little lighter
+
+Piece Position::light_do_move(Move m) {
+
+    Square from = from_sq(m);
+    Square to = to_sq(m);
+    Piece captured = piece_on(to);
+
+    if (captured)
+        // Update board and piece lists
+        remove_piece(to);
+
+    move_piece(from, to);
+
+    sideToMove = ~sideToMove;
+
+    return captured;
+}
+
+
+/// light_undo_move() just like undo move, but a little lighter
+
+void Position::light_undo_move(Move m, Piece captured) {
+
+    sideToMove = ~sideToMove;
+
+    Square from = from_sq(m);
+    Square to = to_sq(m);
+
+    move_piece(to, from); // Put the piece back at the source square
+
+    if (captured)
+    {
+        Square capsq = to;
+
+        put_piece(captured, capsq); // Restore the captured piece
+    }
+}
+
+
+/// Position::set_chase_info() sets the chase information from state st - d to state st
+
+void Position::set_chase_info(int d) {
+
+    // Rollback until we reached st - d
+    for (int i = 0; i < d; ++i) {
+        Bitboard chase = chased(~sideToMove);
+        light_undo_move(st->move, st->capturedPiece);
+        // Take the exact diff to detect the chase
+        st->chased = chase & ~chased(sideToMove);
+        st = st->previous;
+    }
+}
+
+
+/// Position::chased() calculate the chase information for a given color.
+
+Bitboard Position::chased(Color c) {
+    Bitboard b = 0;
+    if (st->move == MOVE_NONE)
+        return b;
+
+    std::swap(c, sideToMove);
+
+    // King and pawn can legally perpetual chase
+    Bitboard attackers = pieces(sideToMove) & ~pieces(sideToMove, KING, PAWN);
+    while (attackers)
+    {
+        Square from = pop_lsb(attackers);
+        PieceType attackerType = type_of(piece_on(from));
+        Bitboard attacks = attacks_bb(attackerType, from, pieces()) & pieces(~sideToMove) & ~b;
+
+        // Exclude attacks on unpromoted pawns and checks
+        attacks &= ~(pieces(~sideToMove, KING, PAWN) ^ (pieces(~sideToMove, PAWN) & HalfBB[sideToMove]));
+
+        // Attacks against stronger pieces
+        Bitboard candidates = 0;
+        if (attackerType == KNIGHT || attackerType == CANNON)
+            candidates = attacks & pieces(~sideToMove, ROOK);
+        if (attackerType == BISHOP || attackerType == ADVISOR)
+            candidates = attacks & pieces(~sideToMove, ROOK, CANNON, KNIGHT);
+        attacks ^= candidates;
+        while (candidates)
+        {
+            Square to = pop_lsb(candidates);
+            if (legal(make_move(from, to)))
+                b |= to;
+        }
+
+        // Attacks against potentially unprotected pieces
+        while (attacks)
+        {
+            Square to = pop_lsb(attacks);
+            Move m = make_move(from, to);
+
+            if (legal(m))
+            {
+                bool trueChase = true;
+                Piece captured = light_do_move(m);
+                Bitboard recaptures = attackers_to(to) & pieces(sideToMove);
+                while (recaptures)
+                {
+                    Square s = pop_lsb(recaptures);
+                    if (legal(make_move(s, to))) {
+                        trueChase = false;
+                        break;
+                    }
+                }
+                light_undo_move(m, captured);
+
+                if (trueChase)
+                {
+                    // Exclude mutual/symmetric attacks except pins
+                    if (attackerType == type_of(piece_on(to)))
+                    {
+                        sideToMove = ~sideToMove;
+                        if (!legal(make_move(to, from)))
+                            b |= to;
+                        sideToMove = ~sideToMove;
+                    }
+                    else
+                        b |= to;
+                }
+            }
+        }
+    }
+
+    std::swap(c, sideToMove);
+
+    return b;
+}
+
+
 /// Position::is_repeated() tests whether the position may end the game by draw repetition, perpetual
 /// check repetition or perpetual chase repetition that allows a player to claim a game result.
 
 bool Position::is_repeated(Value& result, int ply) const {
 
-    if (st->pliesFromNull >= 4 && filter[st->key])
-    {
-        StateInfo* stp = st->previous->previous;
-        bool perpetualThem = st->checkersBB && stp->checkersBB;
-        bool perpetualUs = st->previous->checkersBB && stp->previous->checkersBB;
-
-        for (int i = 4; i <= st->pliesFromNull; i += 2)
-        {
-            stp = stp->previous->previous;
-            perpetualThem &= bool(stp->checkersBB);
-
-            // Return a score if a position repeats once earlier.
-            if (stp->key == st->key)
-            {
-                if (perpetualThem || perpetualUs) {
-                    result = !perpetualUs ? mate_in(ply) : !perpetualThem ? mated_in(ply) : VALUE_DRAW;
-                    return true;
-                }
-                goto chasing_check;
-            }
-
-            if (i + 1 <= st->pliesFromNull)
-                perpetualUs &= bool(stp->previous->checkersBB);
-        }
-    }
-
-    return false;
-
-chasing_check:
-    set_chase_info(st->pliesFromNull);
+    if (st->pliesFromNull < 4 || !filter[st->key])
+        return false;
 
     StateInfo* stp = st->previous->previous;
-    Bitboard chaseThem = undo_move_board(st->chased, st->previous->move) & stp->chased;
-    Bitboard chaseUs = undo_move_board(st->previous->chased, stp->move) & stp->previous->chased;
+    bool perpetualThem = st->checkersBB && stp->checkersBB;
+    bool perpetualUs = st->previous->checkersBB && stp->previous->checkersBB;
 
     for (int i = 4; i <= st->pliesFromNull; i += 2)
     {
-        // Chased pieces are empty when there is no previous move
-        if (i != st->pliesFromNull)
-            chaseThem = undo_move_board(chaseThem, stp->previous->move) & stp->previous->previous->chased;
         stp = stp->previous->previous;
+        perpetualThem &= bool(stp->checkersBB);
 
         // Return a score if a position repeats once earlier.
         if (stp->key == st->key)
         {
-            result = (chaseThem || chaseUs) ? (!chaseUs ? mate_in(ply) : !chaseThem ? mated_in(ply) : VALUE_DRAW) : VALUE_DRAW;
-            return true;
+            if (perpetualThem || perpetualUs)
+            {
+                result = !perpetualUs ? mate_in(ply) : !perpetualThem ? mated_in(ply) : VALUE_DRAW;
+                return true;
+            }
+
+            // Copy the current position to a rollback struct, so we don't need to do those moves again
+            Position rollback;
+            memcpy((void *)&rollback, (const void *)this, offsetof(Position, filter));
+
+            // Set up chase information
+            rollback.set_chase_info(std::min(i + 1, st->pliesFromNull));
+
+            // Chasing detection
+            stp = st->previous->previous;
+            Bitboard chaseThem = undo_move_board(st->chased, st->previous->move) & stp->chased;
+            Bitboard chaseUs = undo_move_board(st->previous->chased, stp->move) & stp->previous->chased;
+
+            for (i = 4; i <= st->pliesFromNull; i += 2)
+            {
+                // Chased pieces are empty when there is no previous move
+                if (i != st->pliesFromNull)
+                    chaseThem = undo_move_board(chaseThem, stp->previous->move) & stp->previous->previous->chased;
+                stp = stp->previous->previous;
+
+                // Return a score if a position repeats once earlier.
+                if (stp->key == st->key)
+                {
+                    result = (chaseThem || chaseUs) ? (!chaseUs ? mate_in(ply) : !chaseThem ? mated_in(ply) : VALUE_DRAW) : VALUE_DRAW;
+                    return true;
+                }
+
+                if (i + 1 <= st->pliesFromNull)
+                    chaseUs = undo_move_board(chaseUs, stp->move) & stp->previous->chased;
+            }
         }
 
         if (i + 1 <= st->pliesFromNull)
-            chaseUs = undo_move_board(chaseUs, stp->move) & stp->previous->chased;
+            perpetualUs &= bool(stp->previous->checkersBB);
     }
 
     return false;
-}
-
-
-/// Position::chased() tests whether the last move was a chase.
-
-Bitboard Position::chased() const {
-    Bitboard b = 0;
-    if (st->move == MOVE_NONE)
-        return b;
-
-    Bitboard pins = blockers_for_king(sideToMove);
-    Square ourKing = square<KING>(sideToMove);
-    Square oppKing = square<KING>(~sideToMove);
-    if (file_bb(file_of(ourKing)) & file_bb(file_of(oppKing))) {
-        Bitboard kingFilePieces = between_bb(ourKing, oppKing) ^ square_bb(oppKing);
-        if (!more_than_one(kingFilePieces & pieces()))
-            pins |= kingFilePieces & pieces(sideToMove);
-    }
-
-    auto addChased = [&](Square attackerSq, PieceType attackerType, Bitboard attacks) {
-        if (attacks & ~b)
-        {
-            // Exclude attacks on unpromoted pawns and checks
-            attacks &= ~(pieces(sideToMove, KING, PAWN) ^ (pieces(sideToMove, PAWN) & HalfBB[~sideToMove]));
-            // Restrict to pinners if pinned
-            if (blockers_for_king(~sideToMove) & attackerSq)
-                attacks &= pinners(sideToMove);
-            // Attacks against stronger pieces
-            if (attackerType == KNIGHT || attackerType == CANNON)
-                b |= attacks & pieces(sideToMove, ROOK);
-            if (attackerType == BISHOP || attackerType == ADVISOR)
-                b |= attacks & pieces(sideToMove, ROOK, CANNON, KNIGHT);
-            // Exclude mutual/symmetric attacks
-            // Exceptions:
-            // - asymmetric pieces ("impaired knight")
-            // - pins
-            if (attackerType == KNIGHT)
-                attacks &= ~(attacks_bb<KNIGHT_TO>(attackerSq, pieces()) & pieces(sideToMove, KNIGHT)) | pins;
-            else
-                attacks &= ~pieces(sideToMove, attackerType) | pins;
-            // Attacks against potentially unprotected pieces
-            while (attacks)
-            {
-                Square s = pop_lsb(attacks);
-                Bitboard roots = attackers_to(s, pieces() ^ attackerSq) & pieces(sideToMove) & ~pins;
-                if (!roots || (roots == pieces(sideToMove, KING) && (attacks_bb<ROOK>(square<KING>(~sideToMove), pieces() ^ attackerSq) & s)))
-                    b |= s;
-            }
-        }
-    };
-
-    // Direct attacks
-    Square from = from_sq(st->move);
-    Square to = to_sq(st->move);
-    PieceType movedPiece = type_of(piece_on(to));
-    if (movedPiece != KING && movedPiece != PAWN)
-    {
-        Bitboard directAttacks = attacks_bb(movedPiece, to, pieces()) & pieces(sideToMove);
-        // Only new attacks count. This avoids expensive comparison of previous and new attacks.
-        if (movedPiece == ROOK || movedPiece == CANNON)
-            directAttacks &= ~line_bb(from, to);
-        addChased(to, movedPiece, directAttacks);
-    }
-
-    // Discovered attacks
-    Bitboard previousOccupancy = (captured_piece() ? pieces() : pieces() ^ to) ^ from;
-    Bitboard discoveryCandidates = (FullAttacks[KING][from] & pieces(~sideToMove, KNIGHT))
-                                   | (FullAttacks[ADVISOR][from] & pieces(~sideToMove, BISHOP))
-                                   | (attacks_bb<ROOK>(from) & pieces(~sideToMove, CANNON, ROOK))
-                                   | (attacks_bb<ROOK>(to, pieces()) & pieces(~sideToMove, CANNON));
-    while (discoveryCandidates)
-    {
-        Square s = pop_lsb(discoveryCandidates);
-        PieceType discoveryPiece = type_of(piece_on(s));
-        Bitboard discoveries = pieces(sideToMove)
-                               & attacks_bb(discoveryPiece, s, pieces())
-                               & ~attacks_bb(discoveryPiece, s, previousOccupancy);
-        addChased(s, discoveryPiece, discoveries);
-    }
-
-    // Undermined root
-    Bitboard rootCandidates =  (FullAttacks[KING][to] & pieces(sideToMove, KNIGHT))
-                              | (FullAttacks[ADVISOR][to] & pieces(sideToMove, BISHOP))
-                              | (PseudoAttacks[ROOK][to] & pieces(sideToMove, ROOK, CANNON))
-                              | (PseudoAttacks[ROOK][from] & pieces(sideToMove, CANNON));
-    Bitboard undermineCandidates = 0;
-    // Discover changed roots
-    while (rootCandidates)
-    {
-        Square s = pop_lsb(rootCandidates);
-        PieceType rootPiece = type_of(piece_on(s));
-        undermineCandidates |=   pieces(sideToMove)
-                               & (  (attacks_bb(rootPiece, s, pieces()) & pieces(sideToMove))
-                                  ^ (attacks_bb(rootPiece, s, previousOccupancy) & pieces(sideToMove)));
-    }
-    // Validate effect of changed roots
-    while (undermineCandidates)
-    {
-        Square s = pop_lsb(undermineCandidates);
-        // Ignore pinned attackers unless they capture the pinner
-        Bitboard attackers = attackers_to(s) & pieces(~sideToMove);
-        if (!(pinners(sideToMove) & s))
-            attackers &= ~blockers_for_king(~sideToMove);
-        while (attackers)
-        {
-            Square s2 = pop_lsb(attackers);
-            if (!(attackers_to(s, pieces() ^ s2) & pieces(sideToMove) & ~pins) && (attackers_to(s, previousOccupancy ^ s2) & pieces(sideToMove) & ~pins))
-            {
-                b |= s;
-                break;
-            }
-        }
-    }
-
-    // Changes in real roots and discovered checks
-    if (st->pliesFromNull > 0)
-    {
-        // Fake roots
-        Bitboard newPins = st->blockersForKing[sideToMove] & ~st->previous->blockersForKing[sideToMove] & pieces(sideToMove);
-        while (newPins)
-        {
-            Square s = pop_lsb(newPins);
-            PieceType pinnedPiece = type_of(piece_on(s));
-            Bitboard fakeRooted = pieces(sideToMove)
-                                  & ~(pieces(sideToMove, KING, PAWN) ^ (pieces(sideToMove, PAWN) & HalfBB[~sideToMove]));
-            if (pinnedPiece == PAWN)
-                fakeRooted &= pawn_attacks_bb(sideToMove, s);
-            else
-                fakeRooted &= attacks_bb(pinnedPiece, s, pieces());
-            while (fakeRooted)
-            {
-                Square s2 = pop_lsb(fakeRooted);
-                if (attackers_to(s2) & pieces(~sideToMove) & ~blockers_for_king(~sideToMove))
-                    b |= s2;
-            }
-        }
-        // Discovered checks
-        Bitboard newDiscoverers = st->blockersForKing[sideToMove] & ~st->previous->blockersForKing[sideToMove] & pieces(~sideToMove);
-        while (newDiscoverers)
-        {
-            Square s = pop_lsb(newDiscoverers);
-            PieceType discoveryPiece = type_of(piece_on(s));
-            Bitboard discoveryAttacks = pieces(sideToMove);
-            if (discoveryPiece == PAWN)
-                discoveryAttacks &= pawn_attacks_bb(~sideToMove, s);
-            else
-                discoveryAttacks &= attacks_bb(discoveryPiece, s, pieces());
-
-            // Include all captures except where the king can pseudo-legally recapture
-            b |= discoveryAttacks & ~attacks_bb<KING>(square<KING>(sideToMove));
-            // Include captures where king can not legally recapture
-            discoveryAttacks &= attacks_bb<KING>(square<KING>(sideToMove));
-            while (discoveryAttacks)
-            {
-                Square s2 = pop_lsb(discoveryAttacks);
-                if (attackers_to(s2, pieces() ^ s ^ square<KING>(sideToMove)) & pieces(~sideToMove) & ~square_bb(s))
-                    b |= s2;
-            }
-        }
-    }
-
-    return b;
 }
 
 
