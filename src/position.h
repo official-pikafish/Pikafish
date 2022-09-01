@@ -138,7 +138,7 @@ public:
   int game_ply() const;
   Thread* this_thread() const;
   bool is_repeated(Value& result, int ply = 0) const;
-  Bitboard chased() const;
+  Bitboard chased(Color c);
   bool not_only_pawn(Color c) const;
   Value material() const;
 
@@ -159,7 +159,9 @@ private:
 
   // Other helpers
   void move_piece(Square from, Square to);
-  void set_chase_info(int pilesFromNull) const;
+  Piece light_do_move(Move m);
+  void light_undo_move(Move m, Piece captured);
+  void set_chase_info(int d);
 
   // Data members
   Piece board[SQUARE_NB];
