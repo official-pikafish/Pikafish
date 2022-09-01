@@ -140,6 +140,7 @@ public:
   bool is_repeated(Value& result, int ply = 0) const;
   Bitboard chased(Color c);
   bool not_only_pawn(Color c) const;
+  Value material_sum() const;
   Value material() const;
 
   // Position consistency check, for debugging
@@ -276,6 +277,10 @@ inline Key Position::key() const {
 
 inline bool Position::not_only_pawn(Color c) const {
   return count<ALL_PIECES>(c) - count<PAWN>(c);
+}
+
+inline Value Position::material_sum() const {
+  return st->material[WHITE] + st->material[BLACK];
 }
 
 inline Value Position::material() const {
