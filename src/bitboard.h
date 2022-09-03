@@ -122,10 +122,6 @@ constexpr bool more_than_one(Bitboard b) {
   return b & (b - 1);
 }
 
-inline Bitboard undo_move_board(Bitboard b, Move m) {
-    return (from_sq(m) != SQ_NONE && (b & to_sq(m))) ? (b ^ to_sq(m)) | from_sq(m) : b;
-}
-
 
 /// rank_bb() and file_bb() return a bitboard representing all the squares on
 /// the given file or rank.

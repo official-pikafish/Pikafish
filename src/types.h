@@ -103,6 +103,36 @@ constexpr bool Is64Bit = true;
 constexpr bool Is64Bit = false;
 #endif
 
+
+// For chasing detection
+union ChaseMap {
+    uint64_t attacks[4] { };
+    uint16_t victims[16];
+
+    // For adding victim <- attacker pair
+    void operator |= (int id) {
+        attacks[id >> 6] |= 1ULL << (id & 63);
+    }
+
+    // For exact diff
+    ChaseMap& operator & (const ChaseMap &rhs) {
+        attacks[0] &= ~rhs.attacks[0];
+        attacks[1] &= ~rhs.attacks[1];
+        attacks[2] &= ~rhs.attacks[2];
+        attacks[3] &= ~rhs.attacks[3];
+        return *this;
+    }
+
+    // For victims extraction
+    operator uint16_t() {
+        uint16_t ret = 0;
+        for (int i = 0; i < 16; ++i)
+            if (this->victims[i])
+                ret |= 1 << i;
+        return ret;
+    }
+};
+
 typedef uint64_t Key;
 
 #if defined(__GNUC__) && defined(IS_64BIT)
@@ -448,10 +478,6 @@ constexpr Color operator~(Color c) {
   return Color(c ^ BLACK); // Toggle color
 }
 
-constexpr Piece operator~(Piece pc) {
-  return Piece(pc ^ 8); // Swap color of piece B_KNIGHT <-> W_KNIGHT
-}
-
 constexpr Value mate_in(int ply) {
   return VALUE_MATE - ply;
 }
@@ -509,10 +535,6 @@ constexpr Rank relative_rank(Color c, Square s) {
   return relative_rank(c, rank_of(s));
 }
 
-constexpr Direction pawn_push(Color c) {
-  return c == WHITE ? NORTH : SOUTH;
-}
-
 constexpr Square from_sq(Move m) {
   return Square(m >> 7);
 }
@@ -527,6 +549,10 @@ constexpr int from_to(Move m) {
 
 constexpr Move make_move(Square from, Square to) {
   return Move((from << 7) + to);
+}
+
+constexpr int make_chase(int piece1, int piece2) {
+  return (piece1 << 4) + piece2;
 }
 
 constexpr bool is_ok(Move m) {
