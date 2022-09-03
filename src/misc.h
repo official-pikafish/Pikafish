@@ -68,7 +68,6 @@ private:
     uint8_t table[1 << 14];
 };
 
-
 enum SyncCout { IO_LOCK, IO_UNLOCK };
 std::ostream& operator<<(std::ostream&, SyncCout);
 
