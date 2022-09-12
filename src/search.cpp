@@ -272,8 +272,7 @@ void Thread::search() {
 
   complexityAverage.set(168, 1);
 
-  optimism[ us] = Value(39);
-  optimism[~us] = -optimism[us];
+  optimism[us] = optimism[~us] = VALUE_ZERO;
 
   int searchAgainCounter = 0;
 
@@ -312,7 +311,7 @@ void Thread::search() {
               beta  = std::min(prev + delta, VALUE_INFINITE);
 
               // Adjust optimism based on root move's previousScore
-              int opt = sigmoid(prev, 8, 17, 144, 13966, 183);
+              int opt = 118 * prev / (std::abs(prev) + 169);
               optimism[ us] = Value(opt);
               optimism[~us] = -optimism[us];
           }
