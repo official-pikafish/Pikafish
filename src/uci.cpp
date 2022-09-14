@@ -37,6 +37,8 @@ namespace Stockfish {
 
 extern vector<string> setup_bench(const Position&, istream&);
 
+bool isUCCI = false;
+
 namespace {
 
   // FEN string for the initial position in standard xiangqi
