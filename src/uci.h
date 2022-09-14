@@ -80,7 +80,7 @@ Move to_move(const Position& pos, std::string& str);
 
 extern UCI::OptionsMap Options;
 
-bool isUCCI = false;
+extern bool isUCCI = false;
 
 } // namespace Stockfish
 
