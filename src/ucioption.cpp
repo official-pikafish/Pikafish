@@ -69,6 +69,7 @@ void init(OptionsMap& o) {
   o["UCI_AnalyseMode"]       << Option(false);
   o["UCI_ShowWDL"]           << Option(false);
   o["EvalFile"]              << Option(EvalFileDefaultName, on_eval_file);
+  o["usemillisec"]           << Option(true);
 }
 
 
@@ -82,7 +83,7 @@ std::ostream& operator<<(std::ostream& os, const OptionsMap& om) {
           if (it.second.idx == idx)
           {
               const Option& o = it.second;
-              os << "\noption name " << it.first << " type " << o.type;
+              os << (isUCCI ? "\noption " : "\noption name ") << it.first << " type " << o.type;
 
               if (o.type == "string" || o.type == "check" || o.type == "combo")
                   os << " default " << o.defaultValue;

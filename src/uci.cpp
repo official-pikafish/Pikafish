@@ -101,6 +101,9 @@ namespace {
 
     is >> token; // Consume the "name" token
 
+    if (isUCCI)
+        name = token;
+    else
     // Read the option name (can contain spaces)
     while (is >> token && token != "value")
         name += (name.empty() ? "" : " ") + token;
@@ -108,7 +111,8 @@ namespace {
     // Read the option value (can contain spaces)
     while (is >> token)
         value += (value.empty() ? "" : " ") + token;
-
+    if (name == "hashsize")
+        name = "Hash";
     if (Options.count(name))
         Options[name] = value;
     else
@@ -127,6 +131,7 @@ namespace {
     bool ponderMode = false;
 
     limits.startTime = now(); // The search starts as early as possible
+    int secResolution = Options["usemillisec"] ? 1 : 1000;
 
     while (is >> token)
         if (token == "searchmoves") // Needs to be the last command on the line
@@ -145,6 +150,11 @@ namespace {
         else if (token == "perft")     is >> limits.perft;
         else if (token == "infinite")  limits.infinite = 1;
         else if (token == "ponder")    ponderMode = true;
+        // UCCI commands
+        else if (token == "time")         is >> limits.time[pos.side_to_move()], limits.time[pos.side_to_move()] *= secResolution;
+        else if (token == "opptime")      is >> limits.time[~pos.side_to_move()], limits.time[~pos.side_to_move()] *= secResolution;
+        else if (token == "increment")    is >> limits.inc[pos.side_to_move()], limits.inc[pos.side_to_move()] *= secResolution;
+        else if (token == "oppincrement") is >> limits.inc[~pos.side_to_move()], limits.inc[~pos.side_to_move()] *= secResolution;
 
     Threads.start_thinking(pos, states, limits, ponderMode);
   }
@@ -262,6 +272,12 @@ void UCI::loop(int argc, char* argv[]) {
           sync_cout << "id name " << engine_info(true)
                     << "\n"       << Options
                     << "\nuciok"  << sync_endl;
+      else if (token == "ucci") {
+          isUCCI = true;
+          sync_cout << "id name " << engine_info(true)
+                    << "\n"       << Options
+                    << "\nucciok"  << sync_endl;
+      }
 
       else if (token == "setoption")  setoption(is);
       else if (token == "go")         go(pos, is, states);
@@ -316,7 +332,7 @@ string UCI::value(Value v) {
   stringstream ss;
 
   if (abs(v) < VALUE_MATE_IN_MAX_PLY)
-      ss << "cp " << v;
+      ss << (isUCCI ? "" : "cp ") << v;
   else
       ss << "mate " << (v > 0 ? VALUE_MATE - v + 1 : -VALUE_MATE - v) / 2;
 
