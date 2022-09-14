@@ -115,6 +115,10 @@ namespace {
         value += (value.empty() ? "" : " ") + token;
     if (name == "hashsize")
         name = "Hash";
+    if (name == "newgame") {
+        Search::clear();
+        elapsed = now();
+    }
     if (Options.count(name))
         Options[name] = value;
     else
