@@ -268,10 +268,12 @@ void UCI::loop(int argc, char* argv[]) {
       else if (token == "ponderhit")
           Threads.main()->ponder = false; // Switch to the normal search
 
-      else if (token == "uci")
+      else if (token == "uci") {
+          isUCCI = false;
           sync_cout << "id name " << engine_info(true)
                     << "\n"       << Options
                     << "\nuciok"  << sync_endl;
+      }
       else if (token == "ucci") {
           isUCCI = true;
           sync_cout << "id name " << engine_info(true)
