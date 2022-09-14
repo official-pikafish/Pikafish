@@ -142,8 +142,8 @@ void MovePicker::score() {
                           : (pt == KNIGHT || pt == CANNON) && !(to_sq(m) & threatenedByDefender) ? 25000
                           :                                   !(to_sq(m) & threatenedByPawn)     ? 15000
                           :                                                                        0)
-                          :                                                                        0);
-
+                          :                                                                        0)
+                   +     bool(pos.check_squares(type_of(pos.moved_piece(m))) & to_sq(m)) * 16384;
       else // Type == PSEUDO_LEGAL
       {
           if (pos.capture(m))
