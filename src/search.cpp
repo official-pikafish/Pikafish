@@ -513,7 +513,7 @@ namespace {
         // Step 2. Check for aborted search and repetition
         Value result;
         if (pos.is_repeated(result, ss->ply))
-            return result;
+            return result == VALUE_DRAW ? value_draw(pos.this_thread()) : result;
 
         if (Threads.stop.load(std::memory_order_relaxed) || ss->ply >= MAX_PLY)
             return (ss->ply >= MAX_PLY && !ss->inCheck) ? evaluate(pos) : value_draw(pos.this_thread());
@@ -613,7 +613,7 @@ namespace {
         if (eval == VALUE_NONE)
             ss->staticEval = eval = evaluate(pos, &complexity);
         else // Fall back to material complexity for TT hits, the NNUE complexity is lost
-            complexity = abs(ss->staticEval - pos.material());
+            complexity = abs(ss->staticEval - pos.material_diff());
 
         // ttValue can be used as a better position evaluation (~4 Elo)
         if (    ttValue != VALUE_NONE

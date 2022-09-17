@@ -140,7 +140,7 @@ public:
   bool is_repeated(Value& result, int ply = 0) const;
   ChaseMap chased(Color c);
   Value material_sum() const;
-  Value material() const;
+  Value material_diff() const;
 
   // Position consistency check, for debugging
   bool pos_is_ok() const;
@@ -282,7 +282,7 @@ inline Value Position::material_sum() const {
   return st->material[WHITE] + st->material[BLACK];
 }
 
-inline Value Position::material() const {
+inline Value Position::material_diff() const {
   return st->material[sideToMove] - st->material[~sideToMove];
 }
 
