@@ -266,6 +266,7 @@ void UCI::loop(int argc, char* argv[]) {
       else if (token == "setoption")  setoption(is);
       else if (token == "go")         go(pos, is, states);
       else if (token == "position")   position(pos, is, states);
+      else if (token == "fen" || token == "startpos") is.seekg(0), position(pos, is, states);
       else if (token == "ucinewgame") Search::clear();
       else if (token == "isready")    sync_cout << "readyok" << sync_endl;
 
@@ -283,11 +284,6 @@ void UCI::loop(int argc, char* argv[]) {
           if (is >> skipws >> f)
               filename = f;
           Eval::NNUE::save_eval(filename);
-      }
-      else if (token == "fen" || token == "startpos")
-      {
-          is.seekg(0);
-          position(pos, is, states);
       }
       else if (token == "--help" || token == "help" || token == "--license" || token == "license")
           sync_cout << "\nPikafish is a powerful xiangqi engine for playing and analyzing."
