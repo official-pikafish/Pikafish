@@ -170,7 +170,7 @@ string engine_info(bool to_uci) {
   if (use_english())
       ss << (to_uci ? "\nid author " : " by ") << "the Pikafish developers (see AUTHORS file)";
   else
-      ss << (to_uci ? "\nid author " : " 开发团队: ") << "皮卡鱼开发团队(详情请查看AUTHORS文件)"
+      ss << (to_uci ? "\nid author " : " 开发团队: ") << "皮卡鱼开发团队(详情请查看作者文件)"
          << (to_uci ? "" : "\n皮卡鱼(http://pikafish.org)是开源免费的象棋引擎, 欢迎加入我们的QQ群: 755655813");
 
   return ss.str();
