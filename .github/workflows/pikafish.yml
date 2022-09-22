@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - master
-      - tools
 
 jobs:	
   windows:	
@@ -43,12 +42,6 @@ jobs:
         with:	
           name: pikafish	
           path: src/pikafish-linux-bmi2
-
-  copyleft:
-    runs-on: windows-latest
-
-    steps:
-      - uses: actions/checkout@v3
 
       - uses: actions/upload-artifact@v3	
         with:	
