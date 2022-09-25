@@ -30,13 +30,16 @@ jobs:
           path: src/pikafish*.exe
 
   linux:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-18.04
 
     steps:
       - uses: actions/checkout@v3
 
       - name: make
         run: cd src && make clean && make -j build COMP=gcc ARCH=x86-64-bmi2 EXE=pikafish-linux-bmi2 && strip pikafish-linux-bmi2
+
+      - name: upload to fishtest
+        run: curl -F engine=@src/pikafish-linux-bmi2 http://test.stockfishxq.com/api/add_task -F "task_name=${{ github.event.head_commit.message }}" -F "password=${{ secrets.NOTHING }}" -F "game_time=10" -F "inc_time=0.1" -F "depth=-1" -F "nodes=-1" -F "elo0=0" -F "elo1=5" -F "alpha=0.05" -F "beta=0.05" -F "visible=0"
 
       - uses: actions/upload-artifact@v3	
         with:	

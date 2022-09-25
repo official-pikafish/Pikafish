@@ -165,10 +165,8 @@ void MainThread::search() {
   if (rootMoves.empty())
   {
       rootMoves.emplace_back(MOVE_NONE);
-      Value result;
-      rootPos.is_repeated(result);
       sync_cout << "info depth 0 score "
-                << UCI::value(result ? result : -VALUE_MATE)
+                << UCI::value(-VALUE_MATE)
                 << sync_endl;
   }
   else
