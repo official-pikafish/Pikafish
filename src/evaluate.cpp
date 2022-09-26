@@ -108,14 +108,14 @@ Value Eval::evaluate(const Position& pos, int* complexity) {
   int nnueComplexity;
   Value v = NNUE::evaluate(pos, &nnueComplexity);
   // Blend nnue complexity with material complexity
-  nnueComplexity = (104 * nnueComplexity + 131 * abs(v - pos.material_diff())) / 256;
+  nnueComplexity = (92 * nnueComplexity + 124 * abs(v - pos.material_diff())) / 256;
   if (complexity) // Return hybrid NNUE complexity to caller
       *complexity = nnueComplexity;
 
-  int scale = 1064 + 106 * pos.material_sum() / 5120;
+  int scale = 990 + 123 * pos.material_sum() / 4566;
   Value optimism = pos.this_thread()->optimism[pos.side_to_move()];
-  optimism = optimism * (269 + nnueComplexity) / 256;
-  v = (v * scale + optimism * (scale - 754)) / 1024;
+  optimism = optimism * (276 + nnueComplexity) / 256;
+  v = (v * scale + optimism * (scale - 761)) / 1024;
 
   // Guarantee evaluation does not hit the mate range
   v = std::clamp(v, VALUE_MATED_IN_MAX_PLY + 1, VALUE_MATE_IN_MAX_PLY - 1);
