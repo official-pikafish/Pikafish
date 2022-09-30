@@ -104,7 +104,7 @@ MovePicker::MovePicker(const Position& p, Move ttm, Value th, Depth d, const Cap
 template<GenType Type>
 void MovePicker::score() {
 
-  static_assert(Type == CAPTURES || Type == QUIETS || Type == PSEUDO_LEGAL, "Wrong type");
+  static_assert(Type == CAPTURES || Type == QUIETS || Type == EVASIONS, "Wrong type");
 
   [[maybe_unused]] Bitboard threatened, threatenedByPawn, threatenedByDefender, threatenedByMinor;
   if constexpr (Type == QUIETS)
@@ -144,7 +144,7 @@ void MovePicker::score() {
                           :                                                                        0)
                           :                                                                        0)
                    +     bool(pos.check_squares(type_of(pos.moved_piece(m))) & to_sq(m)) * 16384;
-      else // Type == PSEUDO_LEGAL
+      else // Type == EVASIONS
       {
           if (pos.capture(m))
               m.value =  PieceValue[MG][pos.piece_on(to_sq(m))]
@@ -260,9 +260,9 @@ top:
 
   case EVASION_INIT:
       cur = moves;
-      endMoves = generate<PSEUDO_LEGAL>(pos, cur);
+      endMoves = generate<EVASIONS>(pos, cur);
 
-      score<PSEUDO_LEGAL>();
+      score<EVASIONS>();
       ++stage;
       [[fallthrough]];
 
