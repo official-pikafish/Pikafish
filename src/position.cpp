@@ -173,15 +173,20 @@ Position& Position::set(const string& fenStr, StateInfo* si, Thread* th) {
 
 void Position::set_check_info(StateInfo* si) const {
 
-  si->blockersForKing[WHITE] = blockers_for_king(pieces(BLACK), square<KING>(WHITE), si->pinners[BLACK]);
-  si->blockersForKing[BLACK] = blockers_for_king(pieces(WHITE), square<KING>(BLACK), si->pinners[WHITE]);
+  Color  us   = sideToMove;
+  Square uksq = square<KING>( us);
+  Square oksq = square<KING>(~us);
 
-  Square ksq = square<KING>(~sideToMove);
+  si->blockersForKing[ us] = blockers_for_king(pieces(~us), uksq, si->pinners[~us]);
+  si->blockersForKing[~us] = blockers_for_king(pieces( us), oksq, si->pinners[ us]);
 
-  si->checkSquares[PAWN]   = pawn_attacks_to_bb(sideToMove, ksq);
-  si->checkSquares[KNIGHT] = attacks_bb<KNIGHT_TO>(ksq, pieces());
-  si->checkSquares[CANNON] = attacks_bb<CANNON>(ksq, pieces());
-  si->checkSquares[ROOK]   = attacks_bb<ROOK>(ksq, pieces());
+  // We have to take special cares about the cannon and checks
+  si->needSlowCheck = checkers() || (attacks_bb<ROOK>(uksq) & pieces(~us, CANNON));
+
+  si->checkSquares[PAWN]   = pawn_attacks_to_bb(sideToMove, oksq);
+  si->checkSquares[KNIGHT] = attacks_bb<KNIGHT_TO>(oksq, pieces());
+  si->checkSquares[CANNON] = attacks_bb<CANNON>(oksq, pieces());
+  si->checkSquares[ROOK]   = attacks_bb<ROOK>(oksq, pieces());
   si->checkSquares[KING]   = si->checkSquares[ADVISOR] = si->checkSquares[BISHOP] = 0;
 }
 
@@ -323,12 +328,16 @@ bool Position::legal(Move m) const {
   Square from = from_sq(m);
   Square to = to_sq(m);
   Bitboard occupied = (pieces() ^ from) | to;
+  Square ksq = type_of(moved_piece(m)) == KING ? to : square<KING>(us);
 
   assert(color_of(moved_piece(m)) == us);
   assert(piece_on(square<KING>(us)) == make_piece(us, KING));
 
+  // A non-king move is always legal when not moving the king or a pinned piece if we don't need slow check
+  if (!st->needSlowCheck && ksq != to && !(blockers_for_king(us) & from))
+      return true;
+
   // Flying general rule
-  Square ksq = type_of(moved_piece(m)) == KING ? to : square<KING>(us);
   if (attacks_bb<ROOK>(ksq, occupied) & pieces(~us, KING))
       return false;
 
