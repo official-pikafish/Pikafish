@@ -184,21 +184,13 @@ ExtMove* generate<EVASIONS>(const Position& pos, ExtMove* moveList) {
 template<>
 ExtMove* generate<LEGAL>(const Position& pos, ExtMove* moveList) {
 
-  Color us = pos.side_to_move();
-  Bitboard pinned = pos.blockers_for_king(us) & pos.pieces(us);
-  Square ksq = pos.square<KING>(us);
   ExtMove* cur = moveList;
 
-  // We have to take special cares about the cannon and checks
-  bool inCheck = pos.checkers();
-  bool notOk = inCheck || (attacks_bb<ROOK>(ksq) & pos.pieces(~us, CANNON));
-
-  moveList = inCheck ? generate<EVASIONS>(pos, moveList)
-                     : generate<PSEUDO_LEGAL>(pos, moveList);
+  moveList = pos.checkers() ? generate<EVASIONS>(pos, moveList)
+                            : generate<PSEUDO_LEGAL>(pos, moveList);
 
   while (cur != moveList)
-      // A move is always legal when not moving the king or a pinned piece
-      if ((notOk || (pinned && pinned & from_sq(*cur)) || from_sq(*cur) == ksq) && !pos.legal(*cur))
+      if (!pos.legal(*cur))
           *cur = (--moveList)->move;
       else
           ++cur;
