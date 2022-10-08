@@ -24,32 +24,43 @@ jobs:
       - name: make	
         run: cd src && make clean && make -j build COMP=mingw ARCH=x86-64${{ matrix.arch }} EXE=pikafish${{ matrix.arch }}.exe && strip pikafish${{ matrix.arch }}.exe	
 
+      - name: copy binary to folder
+        run: mkdir windows && cp src/pikafish*.exe windows
+
       - uses: actions/upload-artifact@v3	
         with:	
-          name: pikafish	
-          path: src/pikafish*.exe
+          name: pikafish
+          path: |
+            windows/pikafish*
+            AUTHORS
+            Copying.txt
+            README.md
+            Top CPU Contributors.txt
 
   linux:
+    strategy:	
+      matrix:	
+        arch: ["-avx512", "-bmi2", "-avx2", "-modern", ""]	
     runs-on: ubuntu-18.04
 
     steps:
       - uses: actions/checkout@v3
 
-      - name: make
-        run: cd src && make clean && make -j build COMP=gcc ARCH=x86-64-bmi2 EXE=pikafish-linux-bmi2 && strip pikafish-linux-bmi2
+      - name: make	
+        run: cd src && make clean && make -j build COMP=gcc ARCH=x86-64${{ matrix.arch }} EXE=pikafish${{ matrix.arch }} && strip pikafish${{ matrix.arch }}
+
+      - name: copy binary to folder
+        run: mkdir linux && cp src/pikafish* linux
 
       - name: upload to fishtest
-        run: curl -F engine=@src/pikafish-linux-bmi2 http://test.stockfishxq.com/api/add_task -F "task_name=${{ github.event.head_commit.message }}" -F "password=${{ secrets.NOTHING }}" -F "game_time=10" -F "inc_time=0.1" -F "depth=-1" -F "nodes=-1" -F "elo0=0" -F "elo1=5" -F "alpha=0.05" -F "beta=0.05" -F "visible=0"
-
-      - uses: actions/upload-artifact@v3	
-        with:	
-          name: pikafish	
-          path: src/pikafish-linux-bmi2
+        if: ${{ matrix.arch == '-bmi2' }}
+        run: curl -F engine=@src/pikafish-bmi2 http://test.pikafish.org/api/add_task -F "task_name=${{ github.event.head_commit.message }}" -F "password=${{ secrets.NOTHING }}" -F "game_time=10" -F "inc_time=0.1" -F "depth=-1" -F "nodes=-1" -F "elo0=0" -F "elo1=5" -F "alpha=0.05" -F "beta=0.05" -F "visible=0"
 
       - uses: actions/upload-artifact@v3	
         with:	
           name: pikafish	
           path: |
+            linux/pikafish*
             AUTHORS
             Copying.txt
             README.md
