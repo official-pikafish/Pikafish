@@ -1,5 +1,5 @@
-# Pikafish, a UCI chess playing engine derived from Glaurung 2.1
-# Copyright (C) 2004-2022 The Stockfish developers (see AUTHORS file)
+# Pikafish, a UCI chess playing engine derived from Stockfish
+# Copyright (C) 2004-2022 The Pikafish developers (see AUTHORS file)
 #
 # Pikafish is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -59,11 +59,12 @@ endif
 SRCS = benchmark.cpp bitboard.cpp evaluate.cpp main.cpp \
 	misc.cpp movegen.cpp movepick.cpp position.cpp \
 	search.cpp thread.cpp timeman.cpp tt.cpp uci.cpp ucioption.cpp tune.cpp \
-	nnue/evaluate_nnue.cpp nnue/features/half_ka_v2_xq.cpp
+	nnue/evaluate_nnue.cpp nnue/features/half_ka_v2_xq.cpp \
+	compression/zip.cpp
 
 OBJS = $(notdir $(SRCS:.cpp=.o))
 
-VPATH = syzygy:nnue:nnue/features
+VPATH = compression:nnue:nnue/features
 
 ### ==========================================================================
 ### Section 2. High-level Configuration
@@ -721,7 +722,7 @@ endif
 
 help:
 	@echo ""
-	@echo "To compile stockfish, type: "
+	@echo "To compile pikafish, type: "
 	@echo ""
 	@echo "make target ARCH=arch [COMP=compiler] [COMPCXX=cxx]"
 	@echo ""
@@ -825,16 +826,16 @@ clean: objclean profileclean
 
 # clean binaries and objects
 objclean:
-	@rm -f pikafish pikafish.exe *.o ./syzygy/*.o ./nnue/*.o ./nnue/features/*.o
+	@rm -f pikafish pikafish.exe *.o ./compression/*.o ./nnue/*.o ./nnue/features/*.o
 
 # clean auxiliary profiling files
 profileclean:
 	@rm -rf profdir
-	@rm -f bench.txt *.gcda *.gcno ./syzygy/*.gcda ./nnue/*.gcda ./nnue/features/*.gcda *.s
-	@rm -f stockfish.profdata *.profraw
-	@rm -f stockfish.*args*
-	@rm -f stockfish.*lt*
-	@rm -f stockfish.res
+	@rm -f bench.txt *.gcda *.gcno ./compression/*.gcda ./nnue/*.gcda ./nnue/features/*.gcda *.s
+	@rm -f pikafish.profdata *.profraw
+	@rm -f pikafish.*args*
+	@rm -f pikafish.*lt*
+	@rm -f pikafish.res
 	@rm -f ./-lstdc++.res
 
 default:
@@ -912,9 +913,9 @@ clang-profile-make:
 	all
 
 clang-profile-use:
-	$(XCRUN) llvm-profdata merge -output=stockfish.profdata *.profraw
+	$(XCRUN) llvm-profdata merge -output=pikafish.profdata *.profraw
 	$(MAKE) ARCH=$(ARCH) COMP=$(COMP) \
-	EXTRACXXFLAGS='-fprofile-instr-use=stockfish.profdata' \
+	EXTRACXXFLAGS='-fprofile-instr-use=pikafish.profdata' \
 	EXTRALDFLAGS='-fprofile-use ' \
 	all
 
