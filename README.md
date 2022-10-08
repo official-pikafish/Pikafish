@@ -140,9 +140,6 @@ to train and develop the NNUE networks. Today, more advanced training tools are
 available in [the nnue-pytorch repository][pytorch-link], while data generation tools
 are available in [a dedicated branch][tools-link].
 
-We change the feature sets and port the HalfKAv2_hm structure to xiangqi 
-and rename it as HalfKAv2_xq.
-
 On CPUs supporting modern vector instructions (avx2 and similar), the NNUE evaluation
 results in much stronger playing strength, even if the nodes per second computed by
 the engine is somewhat lower (roughly 80% of nps is typical).
