@@ -18,19 +18,21 @@
 
 // Definition of input features HalfKAv2_hm of NNUE evaluation function
 
-#include "half_ka_v2_xq.h"
+#include "half_ka_v2_hm.h"
 
 #include "../../position.h"
 
 namespace Stockfish::Eval::NNUE::Features {
 
   // Index of a feature for a given king position and another piece on some square
-  inline IndexType HalfKAv2_xq::make_index(Color perspective, Square s, Piece pc, Square ksq) {
-    return IndexType(Orient[perspective][s] + PieceSquareIndex[perspective][pc] + PS_NB * KingBuckets[ksq]);
+  inline IndexType HalfKAv2_hm::make_index(Color perspective, Square s, Piece pc, Square ksq) {
+    s = Square(perspective == BLACK  ? Rotate[s] : s);
+    s = Square(KingBuckets[ksq] >> 3 ? Mirror[s] : s);
+    return IndexType(s + PieceSquareIndex[perspective][pc] + PS_NB * (KingBuckets[ksq] & 0x7));
   }
 
   // Get a list of indices for active features
-  void HalfKAv2_xq::append_active_indices(
+  void HalfKAv2_hm::append_active_indices(
     const Position& pos,
     Color perspective,
     IndexList& active
@@ -47,7 +49,7 @@ namespace Stockfish::Eval::NNUE::Features {
 
   // append_changed_indices() : get a list of indices for recently changed features
 
-  void HalfKAv2_xq::append_changed_indices(
+  void HalfKAv2_hm::append_changed_indices(
     Square ksq,
     const DirtyPiece& dp,
     Color perspective,
@@ -62,15 +64,15 @@ namespace Stockfish::Eval::NNUE::Features {
     }
   }
 
-  int HalfKAv2_xq::update_cost(const StateInfo* st) {
+  int HalfKAv2_hm::update_cost(const StateInfo* st) {
     return st->dirtyPiece.dirty_num;
   }
 
-  int HalfKAv2_xq::refresh_cost(const Position& pos) {
+  int HalfKAv2_hm::refresh_cost(const Position& pos) {
     return pos.count<ALL_PIECES>();
   }
 
-  bool HalfKAv2_xq::requires_refresh(const StateInfo* st, Color perspective) {
+  bool HalfKAv2_hm::requires_refresh(const StateInfo* st, Color perspective) {
     return st->dirtyPiece.piece[0] == make_piece(perspective, KING);
   }
 

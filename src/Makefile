@@ -59,7 +59,7 @@ endif
 SRCS = benchmark.cpp bitboard.cpp evaluate.cpp main.cpp \
 	misc.cpp movegen.cpp movepick.cpp position.cpp \
 	search.cpp thread.cpp timeman.cpp tt.cpp uci.cpp ucioption.cpp tune.cpp \
-	nnue/evaluate_nnue.cpp nnue/features/half_ka_v2_xq.cpp \
+	nnue/evaluate_nnue.cpp nnue/features/half_ka_v2_hm.cpp \
 	compression/zip.cpp
 
 OBJS = $(notdir $(SRCS:.cpp=.o))
