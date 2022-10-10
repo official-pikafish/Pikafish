@@ -681,13 +681,13 @@ void init([[maybe_unused]] int argc, char* argv[]) {
 
 } // namespace CommandLine
 
-std::stringstream read_zipped_nnue(const std::string& fpath, const std::string& evalFile) {
+std::stringstream read_zipped_nnue(const std::string& fpath) {
     void* buf = NULL;
     size_t bufsize;
 
     struct zip_t *zip = zip_open(fpath.c_str(), 0, 'r');
-    {
-        zip_entry_open(zip, evalFile.c_str());
+    if (zip_entries_total(zip) == 1) {
+        zip_entry_openbyindex(zip, 0);
         {
             zip_entry_read(zip, &buf, &bufsize);
         }
