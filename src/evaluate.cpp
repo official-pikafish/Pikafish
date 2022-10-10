@@ -59,7 +59,7 @@ namespace Eval {
         if (currentEvalFileName != eval_file)
         {
             ifstream stream(directory + eval_file, ios::binary);
-            stringstream ss = read_zipped_nnue(directory + eval_file, eval_file);
+            stringstream ss = read_zipped_nnue(directory + eval_file);
             if (load_eval(eval_file, stream) || load_eval(eval_file, ss))
                 currentEvalFileName = eval_file;
         }
