@@ -353,7 +353,11 @@ ifeq ($(MAKELEVEL),0)
 endif
 
 CXXFLAGS = $(ENV_CXXFLAGS) -Wall -Wcast-qual -fno-exceptions -std=c++17 $(EXTRACXXFLAGS)
-CXXFLAGS += -finput-charset=UTF-8 -fexec-charset=GBK
+
+ifeq ($(target_windows),yes)
+	CXXFLAGS += -finput-charset=UTF-8 -fexec-charset=GBK
+endif
+
 DEPENDFLAGS = $(ENV_DEPENDFLAGS) -std=c++17
 LDFLAGS = $(ENV_LDFLAGS) $(EXTRALDFLAGS)
 
