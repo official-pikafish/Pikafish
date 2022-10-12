@@ -13,12 +13,6 @@ jobs:
     runs-on: windows-latest
 
     steps:	
-      - uses: al-cheb/configure-pagefile-action@v1.2	
-        with:	
-            minimum-size: 16GB	
-            maximum-size: 16GB	
-            disk-root: "C:"	
-
       - uses: actions/checkout@v3	
 
       - name: make	
@@ -34,6 +28,7 @@ jobs:
             windows/pikafish*
             AUTHORS
             Copying.txt
+            NNUE-License.txt
             README.md
             Top CPU Contributors.txt
 
@@ -63,5 +58,6 @@ jobs:
             linux/pikafish*
             AUTHORS
             Copying.txt
+            NNUE-License.txt
             README.md
             Top CPU Contributors.txt
