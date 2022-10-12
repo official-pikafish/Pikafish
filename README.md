@@ -34,6 +34,8 @@ This distribution of Pikafish consists of the following files:
   * [Copying.txt][license-link], a text file containing the GNU General Public License
     version 3.
 
+  * [NNUE-License.txt][nnue-license-link], a text file containing the License for NNUE weights.
+
   * [AUTHORS][authors-link], a text file with the list of authors for the official Pikafish project.
 
   * [src][src-link], a subdirectory containing the full source code, including a Makefile
@@ -265,16 +267,6 @@ The current goal of the project is to make Pikafish suppress all commercial engi
 
 I believe if Stockfish can do that for chess, Pikafish can do that for xiangqi.
 
-
-## Hall of shame
-
-The following individuals and organizations are prohibited from using the nnue 
-weights file derived from this program due to their unfriendly actions, activities, and 
-license violations（鉴于近期出现的种种不友好的行为，以下个人和组织将被禁止使用由本程序引申出的所有 nnue 权重文件）：
-+ AlanThinker (鹏飞象棋)
-+ 国圣
-+ 飞风追云
-
 [authors-link]:https://github.com/PikaCat-OuO/Pikafish/blob/master/AUTHORS
 [build-badge]:https://img.shields.io/github/workflow/status/PikaCat-OuO/Pikafish/Pikafish?style=for-the-badge&label=pikafish&logo=github
 [build-link]:https://github.com/PikaCat-OuO/Pikafish/actions/workflows/pikafish.yml
@@ -290,6 +282,7 @@ license violations（鉴于近期出现的种种不友好的行为，以下个�
 [license-badge]:https://img.shields.io/github/license/PikaCat-OuO/Pikafish?style=for-the-badge&label=license&color=success
 [license-link]:https://github.com/PikaCat-OuO/Pikafish/blob/master/Copying.txt
 [lockpages-link]:https://docs.microsoft.com/en-us/sql/database-engine/configure-windows/enable-the-lock-pages-in-memory-option-windows
+[nnue-license-link]:https://github.com/PikaCat-OuO/Pikafish/blob/master/NNUE-License.txt
 [nodchip-link]:https://github.com/nodchip/Stockfish
 [programming-link]:https://www.chessprogramming.org/Main_Page
 [programmingsf-link]:https://www.chessprogramming.org/Stockfish
