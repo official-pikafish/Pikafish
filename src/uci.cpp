@@ -201,13 +201,13 @@ namespace {
   int win_rate_model(Value v, int ply) {
 
      // The model only captures up to 240 plies, so limit the input and then rescale
-     double m = std::min(240, ply) / 64.0;
+     double m = std::min(240, ply) / 32.0;
 
      // The coefficients of a third-order polynomial fit is based on the fishtest data
      // for two parameters that need to transform eval to the argument of a logistic
      // function.
-     double as[] = { 0.50379905,  -4.12755858,  18.95487051, 152.00733652};
-     double bs[] = {-1.71790378,  10.71543602, -17.05515898,  41.15680404};
+     double as[] = {  6.55077462, -31.29344521, 23.59687652, 172.30856191};
+     double bs[] = {  2.18432848, -9.84896338,   2.09845262, 47.88840066 };
      double a = (((as[0] * m + as[1]) * m + as[2]) * m) + as[3];
      double b = (((bs[0] * m + bs[1]) * m + bs[2]) * m) + bs[3];
 
