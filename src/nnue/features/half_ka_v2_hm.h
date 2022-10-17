@@ -64,7 +64,8 @@ namespace Stockfish::Eval::NNUE::Features {
     };
 
     // Index of a feature for a given king position and another piece on some square
-    static IndexType make_index(Color perspective, Square s, Piece pc, Square ksq);
+    template<Color Perspective>
+    static IndexType make_index(Square s, Piece pc, Square ksq);
 
    public:
     // Feature name
@@ -125,16 +126,16 @@ namespace Stockfish::Eval::NNUE::Features {
     using IndexList = ValueList<IndexType, MaxActiveDimensions>;
 
     // Get a list of indices for active features
+    template<Color Perspective>
     static void append_active_indices(
       const Position& pos,
-      Color perspective,
       IndexList& active);
 
     // Get a list of indices for recently changed features
+    template<Color Perspective>
     static void append_changed_indices(
       Square ksq,
       const DirtyPiece& dp,
-      Color perspective,
       IndexList& removed,
       IndexList& added
     );

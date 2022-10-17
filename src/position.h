@@ -288,7 +288,7 @@ inline Value Position::material_diff() const {
 }
 
 inline int Position::game_ply() const {
-    return gamePly;
+  return gamePly;
 }
 
 inline bool Position::capture(Move m) const {
@@ -347,12 +347,12 @@ inline StateInfo* Position::state() const {
 
 inline Position& Position::set(const Position& pos, StateInfo* si, Thread* th) {
 
-    set(pos.fen(), si, th);
+  set(pos.fen(), si, th);
 
-    // Special cares for bloom filter
-    std::memcpy(&filter, &pos.filter, sizeof(BloomFilter));
+  // Special cares for bloom filter
+  std::memcpy(&filter, &pos.filter, sizeof(BloomFilter));
 
-    return *this;
+  return *this;
 }
 
 } // namespace Stockfish

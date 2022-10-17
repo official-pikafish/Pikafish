@@ -515,26 +515,6 @@ constexpr Rank rank_of(Square s) {
   return Rank(s / FILE_NB);
 }
 
-constexpr Square flip_rank(Square s) {
-  return make_square(file_of(s), Rank(RANK_9 - rank_of(s)));
-}
-
-constexpr Square flip_file(Square s) {
-  return make_square(File(FILE_I - file_of(s)), rank_of(s));
-}
-
-constexpr Square relative_square(Color c, Square s) {
-  return c == WHITE ? s : flip_rank(s);
-}
-
-constexpr Rank relative_rank(Color c, Rank r) {
-  return c == WHITE ? r : Rank(RANK_9 - r);
-}
-
-constexpr Rank relative_rank(Color c, Square s) {
-  return relative_rank(c, rank_of(s));
-}
-
 constexpr Square from_sq(Move m) {
   return Square(m >> 7);
 }
