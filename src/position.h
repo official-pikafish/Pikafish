@@ -48,8 +48,9 @@ struct StateInfo {
   Bitboard   blockersForKing[COLOR_NB];
   Bitboard   pinners[COLOR_NB];
   Bitboard   checkSquares[PIECE_TYPE_NB];
+  bool       needSlowCheck;
   Piece      capturedPiece;
-  Bitboard   chased;
+  uint16_t   chased;
   Move       move;
 
   // Used by NNUE
@@ -81,7 +82,7 @@ public:
 
   // FEN string input/output
   Position& set(const std::string& fenStr, StateInfo* si, Thread* th);
-  Position& set(const std::string& code, Color c, StateInfo* si);
+  Position& set(const Position& pos, StateInfo* si, Thread* th);
   std::string fen() const;
 
   // Position representation
@@ -138,9 +139,9 @@ public:
   int game_ply() const;
   Thread* this_thread() const;
   bool is_repeated(Value& result, int ply = 0) const;
-  Bitboard chased() const;
-  bool not_only_pawn(Color c) const;
-  Value material() const;
+  ChaseMap chased(Color c);
+  Value material_sum() const;
+  Value material_diff() const;
 
   // Position consistency check, for debugging
   bool pos_is_ok() const;
@@ -159,6 +160,10 @@ private:
 
   // Other helpers
   void move_piece(Square from, Square to);
+  std::pair<Piece, int> light_do_move(Move m);
+  void light_undo_move(Move m, Piece captured, int id = 0);
+  void set_chase_info(int d);
+  bool chase_legal(Move m, Bitboard b) const;
 
   // Data members
   Piece board[SQUARE_NB];
@@ -169,6 +174,12 @@ private:
   StateInfo* st;
   int gamePly;
   Color sideToMove;
+
+  // Bloom filter for fast repetition filtering
+  BloomFilter filter;
+
+  // Board for chasing detection
+  int idBoard[SQUARE_NB];
 };
 
 extern std::ostream& operator<<(std::ostream& os, const Position& pos);
@@ -268,11 +279,11 @@ inline Key Position::key() const {
   return st->key;
 }
 
-inline bool Position::not_only_pawn(Color c) const {
-  return count<ALL_PIECES>(c) - count<PAWN>(c);
+inline Value Position::material_sum() const {
+  return st->material[WHITE] + st->material[BLACK];
 }
 
-inline Value Position::material() const {
+inline Value Position::material_diff() const {
   return st->material[sideToMove] - st->material[~sideToMove];
 }
 
@@ -332,6 +343,16 @@ inline void Position::do_move(Move m, StateInfo& newSt) {
 inline StateInfo* Position::state() const {
 
   return st;
+}
+
+inline Position& Position::set(const Position& pos, StateInfo* si, Thread* th) {
+
+  set(pos.fen(), si, th);
+
+  // Special cares for bloom filter
+  std::memcpy(&filter, &pos.filter, sizeof(BloomFilter));
+
+  return *this;
 }
 
 } // namespace Stockfish

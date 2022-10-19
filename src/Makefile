@@ -1,5 +1,5 @@
-# Pikafish, a UCI chess playing engine derived from Glaurung 2.1
-# Copyright (C) 2004-2022 The Stockfish developers (see AUTHORS file)
+# Pikafish, a UCI chess playing engine derived from Stockfish
+# Copyright (C) 2004-2022 The Pikafish developers (see AUTHORS file)
 #
 # Pikafish is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -63,11 +63,12 @@ endif
 SRCS = benchmark.cpp bitboard.cpp evaluate.cpp main.cpp \
 	misc.cpp movegen.cpp movepick.cpp position.cpp \
 	search.cpp thread.cpp timeman.cpp tt.cpp uci.cpp ucioption.cpp tune.cpp \
-	nnue/evaluate_nnue.cpp nnue/features/half_ka_v2_xq.cpp
+	nnue/evaluate_nnue.cpp nnue/features/half_ka_v2_hm.cpp \
+	compression/zip.cpp
 
 OBJS = $(notdir $(SRCS:.cpp=.o))
 
-VPATH = syzygy:nnue:nnue/features
+VPATH = compression:nnue:nnue/features
 
 ### ==========================================================================
 ### Section 2. High-level Configuration
@@ -382,6 +383,11 @@ ifeq ($(MAKELEVEL),0)
 endif
 
 CXXFLAGS = $(ENV_CXXFLAGS) -Wall -Wcast-qual -fno-exceptions -std=c++17 $(EXTRACXXFLAGS)
+
+ifeq ($(target_windows),yes)
+	CXXFLAGS += -finput-charset=UTF-8 -fexec-charset=GBK
+endif
+
 DEPENDFLAGS = $(ENV_DEPENDFLAGS) -std=c++17
 LDFLAGS = $(ENV_LDFLAGS) $(EXTRALDFLAGS)
 
@@ -775,10 +781,8 @@ ifeq ($(debug), no)
 # To use LTO and static linking on Windows,
 # the tool chain requires gcc version 10.1 or later.
 	else ifeq ($(comp),mingw)
-	ifneq ($(arch),i386)
-		CXXFLAGS += -flto
+		CXXFLAGS += -flto -flto-partition=one
 		LDFLAGS += $(CXXFLAGS) -save-temps
-	endif
 	endif
 endif
 endif
@@ -797,7 +801,7 @@ endif
 
 help:
 	@echo ""
-	@echo "To compile stockfish, type: "
+	@echo "To compile pikafish, type: "
 	@echo ""
 	@echo "make target ARCH=arch [COMP=compiler] [COMPCXX=cxx]"
 	@echo ""
@@ -901,7 +905,7 @@ clean: objclean profileclean wasmclean
 
 # clean binaries and objects
 objclean:
-	@rm -f pikafish pikafish.exe *.o ./syzygy/*.o ./nnue/*.o ./nnue/features/*.o
+	@rm -f pikafish pikafish.exe *.o ./compression/*.o ./nnue/*.o ./nnue/features/*.o
 
 wasmclean:
 	@rm -f emscripten/pikafish.js emscripten/pikafish.wasm 
@@ -909,11 +913,11 @@ wasmclean:
 # clean auxiliary profiling files
 profileclean:
 	@rm -rf profdir
-	@rm -f bench.txt *.gcda *.gcno ./syzygy/*.gcda ./nnue/*.gcda ./nnue/features/*.gcda *.s
-	@rm -f stockfish.profdata *.profraw
-	@rm -f stockfish.*args*
-	@rm -f stockfish.*lt*
-	@rm -f stockfish.res
+	@rm -f bench.txt *.gcda *.gcno ./compression/*.gcda ./nnue/*.gcda ./nnue/features/*.gcda *.s
+	@rm -f pikafish.profdata *.profraw
+	@rm -f pikafish.*args*
+	@rm -f pikafish.*lt*
+	@rm -f pikafish.res
 	@rm -f ./-lstdc++.res
 
 default:
@@ -993,9 +997,9 @@ clang-profile-make:
 	all
 
 clang-profile-use:
-	$(XCRUN) llvm-profdata merge -output=stockfish.profdata *.profraw
+	$(XCRUN) llvm-profdata merge -output=pikafish.profdata *.profraw
 	$(MAKE) ARCH=$(ARCH) COMP=$(COMP) \
-	EXTRACXXFLAGS='-fprofile-instr-use=stockfish.profdata' \
+	EXTRACXXFLAGS='-fprofile-instr-use=pikafish.profdata' \
 	EXTRALDFLAGS='-fprofile-use ' \
 	all
 

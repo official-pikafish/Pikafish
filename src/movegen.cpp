@@ -41,18 +41,23 @@ namespace {
                             : pawn_attacks_bb(Us, from)) & target;
         else {
             // Generate cannon capture moves.
-            if (Type == CAPTURES || Type == PSEUDO_LEGAL)
+            if (Type != QUIETS && Type != QUIET_CHECKS)
                 b |= attacks_bb<CANNON>(from, pos.pieces()) & pos.pieces(~Us);
 
             // Generate cannon quite moves.
             if (Type != CAPTURES)
                 b |= attacks_bb<ROOK>(from, pos.pieces()) & ~pos.pieces();
+
+            // Restrict to target if in evasion generation
+            if (Type == EVASIONS)
+                b &= target;
         }
 
         // To check, you either move freely a blocker or make a direct check.
         if (Type == QUIET_CHECKS)
-            b &= (pos.blockers_for_king(~Us) & from) ? ~line_bb(from, pos.square<KING>(~Us)) :
-                                                       pos.check_squares(Pt);
+            b &= Pt == CANNON ? ~line_bb(from, pos.square<KING>(~Us)) & pos.check_squares(Pt)
+                              : (pos.blockers_for_king(~Us) & from) ? ~line_bb(from, pos.square<KING>(~Us))
+                              : pos.check_squares(Pt);
 
         while (b)
             *moveList++ = make_move(from, pop_lsb(b));
@@ -61,6 +66,16 @@ namespace {
     return moveList;
   }
 
+  template<Color Us, GenType Type>
+  ExtMove* generate_moves(const Position& pos, ExtMove* moveList, Bitboard target) {
+      moveList = generate_moves<Us,    ROOK, Type>(pos, moveList, target);
+      moveList = generate_moves<Us, ADVISOR, Type>(pos, moveList, target);
+      moveList = generate_moves<Us,  CANNON, Type>(pos, moveList, target);
+      moveList = generate_moves<Us,    PAWN, Type>(pos, moveList, target);
+      moveList = generate_moves<Us,  KNIGHT, Type>(pos, moveList, target);
+      moveList = generate_moves<Us,  BISHOP, Type>(pos, moveList, target);
+      return moveList;
+  }
 
   template<Color Us, GenType Type>
   ExtMove* generate_all(const Position& pos, ExtMove* moveList) {
@@ -70,12 +85,7 @@ namespace {
                      : Type == CAPTURES     ?  pos.pieces(~Us)
                                             : ~pos.pieces(   ); // QUIETS || QUIET_CHECKS
 
-    moveList = generate_moves<Us,    ROOK, Type>(pos, moveList, target);
-    moveList = generate_moves<Us, ADVISOR, Type>(pos, moveList, target);
-    moveList = generate_moves<Us,  CANNON, Type>(pos, moveList, target);
-    moveList = generate_moves<Us,    PAWN, Type>(pos, moveList, target);
-    moveList = generate_moves<Us,  KNIGHT, Type>(pos, moveList, target);
-    moveList = generate_moves<Us,  BISHOP, Type>(pos, moveList, target);
+    moveList = generate_moves<Us, Type>(pos, moveList, target);
 
     if (Type != QUIET_CHECKS || pos.blockers_for_king(~Us) & ksq)
     {
@@ -118,23 +128,69 @@ template ExtMove* generate<QUIET_CHECKS>(const Position&, ExtMove*);
 template ExtMove* generate<PSEUDO_LEGAL>(const Position&, ExtMove*);
 
 
+/// generate<EVASIONS> generates all pseudo-legal check evasions when the side
+/// to move is in check. Returns a pointer to the end of the move list.
+
+template<>
+ExtMove* generate<EVASIONS>(const Position& pos, ExtMove* moveList) {
+
+    // If there are more than one checker, use slow version
+    if (more_than_one(pos.checkers()))
+        return generate<PSEUDO_LEGAL>(pos, moveList);
+
+    Color us = pos.side_to_move();
+    Square ksq = pos.square<KING>(us);
+    Square checksq = lsb(pos.checkers());
+    PieceType pt = type_of(pos.piece_on(checksq));
+
+    // Generate evasions for king, capture and non capture moves
+    Bitboard b = attacks_bb<KING>(ksq) & ~pos.pieces(us);
+    // For all the squares attacked by slider checkers. We will remove them from
+    // the king evasions in order to skip known illegal moves, which avoids any
+    // useless legality checks later on.
+    if (pt == ROOK || pt == CANNON)
+        b &= ~line_bb(checksq, ksq) | pos.pieces(~us);
+    while (b)
+        *moveList++ = make_move(ksq, pop_lsb(b));
+
+    // Generate move away hurdle piece evasions for cannon
+    if (pt == CANNON)
+    {
+        Bitboard hurdle = between_bb(ksq, checksq) & pos.pieces(us);
+        if (hurdle) {
+            Square hurdleSq = pop_lsb(hurdle);
+            pt = type_of(pos.piece_on(hurdleSq));
+            if (pt == PAWN)
+                b = pawn_attacks_bb(us, hurdleSq) & ~line_bb(checksq, hurdleSq) & ~pos.pieces(us);
+            else if (pt == CANNON)
+                b =   (attacks_bb<  ROOK>(hurdleSq, pos.pieces()) & ~line_bb(checksq, hurdleSq) & ~pos.pieces())
+                    | (attacks_bb<CANNON>(hurdleSq, pos.pieces()) & pos.pieces(~us));
+            else
+                b = attacks_bb(pt, hurdleSq, pos.pieces()) & ~line_bb(checksq, hurdleSq) & ~pos.pieces(us);
+            while (b)
+                *moveList++ = make_move(hurdleSq, pop_lsb(b));
+        }
+    }
+
+    // Generate blocking evasions or captures of the checking piece
+    Bitboard target = (between_bb(ksq, checksq)) & ~pos.pieces(us);
+    return us == WHITE ? generate_moves<WHITE, EVASIONS>(pos, moveList, target)
+                       : generate_moves<BLACK, EVASIONS>(pos, moveList, target);
+}
+
+
 /// generate<LEGAL> generates all the legal moves in the given position
 
 template<>
 ExtMove* generate<LEGAL>(const Position& pos, ExtMove* moveList) {
 
-  Color us = pos.side_to_move();
-  Bitboard pinned = pos.blockers_for_king(us) & pos.pieces(us);
-  Square ksq = pos.square<KING>(us);
   ExtMove* cur = moveList;
 
-  // We have to take special cares about the cannon and checks
-  bool notOk = pos.checkers() || (attacks_bb<ROOK>(ksq) & pos.pieces(~us, CANNON));
+  moveList = pos.checkers() ? generate<EVASIONS>(pos, moveList)
+                            : generate<PSEUDO_LEGAL>(pos, moveList);
 
-  moveList = generate<PSEUDO_LEGAL>(pos, moveList);
   while (cur != moveList)
-      // A move is always legal when not moving the king or a pinned piece
-      if ((notOk || (pinned && pinned & from_sq(*cur)) || from_sq(*cur) == ksq) && !pos.legal(*cur))
+      if (!pos.legal(*cur))
           *cur = (--moveList)->move;
       else
           ++cur;

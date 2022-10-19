@@ -59,7 +59,8 @@ namespace Eval {
         if (currentEvalFileName != eval_file)
         {
             ifstream stream(directory + eval_file, ios::binary);
-            if (load_eval(eval_file, stream))
+            stringstream ss = read_zipped_nnue(directory + eval_file);
+            if (load_eval(eval_file, stream) || load_eval(eval_file, ss))
                 currentEvalFileName = eval_file;
         }
   }
@@ -116,7 +117,17 @@ Value Eval::evaluate(const Position& pos, int* complexity) {
   return pos.material();
 #endif
 
-  Value v = NNUE::evaluate(pos, complexity);
+  int nnueComplexity;
+  Value v = NNUE::evaluate(pos, &nnueComplexity);
+  // Blend nnue complexity with material complexity
+  nnueComplexity = (90 * nnueComplexity + 121 * abs(v - pos.material_diff())) / 256;
+  if (complexity) // Return hybrid NNUE complexity to caller
+      *complexity = nnueComplexity;
+
+  int scale = 1035 + 126 * pos.material_sum() / 4214;
+  Value optimism = pos.this_thread()->optimism[pos.side_to_move()];
+  optimism = optimism * (281 + nnueComplexity) / 256;
+  v = (v * scale + optimism * (scale - 780)) / 1024;
 
   // Guarantee evaluation does not hit the mate range
   v = std::clamp(v, VALUE_MATED_IN_MAX_PLY + 1, VALUE_MATE_IN_MAX_PLY - 1);
@@ -141,6 +152,8 @@ std::string Eval::trace(Position& pos) {
 
   // Reset any global variable used in eval
   pos.this_thread()->bestValue       = VALUE_ZERO;
+  pos.this_thread()->optimism[WHITE] = VALUE_ZERO;
+  pos.this_thread()->optimism[BLACK] = VALUE_ZERO;
 
   ss << '\n' << NNUE::trace(pos) << '\n';
 
@@ -149,6 +162,10 @@ std::string Eval::trace(Position& pos) {
   v = NNUE::evaluate(pos);
   v = pos.side_to_move() == WHITE ? v : -v;
   ss << "NNUE evaluation        " << to_cp(v) << " (white side)\n";
+
+  v = evaluate(pos);
+  v = pos.side_to_move() == WHITE ? v : -v;
+  ss << "Final evaluation       " << to_cp(v) << " (white side) [with scaled NNUE, optimism, ...]\n";
 
   return ss.str();
 }

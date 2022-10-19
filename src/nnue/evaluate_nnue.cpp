@@ -206,7 +206,7 @@ namespace Stockfish::Eval::NNUE {
     return t;
   }
 
-  static const std::string PieceToChar(" PNBRQK  pnbrqk");
+  static const std::string PieceToChar(" RACPNBK racpnbk");
 
 
   // format_cp_compact() converts a Value into (centi)pawns and writes it in a buffer.
@@ -258,16 +258,16 @@ namespace Stockfish::Eval::NNUE {
 
     std::stringstream ss;
 
-    char board[3*8+1][8*8+2];
+    char board[3*RANK_NB+1][8*FILE_NB+2];
     std::memset(board, ' ', sizeof(board));
-    for (int row = 0; row < 3*8+1; ++row)
-      board[row][8*8+1] = '\0';
+    for (int row = 0; row < 3*RANK_NB+1; ++row)
+      board[row][8*FILE_NB+1] = '\0';
 
     // A lambda to output one box of the board
     auto writeSquare = [&board](File file, Rank rank, Piece pc, Value value) {
 
       const int x = ((int)file) * 8;
-      const int y = (7 - (int)rank) * 3;
+      const int y = (RANK_9 - (int)rank) * 3;
       for (int i = 1; i < 8; ++i)
          board[y][x+i] = board[y+3][x+i] = '-';
       for (int i = 1; i < 3; ++i)
@@ -284,8 +284,8 @@ namespace Stockfish::Eval::NNUE {
     Value base = evaluate(pos);
     base = pos.side_to_move() == WHITE ? base : -base;
 
-    for (File f = FILE_A; f <= FILE_H; ++f)
-      for (Rank r = RANK_1; r <= RANK_8; ++r)
+    for (File f = FILE_A; f <= FILE_I; ++f)
+      for (Rank r = RANK_0; r <= RANK_9; ++r)
       {
         Square sq = make_square(f, r);
         Piece pc = pos.piece_on(sq);
@@ -312,7 +312,7 @@ namespace Stockfish::Eval::NNUE {
       }
 
     ss << " NNUE derived piece values:\n";
-    for (int row = 0; row < 3*8+1; ++row)
+    for (int row = 0; row < 3*RANK_NB+1; ++row)
         ss << board[row] << '\n';
     ss << '\n';
 
