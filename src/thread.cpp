@@ -63,12 +63,9 @@ void Thread::clear() {
   
   for (bool inCheck : { false, true })
       for (StatsType c : { NoCaptures, Captures })
-      {
           for (auto& to : continuationHistory[inCheck][c])
-                for (auto& h : to)
-                      h->fill(-71);
-          continuationHistory[inCheck][c][NO_PIECE][0]->fill(Search::CounterMovePruneThreshold - 1);
-      }
+              for (auto& h : to)
+                  h->fill(-71);
 }
 
 
@@ -202,7 +199,7 @@ void ThreadPool::start_thinking(Position& pos, StateListPtr& states,
       th->nodes = th->tbHits = th->nmpMinPly = th->bestMoveChanges = 0;
       th->rootDepth = th->completedDepth = 0;
       th->rootMoves = rootMoves;
-      th->rootPos.set(pos.fen(), &th->rootState, th);
+      th->rootPos.set(pos, &th->rootState, th);
       th->rootState = setupStates->back();
   }
 

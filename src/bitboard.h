@@ -122,10 +122,6 @@ constexpr bool more_than_one(Bitboard b) {
   return b & (b - 1);
 }
 
-inline Bitboard undo_move_board(Bitboard b, Move m) {
-    return (from_sq(m) != SQ_NONE && (b & to_sq(m))) ? (b ^ to_sq(m)) | from_sq(m) : b;
-}
-
 
 /// rank_bb() and file_bb() return a bitboard representing all the squares on
 /// the given file or rank.
@@ -243,8 +239,8 @@ template<> inline int distance<File>(Square x, Square y) { return std::abs(file_
 template<> inline int distance<Rank>(Square x, Square y) { return std::abs(rank_of(x) - rank_of(y)); }
 template<> inline int distance<Square>(Square x, Square y) { return SquareDistance[x][y]; }
 
-inline int edge_distance(File f) { return std::min(f, File(FILE_H - f)); }
-inline int edge_distance(Rank r) { return std::min(r, Rank(RANK_8 - r)); }
+inline int edge_distance(File f) { return std::min(f, File(FILE_I - f)); }
+inline int edge_distance(Rank r) { return std::min(r, Rank(RANK_9 - r)); }
 
 
 /// attacks_bb(Square) returns the pseudo attacks of the give piece type

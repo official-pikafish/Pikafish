@@ -38,6 +38,7 @@ void* std_aligned_alloc(size_t alignment, size_t size);
 void std_aligned_free(void* ptr);
 void* aligned_large_pages_alloc(size_t size); // memory aligned by page size, min alignment: 4096 bytes
 void aligned_large_pages_free(void* mem); // nop if mem == nullptr
+std::stringstream read_zipped_nnue(const std::string& fpath);
 
 void dbg_hit_on(bool b);
 void dbg_hit_on(bool c, bool b);
@@ -59,6 +60,14 @@ private:
   std::vector<Entry> table = std::vector<Entry>(Size); // Allocate on the heap
 };
 
+struct BloomFilter {
+    constexpr static uint64_t FILTER_SIZE = 1 << 14;
+    uint8_t  operator[](Key key) const { return table[key & (FILTER_SIZE - 1)]; }
+    uint8_t& operator[](Key key)       { return table[key & (FILTER_SIZE - 1)]; }
+
+private:
+    uint8_t table[1 << 14];
+};
 
 enum SyncCout { IO_LOCK, IO_UNLOCK };
 std::ostream& operator<<(std::ostream&, SyncCout);
@@ -124,33 +133,6 @@ private:
   T values_[MaxSize];
   std::size_t size_ = 0;
 };
-
-
-/// sigmoid(t, x0, y0, C, P, Q) implements a sigmoid-like function using only integers,
-/// with the following properties:
-///
-///  -  sigmoid is centered in (x0, y0)
-///  -  sigmoid has amplitude [-P/Q , P/Q] instead of [-1 , +1]
-///  -  limit is (y0 - P/Q) when t tends to -infinity
-///  -  limit is (y0 + P/Q) when t tends to +infinity
-///  -  the slope can be adjusted using C > 0, smaller C giving a steeper sigmoid
-///  -  the slope of the sigmoid when t = x0 is P/(Q*C)
-///  -  sigmoid is increasing with t when P > 0 and Q > 0
-///  -  to get a decreasing sigmoid, change sign of P
-///  -  mean value of the sigmoid is y0
-///
-/// Use <https://www.desmos.com/calculator/jhh83sqq92> to draw the sigmoid
-
-inline int64_t sigmoid(int64_t t, int64_t x0,
-                                  int64_t y0,
-                                  int64_t  C,
-                                  int64_t  P,
-                                  int64_t  Q)
-{
-   assert(C > 0);
-   assert(Q != 0);
-   return y0 + P * (t-x0) / (Q * (std::abs(t-x0) + C)) ;
-}
 
 
 /// xorshift64star Pseudo-Random Number Generator

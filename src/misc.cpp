@@ -60,6 +60,7 @@ typedef WORD(*fun5_t)();
 
 #include "misc.h"
 #include "thread.h"
+#include "compression/zip.h"
 
 using namespace std;
 
@@ -138,6 +139,16 @@ public:
 } // namespace
 
 
+/// use_english() tests if the current language environment is Chinese Simplified
+static bool use_english() {
+#ifdef _WIN32
+    return GetSystemDefaultLangID() != 0x0804;
+#else
+    return true;
+#endif
+}
+
+
 /// engine_info() returns the full name of the current PikaFish version. This
 /// will be either "Pikafish YYYY-MM-DD" (where YYYY-MM-DD is the date when
 /// the program was compiled) or "Pikafish <Version>", depending on whether
@@ -149,7 +160,7 @@ string engine_info(bool to_uci) {
   string month, day, year;
   stringstream ss, date(__DATE__); // From compiler, format is "Sep 21 2008"
 
-  ss << "Pikafish " << Version << setfill('0');
+  ss << (use_english() ? "Pikafish " : "皮卡鱼 ") << Version << setfill('0');
 
   if (Version.empty())
   {
@@ -157,8 +168,11 @@ string engine_info(bool to_uci) {
       ss << year << "-" << setw(2) << (1 + months.find(month) / 4) << "-" << setw(2) << day;
   }
 
-  ss << (to_uci  ? "\nid author ": " by ") << "PikaCat++"
-     << (to_uci ? "\ninfo string special thanks to Vin Team and Fabian Fichter" : "");
+  if (use_english())
+      ss << (to_uci ? "\nid author " : " by ") << "the Pikafish developers (see AUTHORS file)";
+  else
+      ss << (to_uci ? "\nid author " : " 开发团队: ") << "皮卡鱼开发团队(详情请查看作者文件)"
+         << (to_uci ? "" : "\n皮卡鱼(http://pikafish.org)是开源免费的象棋引擎, 欢迎加入我们的QQ群: 755655813");
 
   return ss.str();
 }
@@ -378,10 +392,9 @@ void std_aligned_free(void* ptr) {
 
 #if defined(_WIN32)
 
-static void* aligned_large_pages_alloc_windows(size_t allocSize) {
+static void* aligned_large_pages_alloc_windows([[maybe_unused]] size_t allocSize) {
 
   #if !defined(_WIN64)
-    (void)allocSize; // suppress unused-parameter compiler warning
     return nullptr;
   #else
 
@@ -626,8 +639,7 @@ string argv0;            // path+name of the executable binary, as given by argv
 string binaryDirectory;  // path of the executable directory
 string workingDirectory; // path of the working directory
 
-void init(int argc, char* argv[]) {
-    (void)argc;
+void init([[maybe_unused]] int argc, char* argv[]) {
     string pathSeparator;
 
     // extract the path+name of the executable binary
@@ -668,5 +680,27 @@ void init(int argc, char* argv[]) {
 
 
 } // namespace CommandLine
+
+std::stringstream read_zipped_nnue(const std::string& fpath) {
+    void* buf = NULL;
+    size_t bufsize;
+
+    struct zip_t *zip = zip_open(fpath.c_str(), 0, 'r');
+    if (zip_entries_total(zip) == 1) {
+        zip_entry_openbyindex(zip, 0);
+        {
+            zip_entry_read(zip, &buf, &bufsize);
+        }
+        zip_entry_close(zip);
+    }
+    zip_close(zip);
+
+    std::stringstream ss;
+    if (buf)
+        ss.write((const char*)buf, bufsize);
+    free(buf);
+
+    return ss;
+}
 
 } // namespace Stockfish
