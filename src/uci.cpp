@@ -229,11 +229,20 @@ namespace {
 
 void UCI::loop(int argc, char* argv[]) {
 
-  Position pos;
-  string token, cmd;
-  StateListPtr states(new std::deque<StateInfo>(1));
+#if defined(__EMSCRIPTEN__)
+  #define EM_STATIC static
+#else
+  #define EM_STATIC 
+#endif
 
-  pos.set(StartFEN, &states->back(), Threads.main());
+  string token, cmd;
+  EM_STATIC Position pos;
+  EM_STATIC StateListPtr states(new std::deque<StateInfo>(1));
+
+  EM_STATIC auto __init_once = [&]() {
+    pos.set(StartFEN, &states->back(), Threads.main());
+    return 0;
+  }();
 
   for (int i = 1; i < argc; ++i)
       cmd += std::string(argv[i]) + " ";
