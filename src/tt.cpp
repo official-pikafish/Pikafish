@@ -85,6 +85,7 @@ void TranspositionTable::resize(size_t mbSize) {
 
 void TranspositionTable::clear() {
 
+#if !defined(SINGLE_THREAD) && !defined(__EMSCRIPTEN__)
   std::vector<std::thread> threads;
 
   for (size_t idx = 0; idx < Options["Threads"]; ++idx)
@@ -107,6 +108,9 @@ void TranspositionTable::clear() {
 
   for (std::thread& th : threads)
       th.join();
+#else
+    std::memset(table, 0, clusterCount * sizeof(Cluster));
+#endif
 }
 
 

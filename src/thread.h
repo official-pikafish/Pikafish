@@ -39,11 +39,15 @@ namespace Stockfish {
 
 class Thread {
 
+#ifndef SINGLE_THREAD
   std::mutex mutex;
   std::condition_variable cv;
+#endif
   size_t idx;
   bool exit = false, searching = true; // Set before starting std::thread
+#ifndef SINGLE_THREAD
   NativeThread stdThread;
+#endif
 
 public:
   explicit Thread(size_t);

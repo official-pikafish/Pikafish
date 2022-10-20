@@ -549,6 +549,10 @@ ifeq ($(COMP),emscripten)
 		SRCS += emscripten/wasm_simd.cpp
 		OBJS += emscripten/wasm_simd.o
 	endif
+
+	ifeq ($(debug),yes)
+		LDFLAGS += --emit-symbol-map
+	endif
 endif
 
 

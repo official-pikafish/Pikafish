@@ -33,8 +33,11 @@ ThreadPool Threads; // Global object
 /// Thread constructor launches the thread and waits until it goes to sleep
 /// in idle_loop(). Note that 'searching' and 'exit' should be already set.
 
-Thread::Thread(size_t n) : idx(n), stdThread(&Thread::idle_loop, this) {
-
+Thread::Thread(size_t n) : idx(n)
+#ifndef SINGLE_THREAD
+    , stdThread(&Thread::idle_loop, this) 
+#endif
+{
   wait_for_search_finished();
 }
 
@@ -47,8 +50,10 @@ Thread::~Thread() {
   assert(!searching);
 
   exit = true;
+#ifndef SINGLE_THREAD
   start_searching();
   stdThread.join();
+#endif
 }
 
 
@@ -73,9 +78,14 @@ void Thread::clear() {
 
 void Thread::start_searching() {
 
+#ifndef SINGLE_THREAD
   std::lock_guard<std::mutex> lk(mutex);
   searching = true;
   cv.notify_one(); // Wake up the thread in idle_loop()
+#else
+  search();
+#endif
+
 }
 
 
@@ -84,10 +94,14 @@ void Thread::start_searching() {
 
 void Thread::wait_for_search_finished() {
 
+#ifndef SINGLE_THREAD
   std::unique_lock<std::mutex> lk(mutex);
   cv.wait(lk, [&]{ return !searching; });
+#endif
+
 }
 
+#ifndef SINGLE_THREAD
 
 /// Thread::idle_loop() is where the thread is parked, blocked on the
 /// condition variable, when it has no work to do.
@@ -118,6 +132,8 @@ void Thread::idle_loop() {
   }
 }
 
+#endif
+
 /// ThreadPool::set() creates/destroys threads to match the requested number.
 /// Created and launched threads will immediately go to sleep in idle_loop.
 /// Upon resizing, threads are recreated to allow for binding if necessary.
@@ -136,8 +152,11 @@ void ThreadPool::set(size_t requested) {
   {
       push_back(new MainThread(0));
 
+    #ifndef SINGLE_THREAD
       while (size() < requested)
           push_back(new Thread(size()));
+    #endif
+    
       clear();
 
       // Reallocate the hash with the new threadpool size
