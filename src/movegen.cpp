@@ -173,6 +173,7 @@ ExtMove* generate<EVASIONS>(const Position& pos, ExtMove* moveList) {
     }
 
     // Generate blocking evasions or captures of the checking piece
+    // TODO: 之前如果没有把象的between_bb弄对，这里就不对了
     Bitboard target = (between_bb(ksq, checksq)) & ~pos.pieces(us);
     return us == WHITE ? generate_moves<WHITE, EVASIONS>(pos, moveList, target)
                        : generate_moves<BLACK, EVASIONS>(pos, moveList, target);

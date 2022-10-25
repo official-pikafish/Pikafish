@@ -44,6 +44,17 @@ namespace {
 
 const string PieceToChar(" RACPNBK racpnbk");
 
+const string DarkPieces("rnbakabnr"
+                        "........."
+                        ".c.....c."
+                        "p.p.p.p.p"
+                        "........."
+                        "........."
+                        "P.P.P.P.P"
+                        ".C.....C."
+                        "........."
+                        "RNBAKABNR");
+
 constexpr Piece Pieces[] = { W_ROOK, W_ADVISOR, W_CANNON, W_PAWN, W_KNIGHT, W_BISHOP, W_KING,
                              B_ROOK, B_ADVISOR, B_CANNON, B_PAWN, B_KNIGHT, B_BISHOP, B_KING };
 } // namespace
@@ -138,11 +149,15 @@ Position& Position::set(const string& fenStr, StateInfo* si, Thread* th) {
       else if (token == '/')
           sq += 2 * SOUTH;
 
-      else if ((idx = PieceToChar.find(token)) != string::npos) {
+      else if ((idx = PieceToChar.find(token == 'x' ? DarkPieces[sq] : token)) != string::npos) {
           put_piece(Piece(idx), sq);
+          if (token == 'x')
+              darkPieces |= sq;
           ++sq;
       }
   }
+
+  // TODO: 需要处理还剩下什么暗子
 
   // 2. Active color
   ss >> token;
@@ -187,6 +202,7 @@ void Position::set_check_info(StateInfo* si) const {
   si->checkSquares[KNIGHT] = attacks_bb<KNIGHT_TO>(oksq, pieces());
   si->checkSquares[CANNON] = attacks_bb<CANNON>(oksq, pieces());
   si->checkSquares[ROOK]   = attacks_bb<ROOK>(oksq, pieces());
+  // TODO: 下面这一行可能不正确惹qwq，士象过河可以将军
   si->checkSquares[KING]   = si->checkSquares[ADVISOR] = si->checkSquares[BISHOP] = 0;
 }
 
@@ -238,12 +254,14 @@ string Position::fen() const {
               ss << emptyCnt;
 
           if (f <= FILE_I)
-              ss << PieceToChar[piece_on(make_square(f, r))];
+              ss << ((darkPieces & make_square(f, r)) ? 'x' : PieceToChar[piece_on(make_square(f, r))]);
       }
 
       if (r > RANK_0)
           ss << '/';
   }
+
+  // TODO: 需要打印剩下什么暗子
 
   ss << (sideToMove == WHITE ? " w " : " b ");
 
@@ -263,7 +281,7 @@ string Position::fen() const {
 /// or the same of the color of the slider.
 
 Bitboard Position::blockers_for_king(Bitboard sliders, Square s, Bitboard& pinners) const {
-
+  // TODO: 这个函数也不正确惹qwq，需要考虑象的blocker
   Bitboard blockers = 0;
   pinners = 0;
 
@@ -310,7 +328,7 @@ Bitboard Position::attackers_to(Square s, Bitboard occupied) const {
 /// to indicate occupancy.
 
 Bitboard Position::checkers_to(Color c, Square s, Bitboard occupied) const {
-
+    // TODO: 将军的子不止这些惹qwq
     return ( (pawn_attacks_to_bb(c, s)           & pieces(   PAWN))
            | (attacks_bb<KNIGHT_TO>(s, occupied) & pieces( KNIGHT))
            | (attacks_bb<     ROOK>(s, occupied) & pieces(   ROOK))
@@ -471,6 +489,8 @@ void Position::do_move(Move m, StateInfo& newSt, bool givesCheck) {
 
       // Update hash key
       k ^= Zobrist::psq[captured][capsq];
+
+      // TODO: 如果被吃的是暗子，需要移除darkPiece中对应的位：darkPiece ^= capsq;
   }
 
   // Update hash key
@@ -479,12 +499,27 @@ void Position::do_move(Move m, StateInfo& newSt, bool givesCheck) {
   // Move the piece.
   dp.piece[0] = pc;
   dp.from[0] = from;
-  dp.to[0] = to;
+  dp.to[0] = to; // TODO: 如果是翻开暗子，需要写dp.to[0] = SQ_NONE;
 
+  // TODO: 这里的子力移动不正确惹
   move_piece(from, to);
 
+  /* TODO: 如果翻开了暗子，需要在这里写这些代码
+   * if (darkPiece & from)
+   * {
+darkPiece ^= from;
+dp.piece[2] = 翻开之后是什么子（随机一个）；
+dp.from[2] = SQ_NONE;
+dp.to[2] = to;
+dp.dirtynum = 3;
+}
+  */
+
+  // TODO: 被吃的是暗子，又要怎么处理呢？
   // Set capture piece
   st->capturedPiece = captured;
+
+  // TODO: 剩余的暗子的变化？应该怎么处理？
 
   // Update the key with the final value
   st->key = k;
@@ -516,6 +551,7 @@ void Position::undo_move(Move m) {
   assert(empty(from));
   assert(type_of(st->capturedPiece) != KING);
 
+  // TODO: 下面这个的流程无法正确应对暗子惹，需要修改
   move_piece(to, from); // Put the piece back at the source square
 
   if (st->capturedPiece)
@@ -524,6 +560,8 @@ void Position::undo_move(Move m) {
 
       put_piece(st->capturedPiece, capsq); // Restore the captured piece
   }
+
+  // TODO: 需要对表示剩余的暗子那个结构作处理
 
   // Finally point our state pointer back to the previous state
   st = st->previous;
@@ -845,6 +883,7 @@ ChaseMap Position::chased(Color c) {
     std::swap(c, sideToMove);
 
     // King and pawn can legally perpetual chase
+    // TODO: 棋规可能可以不将暗子作为attackers，attackers &= ~darkPieces;
     Bitboard attackers = pieces(sideToMove) & ~pieces(sideToMove, KING, PAWN);
     while (attackers)
     {

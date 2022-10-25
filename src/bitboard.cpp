@@ -44,7 +44,10 @@ Magic KnightMagics[SQUARE_NB];
 Magic KnightToMagics[SQUARE_NB];
 
 namespace {
-
+  // TODO: 象的攻击位棋盘的大小需要扩展，需要重新计算，计算的代码查看
+  // https://github.com/PikaCat-OuO/Pikafish/blob/138caa98fdbfe18069f16ea99195cffb535e3191/src/bitboard.cpp#L216-L295
+  // https://github.com/ianfab/Fairy-Stockfish/commit/7b2c51be61f7fab5b945b16adf28a3f5167725c0
+  // 同时需要为象重新生成magic数字，放到magics.h里面
   Bitboard RookTable    [0x108000];  // To store rook attacks
   Bitboard CannonTable  [0x108000];  // To store cannon attacks
   Bitboard BishopTable  [0x228];     // To store bishop attacks
@@ -110,7 +113,7 @@ void Bitboards::init() {
 
   init_magics<     ROOK>(    RookTable,     RookMagics,     RookMagicsInit);
   init_magics<   CANNON>(  CannonTable,   CannonMagics,     RookMagicsInit);
-  init_magics<   BISHOP>(  BishopTable,   BishopMagics,   BishopMagicsInit);
+  init_magics<   BISHOP>(  BishopTable,   BishopMagics,   BishopMagicsInit); // TODO: 象要允许过河
   init_magics<   KNIGHT>(  KnightTable,   KnightMagics,   KnightMagicsInit);
   init_magics<KNIGHT_TO>(KnightToTable, KnightToMagics, KnightToMagicsInit);
 
@@ -131,7 +134,7 @@ void Bitboards::init() {
           for (int step : { NORTH, SOUTH, WEST, EAST } )
               PseudoAttacks[KING][s1] |= safe_destination(s1, step);
           PseudoAttacks[KING][s1] &= Palace;
-
+          // TODO: 把这个士的部分移动出去，生成全图的攻击，不仅仅是皇宫内的
           for (int step : { NORTH_WEST, NORTH_EAST, SOUTH_WEST, SOUTH_EAST } )
               PseudoAttacks[ADVISOR][s1] |= safe_destination(s1, step);
           PseudoAttacks[ADVISOR][s1] &= Palace;
@@ -147,6 +150,9 @@ void Bitboards::init() {
 
           if (PseudoAttacks[KNIGHT][s1] & s2)
               BetweenBB[s1][s2] |= lame_leaper_path<KNIGHT_TO>(Direction(s2 - s1), s1);
+
+          // TODO: 上面考虑了马的BetweenBB，还需要额外考虑象的BetweenBB，象本来的位置[s1]和走到的位置[s2]中间的象眼和象的位置s1的位棋盘
+          // 可以参考between_bb函数的定义 Between[s1][s2] |= ....;
 
           BetweenBB[s1][s2] |= s2;
       }
@@ -214,7 +220,7 @@ namespace {
     Bitboard b = 0;
     for (const auto& d : pt == BISHOP ? BishopDirections : KnightDirections)
       b |= lame_leaper_path<pt>(d, s);
-    if (pt == BISHOP)
+    if (pt == BISHOP) // TODO:这里限制了象的过河与否
       b &= HalfBB[rank_of(s) > RANK_4];
     return b;
   }
@@ -228,7 +234,7 @@ namespace {
       if (is_ok(to) && distance(s, to) < 4 && !(lame_leaper_path<pt>(d, s) & occupied))
         b |= to;
     }
-    if (pt == BISHOP)
+    if (pt == BISHOP) // TODO:这里限制了象的过河与否
       b &= HalfBB[rank_of(s) > RANK_4];
     return b;
   }

@@ -52,6 +52,7 @@ struct StateInfo {
   Piece      capturedPiece;
   uint16_t   chased;
   Move       move;
+  // TODO: 这里可能按需要加一些结构表示和暗子有关的东西
 
   // Used by NNUE
   Eval::NNUE::Accumulator accumulator;
@@ -169,11 +170,14 @@ private:
   Piece board[SQUARE_NB];
   Bitboard byTypeBB[PIECE_TYPE_NB];
   Bitboard byColorBB[COLOR_NB];
+  Bitboard darkPieces;
   int pieceCount[PIECE_NB];
   Thread* thisThread;
   StateInfo* st;
   int gamePly;
   Color sideToMove;
+
+  // TODO: 在这里添加一个表示双方还剩下什么暗子的表示，可以是一个ValueList类型，方便走子时的抽样
 
   // Bloom filter for fast repetition filtering
   BloomFilter filter;
