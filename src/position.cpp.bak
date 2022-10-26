@@ -42,12 +42,21 @@ namespace Zobrist {
 
 namespace {
 
-const string PieceToChar(" RACPNBK racpnbk XXXXXX  xxxxxx ");
+const string PieceToChar(" RACPNBK racpnbk");
+
+const string DarkPieces("rnbakabnr"
+                        "........."
+                        ".c.....c."
+                        "p.p.p.p.p"
+                        "........."
+                        "........."
+                        "P.P.P.P.P"
+                        ".C.....C."
+                        "........."
+                        "RNBAKABNR");
 
 constexpr Piece Pieces[] = { W_ROOK, W_ADVISOR, W_CANNON, W_PAWN, W_KNIGHT, W_BISHOP, W_KING,
-                             B_ROOK, B_ADVISOR, B_CANNON, B_PAWN, B_KNIGHT, B_BISHOP, B_KING,
-                             BW_ROOK, BW_ADVISOR, BW_CANNON, BW_PAWN, BW_KNIGHT, BW_BISHOP,
-                             BB_ROOK, BB_ADVISOR, BB_CANNON, BB_PAWN, BB_KNIGHT, BB_BISHOP };
+                             B_ROOK, B_ADVISOR, B_CANNON, B_PAWN, B_KNIGHT, B_BISHOP, B_KING };
 } // namespace
 
 
@@ -56,7 +65,6 @@ constexpr Piece Pieces[] = { W_ROOK, W_ADVISOR, W_CANNON, W_PAWN, W_KNIGHT, W_BI
 std::ostream& operator<<(std::ostream& os, const Position& pos) {
 
   os << "\n +---+---+---+---+---+---+---+---+---+\n";
-
 
   for (Rank r = RANK_9; r >= RANK_0; --r)
   {
@@ -141,48 +149,15 @@ Position& Position::set(const string& fenStr, StateInfo* si, Thread* th) {
       else if (token == '/')
           sq += 2 * SOUTH;
 
-      else if ((idx = PieceToChar.find(token)) != string::npos) {
-          if (token == 'x') {
-              int s = sq;
-              if (s > SQ_I4)s = SQ_I9 - s;
-              put_piece(Piece(BPiece[s]|8|16), sq);
-          }
-          else if (token == 'X') {
-              int s = sq;
-              if (s > SQ_I4)s = SQ_I9 - s;
-              put_piece(Piece(BPiece[s]|16 ), sq);
-          }
-          else {
-              put_piece(Piece(idx), sq);
-          }
+      else if ((idx = PieceToChar.find(token == 'x' ? DarkPieces[sq] : token)) != string::npos) {
+          put_piece(Piece(idx), sq);
+          if (token == 'x')
+              darkPieces |= sq;
           ++sq;
       }
   }
 
-
-  //2.rest
-  Piece pt = NO_PIECE;
-  clearRest();
-  while ((ss >> token) && !isspace(token)) {
-      if ((idx = PieceToChar.find(token)) != string::npos) {
-          if (token == 'x') {
-              pt = NO_PIECE;
-          }
-          else if (token == 'X') {
-              pt = NO_PIECE;
-          }
-          else {
-              pt = Piece(idx);
-          }
-      }
-
-      if (isdigit(token)) {
-          for (int i = 0; i < (token - '0'); i++)
-          {
-              pushRest(pt);
-          }
-      }
-  }
+  // TODO: 需要处理还剩下什么暗子
 
   // 2. Active color
   ss >> token;
@@ -267,7 +242,7 @@ string Position::fen() const {
 
   int emptyCnt;
   std::ostringstream ss;
-  
+
   for (Rank r = RANK_9; r >= RANK_0; --r)
   {
       for (File f = FILE_A; f <= FILE_I; ++f)
@@ -279,34 +254,14 @@ string Position::fen() const {
               ss << emptyCnt;
 
           if (f <= FILE_I)
-              ss << PieceToChar[piece_on(make_square(f, r))];
+              ss << ((darkPieces & make_square(f, r)) ? 'x' : PieceToChar[piece_on(make_square(f, r))]);
       }
 
       if (r > RANK_0)
           ss << '/';
   }
 
-  ss << ' ';
-  int DarkNum[PIECE_NB];
-  memset(DarkNum, 0, sizeof(DarkNum));
-  for (int i = 0; i < restPieces_wihte.size(); i++) {
-      if (restPieces_wihte[i] != NO_PIECE)
-      {
-          DarkNum[restPieces_wihte[i]]++;
-      }
-  }
-  for (int i = 0; i < restPieces_black.size(); i++) {
-      if (restPieces_black[i] != NO_PIECE)
-      {
-          DarkNum[restPieces_black[i]]++;
-      }
-  }
-  for (int i = 1; i < PIECE_NB; i++)
-  {
-      if (DarkNum[i] > 0) {
-          ss << PieceToChar[Piece(i)] << DarkNum[i];
-      }
-  }
+  // TODO: 需要打印剩下什么暗子
 
   ss << (sideToMove == WHITE ? " w " : " b ");
 
@@ -546,16 +501,7 @@ void Position::do_move(Move m, StateInfo& newSt, bool givesCheck) {
   dp.from[0] = from;
   dp.to[0] = to; // TODO: 如果是翻开暗子，需要写dp.to[0] = SQ_NONE;
 
-  Piece p;
-  st->fromPiece = pc;
-  //Dark Change
-  if (isDark(from)) {
-      p = getRandomRest(color_of(pc));
-      //printf("domove %d-%d\r\n", pc, p);
-      remove_piece(from);
-      put_piece(p,from);
-  }
-  
+  // TODO: 这里的子力移动不正确惹
   move_piece(from, to);
 
   /* TODO: 如果翻开了暗子，需要在这里写这些代码
@@ -605,13 +551,7 @@ void Position::undo_move(Move m) {
   assert(empty(from));
   assert(type_of(st->capturedPiece) != KING);
 
-  if (Darkof(st->fromPiece)==UNKNOWN) {
-      //printf("%d-%d,%d-%d\r\n", board[to], st->fromPiece,color_of(board[to]), color_of(st->fromPiece));
-      pushRest(board[to]);
-      remove_piece(to);
-      put_piece(st->fromPiece, to);
-
-  }
+  // TODO: 下面这个的流程无法正确应对暗子惹，需要修改
   move_piece(to, from); // Put the piece back at the source square
 
   if (st->capturedPiece)

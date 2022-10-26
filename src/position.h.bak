@@ -23,10 +23,7 @@
 #include <deque>
 #include <memory> // For std::unique_ptr
 #include <string>
-#include <map>
-#include <vector>
-#include <stdlib.h>
-#include <time.h>
+
 #include "bitboard.h"
 #include "types.h"
 
@@ -53,7 +50,6 @@ struct StateInfo {
   Bitboard   checkSquares[PIECE_TYPE_NB];
   bool       needSlowCheck;
   Piece      capturedPiece;
-  Piece      fromPiece;
   uint16_t   chased;
   Move       move;
   // TODO: 这里可能按需要加一些结构表示和暗子有关的东西
@@ -98,14 +94,6 @@ public:
   Bitboard pieces(Color c, PieceType pt1, PieceType pt2) const;
   Bitboard pieces(Color c, PieceType pt1, PieceType pt2, PieceType pt3) const;
   Piece piece_on(Square s) const;
-  Piece nodarkPiece_on(Square s) const;
-  bool isDark(Square s) const;
-  Dark Darkof(Square s)const;
-  Dark Darkof(Piece p)const;
-  void clearRest() ;
-  void pushRest(Piece);
-  Piece getRandomRest(const Color);
-
   bool empty(Square s) const;
   template<PieceType Pt> int count(Color c) const;
   template<PieceType Pt> int count() const;
@@ -117,6 +105,7 @@ public:
   Bitboard blockers_for_king(Bitboard sliders, Square s, Bitboard& pinners) const;
   Bitboard check_squares(PieceType pt) const;
   Bitboard pinners(Color c) const;
+
   // Attacks to/from a given square
   Bitboard attackers_to(Square s) const;
   Bitboard attackers_to(Square s, Bitboard occupied) const;
@@ -179,22 +168,22 @@ private:
 
   // Data members
   Piece board[SQUARE_NB];
-
   Bitboard byTypeBB[PIECE_TYPE_NB];
   Bitboard byColorBB[COLOR_NB];
+  Bitboard darkPieces;
   int pieceCount[PIECE_NB];
   Thread* thisThread;
   StateInfo* st;
   int gamePly;
   Color sideToMove;
 
+  // TODO: 在这里添加一个表示双方还剩下什么暗子的表示，可以是一个ValueList类型，方便走子时的抽样
+
   // Bloom filter for fast repetition filtering
   BloomFilter filter;
 
   // Board for chasing detection
   int idBoard[SQUARE_NB];
-  std::vector<Piece> restPieces_wihte;
-  std::vector<Piece> restPieces_black;
 };
 
 extern std::ostream& operator<<(std::ostream& os, const Position& pos);
@@ -206,82 +195,6 @@ inline Color Position::side_to_move() const {
 inline Piece Position::piece_on(Square s) const {
   assert(is_ok(s));
   return board[s];
-}
-
-inline Piece Position::nodarkPiece_on(Square s) const {
-    assert(is_ok(s));
-    return Piece(board[s] & 15);
-}
-
-inline bool Position::isDark(Square s) const {
-    assert(is_ok(s));
-    return Darkof(s) == UNKNOWN;
-}
-
-inline Dark Position::Darkof(Square s)const {
-    assert(is_ok(s));
-    return Dark((board[s] & 16) >> 4);
-}
-
-inline Dark Position::Darkof(Piece p)const {
-    return Dark((p & 16) >> 4);
-}
-
-inline void Position::clearRest() {
-    srand((unsigned)time(NULL));
-    restPieces_black.resize(16, NO_PIECE);
-    restPieces_wihte.resize(16, NO_PIECE);
-}
-
-inline void Position::pushRest(Piece p)  {
-    if (color_of(p) == WHITE) {
-        for (int i = 0; i < restPieces_wihte.size(); i++) {
-            if (restPieces_wihte[i] == NO_PIECE)
-            {
-                restPieces_wihte[i] = p;
-                return;
-            }
-        }
-    }
-    else
-    {
-        for (int i = 0; i < restPieces_black.size(); i++) {
-            if (restPieces_black[i] == NO_PIECE)
-            {
-                restPieces_black[i] = p;
-                return;
-            }
-        }
-    }
-}
-
-inline Piece Position::getRandomRest(const Color c) {
-    if (c == WHITE) {
-        int a = rand();
-        Piece p;
-        for (int i = 0; i < restPieces_wihte.size(); i++) {
-            a += i;
-            a = a % restPieces_wihte.size();
-            p = restPieces_wihte[a];
-            if (restPieces_wihte[a] != NO_PIECE)break;
-        }
-        restPieces_wihte[a] = NO_PIECE;
-        return p;
-    }
-    else
-    {
-        int a = rand();
-        Piece p;
-        for (int i = 0; i < restPieces_black.size(); i++) {
-            a += i;
-            a = a % restPieces_black.size();
-            p = restPieces_black[a];
-            if (restPieces_black[a] != NO_PIECE)break;
-        }
-        restPieces_black[a] = NO_PIECE;
-        return p;
-    }
-    
 }
 
 inline bool Position::empty(Square s) const {
