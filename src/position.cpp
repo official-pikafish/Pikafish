@@ -291,10 +291,10 @@ string Position::fen() const {
   ss << ' ';
   int DarkNum[PIECE_NB];
   memset(DarkNum, 0, sizeof(DarkNum));
-  for (int i = 0; i < restPieces_wihte.size(); i++) {
-      if (restPieces_wihte[i] != NO_PIECE)
+  for (int i = 0; i < restPieces_white.size(); i++) {
+      if (restPieces_white[i] != NO_PIECE)
       {
-          DarkNum[restPieces_wihte[i]]++;
+          DarkNum[restPieces_white[i]]++;
       }
   }
   for (int i = 0; i < restPieces_black.size(); i++) {

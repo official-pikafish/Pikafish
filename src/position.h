@@ -193,7 +193,7 @@ private:
 
   // Board for chasing detection
   int idBoard[SQUARE_NB];
-  std::vector<Piece> restPieces_wihte;
+  std::vector<Piece> restPieces_white;
   std::vector<Piece> restPieces_black;
 };
 
@@ -230,15 +230,15 @@ inline Dark Position::Darkof(Piece p)const {
 inline void Position::clearRest() {
     srand((unsigned)time(NULL));
     restPieces_black.resize(16, NO_PIECE);
-    restPieces_wihte.resize(16, NO_PIECE);
+    restPieces_white.resize(16, NO_PIECE);
 }
 
 inline void Position::pushRest(Piece p)  {
     if (color_of(p) == WHITE) {
-        for (int i = 0; i < restPieces_wihte.size(); i++) {
-            if (restPieces_wihte[i] == NO_PIECE)
+        for (int i = 0; i < restPieces_white.size(); i++) {
+            if (restPieces_white[i] == NO_PIECE)
             {
-                restPieces_wihte[i] = p;
+                restPieces_white[i] = p;
                 return;
             }
         }
@@ -259,13 +259,13 @@ inline Piece Position::getRandomRest(const Color c) {
     if (c == WHITE) {
         int a = rand();
         Piece p;
-        for (int i = 0; i < restPieces_wihte.size(); i++) {
+        for (int i = 0; i < restPieces_white.size(); i++) {
             a += i;
-            a = a % restPieces_wihte.size();
-            p = restPieces_wihte[a];
-            if (restPieces_wihte[a] != NO_PIECE)break;
+            a = a % restPieces_white.size();
+            p = restPieces_white[a];
+            if (restPieces_white[a] != NO_PIECE)break;
         }
-        restPieces_wihte[a] = NO_PIECE;
+        restPieces_white[a] = NO_PIECE;
         return p;
     }
     else
