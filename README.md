@@ -25,6 +25,46 @@ evaluation for xiangqi, which is by far the strongest. The strongest network can
 downloaded from our official website. The NNUE evaluation benefits from the vector 
 intrinsics available on most CPUs (sse2, avx2, neon, or similar).
 
+## Terms of use
+
+Pikafish is free, and distributed under the **GNU General Public License version 3**
+(GPL v3). Essentially, this means you are free to do almost exactly
+what you want with the program, including distributing it among your
+friends, making it available for download from your website, selling
+it (either by itself or as part of some bigger software package), or
+using it as the starting point for a software project of your own.
+
+The only real limitation is that whenever you distribute Pikafish in
+some way, you MUST always include the license and the full source code
+(or a pointer to where the source code can be found) to generate the 
+exact binary you are distributing. If you make any changes to the
+source code, these changes must also be made available under the GPL v3.
+
+For full details, read the copy of the GPL v3 found in the file named
+[*Copying.txt*][license-link].
+
+The weight file (pikafish.nnue) released with the pikafish and the weight file further
+derived from the weight are:
+1. Only for legal use, any consequences caused by any use beyond the legal scope
+shall be borne by the user.
+2. Only licensed for personal, non-commercial use only, any commercial use requires
+a separate commercial license from the Pikafish team.
+
+Open Source chess engines have accelerated the development of
+computer xiangqi in immeasurable ways. If not for the early adopters
+of the Open Source methods, computer xiangqi would not be what it is today.
+Powerful programs like Stockfish and Pikafish simply would not exist in their current 
+forms. All of this is possible because the authors have empowered users by granting 
+them rights to the code, only asking that you carry on propagating the licenses attached
+to their code. This is a small ask, for such a great gift, and yet we live in a time where
+that gift is not appreciated by some, and worse taken advantage of.
+
+
+## Goal of the project
+The current goal of the project is to make Pikafish suppress all commercial engines and become the top 1. Terminating the domination of those commercial engines like AlphaCat (done), BugChess, and Cyclone in xiangqi. Making the strongest xiangqi engine free and open source to everyone.
+
+I believe if Stockfish can do that for chess, Pikafish can do that for xiangqi.
+
 ## Files
 
 This distribution of Pikafish consists of the following files:
@@ -238,31 +278,6 @@ Discussions about Pikafish take place these days mainly in the
 The engine testing is done on [Fishtest][fishtest-link].
 If you want to help improve Pikafish, please read this [guideline][guideline-link]
 first, where the basics of Pikafish development are explained.
-
-
-## Terms of use
-
-Pikafish is free, and distributed under the **GNU General Public License version 3**
-(GPL v3). Essentially, this means you are free to do almost exactly
-what you want with the program, including distributing it among your
-friends, making it available for download from your website, selling
-it (either by itself or as part of some bigger software package), or
-using it as the starting point for a software project of your own.
-
-The only real limitation is that whenever you distribute Pikafish in
-some way, you MUST always include the license and the full source code
-(or a pointer to where the source code can be found) to generate the 
-exact binary you are distributing. If you make any changes to the
-source code, these changes must also be made available under the GPL v3.
-
-For full details, read the copy of the GPL v3 found in the file named
-[*Copying.txt*][license-link].
-
-
-## Goal of the project
-The current goal of the project is to make Pikafish suppress all commercial engines and become the top 1. Terminating the domination of those commercial engines like AlphaCat, BugChess, and Cyclone in xiangqi. Making the strongest xiangqi engine free and open source to everyone.
-
-I believe if Stockfish can do that for chess, Pikafish can do that for xiangqi.
 
 [authors-link]:https://github.com/PikaCat-OuO/Pikafish/blob/master/AUTHORS
 [build-badge]:https://img.shields.io/github/workflow/status/PikaCat-OuO/Pikafish/Pikafish?style=for-the-badge&label=pikafish&logo=github
