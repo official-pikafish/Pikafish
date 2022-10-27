@@ -5,12 +5,14 @@ derived from the weight are:
 The main ways to obtain commercial license are:
 1. to provide technical support for pikafish development.
 2. to provide computational resources for pikafish chess engine weight training.
+3. to provide legal assistance and support to defend our rights.
 伴随皮卡鱼象棋引擎发布的权重文件(pikafish.nnue)及由该权重进一步引申出的权重文件
 1、仅限用于合法用途，任何超出合法范围的使用所造成的后果或责任由用户自行承担。
 2、仅授权个人非商业用途免费使用，任何商业用途须另向皮卡鱼团队申请获得商业许可。
 获得商业许可的主要方式为：
 1、为皮卡鱼象棋引擎开发提供技术支持。
 2、为皮卡鱼象棋引擎权重训练提供计算资源。
+3、为皮卡鱼引擎及权重维权提供法律咨询或支持。
 
 Any usage of the Pikafish engine and weights constitutes agreement to this License
 使用皮卡鱼引擎及权重即视为同意本协议
