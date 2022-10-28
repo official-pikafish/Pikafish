@@ -78,6 +78,25 @@ namespace {
     return VALUE_DRAW - 1 + Value(thisThread->nodes & 0x2);
   }
 
+  // Skill structure is used to implement strength limit. If we have an uci_elo then
+  // we convert it to a suitable fractional skill level using anchoring to CCRL Elo
+  // (goldfish 1.13 = 2000) and a fit through Ordo derived Elo for match (TC 60+0.6)
+  // results spanning a wide range of k values.
+  struct Skill {
+    Skill(int skill_level, int uci_elo) {
+        if (uci_elo)
+            level = std::clamp(std::pow((uci_elo - 1346.6) / 143.4, 1 / 0.806), 0.0, 20.0);
+        else
+            level = double(skill_level);
+    }
+    bool enabled() const { return level < 20.0; }
+    bool time_to_pick(Depth depth) const { return depth == 1 + int(level); }
+    Move pick_best(size_t multiPV);
+
+    double level;
+    Move best = MOVE_NONE;
+  };
+
   template <NodeType nodeType>
   Value search(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth, bool cutNode);
 
@@ -197,9 +216,11 @@ void MainThread::search() {
       Time.availableNodes += Limits.inc[us] - Threads.nodes_searched();
 
   Thread* bestThread = this;
+  Skill skill = Skill(Options["Skill Level"], Options["UCI_LimitStrength"] ? int(Options["UCI_Elo"]) : 0);
 
   if (   int(Options["MultiPV"]) == 1
       && !Limits.depth
+      && !skill.enabled()
       && rootMoves[0].pv[0] != MOVE_NONE)
       bestThread = Threads.get_best_thread();
 
@@ -265,6 +286,12 @@ void Thread::search() {
   }
 
   size_t multiPV = size_t(Options["MultiPV"]);
+  Skill skill(Options["Skill Level"], Options["UCI_LimitStrength"] ? int(Options["UCI_Elo"]) : 0);
+
+  // When playing with strength handicap enable MultiPV search that we will
+  // use behind the scenes to retrieve a set of possible moves.
+  if (skill.enabled())
+      multiPV = std::max(multiPV, (size_t)4);
 
   multiPV = std::min(multiPV, rootMoves.size());
 
@@ -396,6 +423,10 @@ void Thread::search() {
       if (!mainThread)
           continue;
 
+      // If skill level is enabled and time is up, pick a sub-optimal best move
+      if (skill.enabled() && skill.time_to_pick(rootDepth))
+          skill.pick_best(multiPV);
+
       // Use part of the gained time from a previous stable move for the current move
       for (Thread* th : Threads)
       {
@@ -452,6 +483,11 @@ void Thread::search() {
       return;
 
   mainThread->previousTimeReduction = timeReduction;
+
+  // If skill level is enabled, swap best PV line with the sub-optimal one
+  if (skill.enabled())
+      std::swap(rootMoves[0], *std::find(rootMoves.begin(), rootMoves.end(),
+                skill.best ? skill.best : skill.pick_best(multiPV)));
 }
 
 
@@ -1597,6 +1633,39 @@ moves_loop: // When in check, search starts here
         Square prevSq = to_sq((ss-1)->currentMove);
         thisThread->counterMoves[pos.piece_on(prevSq)][prevSq] = move;
     }
+  }
+
+  // When playing with strength handicap, choose best move among a set of RootMoves
+  // using a statistical rule dependent on 'level'. Idea by Heinz van Saanen.
+
+  Move Skill::pick_best(size_t multiPV) {
+
+    const RootMoves& rootMoves = Threads.main()->rootMoves;
+    static PRNG rng(now()); // PRNG sequence should be non-deterministic
+
+    // RootMoves are already sorted by score in descending order
+    Value topScore = rootMoves[0].score;
+    int delta = std::min(topScore - rootMoves[multiPV - 1].score, PawnValueMg);
+    int maxScore = -VALUE_INFINITE;
+    double weakness = 120 - 2 * level;
+
+    // Choose best move. For each move score we add two terms, both dependent on
+    // weakness. One is deterministic and bigger for weaker levels, and one is
+    // random. Then we choose the move with the resulting highest score.
+    for (size_t i = 0; i < multiPV; ++i)
+    {
+        // This is our magic formula
+        int push = int((  weakness * int(topScore - rootMoves[i].score)
+                        + delta * (rng.rand<unsigned>() % int(weakness))) / 128);
+
+        if (rootMoves[i].score + push >= maxScore)
+        {
+            maxScore = rootMoves[i].score + push;
+            best = rootMoves[i].pv[0];
+        }
+    }
+
+    return best;
   }
 
 } // namespace
