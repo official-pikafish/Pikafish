@@ -63,8 +63,8 @@ namespace {
   void init_magics(Bitboard table[], Magic magics[], const Bitboard magicsInit[]);
 
 
-  template <PieceType pt>
-  void init_magics(Bitboard table[], Magic magics[]);
+  // template <PieceType pt>
+  // void init_magics(Bitboard table[], Magic magics[]);
 
 
   template <PieceType pt>
@@ -307,97 +307,92 @@ namespace {
   // www.chessprogramming.org/Magic_Bitboards. In particular, here we use the so
   // called "fancy" approach.
 
-  template <PieceType pt>
-  void init_magics(Bitboard table[], Magic magics[]) {
+  // template <PieceType pt>
+  // void init_magics(Bitboard table[], Magic magics[]) {
 
-      // Optimal PRNG seeds to pick the correct magics in the shortest time
-      int seeds[][RANK_NB] = { { 734, 10316, 55013, 32803, 12281, 15100, 16645, 255, 346, 89123 },
-                               { 734, 10316, 55013, 32803, 12281, 15100, 16645, 255, 346, 89123 } };
+  //     // Optimal PRNG seeds to pick the correct magics in the shortest time
+  //     int seeds[][RANK_NB] = { { 734, 10316, 55013, 32803, 12281, 15100, 16645, 255, 346, 89123 },
+  //                              { 734, 10316, 55013, 32803, 12281, 15100, 16645, 255, 346, 89123 } };
 
-      Bitboard* occupancy = new Bitboard[0x8000], * reference = new Bitboard[0x8000], edges, b;
-      int* epoch = new int[0x8000]{ }, cnt = 0, size = 0;
+  //     Bitboard* occupancy = new Bitboard[0x8000], * reference = new Bitboard[0x8000], edges, b;
+  //     int* epoch = new int[0x8000]{ }, cnt = 0, size = 0;
 
-      for (Square s = SQ_A0; s <= SQ_I9; ++s)
-      {
-          // Board edges are not considered in the relevant occupancies
-          edges = ((Rank0BB | Rank9BB) & ~rank_bb(s)) | ((FileABB | FileIBB) & ~file_bb(s));
+  //     for (Square s = SQ_A0; s <= SQ_I9; ++s)
+  //     {
+  //         // Board edges are not considered in the relevant occupancies
+  //         edges = ((Rank0BB | Rank9BB) & ~rank_bb(s)) | ((FileABB | FileIBB) & ~file_bb(s));
 
-          // Given a square 's', the mask is the bitboard of sliding attacks from
-          // 's' computed on an empty board. The index must be big enough to contain
-          // all the attacks for each possible subset of the mask and so is 2 power
-          // the number of 1s of the mask.
-          Magic& m = magics[s];
-          m.mask = ~edges & (pt == ROOK || pt == CANNON ? sliding_attack<pt>(s, 0) :
-              lame_leaper_path<pt>(s));
+  //         // Given a square 's', the mask is the bitboard of sliding attacks from
+  //         // 's' computed on an empty board. The index must be big enough to contain
+  //         // all the attacks for each possible subset of the mask and so is 2 power
+  //         // the number of 1s of the mask.
+  //         Magic& m = magics[s];
+  //         m.mask = ~edges & (pt == ROOK || pt == CANNON ? sliding_attack<pt>(s, 0) :
+  //             lame_leaper_path<pt>(s));
           
-          if (HasPext)
-              m.shift = popcount(uint64_t(m.mask));
-          else
-              m.shift = 128 - popcount(m.mask);
+  //         if (HasPext)
+  //             m.shift = popcount(uint64_t(m.mask));
+  //         else
+  //             m.shift = 128 - popcount(m.mask);
 
-          // Set the offset for the attacks table of the square. We have individual
-          // table sizes for each square with "Fancy Magic Bitboards".
-          m.attacks = s == SQ_A0 ? table : magics[s - 1].attacks + size;
+  //         // Set the offset for the attacks table of the square. We have individual
+  //         // table sizes for each square with "Fancy Magic Bitboards".
+  //         m.attacks = s == SQ_A0 ? table : magics[s - 1].attacks + size;
 
-          // Use Carry-Rippler trick to enumerate all subsets of masks[s] and
-          // store the corresponding sliding attack bitboard in reference[].
-          b = size = 0;
-          do {
-              occupancy[size] = b;
-              reference[size] = pt == ROOK || pt == CANNON ? sliding_attack<pt>(s, b) :
-                  lame_leaper_attack<pt>(s, b);
+  //         // Use Carry-Rippler trick to enumerate all subsets of masks[s] and
+  //         // store the corresponding sliding attack bitboard in reference[].
+  //         b = size = 0;
+  //         do {
+  //             occupancy[size] = b;
+  //             reference[size] = pt == ROOK || pt == CANNON ? sliding_attack<pt>(s, b) :
+  //                 lame_leaper_attack<pt>(s, b);
 
-              if (HasPext)
-                  m.attacks[pext(b, m.mask)] = reference[size];
+  //             if (HasPext)
+  //                 m.attacks[pext(b, m.mask)] = reference[size];
 
-              size++;
-              b = (b - m.mask) & m.mask;
-          } while (b);
+  //             size++;
+  //             b = (b - m.mask) & m.mask;
+  //         } while (b);
 
-          if (HasPext)
-              continue;
+  //         if (HasPext)
+  //             continue;
 
-          PRNG rng(seeds[Is64Bit][rank_of(s)]);
+  //         PRNG rng(seeds[Is64Bit][rank_of(s)]);
 
-          // Find a magic for square 's' picking up an (almost) random number
-          // until we find the one that passes the verification test.
-          for (int i = 0; i < size; )
-          {
-              for (m.magic = 0; popcount((m.magic * m.mask) >> 119) < 7; )
-                  m.magic = (rng.sparse_rand<Bitboard>() << 64) ^ rng.sparse_rand<Bitboard>();
+  //         // Find a magic for square 's' picking up an (almost) random number
+  //         // until we find the one that passes the verification test.
+  //         for (int i = 0; i < size; )
+  //         {
+  //             for (m.magic = 0; popcount((m.magic * m.mask) >> 119) < 7; )
+  //                 m.magic = (rng.sparse_rand<Bitboard>() << 64) ^ rng.sparse_rand<Bitboard>();
 
-              // A good magic must map every possible occupancy to an index that
-              // looks up the correct sliding attack in the attacks[s] database.
-              // Note that we build up the database for square 's' as a side
-              // effect of verifying the magic. Keep track of the attempt count
-              // and save it in epoch[], little speed-up trick to avoid resetting
-              // m.attacks[] after every failed attempt.
-              for (++cnt, i = 0; i < size; ++i)
-              {
-                  unsigned idx = m.index(occupancy[i]);
+  //             // A good magic must map every possible occupancy to an index that
+  //             // looks up the correct sliding attack in the attacks[s] database.
+  //             // Note that we build up the database for square 's' as a side
+  //             // effect of verifying the magic. Keep track of the attempt count
+  //             // and save it in epoch[], little speed-up trick to avoid resetting
+  //             // m.attacks[] after every failed attempt.
+  //             for (++cnt, i = 0; i < size; ++i)
+  //             {
+  //                 unsigned idx = m.index(occupancy[i]);
 
-                  if (epoch[idx] < cnt)
-                  {
-                      epoch[idx] = cnt;
-                      m.attacks[idx] = reference[i];
-                  }
-                  else if (m.attacks[idx] != reference[i])
-                      break;
-              }
-          }
-          std::cout << "      B(0x" << std::hex << std::uppercase << uint64_t(m.magic >> 64) << ", 0x" << uint64_t(m.magic) << "),"
-              << std::nouppercase << std::dec << std::endl;
-      }
-      std::cout << "Size: 0x" << std::hex << magics[SQ_I9].attacks - magics[SQ_A1].attacks + size << std::endl;
-      delete[] occupancy;
-      delete[] reference;
-      delete[] epoch;
-  }
-
-
-
-
-
+  //                 if (epoch[idx] < cnt)
+  //                 {
+  //                     epoch[idx] = cnt;
+  //                     m.attacks[idx] = reference[i];
+  //                 }
+  //                 else if (m.attacks[idx] != reference[i])
+  //                     break;
+  //             }
+  //         }
+  //         std::cout << "      B(0x" << std::hex << std::uppercase << uint64_t(m.magic >> 64) << ", 0x" << uint64_t(m.magic) << "),"
+  //             << std::nouppercase << std::dec << std::endl;
+  //     }
+  //     std::cout << "Size: 0x" << std::hex << magics[SQ_I9].attacks - magics[SQ_A1].attacks + size << std::endl;
+  //     delete[] occupancy;
+  //     delete[] reference;
+  //     delete[] epoch;
+  // }
 
 }
 

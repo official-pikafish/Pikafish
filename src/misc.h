@@ -133,40 +133,6 @@ protected:
   T values_[MaxSize];
   std::size_t size_ = 0;
 };
-class PRNG;
-template <typename T, std::size_t MaxSize>
-class RestList :protected ValueList<T, MaxSize> {
-
-public:
-    void clear() { this->size_ = 0; }
-    std::size_t size() const { return this->size_; }
-    void push_back(const T& value) { ValueList<T, MaxSize>::push_back(value); }
-    T pop_back() { assert(this->size_); return this->values_[--this->size_]; }
-    const T peek() const { assert(this->size_); return this->values_[this->size_ - 1]; }
-    const T at(int i) const { assert(i >= 0 && i < this->size_); return this->values_[i]; }
-    void shuffle() { 
-        static int seed = 52808;
-        PRNG rng(seed);
-        seed = rng.rand<int>();
-        for (int i = this->size_-1; i > 0; i--)
-        {
-            int p = abs(rng.rand<int>()) % i;
-            T tmp = this->values_[p];
-            this->values_[p] = this->values_[i];
-            this->values_[i] = tmp;
-        }
-    }
-    void print() {
-        if (!this->size_)printf("null");
-        for (int i = 0; i < this->size_; i++)
-        {
-            printf("%d ", this->values_[i]);
-        }
-        printf("\r\n");
-    }
-};
-
-
 
 /// xorshift64star Pseudo-Random Number Generator
 /// This class is based on original code written and dedicated
@@ -203,6 +169,40 @@ public:
   template<typename T> T sparse_rand()
   { return T(rand64() & rand64() & rand64()); }
 };
+
+
+template <typename T, std::size_t MaxSize>
+class RestList :protected ValueList<T, MaxSize> {
+
+public:
+    void clear() { this->size_ = 0; }
+    std::size_t size() const { return this->size_; }
+    void push_back(const T& value) { ValueList<T, MaxSize>::push_back(value); }
+    T pop_back() { assert(this->size_); return this->values_[--this->size_]; }
+    const T peek() const { assert(this->size_); return this->values_[this->size_ - 1]; }
+    const T at(int i) const { assert(i >= 0 && i < this->size_); return this->values_[i]; }
+    void shuffle() { 
+        static int seed = 52808;
+        PRNG rng(seed);
+        seed = rng.rand<int>();
+        for (int i = this->size_-1; i > 0; i--)
+        {
+            int p = abs(rng.rand<int>()) % i;
+            T tmp = this->values_[p];
+            this->values_[p] = this->values_[i];
+            this->values_[i] = tmp;
+        }
+    }
+    void print() {
+        if (!this->size_)printf("null");
+        for (int i = 0; i < this->size_; i++)
+        {
+            printf("%d ", this->values_[i]);
+        }
+        printf("\r\n");
+    }
+};
+
 
 inline uint64_t mul_hi64(uint64_t a, uint64_t b) {
 #if defined(__GNUC__) && defined(IS_64BIT)

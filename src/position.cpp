@@ -365,7 +365,7 @@ Bitboard Position::blockers_for_king(Bitboard sliders, Square s, Bitboard& pinne
 /// given square. Slider attacks use the occupied bitboard to indicate occupancy.
 
 Bitboard Position::attackers_to(Square s, Bitboard occupied) const {
-
+  // TODO: 暗士
   return  (pawn_attacks_to_bb(WHITE, s)       & pieces(WHITE, PAWN))
         | (pawn_attacks_to_bb(BLACK, s)       & pieces(BLACK, PAWN))
         | (attacks_bb<KNIGHT_TO>(s, occupied) & pieces( KNIGHT))
@@ -985,6 +985,7 @@ ChaseMap Position::chased(Color c) {
     {
         Square from = pop_lsb(attackers);
         PieceType attackerType = type_of(piece_on(from));
+        // TODO: 暗士
         Bitboard attacks = attacks_bb(attackerType, from, pieces()) & pieces(~sideToMove);
 
         // Exclude attacks on unpromoted pawns and checks

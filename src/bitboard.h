@@ -263,7 +263,7 @@ template<PieceType Pt>
 inline Bitboard attacks_bb(Square s, Bitboard occupied) {
 
   assert((Pt != PAWN) && (is_ok(s)));
-
+  // TODO: 暗士
   switch (Pt)
   {
   case ROOK     : return     RookMagics[s].attacks[    RookMagics[s].index(occupied)];
@@ -279,6 +279,7 @@ inline Bitboard attacks_bb(PieceType pt, Square s, Bitboard occupied) {
 
   assert((pt != PAWN) && (is_ok(s)));
 
+  // TODO: 暗士
   switch (pt)
   {
   case ROOK  : return attacks_bb<  ROOK>(s, occupied);
