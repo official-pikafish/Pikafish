@@ -200,14 +200,14 @@ namespace {
   // eval and a game ply. It fits the LTC fishtest statistics rather accurately.
   int win_rate_model(Value v, int ply) {
 
-     // The model only captures up to 188 plies, so limit the input and then rescale
-     double m = std::min(188, ply) / 32.0;
+     // The model only captures up to 198 plies, so limit the input and then rescale
+     double m = std::min(198, ply) / 32.0;
 
      // The coefficients of a third-order polynomial fit is based on the fishtest data
      // for two parameters that need to transform eval to the argument of a logistic
      // function.
-     double as[] = {  5.13127523, -28.97359933,  73.29101963, 161.63731915 };
-     double bs[] = {  -1.2128046,   6.98062182,  -7.37399267, 48.36948019  };
+     double as[] = {  0.76314214,   9.42196698, -22.51306069, 205.15350962  };
+     double bs[] = { -1.7761048 ,  13.40828707, -24.84320138,  61.43435683  };
      double a = (((as[0] * m + as[1]) * m + as[2]) * m) + as[3];
      double b = (((bs[0] * m + bs[1]) * m + bs[2]) * m) + bs[3];
 
