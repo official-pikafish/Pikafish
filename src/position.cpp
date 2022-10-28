@@ -217,6 +217,7 @@ void Position::set_check_info(StateInfo* si) const {
   Square uksq = square<KING>( us);
   Square oksq = square<KING>(~us);
 
+  si->fromPiece = NO_PIECE;
   si->blockersForKing[ us] = blockers_for_king(pieces(~us), uksq, si->pinners[~us]);
   si->blockersForKing[~us] = blockers_for_king(pieces( us), oksq, si->pinners[ us]);
 
@@ -447,10 +448,16 @@ bool Position::pseudo_legal(const Move m) const {
       return attacks_bb(type_of(pc), from, pieces()) & to;
 }
 
-
+bool Position::gives_check(Move m, StateInfo& newst) {
+    bool ret = gives_check(m);
+    newst.fromPiece = st->fromPiece;
+    newst.fromSquare = st->fromSquare;
+    newst.konwPiece = st->konwPiece;
+    return ret;
+}
 /// Position::gives_check() tests whether a pseudo-legal move gives a check
 
-bool Position::gives_check(Move m) const {
+bool Position::gives_check(Move m) {
 
   assert(is_ok(m));
   assert(color_of(moved_piece(m)) == sideToMove);
@@ -458,8 +465,17 @@ bool Position::gives_check(Move m) const {
   Square from = from_sq(m);
   Square to = to_sq(m);
   Square ksq = square<KING>(~sideToMove);
-
-  PieceType pt = type_of(moved_piece(m));
+  PieceType pt;
+  if (isDark(from)) {
+      getDark(from, true);
+      pt = type_of(st->konwPiece);
+  }
+  else
+  {
+      pt = type_of(moved_piece(m));
+  }
+  
+  //PieceType pt = type_of(moved_piece(m));
 
   // Is there a direct check?
   if (pt == CANNON) {
@@ -477,6 +493,72 @@ bool Position::gives_check(Move m) const {
   return false;
 }
 
+bool Position::getDark(Square s, bool peek) {
+    if (!isDark(s)) return false;
+    static int times = 0;
+    Piece p;
+    if (peek) {
+
+        st->fromPiece = piece_on(s);
+        st->fromSquare = s;
+        p = getRandomRest(color_of(st->fromPiece));
+        times++;
+        //if (s == Square(81) && p==Piece(30))
+        if (times == 6268)
+        {
+            int a = 0;
+        }
+        //sync_cout << "getRandomRest(peek) " << s << " " << st->fromPiece << " -> " << p << " " << color_of(p) << sync_endl;
+        if (Darkof(p) == UNKNOWN) {
+            int a = 0;
+        }
+        st->konwPiece = p;
+        assert(p != NO_PIECE);
+        return true;
+    }
+    
+    if (s == st->fromSquare && st->fromPiece == piece_on(s)) {
+        p = st->konwPiece;
+    }
+    else
+    {
+        st->fromPiece = piece_on(s);
+        st->fromSquare = s;
+        p = getRandomRest(color_of(st->fromPiece));
+        times++;
+        //sync_cout << "getRandomRest " << s << " " << st->fromPiece << " -> " << p << " " << color_of(p) << sync_endl;
+        st->konwPiece = p;
+        assert(p != NO_PIECE);
+    }
+    remove_piece(s);
+    put_piece(p, s);
+    return true;
+}
+
+void Position::setDark(bool peek) {
+    if (Darkof(st->fromPiece) != UNKNOWN) 
+        return;
+
+    Piece p;
+
+    p = st->konwPiece;
+    if (Darkof(p) == UNKNOWN) {
+        int a = 0;
+    }
+    //sync_cout << "pushRest" << (peek ? "(peek)" : "") << " " << st->fromSquare << " " << p << " -> " << st->fromPiece << " " << color_of(p) << sync_endl;
+    pushRest(p);
+    if (peek) return;
+    
+
+    if (st->fromSquare == SQ_F1 && st->fromPiece == BB_ADVISOR) {
+        int a = 0;
+    }
+    remove_piece(st->fromSquare);
+    put_piece(st->fromPiece, st->fromSquare);
+    st->fromPiece = NO_PIECE;
+    st->fromSquare = SQ_NONE;
+
+}
 
 /// Position::do_move() makes a move, and saves all information necessary
 /// to a StateInfo object. The move is assumed to be legal. Pseudo-legal
@@ -486,7 +568,8 @@ void Position::do_move(Move m, StateInfo& newSt, bool givesCheck) {
 
   assert(is_ok(m));
   assert(&newSt != st);
-
+  Piece old = piece_on(from_sq(m));
+  bool dark = getDark(from_sq(m));
   // Update the bloom filter
   ++filter[st->key];
 
@@ -520,6 +603,9 @@ void Position::do_move(Move m, StateInfo& newSt, bool givesCheck) {
 
   assert(color_of(pc) == us);
   assert(captured == NO_PIECE || color_of(captured) == them);
+  if (type_of(captured) == KING) {
+      sync_cout << *this << sync_endl;
+  }
   assert(type_of(captured) != KING);
 
   if (captured)
@@ -540,24 +626,34 @@ void Position::do_move(Move m, StateInfo& newSt, bool givesCheck) {
       k ^= Zobrist::psq[captured][capsq];
   }
 
-  // Update hash key
-  k ^= Zobrist::psq[pc][from] ^ Zobrist::psq[pc][to];
+  if (dark) {
+      // Update hash key
+      k ^= Zobrist::psq[old][from] ^ Zobrist::psq[pc][to];
+      st->material[us] = st->material[us] - PieceValue[MG][old] + PieceValue[MG][pc];
 
-  // Move the piece.
-  dp.piece[0] = pc;
-  dp.from[0] = from;
-  dp.to[0] = to; 
+      // Move the piece.
+      dp.piece[0] = old;
+      dp.from[0] = from;
+      dp.to[0] = SQ_NONE;
 
-  Piece p;
-  st->fromPiece = pc;
-  //Dark Change
-  if (isDark(from)) {
-      p = getRandomRest(color_of(pc));
-      //printf("domove %d-%d\r\n", pc, p);
-      remove_piece(from);
-      put_piece(p,from);
+      // Move the piece.
+      dp.piece[dp.dirty_num] = pc;
+      dp.from[dp.dirty_num] = SQ_NONE;
+      dp.to[dp.dirty_num] = to;
+      dp.dirty_num++;
   }
-  
+  else
+  {
+      // Update hash key
+      k ^= Zobrist::psq[pc][from] ^ Zobrist::psq[pc][to];
+
+      // Move the piece.
+      dp.piece[0] = pc;
+      dp.from[0] = from;
+      dp.to[0] = to;
+  }
+
+
   move_piece(from, to);
 
   // Set capture piece
@@ -595,13 +691,7 @@ void Position::undo_move(Move m) {
   assert(empty(from));
   assert(type_of(st->capturedPiece) != KING);
 
-  if (Darkof(st->fromPiece)==UNKNOWN) {
-      //printf("%d-%d,%d-%d\r\n", board[to], st->fromPiece,color_of(board[to]), color_of(st->fromPiece));
-      pushRest(board[to]);
-      remove_piece(to);
-      put_piece(st->fromPiece, to);
 
-  }
   move_piece(to, from); // Put the piece back at the source square
 
   if (st->capturedPiece)
@@ -615,6 +705,7 @@ void Position::undo_move(Move m) {
 
   // Finally point our state pointer back to the previous state
   st = st->previous;
+  setDark();
   --gamePly;
 
   // Update the bloom filter

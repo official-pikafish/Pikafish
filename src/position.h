@@ -54,6 +54,8 @@ struct StateInfo {
   bool       needSlowCheck;
   Piece      capturedPiece;
   Piece      fromPiece;
+  Piece      konwPiece;
+  Square     fromSquare;
   uint16_t   chased;
   Move       move;
   // TODO: 这里可能按需要加一些结构表示和暗子有关的东西
@@ -128,9 +130,13 @@ public:
   bool legal(Move m) const;
   bool pseudo_legal(const Move m) const;
   bool capture(Move m) const;
-  bool gives_check(Move m) const;
+  bool gives_check(Move m,StateInfo& st);
+  bool gives_check(Move m);
   Piece moved_piece(Move m) const;
   Piece captured_piece() const;
+
+  bool getDark(Square s, bool peek = false);
+  void setDark(bool peek = false);
 
   // Doing and undoing moves
   void do_move(Move m, StateInfo& newSt);

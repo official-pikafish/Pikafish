@@ -847,7 +847,9 @@ moves_loop: // When in check, search starts here
       extension = 0;
       capture = pos.capture(move);
       movedPiece = pos.moved_piece(move);
-      givesCheck = pos.gives_check(move);
+
+      givesCheck = pos.gives_check(move, st);
+      
 
       // Calculate new depth for this move
       newDepth = depth - 1;
@@ -873,12 +875,19 @@ moves_loop: // When in check, search starts here
                   && lmrDepth < 6
                   && !ss->inCheck
                   && ss->staticEval + 281 + 179 * lmrDepth + PieceValue[EG][pos.piece_on(to_sq(move))]
-                   + captureHistory[movedPiece][to_sq(move)][type_of(pos.piece_on(to_sq(move)))] / 6 < alpha)
+                  + captureHistory[movedPiece][to_sq(move)][type_of(pos.piece_on(to_sq(move)))] / 6 < alpha)
+              {
+                  pos.setDark(true);
                   continue;
+              }
+                  
 
               // SEE based pruning (~9 Elo)
-              if (!pos.see_ge(move, Value(-227) * depth + Value(45)))
+              if (!pos.see_ge(move, Value(-227) * depth + Value(45))) {
+                  pos.setDark(true);
                   continue;
+
+              }
           }
           else
           {
@@ -887,21 +896,29 @@ moves_loop: // When in check, search starts here
                             + (*contHist[3])[movedPiece][to_sq(move)];
 
               // Continuation history based pruning (~2 Elo)
-              if (   lmrDepth < 5
-                  && history < -3875 * (depth - 1))
+              if (lmrDepth < 5
+                  && history < -3875 * (depth - 1)) {
+                  pos.setDark(true);
                   continue;
+
+              }
 
               history += 2 * thisThread->mainHistory[us][from_to(move)];
 
               // Futility pruning: parent node (~9 Elo)
               if (   !ss->inCheck
                   && lmrDepth < 11
-                  && ss->staticEval + 106 + 104 * lmrDepth + history / 73 <= alpha)
+                  && ss->staticEval + 106 + 104 * lmrDepth + history / 73 <= alpha) {
+                  pos.setDark(true);
                   continue;
 
+              }
+
               // Prune moves with negative SEE (~3 Elo)
-              if (!pos.see_ge(move, Value(-27 * lmrDepth * lmrDepth - 22 * lmrDepth)))
+              if (!pos.see_ge(move, Value(-27 * lmrDepth * lmrDepth - 22 * lmrDepth))) {
+                  pos.setDark(true);
                   continue;
+              }
           }
       }
 
@@ -910,7 +927,7 @@ moves_loop: // When in check, search starts here
 
       // Step 14. Extensions (~66 Elo)
       // We take care to not overdo to avoid search getting stuck.
-      if (ss->ply < thisThread->rootDepth * 2)
+      if (ss->ply < thisThread->rootDepth * 2 && false)
       {
           // Singular extension search (~58 Elo). If all moves but one fail low on a
           // search of (alpha-s, beta-s), and just one fails high on (alpha, beta),
@@ -950,8 +967,13 @@ moves_loop: // When in check, search starts here
               // search without the ttMove. So we assume this expected Cut-node is not singular,
               // that multiple moves fail high, and we can prune the whole subtree by returning
               // a soft bound.
-              else if (singularBeta >= beta)
+              else if (singularBeta >= beta) {
+                  pos.setDark(true);
+                  //pos.do_move(move, st, givesCheck);
+                  //pos.undo_move(move);
                   return singularBeta;
+              }
+                  
 
               // If the eval of ttMove is greater than beta, we reduce it (negative extension)
               else if (ttValue >= beta)
@@ -1375,28 +1397,36 @@ moves_loop: // When in check, search starts here
           &&  futilityBase > -VALUE_KNOWN_WIN)
       {
 
-          if (moveCount > 2)
+          if (moveCount > 2) {
+              pos.setDark(true);
               continue;
+          }
+              
 
           futilityValue = futilityBase + PieceValue[EG][pos.piece_on(to_sq(move))];
 
           if (futilityValue <= alpha)
           {
               bestValue = std::max(bestValue, futilityValue);
+              pos.setDark(true);
               continue;
           }
 
           if (futilityBase <= alpha && !pos.see_ge(move, VALUE_ZERO + 1))
           {
               bestValue = std::max(bestValue, futilityBase);
+              pos.setDark(true);
               continue;
           }
       }
 
       // Do not search moves with negative SEE values (~5 Elo)
-      if (    bestValue > VALUE_MATED_IN_MAX_PLY
-          && !pos.see_ge(move))
+      if (bestValue > VALUE_MATED_IN_MAX_PLY
+          && !pos.see_ge(move)) {
+          pos.setDark(true);
           continue;
+      }
+          
 
       // Speculative prefetch as early as possible
       prefetch(TT.first_entry(pos.key_after(move)));
@@ -1411,19 +1441,25 @@ moves_loop: // When in check, search starts here
       if (   !capture
           && bestValue > VALUE_MATED_IN_MAX_PLY
           && (*contHist[0])[pos.moved_piece(move)][to_sq(move)] < 0
-          && (*contHist[1])[pos.moved_piece(move)][to_sq(move)] < 0)
+          && (*contHist[1])[pos.moved_piece(move)][to_sq(move)] < 0){
+          pos.setDark(true);
           continue;
+      }
+         
 
       // movecount pruning for quiet check evasions
       if (   bestValue > VALUE_MATED_IN_MAX_PLY
           && quietCheckEvasions > 1
           && !capture
-          && ss->inCheck)
+          && ss->inCheck) {
+          pos.setDark(true);
           continue;
+      }
 
       quietCheckEvasions += !capture && ss->inCheck;
 
       // Make and search the move
+      StateInfo oldst = st;
       pos.do_move(move, st, givesCheck);
       value = -qsearch<nodeType>(pos, ss+1, -beta, -alpha, depth - 1);
       pos.undo_move(move);
