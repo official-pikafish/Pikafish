@@ -162,7 +162,8 @@ Position& Position::set(const string& fenStr, StateInfo* si, Thread* th) {
 
   //2.rest
   Piece pt = NO_PIECE;
-  clearRest();
+  restPieces[WHITE].clear();
+  restPieces[BLACK].clear();
   while ((ss >> token) && !isspace(token)) {
       if ((idx = PieceToChar.find(token)) != string::npos) {
           if (token == 'x') {
@@ -179,10 +180,12 @@ Position& Position::set(const string& fenStr, StateInfo* si, Thread* th) {
       if (isdigit(token)) {
           for (int i = 0; i < (token - '0'); i++)
           {
-              pushRest(pt);
+              restPieces[color_of(pt)].push_back(pt);
           }
       }
   }
+  restPieces[WHITE].shuffle();
+  restPieces[BLACK].shuffle();
 
   // 2. Active color
   ss >> token;
@@ -292,16 +295,18 @@ string Position::fen() const {
   ss << ' ';
   int DarkNum[PIECE_NB];
   memset(DarkNum, 0, sizeof(DarkNum));
-  for (int i = 0; i < restPieces_white.size(); i++) {
-      if (restPieces_white[i] != NO_PIECE)
+  for (int i = 0; i < restPieces[WHITE].size(); i++) {
+      Piece p = restPieces[WHITE].at(i);
+      if (p != NO_PIECE)
       {
-          DarkNum[restPieces_white[i]]++;
+          DarkNum[p]++;
       }
   }
-  for (int i = 0; i < restPieces_black.size(); i++) {
-      if (restPieces_black[i] != NO_PIECE)
+  for (int i = 0; i < restPieces[BLACK].size(); i++) {
+      Piece p = restPieces[BLACK].at(i);
+      if (p != NO_PIECE)
       {
-          DarkNum[restPieces_black[i]]++;
+          DarkNum[p]++;
       }
   }
   for (int i = 1; i < PIECE_NB; i++)
@@ -467,8 +472,7 @@ bool Position::gives_check(Move m) {
   Square ksq = square<KING>(~sideToMove);
   PieceType pt;
   if (isDark(from)) {
-      getDark(from, true);
-      pt = type_of(st->konwPiece);
+      pt = type_of(restPieces[sideToMove].peek());
   }
   else
   {
@@ -493,73 +497,6 @@ bool Position::gives_check(Move m) {
   return false;
 }
 
-bool Position::getDark(Square s, bool peek) {
-    if (!isDark(s)) return false;
-    static int times = 0;
-    Piece p;
-    if (peek) {
-
-        st->fromPiece = piece_on(s);
-        st->fromSquare = s;
-        p = getRandomRest(color_of(st->fromPiece));
-        times++;
-        //if (s == Square(81) && p==Piece(30))
-        if (times == 6268)
-        {
-            int a = 0;
-        }
-        //sync_cout << "getRandomRest(peek) " << s << " " << st->fromPiece << " -> " << p << " " << color_of(p) << sync_endl;
-        if (Darkof(p) == UNKNOWN) {
-            int a = 0;
-        }
-        st->konwPiece = p;
-        assert(p != NO_PIECE);
-        return true;
-    }
-    
-    if (s == st->fromSquare && st->fromPiece == piece_on(s)) {
-        p = st->konwPiece;
-    }
-    else
-    {
-        st->fromPiece = piece_on(s);
-        st->fromSquare = s;
-        p = getRandomRest(color_of(st->fromPiece));
-        times++;
-        //sync_cout << "getRandomRest " << s << " " << st->fromPiece << " -> " << p << " " << color_of(p) << sync_endl;
-        st->konwPiece = p;
-        assert(p != NO_PIECE);
-    }
-    remove_piece(s);
-    put_piece(p, s);
-    return true;
-}
-
-void Position::setDark(bool peek) {
-    if (Darkof(st->fromPiece) != UNKNOWN) 
-        return;
-
-    Piece p;
-
-    p = st->konwPiece;
-    if (Darkof(p) == UNKNOWN) {
-        int a = 0;
-    }
-    //sync_cout << "pushRest" << (peek ? "(peek)" : "") << " " << st->fromSquare << " " << p << " -> " << st->fromPiece << " " << color_of(p) << sync_endl;
-    pushRest(p);
-    if (peek) return;
-    
-
-    if (st->fromSquare == SQ_F1 && st->fromPiece == BB_ADVISOR) {
-        int a = 0;
-    }
-    remove_piece(st->fromSquare);
-    put_piece(st->fromPiece, st->fromSquare);
-    st->fromPiece = NO_PIECE;
-    st->fromSquare = SQ_NONE;
-
-}
-
 /// Position::do_move() makes a move, and saves all information necessary
 /// to a StateInfo object. The move is assumed to be legal. Pseudo-legal
 /// moves should be filtered out before this function is called.
@@ -568,8 +505,20 @@ void Position::do_move(Move m, StateInfo& newSt, bool givesCheck) {
 
   assert(is_ok(m));
   assert(&newSt != st);
-  Piece old = piece_on(from_sq(m));
-  bool dark = getDark(from_sq(m));
+  Square from = from_sq(m);
+  Square to = to_sq(m);
+
+  Piece old = piece_on(from);
+  bool dark = Darkof(old);
+  if (dark) {
+      st->fromPiece = old;
+      st->fromSquare = from;
+      Piece p = restPieces[color_of(old)].pop_back();
+      st->konwPiece = p;
+      assert(p != NO_PIECE);
+      remove_piece(from);
+      put_piece(p, from);
+  }
   // Update the bloom filter
   ++filter[st->key];
 
@@ -596,8 +545,7 @@ void Position::do_move(Move m, StateInfo& newSt, bool givesCheck) {
 
   Color us = sideToMove;
   Color them = ~us;
-  Square from = from_sq(m);
-  Square to = to_sq(m);
+
   Piece pc = piece_on(from);
   Piece captured = piece_on(to);
 
@@ -705,7 +653,14 @@ void Position::undo_move(Move m) {
 
   // Finally point our state pointer back to the previous state
   st = st->previous;
-  setDark();
+  if (Darkof(st->fromPiece) == UNKNOWN) {
+      restPieces[color_of(st->konwPiece)].push_back(st->konwPiece);
+      remove_piece(st->fromSquare);
+      put_piece(st->fromPiece, st->fromSquare);
+      st->fromPiece = NO_PIECE;
+      st->fromSquare = SQ_NONE;
+  }
+
   --gamePly;
 
   // Update the bloom filter

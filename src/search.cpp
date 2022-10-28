@@ -744,7 +744,7 @@ namespace {
                                                                           [true]
                                                                           [pos.moved_piece(move)]
                                                                           [to_sq(move)];
-
+                
                 pos.do_move(move, st);
 
                 // Perform a preliminary qsearch to verify that the move holds
@@ -877,14 +877,12 @@ moves_loop: // When in check, search starts here
                   && ss->staticEval + 281 + 179 * lmrDepth + PieceValue[EG][pos.piece_on(to_sq(move))]
                   + captureHistory[movedPiece][to_sq(move)][type_of(pos.piece_on(to_sq(move)))] / 6 < alpha)
               {
-                  pos.setDark(true);
                   continue;
               }
                   
 
               // SEE based pruning (~9 Elo)
               if (!pos.see_ge(move, Value(-227) * depth + Value(45))) {
-                  pos.setDark(true);
                   continue;
 
               }
@@ -898,7 +896,6 @@ moves_loop: // When in check, search starts here
               // Continuation history based pruning (~2 Elo)
               if (lmrDepth < 5
                   && history < -3875 * (depth - 1)) {
-                  pos.setDark(true);
                   continue;
 
               }
@@ -906,17 +903,15 @@ moves_loop: // When in check, search starts here
               history += 2 * thisThread->mainHistory[us][from_to(move)];
 
               // Futility pruning: parent node (~9 Elo)
-              if (   !ss->inCheck
+              if (!ss->inCheck
                   && lmrDepth < 11
                   && ss->staticEval + 106 + 104 * lmrDepth + history / 73 <= alpha) {
-                  pos.setDark(true);
                   continue;
 
               }
 
               // Prune moves with negative SEE (~3 Elo)
               if (!pos.see_ge(move, Value(-27 * lmrDepth * lmrDepth - 22 * lmrDepth))) {
-                  pos.setDark(true);
                   continue;
               }
           }
@@ -927,7 +922,7 @@ moves_loop: // When in check, search starts here
 
       // Step 14. Extensions (~66 Elo)
       // We take care to not overdo to avoid search getting stuck.
-      if (ss->ply < thisThread->rootDepth * 2 && false)
+      if (ss->ply < thisThread->rootDepth * 2 )
       {
           // Singular extension search (~58 Elo). If all moves but one fail low on a
           // search of (alpha-s, beta-s), and just one fails high on (alpha, beta),
@@ -968,9 +963,6 @@ moves_loop: // When in check, search starts here
               // that multiple moves fail high, and we can prune the whole subtree by returning
               // a soft bound.
               else if (singularBeta >= beta) {
-                  pos.setDark(true);
-                  //pos.do_move(move, st, givesCheck);
-                  //pos.undo_move(move);
                   return singularBeta;
               }
                   
@@ -1398,7 +1390,6 @@ moves_loop: // When in check, search starts here
       {
 
           if (moveCount > 2) {
-              pos.setDark(true);
               continue;
           }
               
@@ -1408,14 +1399,12 @@ moves_loop: // When in check, search starts here
           if (futilityValue <= alpha)
           {
               bestValue = std::max(bestValue, futilityValue);
-              pos.setDark(true);
               continue;
           }
 
           if (futilityBase <= alpha && !pos.see_ge(move, VALUE_ZERO + 1))
           {
               bestValue = std::max(bestValue, futilityBase);
-              pos.setDark(true);
               continue;
           }
       }
@@ -1423,7 +1412,6 @@ moves_loop: // When in check, search starts here
       // Do not search moves with negative SEE values (~5 Elo)
       if (bestValue > VALUE_MATED_IN_MAX_PLY
           && !pos.see_ge(move)) {
-          pos.setDark(true);
           continue;
       }
           
@@ -1442,7 +1430,6 @@ moves_loop: // When in check, search starts here
           && bestValue > VALUE_MATED_IN_MAX_PLY
           && (*contHist[0])[pos.moved_piece(move)][to_sq(move)] < 0
           && (*contHist[1])[pos.moved_piece(move)][to_sq(move)] < 0){
-          pos.setDark(true);
           continue;
       }
          
@@ -1452,7 +1439,6 @@ moves_loop: // When in check, search starts here
           && quietCheckEvasions > 1
           && !capture
           && ss->inCheck) {
-          pos.setDark(true);
           continue;
       }
 

@@ -125,14 +125,47 @@ class ValueList {
 
 public:
   std::size_t size() const { return size_; }
-  void push_back(const T& value) { values_[size_++] = value; }
+  void push_back(const T& value) { assert(size_ < MaxSize); values_[size_++] = value; }
   const T* begin() const { return values_; }
   const T* end() const { return values_ + size_; }
 
-private:
+protected:
   T values_[MaxSize];
   std::size_t size_ = 0;
 };
+class PRNG;
+template <typename T, std::size_t MaxSize>
+class RestList :protected ValueList<T, MaxSize> {
+
+public:
+    void clear() { this->size_ = 0; }
+    std::size_t size() const { return this->size_; }
+    void push_back(const T& value) { ValueList<T, MaxSize>::push_back(value); }
+    T pop_back() { assert(this->size_); return this->values_[--this->size_]; }
+    const T peek() const { assert(this->size_); return this->values_[this->size_ - 1]; }
+    const T at(int i) const { assert(i >= 0 && i < this->size_); return this->values_[i]; }
+    void shuffle() { 
+        static int seed = 52808;
+        PRNG rng(seed);
+        seed = rng.rand<int>();
+        for (int i = this->size_-1; i > 0; i--)
+        {
+            int p = abs(rng.rand<int>()) % i;
+            T tmp = this->values_[p];
+            this->values_[p] = this->values_[i];
+            this->values_[i] = tmp;
+        }
+    }
+    void print() {
+        if (!this->size_)printf("null");
+        for (int i = 0; i < this->size_; i++)
+        {
+            printf("%d ", this->values_[i]);
+        }
+        printf("\r\n");
+    }
+};
+
 
 
 /// xorshift64star Pseudo-Random Number Generator

@@ -104,9 +104,7 @@ public:
   bool isDark(Square s) const;
   Dark Darkof(Square s)const;
   Dark Darkof(Piece p)const;
-  void clearRest() ;
-  void pushRest(Piece);
-  Piece getRandomRest(const Color);
+
 
   bool empty(Square s) const;
   template<PieceType Pt> int count(Color c) const;
@@ -134,9 +132,6 @@ public:
   bool gives_check(Move m);
   Piece moved_piece(Move m) const;
   Piece captured_piece() const;
-
-  bool getDark(Square s, bool peek = false);
-  void setDark(bool peek = false);
 
   // Doing and undoing moves
   void do_move(Move m, StateInfo& newSt);
@@ -199,8 +194,8 @@ private:
 
   // Board for chasing detection
   int idBoard[SQUARE_NB];
-  std::vector<Piece> restPieces_white;
-  std::vector<Piece> restPieces_black;
+
+  RestList<Piece, 15> restPieces[COLOR_NB];
 };
 
 extern std::ostream& operator<<(std::ostream& os, const Position& pos);
@@ -231,63 +226,6 @@ inline Dark Position::Darkof(Square s)const {
 
 inline Dark Position::Darkof(Piece p)const {
     return Dark((p & 16) >> 4);
-}
-
-inline void Position::clearRest() {
-    srand((unsigned)time(NULL));
-    restPieces_black.resize(16, NO_PIECE);
-    restPieces_white.resize(16, NO_PIECE);
-}
-
-inline void Position::pushRest(Piece p)  {
-    if (color_of(p) == WHITE) {
-        for (int i = 0; i < restPieces_white.size(); i++) {
-            if (restPieces_white[i] == NO_PIECE)
-            {
-                restPieces_white[i] = p;
-                return;
-            }
-        }
-    }
-    else
-    {
-        for (int i = 0; i < restPieces_black.size(); i++) {
-            if (restPieces_black[i] == NO_PIECE)
-            {
-                restPieces_black[i] = p;
-                return;
-            }
-        }
-    }
-}
-
-inline Piece Position::getRandomRest(const Color c) {
-    if (c == WHITE) {
-        int a = rand();
-        Piece p;
-        for (int i = 0; i < restPieces_white.size(); i++) {
-            a += i;
-            a = a % restPieces_white.size();
-            p = restPieces_white[a];
-            if (restPieces_white[a] != NO_PIECE)break;
-        }
-        restPieces_white[a] = NO_PIECE;
-        return p;
-    }
-    else
-    {
-        int a = rand();
-        Piece p;
-        for (int i = 0; i < restPieces_black.size(); i++) {
-            a += i;
-            a = a % restPieces_black.size();
-            p = restPieces_black[a];
-            if (restPieces_black[a] != NO_PIECE)break;
-        }
-        restPieces_black[a] = NO_PIECE;
-        return p;
-    }
-    
 }
 
 inline bool Position::empty(Square s) const {
