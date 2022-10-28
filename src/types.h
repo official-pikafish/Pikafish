@@ -515,7 +515,8 @@ constexpr Piece make_piece(Color c, PieceType pt) {
 }
 
 constexpr PieceType type_of(Piece pc) {
-  return PieceType(pc & 7);
+    if (Piece(pc & BW_ADVISOR) == BW_ADVISOR)return ADVISOR_B;
+    return PieceType(pc & 7);
 }
 
 inline Color color_of(Piece pc) {

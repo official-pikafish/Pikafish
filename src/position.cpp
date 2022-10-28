@@ -373,6 +373,7 @@ Bitboard Position::attackers_to(Square s, Bitboard occupied) const {
         | (attacks_bb<   CANNON>(s, occupied) & pieces( CANNON))
         | (attacks_bb<   BISHOP>(s, occupied) & pieces( BISHOP))
         | (attacks_bb<  ADVISOR>(s)           & pieces(ADVISOR))
+        | (attacks_bb<ADVISOR_B>(s)           & pieces(ADVISOR_B))
         | (attacks_bb<     KING>(s)           & pieces(   KING));
 }
 
@@ -995,7 +996,7 @@ ChaseMap Position::chased(Color c) {
         Bitboard candidates = 0;
         if (attackerType == KNIGHT || attackerType == CANNON)
             candidates = attacks & pieces(~sideToMove, ROOK);
-        if (attackerType == BISHOP || attackerType == ADVISOR)
+        if (attackerType == BISHOP || attackerType == ADVISOR || attackerType == ADVISOR_B)
             candidates = attacks & pieces(~sideToMove, ROOK, CANNON, KNIGHT);
         attacks ^= candidates;
         while (candidates)

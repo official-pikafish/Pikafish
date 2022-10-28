@@ -36,7 +36,6 @@ namespace {
     {
         Square from = pop_lsb(bb);
         Bitboard b = 0;
-        // TODO: 这里如果是士需要考虑暗士attack_bb<ADVISOR_B>，而不是用明士的attack_bb<ADVISOR>
         if (Pt != CANNON)
             b = (Pt != PAWN ? attacks_bb<Pt>(from, pos.pieces())
                             : pawn_attacks_bb(Us, from)) & target;
@@ -69,12 +68,13 @@ namespace {
 
   template<Color Us, GenType Type>
   ExtMove* generate_moves(const Position& pos, ExtMove* moveList, Bitboard target) {
-      moveList = generate_moves<Us,    ROOK, Type>(pos, moveList, target);
-      moveList = generate_moves<Us, ADVISOR, Type>(pos, moveList, target);
-      moveList = generate_moves<Us,  CANNON, Type>(pos, moveList, target);
-      moveList = generate_moves<Us,    PAWN, Type>(pos, moveList, target);
-      moveList = generate_moves<Us,  KNIGHT, Type>(pos, moveList, target);
-      moveList = generate_moves<Us,  BISHOP, Type>(pos, moveList, target);
+      moveList = generate_moves<Us,      ROOK, Type>(pos, moveList, target);
+      moveList = generate_moves<Us,   ADVISOR, Type>(pos, moveList, target);
+      moveList = generate_moves<Us, ADVISOR_B, Type>(pos, moveList, target);
+      moveList = generate_moves<Us,    CANNON, Type>(pos, moveList, target);
+      moveList = generate_moves<Us,      PAWN, Type>(pos, moveList, target);
+      moveList = generate_moves<Us,    KNIGHT, Type>(pos, moveList, target);
+      moveList = generate_moves<Us,    BISHOP, Type>(pos, moveList, target);
       return moveList;
   }
 
