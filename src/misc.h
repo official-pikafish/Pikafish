@@ -181,6 +181,14 @@ public:
     T pop_back() { assert(this->size_); return this->values_[--this->size_]; }
     const T peek() const { assert(this->size_); return this->values_[this->size_ - 1]; }
     const T at(int i) const { assert(i >= 0 && i < this->size_); return this->values_[i]; }
+    void swap(int index1, int index2) {
+        assert(index1 >= 0 && index1 < this->size_);
+        assert(index2 >= 0 && index2 < this->size_);
+
+        T tmp = this->values_[index1];
+        this->values_[index1] = this->values_[index2];
+        this->values_[index2] = tmp;
+    }
     //void shuffle() { 
     //    static int seed = 52808;
     //    PRNG rng(seed);
@@ -206,6 +214,7 @@ public:
 
     void push_back(const Piece& value) { 
         PieceType t = type_of(value);
+        if (typeNum[type_of(value)])assert(this->size_ > typePos[t].peek());
         typePos[t].push_back(this->size_);
         typeNum[type_of(value)]++;
         RestListTmp<Piece, 15>::push_back(value);
@@ -221,7 +230,7 @@ public:
     }
 
     Piece pop_back(PieceType t) {
-        assert(typeNum[t]);
+        if (typeNum[t] == 0)return NO_PIECE;
         typeNum[t]--;
         int index = typePos[t].pop_back();
         assert(index < this->size_);
@@ -235,29 +244,56 @@ public:
             PieceType t1 = type_of(tmp);
             typePos[t1].pop_back();
             typePos[t1].push_back(index);
+
+            for (int i = typePos[t1].size() - 1; i >0; i--)
+            {
+                if (typePos[t1].at(i) > typePos[t1].at(i - 1))break;
+                typePos[t1].swap(i, i - 1);
+            }
+
         }
         //return pop_back
         return RestListTmp<Piece, 15>::pop_back();
     }
 
+    int evalValue() {
+        assert(this->size_);
+        int sum = 0;
+        for (int i = 0; i < this->size_; i++)
+        {
+            sum += PieceValue[MG][RestListTmp<Piece, 15>::at(i)];
+        }
+        return sum / this->size_ / 2;
+    }
+
     void print() {
+        printf("rest db (size=%d):", (int)this->size_);
         if (!this->size_)printf("null");
         for (int i = 0; i < this->size_; i++)
         {
-            printf("%d ", this->values_[i]);
+            if (this->values_[i] > 8) {
+                printf("B%d ", this->values_[i] - 8);
+            }
+            else
+            {
+                printf("W%d ", this->values_[i]);
+            }
+            
         }
         printf("\r\n");
 
+        printf("pos info [type-num] index...:");
         for (int t = 0; t < PIECE_TYPE_NB; t++)
         {
             if (typeNum[t] == 0)continue;
-            printf("[%d,%d]", t, typeNum[t]);
+            printf(" [%d-%d]", t, typeNum[t]);
             for (int j = 0; j < typePos[t].size(); j++)
             {
                 printf(" %d", typePos[t].at(j));
-            }
-            printf("\r\n");
+            } 
+            printf(",");
         }
+        printf("\r\n\r\n");
         
     }
 private:

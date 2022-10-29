@@ -745,14 +745,37 @@ namespace {
                                                                           [pos.moved_piece(move)]
                                                                           [to_sq(move)];
                 
-                pos.do_move(move, st);
+                if(pos.do_move(move, st)){
+                    StateInfo darkSt;
+                    int i = 0;
+                    while (pos.getDark(darkSt))
+                    {
+                        Value vTmp;
+                        // Perform a preliminary qsearch to verify that the move holds
+                        vTmp = -qsearch<NonPV>(pos, ss + 1, -probCutBeta, -probCutBeta + 1);
 
-                // Perform a preliminary qsearch to verify that the move holds
-                value = -qsearch<NonPV>(pos, ss+1, -probCutBeta, -probCutBeta+1);
+                        // If the qsearch held, perform the regular search
+                        if (vTmp >= probCutBeta)
+                            vTmp = -search<NonPV>(pos, ss + 1, -probCutBeta, -probCutBeta + 1, depth - 4, !cutNode);
 
-                // If the qsearch held, perform the regular search
-                if (value >= probCutBeta)
-                    value = -search<NonPV>(pos, ss+1, -probCutBeta, -probCutBeta+1, depth - 4, !cutNode);
+                        //get worse
+                        if (i == 0 || vTmp < value) value = vTmp;
+                        i++;
+                       
+                        pos.setDark();
+                    }
+                }
+                else
+                {
+                    // Perform a preliminary qsearch to verify that the move holds
+                    value = -qsearch<NonPV>(pos, ss + 1, -probCutBeta, -probCutBeta + 1);
+
+                    // If the qsearch held, perform the regular search
+                    if (value >= probCutBeta)
+                        value = -search<NonPV>(pos, ss + 1, -probCutBeta, -probCutBeta + 1, depth - 4, !cutNode);
+                }
+
+
 
                 pos.undo_move(move);
 
@@ -848,7 +871,7 @@ moves_loop: // When in check, search starts here
       capture = pos.capture(move);
       movedPiece = pos.moved_piece(move);
 
-      givesCheck = pos.gives_check(move, st);
+      givesCheck = pos.gives_check(move);
       
 
       // Calculate new depth for this move
@@ -1002,8 +1025,33 @@ moves_loop: // When in check, search starts here
                                                                 [to_sq(move)];
 
       // Step 15. Make the move
-      pos.do_move(move, st, givesCheck);
+      //pos.do_move(move, st, givesCheck);
 
+      Value vTmp;
+      int darkTryTimes = 0;
+      bool fromWhile = false;
+      StateInfo darkSt;
+      if (pos.do_move(move, st, givesCheck)) {
+          while (pos.getDark(darkSt))
+          {
+              fromWhile = true;
+              goto dark_calc;
+dark_while:              
+              pos.setDark();
+          }
+          fromWhile = false;
+          if (darkTryTimes > 0) {
+              goto dark_undo;
+          }
+      }
+      else
+      {
+          goto dark_calc;
+      }
+
+      
+
+dark_calc:
       // Step 16. Late moves reduction / extension (LMR, ~98 Elo)
       // We use various heuristics for the sons of a node after the first son has
       // been searched. In general we would like to reduce them, but there are many
@@ -1060,13 +1108,20 @@ moves_loop: // When in check, search starts here
           // beyond the first move depth. This may lead to hidden double extensions.
           Depth d = std::clamp(newDepth - r, 1, newDepth + 1);
 
-          value = -search<NonPV>(pos, ss+1, -(alpha+1), -alpha, d, true);
+          vTmp = -search<NonPV>(pos, ss+1, -(alpha+1), -alpha, d, true);
+          //get worse
+          if (darkTryTimes == 0 || vTmp < value) value = vTmp;
+          darkTryTimes++;
 
           // Do full depth search when reduced LMR search fails high
           if (value > alpha && d < newDepth)
           {
               const bool doDeeperSearch = value > (alpha + 61 + 10 * (newDepth - d));
-              value = -search<NonPV>(pos, ss+1, -(alpha+1), -alpha, newDepth + doDeeperSearch, !cutNode);
+              vTmp = -search<NonPV>(pos, ss+1, -(alpha+1), -alpha, newDepth + doDeeperSearch, !cutNode);
+              //get worse
+              if (darkTryTimes == 0 || vTmp < value) value = vTmp
+              darkTryTimes++;
+
 
               int bonus = value > alpha ?  stat_bonus(newDepth)
                                         : -stat_bonus(newDepth);
@@ -1081,7 +1136,10 @@ moves_loop: // When in check, search starts here
       // Step 17. Full depth search when LMR is skipped
       else if (!PvNode || moveCount > 1)
       {
-              value = -search<NonPV>(pos, ss+1, -(alpha+1), -alpha, newDepth, !cutNode);
+              vTmp = -search<NonPV>(pos, ss+1, -(alpha+1), -alpha, newDepth, !cutNode);
+              //get worse
+              if (darkTryTimes == 0 || vTmp < value) value = vTmp;
+              darkTryTimes++;
       }
 
       // For PV nodes only, do a full PV search on the first move or after a fail
@@ -1092,10 +1150,17 @@ moves_loop: // When in check, search starts here
           (ss+1)->pv = pv;
           (ss+1)->pv[0] = MOVE_NONE;
 
-          value = -search<PV>(pos, ss+1, -beta, -alpha,
+          vTmp = -search<PV>(pos, ss+1, -beta, -alpha,
                               std::min(maxNextDepth, newDepth), false);
+          //get worse
+          if (darkTryTimes == 0 || vTmp < value) value = vTmp;
+          darkTryTimes++;
       }
-
+      if (fromWhile) {
+          goto dark_while;
+      }
+dark_undo:
+      if (darkTryTimes == 0)value = vTmp;
       // Step 18. Undo move
       pos.undo_move(move);
 
@@ -1445,9 +1510,27 @@ moves_loop: // When in check, search starts here
       quietCheckEvasions += !capture && ss->inCheck;
 
       // Make and search the move
-      StateInfo oldst = st;
-      pos.do_move(move, st, givesCheck);
-      value = -qsearch<nodeType>(pos, ss+1, -beta, -alpha, depth - 1);
+      Value vTmp;
+      int i = 0;
+      if (pos.do_move(move, st, givesCheck)) {
+          StateInfo darkSt;
+          while (pos.getDark(darkSt))
+          {
+              vTmp = -qsearch<nodeType>(pos, ss + 1, -beta, -alpha, depth - 1);
+
+              //get worse
+              if (i == 0 || vTmp < value) value = vTmp;
+              i++;
+
+              pos.setDark();
+          }
+      }
+      else
+      {
+          vTmp = -qsearch<nodeType>(pos, ss + 1, -beta, -alpha, depth - 1);
+      }
+
+      if (i == 0)value = vTmp;
       pos.undo_move(move);
 
       assert(value > -VALUE_INFINITE && value < VALUE_INFINITE);

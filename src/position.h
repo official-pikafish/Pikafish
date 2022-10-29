@@ -53,9 +53,11 @@ struct StateInfo {
   Bitboard   checkSquares[PIECE_TYPE_NB];
   bool       needSlowCheck;
   Piece      capturedPiece;
-  Piece      fromPiece;
-  Piece      konwPiece;
-  Square     fromSquare;
+
+  Piece      darkPiece;
+  Square     darkSquare;
+  int        darkTypeIndex;
+  
   uint16_t   chased;
   Move       move;
   // TODO: 这里可能按需要加一些结构表示和暗子有关的东西
@@ -128,14 +130,15 @@ public:
   bool legal(Move m) const;
   bool pseudo_legal(const Move m) const;
   bool capture(Move m) const;
-  bool gives_check(Move m,StateInfo& st);
   bool gives_check(Move m);
   Piece moved_piece(Move m) const;
   Piece captured_piece() const;
 
   // Doing and undoing moves
-  void do_move(Move m, StateInfo& newSt);
-  void do_move(Move m, StateInfo& newSt, bool givesCheck);
+  bool getDark(StateInfo& newSt);
+  void setDark();
+  bool do_move(Move m, StateInfo& newSt);
+  bool do_move(Move m, StateInfo& newSt, bool givesCheck);
   void undo_move(Move m);
   void do_null_move(StateInfo& newSt);
   void undo_null_move();
@@ -371,8 +374,8 @@ inline void Position::move_piece(Square from, Square to) {
   board[to] = pc;
 }
 
-inline void Position::do_move(Move m, StateInfo& newSt) {
-  do_move(m, newSt, gives_check(m));
+inline bool Position::do_move(Move m, StateInfo& newSt) {
+    return do_move(m, newSt, gives_check(m));
 }
 
 inline StateInfo* Position::state() const {
