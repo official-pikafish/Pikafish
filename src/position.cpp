@@ -838,9 +838,7 @@ ChaseMap Position::chased(Color c) {
 
     // Checkers bitboard for both side
     Bitboard checkUs = st->checkersBB;
-    Bitboard checkThem = 0;
-    if (st->previous)
-        checkThem = st->previous->checkersBB;
+    Bitboard checkThem = checkers_to(sideToMove, square<KING>(~sideToMove));
     if (c != sideToMove)
         std::swap(checkUs, checkThem);
 
