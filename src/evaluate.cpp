@@ -67,7 +67,7 @@ namespace Eval {
 
   /// NNUE::verify() verifies that the last net used was loaded successfully
   void NNUE::verify() {
-
+#if USE_NNUEEVAL 
     string eval_file = string(Options["EvalFile"]);
     if (eval_file.empty())
         eval_file = EvalFileDefaultName;
@@ -89,6 +89,9 @@ namespace Eval {
     }
 
     sync_cout << "info string NNUE evaluation using " << eval_file << " enabled" << sync_endl;
+#else
+      return;
+#endif
   }
 }
 
@@ -105,7 +108,8 @@ using namespace Trace;
 /// evaluation of the position from the point of view of the side to move.
 
 Value Eval::evaluate(const Position& pos, int* complexity) {
-
+    
+#if USE_NNUEEVAL     
   int nnueComplexity;
   Value v = NNUE::evaluate(pos, &nnueComplexity);
   // Blend nnue complexity with material complexity
@@ -122,6 +126,12 @@ Value Eval::evaluate(const Position& pos, int* complexity) {
   v = std::clamp(v, VALUE_MATED_IN_MAX_PLY + 1, VALUE_MATE_IN_MAX_PLY - 1);
 
   return v;
+#else
+    if (complexity)
+        *complexity = 0;
+    return pos.material_diff();
+#endif
+
 }
 
 /// trace() is like evaluate(), but instead of returning a value, it returns

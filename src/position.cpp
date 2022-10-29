@@ -184,8 +184,10 @@ Position& Position::set(const string& fenStr, StateInfo* si, Thread* th) {
           }
       }
   }
-  restPieces[WHITE].shuffle();
-  restPieces[BLACK].shuffle();
+  //restPieces[WHITE].shuffle();
+  //restPieces[BLACK].shuffle();
+  //restPieces[WHITE].print();
+  //restPieces[BLACK].print();
 
   // 2. Active color
   ss >> token;

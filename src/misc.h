@@ -172,7 +172,7 @@ public:
 
 
 template <typename T, std::size_t MaxSize>
-class RestList :protected ValueList<T, MaxSize> {
+class RestListTmp :protected ValueList<T, MaxSize> {
 
 public:
     void clear() { this->size_ = 0; }
@@ -181,18 +181,65 @@ public:
     T pop_back() { assert(this->size_); return this->values_[--this->size_]; }
     const T peek() const { assert(this->size_); return this->values_[this->size_ - 1]; }
     const T at(int i) const { assert(i >= 0 && i < this->size_); return this->values_[i]; }
-    void shuffle() { 
-        static int seed = 52808;
-        PRNG rng(seed);
-        seed = rng.rand<int>();
-        for (int i = this->size_-1; i > 0; i--)
-        {
-            int p = abs(rng.rand<int>()) % i;
-            T tmp = this->values_[p];
-            this->values_[p] = this->values_[i];
-            this->values_[i] = tmp;
-        }
+    //void shuffle() { 
+    //    static int seed = 52808;
+    //    PRNG rng(seed);
+    //    seed = rng.rand<int>();
+    //    for (int i = this->size_-1; i > 0; i--)
+    //    {
+    //        int p = abs(rng.rand<int>()) % i;
+    //        T tmp = this->values_[p];
+    //        this->values_[p] = this->values_[i];
+    //        this->values_[i] = tmp;
+    //    }
+    //}
+};
+
+class RestList :public RestListTmp<Piece, 15> {
+
+public:
+    void clear() { 
+        memset(typeNum, 0, sizeof(int) * PIECE_TYPE_NB); 
+        typePos->clear();
+        RestListTmp<Piece, 15>::clear();
     }
+
+    void push_back(const Piece& value) { 
+        PieceType t = type_of(value);
+        typePos[t].push_back(this->size_);
+        typeNum[type_of(value)]++;
+        RestListTmp<Piece, 15>::push_back(value);
+    }
+
+    Piece pop_back() { 
+        assert(this->size_); 
+        Piece p = RestListTmp<Piece, 15>::pop_back();
+        PieceType t = type_of(p);
+        typePos[t].pop_back();
+        typeNum[t]--;
+        return p; 
+    }
+
+    Piece pop_back(PieceType t) {
+        assert(typeNum[t]);
+        typeNum[t]--;
+        int index = typePos[t].pop_back();
+        assert(index < this->size_);
+        int back = this->size_ - 1;
+        if (back != index) {
+            //swap index and back
+            Piece tmp = this->values_[back];
+            this->values_[back] = this->values_[index];
+            this->values_[index] = tmp;
+            //uudate typePos
+            PieceType t1 = type_of(tmp);
+            typePos[t1].pop_back();
+            typePos[t1].push_back(index);
+        }
+        //return pop_back
+        return RestListTmp<Piece, 15>::pop_back();
+    }
+
     void print() {
         if (!this->size_)printf("null");
         for (int i = 0; i < this->size_; i++)
@@ -200,7 +247,22 @@ public:
             printf("%d ", this->values_[i]);
         }
         printf("\r\n");
+
+        for (int t = 0; t < PIECE_TYPE_NB; t++)
+        {
+            if (typeNum[t] == 0)continue;
+            printf("[%d,%d]", t, typeNum[t]);
+            for (int j = 0; j < typePos[t].size(); j++)
+            {
+                printf(" %d", typePos[t].at(j));
+            }
+            printf("\r\n");
+        }
+        
     }
+private:
+    int typeNum[PIECE_TYPE_NB] = { 0 };
+    RestListTmp<int, 5> typePos[PIECE_TYPE_NB];
 };
 
 

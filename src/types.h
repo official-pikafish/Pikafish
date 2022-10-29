@@ -103,6 +103,12 @@ constexpr bool Is64Bit = true;
 constexpr bool Is64Bit = false;
 #endif
 
+#define USE_NNUEEVAL 0
+#if USE_NNUEEVAL
+constexpr int VALRATE = 1;
+#else
+constexpr int VALRATE = 2;
+#endif
 
 // For chasing detection
 union ChaseMap {
@@ -300,6 +306,14 @@ enum Value : int {
   PawnValueMg    = 72  ,  PawnValueEg    = 135 ,
   KnightValueMg  = 554 ,  KnightValueEg  = 744 ,
   BishopValueMg  = 202 ,  BishopValueEg  = 173 ,
+
+  rate = VALRATE,
+  B_RookValueMg = 1462 / rate, B_RookValueEg = 1268 / rate,
+  B_AdvisorValueMg = 189 / rate, B_AdvisorValueEg = 156 / rate,
+  B_CannonValueMg = 515 / rate, B_CannonValueEg = 674 / rate,
+  B_PawnValueMg = 72 / rate, B_PawnValueEg = 135 / rate,
+  B_KnightValueMg = 554 / rate, B_KnightValueEg = 744 / rate,
+  B_BishopValueMg = 202 / rate, B_BishopValueEg = 173 / rate,
 };
 
 enum PieceType {
@@ -321,12 +335,12 @@ enum Piece {
 constexpr Value PieceValue[PHASE_NB][PIECE_NB] = {
   { VALUE_ZERO, RookValueMg, AdvisorValueMg, CannonValueMg, PawnValueMg, KnightValueMg, BishopValueMg, VALUE_ZERO,
     VALUE_ZERO, RookValueMg, AdvisorValueMg, CannonValueMg, PawnValueMg, KnightValueMg, BishopValueMg, VALUE_ZERO,
-    VALUE_ZERO, RookValueMg, AdvisorValueMg, CannonValueMg, PawnValueMg, KnightValueMg, BishopValueMg, VALUE_ZERO,
-    VALUE_ZERO, RookValueMg, AdvisorValueMg, CannonValueMg, PawnValueMg, KnightValueMg, BishopValueMg, VALUE_ZERO},
+    VALUE_ZERO, B_RookValueMg, B_AdvisorValueMg, B_CannonValueMg, B_PawnValueMg, B_KnightValueMg, B_BishopValueMg, VALUE_ZERO,
+    VALUE_ZERO, B_RookValueMg, B_AdvisorValueMg, B_CannonValueMg, B_PawnValueMg, B_KnightValueMg, B_BishopValueMg, VALUE_ZERO},
   { VALUE_ZERO, RookValueEg, AdvisorValueEg, CannonValueEg, PawnValueEg, KnightValueEg, BishopValueEg, VALUE_ZERO,
     VALUE_ZERO, RookValueEg, AdvisorValueEg, CannonValueEg, PawnValueEg, KnightValueEg, BishopValueEg, VALUE_ZERO,
-    VALUE_ZERO, RookValueEg, AdvisorValueEg, CannonValueEg, PawnValueEg, KnightValueEg, BishopValueEg, VALUE_ZERO,
-    VALUE_ZERO, RookValueEg, AdvisorValueEg, CannonValueEg, PawnValueEg, KnightValueEg, BishopValueEg, VALUE_ZERO}
+    VALUE_ZERO, B_RookValueEg, B_AdvisorValueEg, B_CannonValueEg, B_PawnValueEg, B_KnightValueEg, B_BishopValueEg, VALUE_ZERO,
+    VALUE_ZERO, B_RookValueEg, B_AdvisorValueEg, B_CannonValueEg, B_PawnValueEg, B_KnightValueEg, B_BishopValueEg, VALUE_ZERO}
 };
 
 typedef int Depth;

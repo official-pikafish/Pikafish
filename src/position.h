@@ -195,7 +195,7 @@ private:
   // Board for chasing detection
   int idBoard[SQUARE_NB];
 
-  RestList<Piece, 15> restPieces[COLOR_NB];
+  RestList restPieces[COLOR_NB];
 };
 
 extern std::ostream& operator<<(std::ostream& os, const Position& pos);

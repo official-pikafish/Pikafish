@@ -39,9 +39,9 @@ endif
 
 ### Executable name
 ifeq ($(target_windows),yes)
-	EXE = pikafish.exe
+	EXE = PikaJieQi.exe
 else
-	EXE = pikafish
+	EXE = PikaJieQi
 endif
 
 ### Installation dir definitions
