@@ -64,11 +64,11 @@ SRCS = benchmark.cpp bitboard.cpp evaluate.cpp main.cpp \
 	misc.cpp movegen.cpp movepick.cpp position.cpp \
 	search.cpp thread.cpp timeman.cpp tt.cpp uci.cpp ucioption.cpp tune.cpp \
 	nnue/evaluate_nnue.cpp nnue/features/half_ka_v2_hm.cpp \
-	compression/zip.cpp
+	compression/zip.cpp emscripten/wasm_simd.cpp
 
 OBJS = $(notdir $(SRCS:.cpp=.o))
 
-VPATH = compression:nnue:nnue/features
+VPATH = emscripten:compression:nnue:nnue/features
 
 ### ==========================================================================
 ### Section 2. High-level Configuration
@@ -530,6 +530,7 @@ ifeq ($(COMP),emscripten)
 	LDFLAGS += \
 		-flto \
 		--pre-js emscripten/preamble.js \
+		--preload-file emscripten/pikafish.nnue@pikafish.nnue \
 		-s ENVIRONMENT=web,worker \
 		-s MODULARIZE=1 \
 		-s EXPORT_NAME="Pikafish" \
@@ -556,8 +557,6 @@ ifeq ($(COMP),emscripten)
 
 	ifeq ($(wasm_simd),yes)
 		CXXFLAGS += -DUSE_WASM_SIMD -msimd128
-		SRCS += emscripten/wasm_simd.cpp
-		OBJS += emscripten/wasm_simd.o
 	endif
 
 	ifeq ($(debug),yes)

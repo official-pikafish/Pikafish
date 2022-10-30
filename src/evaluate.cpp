@@ -53,7 +53,11 @@ namespace Eval {
     if (eval_file.empty())
         eval_file = EvalFileDefaultName;
 
+#ifdef __EMSCRIPTEN__
+    vector<string> dirs = { "/" };
+#else
     vector<string> dirs = { "" , CommandLine::binaryDirectory };
+#endif
 
     for (string directory : dirs)
         if (currentEvalFileName != eval_file)
