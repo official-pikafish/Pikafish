@@ -1,3 +1,4 @@
 pikafish*.js*
 pikafish*.wasm*
 *.nnue
+*.data
