@@ -27,6 +27,7 @@ int main(int argc, char* argv[]) {
 
   std::cout << engine_info() << std::endl;
 
+#ifndef __EMSCRIPTEN__
   CommandLine::init(argc, argv);
   UCI::init(Options);
   Tune::init();
@@ -35,11 +36,10 @@ int main(int argc, char* argv[]) {
   Threads.set(size_t(Options["Threads"]));
   Search::clear(); // After threads are up
   Eval::NNUE::init();
-
-#ifndef __EMSCRIPTEN__
   UCI::loop(argc, argv);
-
+  
   Threads.set(0);
 #endif
+
   return 0;
 }

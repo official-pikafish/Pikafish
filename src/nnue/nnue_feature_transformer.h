@@ -182,8 +182,8 @@ namespace Stockfish::Eval::NNUE {
   #define vec_add_psqt_32(a,b) wasm_i32x4_add(a,b)
   #define vec_sub_psqt_32(a,b) wasm_i32x4_sub(a,b)
   #define vec_zero_psqt() wasm_i32x4_splat(0)
-  #define NumRegistersSIMD 8 // TODO: investigate how this affects performance
-  #define MaxChunkSize 8
+  #define NumRegistersSIMD 16 // TODO: investigate how this affects performance
+  #define MaxChunkSize 16
 
   #else
   #undef VECTOR
