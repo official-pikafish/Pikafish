@@ -534,7 +534,7 @@ ifeq ($(COMP),emscripten)
 		-s ENVIRONMENT=web,worker \
 		-s MODULARIZE=1 \
 		-s EXPORT_NAME="Pikafish" \
-		-s ALLOW_MEMORY_GROWTH=1 -s INITIAL_MEMORY=$$((1 << 27)) -s MAXIMUM_MEMORY=$$((1 << 30)) \
+		-s ALLOW_MEMORY_GROWTH=1 -s INITIAL_MEMORY=$$((1 << 28)) -s MAXIMUM_MEMORY=$$((1 << 31)) \
 		-s FILESYSTEM=1 \
 		-s EXPORTED_RUNTIME_METHODS="['cwrap']" \
 		-s EXPORTED_FUNCTIONS="['_main', '_wasm_uci_execute']" \
