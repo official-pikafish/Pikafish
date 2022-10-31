@@ -240,6 +240,14 @@ void UCI::loop(int argc, char* argv[]) {
   EM_STATIC StateListPtr states(new std::deque<StateInfo>(1));
 
   EM_STATIC auto __init_once = [&]() {
+    CommandLine::init(argc, argv);
+    UCI::init(Options);
+    Tune::init();
+    Bitboards::init();
+    Position::init();
+    Threads.set(size_t(Options["Threads"]));
+    Search::clear(); // After threads are up
+    Eval::NNUE::init();
     pos.set(StartFEN, &states->back(), Threads.main());
     return 0;
   }();
