@@ -122,7 +122,7 @@ ifeq ($(ARCH), $(filter $(ARCH), \
                  x86-64-avx2 x86-64-sse41-popcnt x86-64-modern x86-64-ssse3 x86-64-sse3-popcnt \
                  x86-64 x86-32-sse41-popcnt x86-32-sse2 x86-32 ppc-64 ppc-32 e2k \
                  armv7 armv7-neon armv8 apple-silicon general-64 general-32 riscv64 \
-                 wasm-single wasm-multi wasm-multi-simd128))
+                 wasm-single wasm-multi wasm-single-simd128 wasm-multi-simd128))
    SUPPORTED_ARCH=true
 else
    SUPPORTED_ARCH=false
@@ -353,6 +353,14 @@ ifeq ($(ARCH),wasm-single)
 	arch = wasm
 	bits = 64
 	wasm_simd = no
+	wasm_multithread = no
+	assertion = no
+endif
+
+ifeq ($(ARCH),wasm-single-simd128)
+	arch = wasm
+	bits = 64
+	wasm_simd = yes
 	wasm_multithread = no
 	assertion = no
 endif
