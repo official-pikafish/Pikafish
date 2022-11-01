@@ -181,6 +181,8 @@ public:
     T pop_back() { assert(this->size_); return this->values_[--this->size_]; }
     const T peek() const { assert(this->size_); return this->values_[this->size_ - 1]; }
     const T at(int i) const { assert(i >= 0 && i < this->size_); return this->values_[i]; }
+    void set(int i, const T v) { assert(i >= 0 && i < this->size_);  this->values_[i] = v; }
+
     void swap(int index1, int index2) {
         assert(index1 >= 0 && index1 < this->size_);
         assert(index2 >= 0 && index2 < this->size_);
@@ -208,7 +210,10 @@ class RestList :public RestListTmp<Piece, 15> {
 public:
     void clear() { 
         memset(typeNum, 0, sizeof(int) * PIECE_TYPE_NB); 
-        typePos->clear();
+        for (int i = 0; i < PIECE_TYPE_NB; i++)
+        {
+            typePos[i].clear();
+        }
         RestListTmp<Piece, 15>::clear();
     }
 
@@ -256,7 +261,7 @@ public:
         return RestListTmp<Piece, 15>::pop_back();
     }
 
-    int evalValue() {
+    int evgValue() {
         assert(this->size_);
         int sum = 0;
         for (int i = 0; i < this->size_; i++)
@@ -265,6 +270,21 @@ public:
         }
         return sum / this->size_ / 2;
     }
+
+    int countType(const PieceType t) const {
+        return typeNum[t];
+    }
+
+    int notNullTypeCount() {
+        int TypeCount = 0;
+        for (int t = 0; t < PIECE_TYPE_NB; t++)
+        {
+            if (typeNum[t] == 0)continue;
+            TypeCount++;
+        }
+        return TypeCount;
+    }
+
 
     void print() {
         printf("rest db (size=%d):", (int)this->size_);
@@ -296,6 +316,32 @@ public:
         printf("\r\n\r\n");
         
     }
+
+    void shuffle() { 
+        static int seed = 52808;
+        PRNG rng(seed);
+        seed = rng.rand<int>();
+
+        int maxIndex = this->size_ - 1;
+        memset(typeNum, 0, sizeof(int) * PIECE_TYPE_NB);
+        for (int i = 0; i < PIECE_TYPE_NB; i++)
+        {
+            typePos[i].clear();
+        }
+        for (int i = 0; i < maxIndex; i++)
+        {
+            int p = abs(rng.rand<int>()) % (maxIndex - i) + 1 + i;
+            RestListTmp<Piece, 15>::swap(i, p);
+            PieceType t = type_of(RestListTmp<Piece, 15>::at(i));
+            typePos[t].push_back(i);
+            typeNum[t]++;
+        }
+        PieceType t = type_of(RestListTmp<Piece, 15>::at(maxIndex));
+        typePos[t].push_back(maxIndex);
+        typeNum[t]++;
+    }
+
+
 private:
     int typeNum[PIECE_TYPE_NB] = { 0 };
     RestListTmp<int, 5> typePos[PIECE_TYPE_NB];

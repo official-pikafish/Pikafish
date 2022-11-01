@@ -184,10 +184,12 @@ Position& Position::set(const string& fenStr, StateInfo* si, Thread* th) {
           }
       }
   }
+#if RANDOMPIECE
   //restPieces[WHITE].shuffle();
   //restPieces[BLACK].shuffle();
   //restPieces[WHITE].print();
   //restPieces[BLACK].print();
+#endif
 
   // 2. Active color
   ss >> token;
@@ -251,6 +253,8 @@ void Position::set_state(StateInfo* si) const {
   si->material[WHITE] = si->material[BLACK] = VALUE_ZERO;
   si->checkersBB = checkers_to(~sideToMove, square<KING>(sideToMove));
   si->move = MOVE_NONE;
+  si->darkDepth = 0;
+  si->darkTypes = 1;
 
   set_check_info(si);
 
@@ -467,8 +471,14 @@ bool Position::gives_check(Move m) {
   Square to = to_sq(m);
   Square ksq = square<KING>(~sideToMove);
   PieceType pt;
+
   if (isDark(from)) {
+      if (st->darkDepth < MAXDARKDEPTH || st->darkTypes>MAXDARKTYPES)return false;
+#if RANDOMPIECE
       pt = type_of(restPieces[sideToMove].peek());
+#else
+      pt = type_of(moved_piece(m));
+#endif
   }
   else
   {
@@ -493,28 +503,57 @@ bool Position::gives_check(Move m) {
   return false;
 }
 
-bool Position::getDark(StateInfo& newSt) {
+bool Position::getDark(StateInfo& newSt, int& typecount, bool& isDarkDepth, bool qSearch) {
     assert(&newSt != st);
     Square from = st->darkSquare;
     if (from == SQ_NONE)return false;
     Color us = ~sideToMove;
     Piece pc = NO_PIECE;
-    while (st->darkTypeIndex < BISHOP)
-    {
-        st->darkTypeIndex++;
-        static int times = 0;
-        times++;
-        if (times == 163) {
-            int a = 0;
+    typecount = 0;
+    if (st->darkDepth == 1) {
+        int a = 0;
+    }
+    isDarkDepth = st->darkDepth > MAXDARKDEPTH || st->darkTypes > MAXDARKTYPES;
+    if (qSearch || isDarkDepth) {
+        if (st->darkTypeIndex == NO_PIECE_TYPE) {
+            if (pc == NO_PIECE) {
+#if RANDOMPIECE
+                pc = restPieces[us].pop_back();
+#else
+                pc = nodarkPiece_on(from);
+#endif       
+            }
+            else
+            {
+                int a = 0;
+            }
+            st->darkTypeIndex = BISHOP;
         }
-        pc = restPieces[us].pop_back(PieceType(st->darkTypeIndex));
+        else
+        {
+            return false;
+        }  
+    }
+    else
+    {
+        while (st->darkTypeIndex < BISHOP)
+        {
+            st->darkTypeIndex++;
+            static int times = 0;
+            times++;
+            if (times == 163) {
+                int a = 0;
+            }
+            PieceType t = PieceType(st->darkTypeIndex);
+            pc = restPieces[us].pop_back(t);
 
-        //sync_cout << times << " pop_back " << (pc > 8 ? pc - 8 : pc) << sync_endl;
-        //restPieces[us].print();
-        if (pc == NO_PIECE)continue;
-        break;
+            if (pc == NO_PIECE)continue;
+            typecount = restPieces[us].countType(t) + 1;
+            break;
+        }
     }
     if (pc == NO_PIECE)return false;
+
     
     // Update the bloom filter
     ++filter[st->key];
@@ -533,8 +572,10 @@ bool Position::getDark(StateInfo& newSt) {
     Piece old = piece_on(from);
     assert(color_of(old) == us);
     {
-        st->material[us] -= PieceValue[MG][old] - PieceValue[MG][pc];
 
+        st->material[us] += PieceValue[MG][pc] - PieceValue[MG][old] + 100;
+    
+        
         dp.dirty_num = 2;  // 1 piece moved, 1 piece captured
         dp.piece[0] = old;
         dp.from[0] = from;
@@ -566,7 +607,7 @@ bool Position::getDark(StateInfo& newSt) {
     return true;
 }
 
-void Position::setDark() {
+void Position::setDark(bool qSearch) {
     // Finally point our state pointer back to the previous state
     st = st->previous;
 
@@ -582,9 +623,15 @@ void Position::setDark() {
     if (times == 163) {
         int a = 0;
     }
-    //sync_cout << times <<" push_back " << (p > 8 ? p - 8 : p) << sync_endl;
+
+
+#if RANDOMPIECE
     restPieces[~sideToMove].push_back(p);
-    //restPieces[~sideToMove].print();
+#else
+    if (!(qSearch || st->darkDepth > MAXDARKDEPTH || st->darkTypes>MAXDARKTYPES))
+        restPieces[~sideToMove].push_back(p);
+#endif 
+
 
     //replcae
     remove_piece(st->darkSquare);
@@ -654,9 +701,15 @@ bool Position::do_move(Move m, StateInfo& newSt, bool givesCheck) {
   {
       Square capsq = to;
 
-      st->material[them] -= PieceValue[MG][captured];
-      if(Darkof(captured)==UNKNOWN)
-          st->material[them] -= restPieces[us].evalValue();
+      
+      if (Darkof(captured) == UNKNOWN)
+      {
+          st->material[them] -= PieceValue[MG][captured] / 2 + restPieces[them].evgValue();
+      }
+      else
+      {
+          st->material[them] -= PieceValue[MG][captured];
+      }
 
       dp.dirty_num = 2;  // 1 piece moved, 1 piece captured
       dp.piece[1] = captured;
@@ -699,6 +752,8 @@ bool Position::do_move(Move m, StateInfo& newSt, bool givesCheck) {
       st->darkPiece = pc;
       st->darkSquare = to;
       st->darkTypeIndex = NO_PIECE_TYPE;
+      st->darkDepth++;
+      st->darkTypes *= restPieces[us].notNullTypeCount();
   }
   else
   {

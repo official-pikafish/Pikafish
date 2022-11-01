@@ -747,23 +747,37 @@ namespace {
                 
                 if(pos.do_move(move, st)){
                     StateInfo darkSt;
-                    int i = 0;
-                    while (pos.getDark(darkSt))
+                    int tryTypeTimes = 0, typecount = 0, restTotal = 0, sumvalue = 0;
+                    bool isDarkDepth;
+                    while (pos.getDark(darkSt, typecount, isDarkDepth))
                     {
+                        std::string fen0 = pos.fen();
                         Value vTmp;
                         // Perform a preliminary qsearch to verify that the move holds
                         vTmp = -qsearch<NonPV>(pos, ss + 1, -probCutBeta, -probCutBeta + 1);
 
                         // If the qsearch held, perform the regular search
                         if (vTmp >= probCutBeta)
-                            vTmp = -search<NonPV>(pos, ss + 1, -probCutBeta, -probCutBeta + 1, depth - 4, !cutNode);
+                            vTmp = -search<NonPV>(pos, ss + 1, -probCutBeta, -probCutBeta + 1, isDarkDepth ? 0 : depth - 4, !cutNode);
+                        
+                        if (tryTypeTimes == 0 || vTmp < value) value = vTmp;
 
+                        vTmp = std::clamp<Value>(vTmp, VALUE_MATED_IN_MAX_PLY, Value(3000));
+                        sumvalue += vTmp * typecount;
+                        restTotal += typecount;
                         //get worse
-                        if (i == 0 || vTmp < value) value = vTmp;
-                        i++;
-                       
+                        
+                        tryTypeTimes++;
+                        
+
                         pos.setDark();
                     }
+                    if (tryTypeTimes >= MINDARKTYPESTOAGV
+                        && value > VALUE_MATED_IN_MAX_PLY
+                        && value < VALUE_MATE_IN_MAX_PLY) {
+                        value = Value(sumvalue / restTotal);
+                    }
+
                 }
                 else
                 {
@@ -1031,16 +1045,33 @@ moves_loop: // When in check, search starts here
       int darkTryTimes = 0;
       bool fromWhile = false;
       StateInfo darkSt;
+      std::string fen3, mvStr = UCI::move(move);
+      int tryTypeTimes = 0, typecount = 0, restTotal = 0, sumvalue = 0;
+      bool isDarkDepth = false;
+      fen3 = pos.fen();
+
       if (pos.do_move(move, st, givesCheck)) {
-          while (pos.getDark(darkSt))
+          while (pos.getDark(darkSt, typecount, isDarkDepth))
           {
               fromWhile = true;
               goto dark_calc;
 dark_while:              
+              tryTypeTimes++;
+              vTmp = std::clamp<Value>(vTmp, VALUE_MATED_IN_MAX_PLY + 1, Value(3000));
+              sumvalue += vTmp * typecount;
+              restTotal += typecount;
               pos.setDark();
           }
           fromWhile = false;
           if (darkTryTimes > 0) {
+              Value min = value;
+              
+              
+              if (tryTypeTimes >= MINDARKTYPESTOAGV
+                  && value > VALUE_MATED_IN_MAX_PLY
+                  && value < VALUE_MATE_IN_MAX_PLY) {
+                  value = Value(sumvalue / restTotal);
+              }
               goto dark_undo;
           }
       }
@@ -1108,7 +1139,7 @@ dark_calc:
           // beyond the first move depth. This may lead to hidden double extensions.
           Depth d = std::clamp(newDepth - r, 1, newDepth + 1);
 
-          vTmp = -search<NonPV>(pos, ss+1, -(alpha+1), -alpha, d, true);
+          vTmp = -search<NonPV>(pos, ss+1, -(alpha+1), -alpha, isDarkDepth ? 0 : d, true);
           //get worse
           if (darkTryTimes == 0 || vTmp < value) value = vTmp;
           darkTryTimes++;
@@ -1117,9 +1148,9 @@ dark_calc:
           if (value > alpha && d < newDepth)
           {
               const bool doDeeperSearch = value > (alpha + 61 + 10 * (newDepth - d));
-              vTmp = -search<NonPV>(pos, ss+1, -(alpha+1), -alpha, newDepth + doDeeperSearch, !cutNode);
+              vTmp = -search<NonPV>(pos, ss+1, -(alpha+1), -alpha, isDarkDepth ? 0 : newDepth + doDeeperSearch, !cutNode);
               //get worse
-              if (darkTryTimes == 0 || vTmp < value) value = vTmp
+              if (darkTryTimes == 0 || vTmp < value) value = vTmp;
               darkTryTimes++;
 
 
@@ -1136,7 +1167,7 @@ dark_calc:
       // Step 17. Full depth search when LMR is skipped
       else if (!PvNode || moveCount > 1)
       {
-              vTmp = -search<NonPV>(pos, ss+1, -(alpha+1), -alpha, newDepth, !cutNode);
+              vTmp = -search<NonPV>(pos, ss+1, -(alpha+1), -alpha, isDarkDepth ? 0 : newDepth, !cutNode);
               //get worse
               if (darkTryTimes == 0 || vTmp < value) value = vTmp;
               darkTryTimes++;
@@ -1151,7 +1182,7 @@ dark_calc:
           (ss+1)->pv[0] = MOVE_NONE;
 
           vTmp = -search<PV>(pos, ss+1, -beta, -alpha,
-                              std::min(maxNextDepth, newDepth), false);
+              isDarkDepth ? 0 : std::min(maxNextDepth, newDepth), false);
           //get worse
           if (darkTryTimes == 0 || vTmp < value) value = vTmp;
           darkTryTimes++;
@@ -1186,6 +1217,12 @@ dark_undo:
               rm.score = value;
               rm.selDepth = thisThread->selDepth;
               rm.pv.resize(1);
+
+
+              if (!(ss + 1)->pv) {
+                  (ss + 1)->pv = pv;
+                  ss->pv[0] = MOVE_NONE;
+              }
 
               assert((ss+1)->pv);
 
@@ -1510,27 +1547,40 @@ dark_undo:
       quietCheckEvasions += !capture && ss->inCheck;
 
       // Make and search the move
-      Value vTmp;
+      Value vTmp = VALUE_ZERO;
       int i = 0;
+      int tryTypeTimes = 0, typecount = 0, restTotal = 0, sumvalue = 0;
+      bool isDarkDepth;
+      std::string cfen;
       if (pos.do_move(move, st, givesCheck)) {
           StateInfo darkSt;
-          while (pos.getDark(darkSt))
+          while (pos.getDark(darkSt, typecount, isDarkDepth, true))
           {
-              vTmp = -qsearch<nodeType>(pos, ss + 1, -beta, -alpha, depth - 1);
-
-              //get worse
+              vTmp = -qsearch<nodeType>(pos, ss + 1, -beta, -alpha, isDarkDepth ? 0 : depth - 1);
               if (i == 0 || vTmp < value) value = vTmp;
+              tryTypeTimes++;
+              vTmp = std::clamp<Value>(vTmp, VALUE_MATED_IN_MAX_PLY + 1, Value(3000));
+              sumvalue += vTmp * typecount;
+              restTotal += typecount;
+              //get worse
+              
               i++;
 
-              pos.setDark();
+              pos.setDark(true);
           }
       }
       else
       {
           vTmp = -qsearch<nodeType>(pos, ss + 1, -beta, -alpha, depth - 1);
       }
-
+      cfen = pos.fen();
       if (i == 0)value = vTmp;
+      if (tryTypeTimes >= MINDARKTYPESTOAGV 
+          && value > VALUE_MATED_IN_MAX_PLY 
+          && value < VALUE_MATE_IN_MAX_PLY) {
+          value = Value(sumvalue / restTotal);
+      }
+
       pos.undo_move(move);
 
       assert(value > -VALUE_INFINITE && value < VALUE_INFINITE);

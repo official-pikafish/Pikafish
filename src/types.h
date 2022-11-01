@@ -110,6 +110,8 @@ constexpr int VALRATE = 1;
 constexpr int VALRATE = 2;
 #endif
 
+#define MINDARKTYPESTOAGV 2
+
 // For chasing detection
 union ChaseMap {
     uint64_t attacks[4] { };
@@ -529,7 +531,7 @@ constexpr Piece make_piece(Color c, PieceType pt) {
 }
 
 constexpr PieceType type_of(Piece pc) {
-    if (Piece(pc & BW_ADVISOR) == BW_ADVISOR)return ADVISOR_B;
+    if (pc == BW_ADVISOR || pc == BB_ADVISOR)return ADVISOR_B;
     return PieceType(pc & 7);
 }
 
