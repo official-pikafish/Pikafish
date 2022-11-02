@@ -8,6 +8,10 @@ src/*.bak
 *.pro
 *.pro.user
 
+# Files from VS
+src/.vs/
+src/x64/
+
 # Built binary
 src/pikafish*
 src/-lstdc++.res
