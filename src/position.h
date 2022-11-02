@@ -34,11 +34,9 @@
 
 namespace Stockfish {
 
-//when dark depth more than 1,use random piece replace move dark 
-//piece.otherwise use old dark piecetype;
-#define RANDOMPIECE 0
+
 #define MAXDARKDEPTH 3
-#define MAXDARKTYPES 18
+#define MAXDARKTYPES 7
 
 /// StateInfo struct stores information needed to restore a Position object to
 /// its previous state when we retract a move. Whenever a move is made on the
@@ -144,8 +142,8 @@ public:
   Piece captured_piece() const;
 
   // Doing and undoing moves
-  bool getDark(StateInfo& newSt, int& typecount, bool& isDarkDepth, bool qSearch = false);
-  void setDark(bool qSearch = false);
+  bool getDark(StateInfo& newSt, int& typecount, bool& isDarkDepth);
+  void setDark();
   bool do_move(Move m, StateInfo& newSt);
   bool do_move(Move m, StateInfo& newSt, bool givesCheck);
   void undo_move(Move m);

@@ -1554,7 +1554,7 @@ dark_undo:
       std::string cfen;
       if (pos.do_move(move, st, givesCheck)) {
           StateInfo darkSt;
-          while (pos.getDark(darkSt, typecount, isDarkDepth, true))
+          while (pos.getDark(darkSt, typecount, isDarkDepth))
           {
               vTmp = -qsearch<nodeType>(pos, ss + 1, -beta, -alpha, isDarkDepth ? 0 : depth - 1);
               if (i == 0 || vTmp < value) value = vTmp;
@@ -1566,7 +1566,7 @@ dark_undo:
               
               i++;
 
-              pos.setDark(true);
+              pos.setDark();
           }
       }
       else

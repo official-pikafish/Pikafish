@@ -483,12 +483,8 @@ bool Position::gives_check(Move m) {
   PieceType pt;
 
   if (isDark(from)) {
-      if (st->darkDepth < MAXDARKDEPTH || st->darkTypes>MAXDARKTYPES)return false;
-#if RANDOMPIECE
-      pt = type_of(restPieces[sideToMove].peek());
-#else
-      pt = type_of(moved_piece(m));
-#endif
+      return false;
+      //pt = type_of(restPieces[sideToMove].peek());
   }
   else
   {
@@ -513,7 +509,7 @@ bool Position::gives_check(Move m) {
   return false;
 }
 
-bool Position::getDark(StateInfo& newSt, int& typecount, bool& isDarkDepth, bool qSearch) {
+bool Position::getDark(StateInfo& newSt, int& typecount, bool& isDarkDepth) {
     assert(&newSt != st);
     Square from = st->darkSquare;
     if (from == SQ_NONE)return false;
@@ -524,43 +520,30 @@ bool Position::getDark(StateInfo& newSt, int& typecount, bool& isDarkDepth, bool
         int a = 0;
     }
     isDarkDepth = st->darkDepth > MAXDARKDEPTH || st->darkTypes > MAXDARKTYPES;
-    if (qSearch || isDarkDepth) {
-        if (st->darkTypeIndex == NO_PIECE_TYPE) {
-            if (pc == NO_PIECE) {
-#if RANDOMPIECE
-                pc = restPieces[us].pop_back();
-#else
-                pc = nodarkPiece_on(from);
-#endif       
-            }
-            else
-            {
-                int a = 0;
-            }
-            st->darkTypeIndex = BISHOP;
-        }
-        else
-        {
-            return false;
-        }  
-    }
-    else
+    while (st->darkTypeIndex < BISHOP)
     {
-        while (st->darkTypeIndex < BISHOP)
-        {
-            st->darkTypeIndex++;
-            static int times = 0;
-            times++;
-            if (times == 163) {
-                int a = 0;
-            }
-            PieceType t = PieceType(st->darkTypeIndex);
-            pc = restPieces[us].pop_back(t);
-
-            if (pc == NO_PIECE)continue;
-            typecount = restPieces[us].countType(t) + 1;
-            break;
+        st->darkTypeIndex++;
+        static int times = 0;
+        times++;
+        if (times == 163) {
+            int a = 0;
         }
+        PieceType t;
+        //if (isDarkDepth) {
+        //    pc = restPieces[us].pop_back();
+        //    st->darkTypeIndex = BISHOP;
+        //    t = type_of(pc);
+        //}
+        //else
+        //{
+            t = PieceType(st->darkTypeIndex);
+            pc = restPieces[us].pop_back(t);
+        //}
+
+        
+        if (pc == NO_PIECE)continue;
+        typecount = restPieces[us].countType(t) + 1;
+        break;
     }
     if (pc == NO_PIECE)return false;
 
@@ -583,7 +566,7 @@ bool Position::getDark(StateInfo& newSt, int& typecount, bool& isDarkDepth, bool
     assert(color_of(old) == us);
     {
 
-        st->material[us] += PieceValue[MG][pc] - PieceValue[MG][old] + 100;
+        st->material[us] += std::clamp(PieceValue[MG][pc] - PieceValue[MG][old], Value(-600), Value(600)) + 100;
     
         
         dp.dirty_num = 2;  // 1 piece moved, 1 piece captured
@@ -617,7 +600,7 @@ bool Position::getDark(StateInfo& newSt, int& typecount, bool& isDarkDepth, bool
     return true;
 }
 
-void Position::setDark(bool qSearch) {
+void Position::setDark() {
     // Finally point our state pointer back to the previous state
     st = st->previous;
 
@@ -635,12 +618,9 @@ void Position::setDark(bool qSearch) {
     }
 
 
-#if RANDOMPIECE
+
     restPieces[~sideToMove].push_back(p);
-#else
-    if (!(qSearch || st->darkDepth > MAXDARKDEPTH || st->darkTypes>MAXDARKTYPES))
-        restPieces[~sideToMove].push_back(p);
-#endif 
+
 
 
     //replcae
