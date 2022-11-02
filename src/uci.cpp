@@ -134,7 +134,14 @@ namespace {
         if (token == "searchmoves") // Needs to be the last command on the line
             while (is >> token)
                 limits.searchmoves.push_back(UCI::to_move(pos, token));
-
+#if SEARCHDEBUG
+        else if (token == "watch") // Needs to be the last command on the line{
+        {
+            limits.watchmoves.push_back("");
+            while (is >> token)
+                limits.watchmoves.push_back(token);
+        }
+#endif
         else if (token == "wtime")     is >> limits.time[WHITE];
         else if (token == "btime")     is >> limits.time[BLACK];
         else if (token == "winc")      is >> limits.inc[WHITE];

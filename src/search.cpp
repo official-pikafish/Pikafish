@@ -465,10 +465,38 @@ namespace {
     constexpr bool PvNode = nodeType != NonPV;
     constexpr bool rootNode = nodeType == Root;
     const Depth maxNextDepth = rootNode ? depth : depth + 1;
-
+#if SEARCHDEBUG
+    std::string debugFen = pos.fen();
+    bool debugPrint = false;
+    bool darkPrint = false;
+    if (!Limits.watchmoves.size())
+        debugPrint = false;
+    else if (Limits.watchmoves.size() == 1)
+        debugPrint = (depth == Limits.depth && rootNode);
+    else if (depth == Limits.depth - Limits.watchmoves.size() + 1) {
+    //else {
+        debugPrint = true;
+        for (int wi = 1; wi < Limits.watchmoves.size(); wi++)
+        {
+            if (UCI::move((ss - wi)->currentMove) != Limits.watchmoves.at(Limits.watchmoves.size() - wi))
+            {
+                debugPrint = false;
+                break;
+            }
+        }
+    }
+#endif
     // Dive into quiescence search when the depth reaches zero
-    if (depth <= 0)
-        return qsearch<PvNode ? PV : NonPV>(pos, ss, alpha, beta);
+    if (depth <= 0) {
+        Value qv = qsearch<PvNode ? PV : NonPV>(pos, ss, alpha, beta);
+#if SEARCHDEBUG
+        if (debugPrint) {
+            sync_cout << "[" << __LINE__ << "]" << debugFen << " " << qv << sync_endl;
+        }
+#endif
+        return qv;
+    }
+        
 
     assert(-VALUE_INFINITE <= alpha && alpha < beta && beta <= VALUE_INFINITE);
     assert(PvNode || (alpha == beta - 1));
@@ -510,11 +538,26 @@ namespace {
     {
         // Step 2. Check for aborted search and repetition
         Value result;
-        if (pos.is_repeated(result, ss->ply))
-            return result == VALUE_DRAW ? value_draw(pos.this_thread()) : result;
+        if (pos.is_repeated(result, ss->ply)) {
+            result == VALUE_DRAW ? value_draw(pos.this_thread()) : result;
+#if SEARCHDEBUG
+            if (debugPrint) {
+                sync_cout << "[" << __LINE__ << "]" << debugFen << " " << result << sync_endl;
+            }
+#endif
+            return result;
+        }
 
-        if (Threads.stop.load(std::memory_order_relaxed) || ss->ply >= MAX_PLY)
-            return (ss->ply >= MAX_PLY && !ss->inCheck) ? evaluate(pos) : value_draw(pos.this_thread());
+        if (Threads.stop.load(std::memory_order_relaxed) || ss->ply >= MAX_PLY) {
+            result = (ss->ply >= MAX_PLY && !ss->inCheck) ? evaluate(pos) : value_draw(pos.this_thread());
+#if SEARCHDEBUG
+            if (debugPrint) {
+                sync_cout << "[" << __LINE__ << "]" << debugFen << " " << result << sync_endl;
+            }
+#endif
+            return result;
+        }
+            
 
         // Step 3. Mate distance pruning. Even if we mate at the next move our score
         // would be at best mate_in(ss->ply+1), but if alpha is already bigger because
@@ -525,7 +568,15 @@ namespace {
         alpha = std::max(mated_in(ss->ply), alpha);
         beta = std::min(mate_in(ss->ply+1), beta);
         if (alpha >= beta)
+        {
+#if SEARCHDEBUG
+            if (debugPrint) {
+                sync_cout << "[" << __LINE__ << "]" << debugFen << " " << alpha << sync_endl;
+            }
+#endif
             return alpha;
+        }
+            
     }
     else
         thisThread->rootDelta = beta - alpha;
@@ -588,7 +639,11 @@ namespace {
                 update_continuation_histories(ss, pos.moved_piece(ttMove), to_sq(ttMove), penalty);
             }
         }
-
+#if SEARCHDEBUG
+        if (debugPrint) {
+            sync_cout << "[" << __LINE__ << "]" << debugFen << " " << ttValue << sync_endl;
+        }
+#endif
         return ttValue;
     }
 
@@ -651,8 +706,15 @@ namespace {
     if (eval < alpha - 349 - 244 * depth * depth)
     {
         value = qsearch<NonPV>(pos, ss, alpha - 1, alpha);
-        if (value < alpha)
+        if (value < alpha) {
+#if SEARCHDEBUG
+            if (debugPrint) {
+                sync_cout << "[" << __LINE__ << "]" << debugFen << " " << value << sync_endl;
+            }
+#endif
             return value;
+        }
+            
     }
 
     // Step 7. Futility pruning: child node (~25 Elo).
@@ -694,8 +756,14 @@ namespace {
             if (nullValue >= VALUE_MATE_IN_MAX_PLY)
                 nullValue = beta;
 
-            if (thisThread->nmpMinPly || (abs(beta) < VALUE_KNOWN_WIN && depth < 14))
+            if (thisThread->nmpMinPly || (abs(beta) < VALUE_KNOWN_WIN && depth < 14)){
+#if SEARCHDEBUG
+                if (debugPrint) {
+                    sync_cout << "[" << __LINE__ << "]" << debugFen << " " << nullValue << sync_endl;
+                }
+#endif
                 return nullValue;
+            }
 
             assert(!thisThread->nmpMinPly); // Recursive verification is not allowed
 
@@ -708,8 +776,14 @@ namespace {
 
             thisThread->nmpMinPly = 0;
 
-            if (v >= beta)
+            if (v >= beta) {
+#if SEARCHDEBUG
+            if (debugPrint) {
+                sync_cout << "[" << __LINE__ << "]" << debugFen << " " << nullValue << sync_endl;
+            }
+#endif
                 return nullValue;
+            }
         }
     }
 
@@ -747,6 +821,7 @@ namespace {
                 
                 if(pos.do_move(move, st)){
                     StateInfo darkSt;
+                    
                     int tryTypeTimes = 0, typecount = 0, restTotal = 0, sumvalue = 0;
                     bool isDarkDepth;
                     while (pos.getDark(darkSt, typecount, isDarkDepth))
@@ -797,6 +872,11 @@ namespace {
                 {
                     // Save ProbCut data into transposition table
                     tte->save(posKey, value_to_tt(value, ss->ply), ss->ttPv, BOUND_LOWER, depth - 3, move, ss->staticEval);
+#if SEARCHDEBUG
+                    if (debugPrint) {
+                        sync_cout << "[" << __LINE__ << "]" << debugFen << " " << value << sync_endl;
+                    }
+#endif
                     return value;
                 }
             }
@@ -808,8 +888,15 @@ namespace {
         && !ttMove)
         depth -= 3;
 
-    if (depth <= 0)
-        return qsearch<PV>(pos, ss, alpha, beta);
+    if (depth <= 0){
+        value = qsearch<PV>(pos, ss, alpha, beta);
+#if SEARCHDEBUG
+        if (debugPrint) {
+            sync_cout << "[" << __LINE__ << "]" << debugFen << " " << value << sync_endl;
+        }
+#endif
+        return value;
+    }
 
     if (    cutNode
         &&  depth >= 8
@@ -820,7 +907,7 @@ moves_loop: // When in check, search starts here
 
     // Step 11. A small Probcut idea, when we are in check (~0 Elo)
     probCutBeta = beta + 481;
-    if (   ss->inCheck
+    if (ss->inCheck
         && !PvNode
         && depth >= 2
         && ttCapture
@@ -829,8 +916,15 @@ moves_loop: // When in check, search starts here
         && ttValue >= probCutBeta
         && abs(ttValue) <= VALUE_KNOWN_WIN
         && abs(beta) <= VALUE_KNOWN_WIN
-       )
+        ) {
+#if SEARCHDEBUG
+        if (debugPrint) {
+            sync_cout << "[" << __LINE__ << "]" << debugFen << " " << probCutBeta << sync_endl;
+        }
+#endif
         return probCutBeta;
+        }
+        
 
 
     const PieceToHistory* contHist[] = { (ss-1)->continuationHistory, (ss-2)->continuationHistory,
@@ -861,6 +955,27 @@ moves_loop: // When in check, search starts here
     {
       assert(is_ok(move));
 
+#if SEARCHDEBUG
+      //if (depth == Limits.depth - Limits.watchmoves.size() + 1 - 1 && Limits.watchmoves.size() > 1) {
+      if (Limits.watchmoves.size() > 1) {
+          darkPrint = true;
+          for (int wi = 1; wi < Limits.watchmoves.size(); wi++)
+          {
+              if (UCI::move((ss - wi + 1)->currentMove) != Limits.watchmoves.at(Limits.watchmoves.size() - wi))
+              {
+                  darkPrint = false;
+                  break;
+              }
+          }
+      }
+      else
+      {
+          darkPrint = false;
+      }
+      if (darkPrint) {
+          int a = 0;
+      }
+#endif
       if (move == excludedMove)
           continue;
 
@@ -1000,6 +1115,11 @@ moves_loop: // When in check, search starts here
               // that multiple moves fail high, and we can prune the whole subtree by returning
               // a soft bound.
               else if (singularBeta >= beta) {
+#if SEARCHDEBUG
+                  if (debugPrint) {
+                      sync_cout << "[" << __LINE__ << "]" << debugFen << " " << singularBeta << sync_endl;
+                  }
+#endif
                   return singularBeta;
               }
                   
@@ -1049,7 +1169,12 @@ moves_loop: // When in check, search starts here
       int tryTypeTimes = 0, typecount = 0, restTotal = 0, sumvalue = 0;
       bool isDarkDepth = false;
       fen3 = pos.fen();
-
+#if SEARCHDEBUG
+      std::string DarkSearchInfo = "";
+#endif
+      if (mvStr == "g4g9") {
+          int a = 0;
+      }
       if (pos.do_move(move, st, givesCheck)) {
           while (pos.getDark(darkSt, typecount, isDarkDepth))
           {
@@ -1060,17 +1185,43 @@ dark_while:
               vTmp = std::clamp<Value>(vTmp, VALUE_MATED_IN_MAX_PLY + 1, Value(3000));
               sumvalue += vTmp * typecount;
               restTotal += typecount;
+#if SEARCHDEBUG
+              if (darkPrint) {
+                  if (!DarkSearchInfo.empty())DarkSearchInfo.append(",");
+                  DarkSearchInfo.append(std::to_string(pos.piece_on(to_sq(move))));
+                  DarkSearchInfo.append(" ");
+                  DarkSearchInfo.append(std::to_string(vTmp));
+                  DarkSearchInfo.append(" ");
+                  DarkSearchInfo.append(std::to_string(typecount));
+                  DarkSearchInfo.append(" ");
+              }
+
+#endif
               pos.setDark();
           }
           fromWhile = false;
           if (darkTryTimes > 0) {
               Value min = value;
               
-              
+#if SEARCHDEBUG
+              if (darkPrint) {
+                  DarkSearchInfo.append("----evg:");
+                  DarkSearchInfo.append(std::to_string(sumvalue / restTotal));
+                  DarkSearchInfo.append(",min=");
+                  DarkSearchInfo.append(std::to_string(value));
+                  DarkSearchInfo.append(" ");
+              }
+#endif 
+
               if (tryTypeTimes >= MINDARKTYPESTOAGV
                   && value > VALUE_MATED_IN_MAX_PLY
                   && value < VALUE_MATE_IN_MAX_PLY) {
                   value = Value(sumvalue / restTotal);
+#if SEARCHDEBUG
+                  if (darkPrint) {
+                      DarkSearchInfo.append("E");
+                  }
+#endif 
               }
               goto dark_undo;
           }
@@ -1140,7 +1291,7 @@ dark_calc:
           Depth d = std::clamp(newDepth - r, 1, newDepth + 1);
 
           vTmp = -search<NonPV>(pos, ss+1, -(alpha+1), -alpha, isDarkDepth ? 0 : d, true);
-          //get worse
+
           if (darkTryTimes == 0 || vTmp < value) value = vTmp;
           darkTryTimes++;
 
@@ -1149,8 +1300,9 @@ dark_calc:
           {
               const bool doDeeperSearch = value > (alpha + 61 + 10 * (newDepth - d));
               vTmp = -search<NonPV>(pos, ss+1, -(alpha+1), -alpha, isDarkDepth ? 0 : newDepth + doDeeperSearch, !cutNode);
-              //get worse
+
               if (darkTryTimes == 0 || vTmp < value) value = vTmp;
+
               darkTryTimes++;
 
 
@@ -1168,8 +1320,9 @@ dark_calc:
       else if (!PvNode || moveCount > 1)
       {
               vTmp = -search<NonPV>(pos, ss+1, -(alpha+1), -alpha, isDarkDepth ? 0 : newDepth, !cutNode);
-              //get worse
+
               if (darkTryTimes == 0 || vTmp < value) value = vTmp;
+
               darkTryTimes++;
       }
 
@@ -1195,6 +1348,21 @@ dark_undo:
       // Step 18. Undo move
       pos.undo_move(move);
 
+
+#if SEARCHDEBUG
+      if (debugPrint) {
+          if (UCI::move(move) == "a0b0")
+          {
+              int a = 0;
+          }
+          sync_cout << "move[" << __LINE__ << "]" << debugFen << " " << UCI::move(move) << " " << value << " " << pos.piece_on(to_sq(move)) << sync_endl;
+      }
+      if (darkPrint) {
+          if (!DarkSearchInfo.empty())
+              sync_cout << "dark[" << __LINE__ << "]d=" << depth<<"," << DarkSearchInfo << sync_endl;
+      }
+#endif
+
       assert(value > -VALUE_INFINITE && value < VALUE_INFINITE);
 
       // Step 19. Check for a new best move
@@ -1202,7 +1370,15 @@ dark_undo:
       // the search cannot be trusted, and we return immediately without
       // updating best move, PV and TT.
       if (Threads.stop.load(std::memory_order_relaxed))
+      {
+#if SEARCHDEBUG
+          if (debugPrint) {
+              sync_cout << "move[" << __LINE__ << "]" << debugFen << " " << UCI::move(move) << " " << VALUE_ZERO << " " << pos.piece_on(to_sq(move)) << sync_endl;
+          }
           return VALUE_ZERO;
+#endif
+      }
+          
 
       if (rootNode)
       {
@@ -1220,6 +1396,7 @@ dark_undo:
 
 
               if (!(ss + 1)->pv) {
+                  printf("pv is null!\n");
                   (ss + 1)->pv = pv;
                   ss->pv[0] = MOVE_NONE;
               }
@@ -1342,7 +1519,11 @@ dark_undo:
                   depth, bestMove, ss->staticEval);
 
     assert(bestValue > -VALUE_INFINITE && bestValue < VALUE_INFINITE);
-
+#if SEARCHDEBUG
+    if (debugPrint) {
+        sync_cout << "move[" << __LINE__ << "]" << debugFen << " " << UCI::move(move) << " " << bestValue << " " << pos.piece_on(to_sq(move)) << sync_endl;
+    }
+#endif
     return bestValue;
   }
 
@@ -1352,7 +1533,7 @@ dark_undo:
   // (~155 elo)
   template <NodeType nodeType>
   Value qsearch(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth) {
-
+      
     static_assert(nodeType != Root);
     constexpr bool PvNode = nodeType == PV;
 
