@@ -121,7 +121,7 @@ Position& Position::set(const string& fenStr, StateInfo* si, Thread* th) {
       incremented after Black's move.
 */
 
-  unsigned char token;
+  unsigned char token,lastToken;
   size_t idx;
   Square sq = SQ_A9;
   std::istringstream ss(fenStr);
@@ -164,7 +164,9 @@ Position& Position::set(const string& fenStr, StateInfo* si, Thread* th) {
   Piece pt = NO_PIECE;
   restPieces[WHITE].clear();
   restPieces[BLACK].clear();
+  lastToken = ' ';
   while ((ss >> token) && !isspace(token)) {
+      lastToken = token;
       if ((idx = PieceToChar.find(token)) != string::npos) {
           if (token == 'x') {
               pt = NO_PIECE;
@@ -182,17 +184,25 @@ Position& Position::set(const string& fenStr, StateInfo* si, Thread* th) {
           {
               restPieces[color_of(pt)].push_back(pt);
           }
+          lastToken = ' ';
       }
   }
-#if RANDOMPIECE
+
   //restPieces[WHITE].shuffle();
   //restPieces[BLACK].shuffle();
   //restPieces[WHITE].print();
   //restPieces[BLACK].print();
-#endif
+
 
   // 2. Active color
-  ss >> token;
+  if (lastToken != 'w' && lastToken != 'b') {
+      ss >> token;
+  }
+  else
+  {
+      token = lastToken;
+  }
+
   sideToMove = (token == 'w' ? WHITE : BLACK);
   ss >> token;
 

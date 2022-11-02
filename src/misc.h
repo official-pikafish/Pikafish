@@ -191,18 +191,7 @@ public:
         this->values_[index1] = this->values_[index2];
         this->values_[index2] = tmp;
     }
-    //void shuffle() { 
-    //    static int seed = 52808;
-    //    PRNG rng(seed);
-    //    seed = rng.rand<int>();
-    //    for (int i = this->size_-1; i > 0; i--)
-    //    {
-    //        int p = abs(rng.rand<int>()) % i;
-    //        T tmp = this->values_[p];
-    //        this->values_[p] = this->values_[i];
-    //        this->values_[i] = tmp;
-    //    }
-    //}
+
 };
 
 class RestList :public RestListTmp<Piece, 15> {
