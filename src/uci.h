@@ -69,7 +69,8 @@ private:
 
 void init(OptionsMap&);
 void loop(int argc, char* argv[]);
-std::string value(Value v);
+int pawn_eval(Value v, int ply);
+std::string value(Value v, int ply = 64);
 std::string square(Square s);
 std::string move(Move m);
 std::string pv(const Position& pos, Depth depth, Value alpha, Value beta);
