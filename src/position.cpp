@@ -519,7 +519,12 @@ bool Position::getDark(StateInfo& newSt, int& typecount, bool& isDarkDepth) {
     if (st->darkDepth == 1) {
         int a = 0;
     }
+    if (st->darkDepth > 4) {
+        //sync_cout << "!!!darkDepth=" << st->darkDepth <<","<< st->darkTypes << sync_endl;
+    }
+    Value darkV = Value(restPieces[us].evgValue());
     isDarkDepth = st->darkDepth > MAXDARKDEPTH || st->darkTypes > MAXDARKTYPES;
+    if (isDarkDepth>5)return false;
     while (st->darkTypeIndex < BISHOP)
     {
         st->darkTypeIndex++;
@@ -567,6 +572,7 @@ bool Position::getDark(StateInfo& newSt, int& typecount, bool& isDarkDepth) {
     {
 
         st->material[us] += std::clamp(PieceValue[MG][pc] - PieceValue[MG][old], Value(-600), Value(600)) + 100;
+        st->material[us] += PieceValue[MG][pc] / 5;
     
         
         dp.dirty_num = 2;  // 1 piece moved, 1 piece captured
@@ -694,7 +700,7 @@ bool Position::do_move(Move m, StateInfo& newSt, bool givesCheck) {
       
       if (Darkof(captured) == UNKNOWN)
       {
-          st->material[them] -= PieceValue[MG][captured] / 2 + restPieces[them].evgValue();
+          st->material[them] -= restPieces[them].evgValue(PieceType(captured & 7)) - 50;
       }
       else
       {

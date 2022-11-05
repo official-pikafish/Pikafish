@@ -260,6 +260,16 @@ public:
         return sum / this->size_ / 2;
     }
 
+    int evgValue(const PieceType t) {
+        assert(this->size_);
+        int evg = evgValue();
+        int total = notNullTypeCount();
+        int count = countType(t);
+        evg = count * PieceValue[MG][t] + (total - count) * evg;
+        evg = evg / total;
+        return evg;
+    }
+
     int countType(const PieceType t) const {
         return typeNum[t];
     }

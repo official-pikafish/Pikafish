@@ -837,7 +837,7 @@ namespace {
                         
                         if (tryTypeTimes == 0 || vTmp < value) value = vTmp;
 
-                        vTmp = std::clamp<Value>(vTmp, VALUE_MATED_IN_MAX_PLY, Value(3000));
+                        vTmp = std::clamp<Value>(vTmp, VALUE_MATED_IN_MAX_PLY, Value(4000));
                         sumvalue += vTmp * typecount;
                         restTotal += typecount;
                         //get worse
@@ -851,6 +851,10 @@ namespace {
                         && value > VALUE_MATED_IN_MAX_PLY
                         && value < VALUE_MATE_IN_MAX_PLY) {
                         value = Value(sumvalue / restTotal);
+                    }
+                    if (tryTypeTimes == 0) { 
+                        pos.undo_move(move);
+                        continue; 
                     }
 
                 }
@@ -1161,7 +1165,7 @@ moves_loop: // When in check, search starts here
       // Step 15. Make the move
       //pos.do_move(move, st, givesCheck);
 
-      Value vTmp;
+      Value vTmp = value;
       int darkTryTimes = 0;
       bool fromWhile = false;
       StateInfo darkSt;
@@ -1182,7 +1186,7 @@ moves_loop: // When in check, search starts here
               goto dark_calc;
 dark_while:              
               tryTypeTimes++;
-              vTmp = std::clamp<Value>(vTmp, VALUE_MATED_IN_MAX_PLY + 1, Value(3000));
+              vTmp = std::clamp<Value>(vTmp, VALUE_MATED_IN_MAX_PLY + 1, Value(4000));
               sumvalue += vTmp * typecount;
               restTotal += typecount;
 #if SEARCHDEBUG
@@ -1200,6 +1204,10 @@ dark_while:
               pos.setDark();
           }
           fromWhile = false;
+          if (darkTryTimes == 0) {
+              pos.undo_move(move);
+              continue;
+          }
           if (darkTryTimes > 0) {
               Value min = value;
               
@@ -1728,7 +1736,7 @@ dark_undo:
       quietCheckEvasions += !capture && ss->inCheck;
 
       // Make and search the move
-      Value vTmp = VALUE_ZERO;
+      Value vTmp;
       int i = 0;
       int tryTypeTimes = 0, typecount = 0, restTotal = 0, sumvalue = 0;
       bool isDarkDepth;
@@ -1740,7 +1748,7 @@ dark_undo:
               vTmp = -qsearch<nodeType>(pos, ss + 1, -beta, -alpha, isDarkDepth ? 0 : depth - 1);
               if (i == 0 || vTmp < value) value = vTmp;
               tryTypeTimes++;
-              vTmp = std::clamp<Value>(vTmp, VALUE_MATED_IN_MAX_PLY + 1, Value(3000));
+              vTmp = std::clamp<Value>(vTmp, VALUE_MATED_IN_MAX_PLY + 1, Value(4000));
               sumvalue += vTmp * typecount;
               restTotal += typecount;
               //get worse
@@ -1748,6 +1756,10 @@ dark_undo:
               i++;
 
               pos.setDark();
+          }
+          if (tryTypeTimes == 0) {
+              pos.undo_move(move);
+              continue;
           }
       }
       else

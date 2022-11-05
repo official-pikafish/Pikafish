@@ -107,7 +107,7 @@ constexpr bool Is64Bit = false;
 #if USE_NNUEEVAL
 constexpr int VALRATE = 1;
 #else
-constexpr int VALRATE = 2;
+constexpr int VALRATE = 1;
 #endif
 
 #define MINDARKTYPESTOAGV 2
@@ -303,19 +303,19 @@ enum Value : int {
   VALUE_MATED_IN_MAX_PLY = -VALUE_MATE_IN_MAX_PLY,
 
   RookValueMg    = 1462,  RookValueEg    = 1268,
-  AdvisorValueMg = 189 ,  AdvisorValueEg = 156 ,
+  AdvisorValueMg = 200 ,  AdvisorValueEg = 180 ,
   CannonValueMg  = 515 ,  CannonValueEg  = 674 ,
   PawnValueMg    = 72  ,  PawnValueEg    = 135 ,
   KnightValueMg  = 554 ,  KnightValueEg  = 744 ,
   BishopValueMg  = 202 ,  BishopValueEg  = 173 ,
 
   rate = VALRATE,
-  B_RookValueMg = 1462 / rate, B_RookValueEg = 1268 / rate,
-  B_AdvisorValueMg = 189 / rate, B_AdvisorValueEg = 156 / rate,
-  B_CannonValueMg = 515 / rate, B_CannonValueEg = 674 / rate,
-  B_PawnValueMg = 72 / rate, B_PawnValueEg = 135 / rate,
-  B_KnightValueMg = 554 / rate, B_KnightValueEg = 744 / rate,
-  B_BishopValueMg = 202 / rate, B_BishopValueEg = 173 / rate,
+  B_RookValueMg = 700 / rate, B_RookValueEg = 700 / rate,
+  B_AdvisorValueMg = 200 / rate, B_AdvisorValueEg = 200 / rate,
+  B_CannonValueMg = 515 / rate, B_CannonValueEg = 574 / rate,
+  B_PawnValueMg = 200 / rate, B_PawnValueEg = 200 / rate,
+  B_KnightValueMg = 300 / rate, B_KnightValueEg = 300 / rate,
+  B_BishopValueMg = 200 / rate, B_BishopValueEg = 200 / rate,
 };
 
 enum PieceType {
