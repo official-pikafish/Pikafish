@@ -571,7 +571,7 @@ bool Position::getDark(StateInfo& newSt, int& typecount, bool& isDarkDepth) {
     assert(color_of(old) == us);
     {
 
-        st->material[us] += std::clamp(PieceValue[MG][pc] - PieceValue[MG][old], Value(-600), Value(600)) + 100;
+        //st->material[us] += std::clamp(PieceValue[MG][pc] - PieceValue[MG][old], Value(-600), Value(600)) + 100;
         st->material[us] += PieceValue[MG][pc] / 5;
     
         
