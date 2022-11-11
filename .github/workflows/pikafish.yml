@@ -41,8 +41,21 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: make	
+      - name: make linux
         run: cd src && make clean && make -j build COMP=gcc ARCH=x86-64${{ matrix.arch }} EXE=pikafish${{ matrix.arch }} && strip pikafish${{ matrix.arch }}
+
+      - name: Setup Android NDK
+        if: ${{ matrix.arch == '' }}
+        uses: nttld/setup-ndk@v1.2.0
+        with:
+          ndk-version: r21e
+
+      - name: make arm
+        if: ${{ matrix.arch == '' }}
+        run: |
+          export PATH=$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin:$PATH
+          export LDFLAGS="-static -Wno-unused-command-line-argument"
+          cd src && make clean && make -j build COMP=ndk ARCH=armv8 EXE=pikafish-arm && make strip COMP=ndk ARCH=armv8 EXE=pikafish-arm
 
       - name: copy binary to folder
         run: mkdir linux && cp src/pikafish* linux
@@ -57,7 +70,3 @@ jobs:
           path: |
             linux/pikafish*
             AUTHORS
-            Copying.txt
-            NNUE-License.txt
-            README.md
-            Top CPU Contributors.txt
