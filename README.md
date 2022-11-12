@@ -116,7 +116,8 @@ change them via a chess GUI. This is a list of available UCI options in Pikafish
     working directory, are also searched.
 
   * #### UCI_AnalyseMode
-    An option handled by your GUI.
+    If enabled, use original score to determine engine score outputs.
+    If disabled (by default) , use WDL statistics to determine engine score outputs.
 
   * #### UCI_ShowWDL
     If enabled, show approximate WDL statistics as part of the engine output.
