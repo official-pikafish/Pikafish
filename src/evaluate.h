@@ -43,7 +43,7 @@ namespace Eval {
   namespace NNUE {
 
     std::string trace(Position& pos);
-    Value evaluate(const Position& pos, int* complexity = nullptr);
+    std::pair<Value, Value> evaluate(const Position& pos, int* complexity = nullptr);
 
     void init();
     void verify();

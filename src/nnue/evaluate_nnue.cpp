@@ -137,7 +137,7 @@ namespace Stockfish::Eval::NNUE {
   }
 
   // Evaluation function. Perform differential calculation.
-  Value evaluate(const Position& pos, int* complexity) {
+  std::pair<Value, Value> evaluate(const Position& pos, int* complexity) {
 
     // We manually align the arrays on the stack because with gcc < 9.3
     // overaligning stack variables with alignas() doesn't work correctly.
@@ -158,12 +158,12 @@ namespace Stockfish::Eval::NNUE {
 
     const int bucket = (pos.count<ALL_PIECES>() - 1) / 4;
     const auto psqt = featureTransformer->transform(pos, transformedFeatures, bucket);
-    const auto positional = network[bucket]->propagate(transformedFeatures);
+    const auto [positional, drawish] = network[bucket]->propagate(transformedFeatures);
 
     if (complexity)
         *complexity = abs(psqt - positional) / OutputScale;
 
-    return static_cast<Value>((psqt + positional) / OutputScale);
+    return { static_cast<Value>((psqt + positional) / OutputScale), static_cast<Value>(drawish / OutputScale)};
   }
 
   struct NnueEvalTrace {
@@ -197,7 +197,7 @@ namespace Stockfish::Eval::NNUE {
     t.correctBucket = (pos.count<ALL_PIECES>() - 1) / 4;
     for (IndexType bucket = 0; bucket < LayerStacks; ++bucket) {
       const auto materialist = featureTransformer->transform(pos, transformedFeatures, bucket);
-      const auto positional = network[bucket]->propagate(transformedFeatures);
+      const auto positional = network[bucket]->propagate(transformedFeatures).first;
 
       t.psqt[bucket] = static_cast<Value>( materialist / OutputScale );
       t.positional[bucket] = static_cast<Value>( positional / OutputScale );
@@ -281,7 +281,7 @@ namespace Stockfish::Eval::NNUE {
 
     // We estimate the value of each piece by doing a differential evaluation from
     // the current base eval, simulating the removal of the piece from its square.
-    Value base = evaluate(pos);
+    Value base = evaluate(pos).first;
     base = pos.side_to_move() == WHITE ? base : -base;
 
     for (File f = FILE_A; f <= FILE_I; ++f)
@@ -299,7 +299,7 @@ namespace Stockfish::Eval::NNUE {
           st->accumulator.computed[WHITE] = false;
           st->accumulator.computed[BLACK] = false;
 
-          Value eval = evaluate(pos);
+          Value eval = evaluate(pos).first;
           eval = pos.side_to_move() == WHITE ? eval : -eval;
           v = base - eval;
 

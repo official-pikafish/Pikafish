@@ -467,7 +467,7 @@ namespace Stockfish::Eval::NNUE::Layers {
 #if defined (USE_SSSE3)
       const auto inputVector = reinterpret_cast<const vec_t*>(input);
 
-      static_assert(OutputDimensions % OutputSimdWidth == 0 || OutputDimensions == 1);
+      static_assert(OutputDimensions % OutputSimdWidth == 0 || OutputDimensions == 2);
 
       if constexpr (OutputDimensions % OutputSimdWidth == 0)
       {
@@ -494,7 +494,7 @@ namespace Stockfish::Eval::NNUE::Layers {
         for (IndexType k = 0; k < NumRegs; ++k)
           outptr[k] = acc[k];
       }
-      else if constexpr (OutputDimensions == 1)
+      else if constexpr (OutputDimensions == 2)
       {
         constexpr IndexType NumChunks = PaddedInputDimensions / SimdWidth;
         vec_t sum0 = vec_setzero();

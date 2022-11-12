@@ -43,15 +43,15 @@ constexpr IndexType LayerStacks = 8;
 
 struct Network
 {
-  static constexpr int FC_0_OUTPUTS = 15;
+  static constexpr int FC_0_OUTPUTS = 14;
   static constexpr int FC_1_OUTPUTS = 32;
 
-  Layers::AffineTransform<TransformedFeatureDimensions, FC_0_OUTPUTS + 1> fc_0;
-  Layers::SqrClippedReLU<FC_0_OUTPUTS + 1> ac_sqr_0;
-  Layers::ClippedReLU<FC_0_OUTPUTS + 1> ac_0;
+  Layers::AffineTransform<TransformedFeatureDimensions, FC_0_OUTPUTS + 2> fc_0;
+  Layers::SqrClippedReLU<FC_0_OUTPUTS + 2> ac_sqr_0;
+  Layers::ClippedReLU<FC_0_OUTPUTS + 2> ac_0;
   Layers::AffineTransform<FC_0_OUTPUTS * 2, FC_1_OUTPUTS> fc_1;
   Layers::ClippedReLU<FC_1_OUTPUTS> ac_1;
-  Layers::AffineTransform<FC_1_OUTPUTS, 1> fc_2;
+  Layers::AffineTransform<FC_1_OUTPUTS, 2> fc_2;
 
   // Hash value embedded in the evaluation file
   static constexpr std::uint32_t get_hash_value() {
@@ -88,7 +88,7 @@ struct Network
     return true;
   }
 
-  std::int32_t propagate(const TransformedFeatureType* transformedFeatures)
+  std::pair<std::int32_t, std::int32_t> propagate(const TransformedFeatureType* transformedFeatures)
   {
     struct alignas(CacheLineSize) Buffer
     {
@@ -124,10 +124,12 @@ struct Network
 
     // buffer.fc_0_out[FC_0_OUTPUTS] is such that 1.0 is equal to 127*(1<<WeightScaleBits) in quantized form
     // but we want 1.0 to be equal to 600*OutputScale
-    std::int32_t fwdOut = int(buffer.fc_0_out[FC_0_OUTPUTS]) * (600*OutputScale) / (127*(1<<WeightScaleBits));
-    std::int32_t outputValue = buffer.fc_2_out[0] + fwdOut;
+    std::int32_t fwdOut1 = int(buffer.fc_0_out[FC_0_OUTPUTS]) * (600*OutputScale) / (127*(1<<WeightScaleBits));
+    std::int32_t fwdOut2 = int(buffer.fc_0_out[FC_0_OUTPUTS + 1]) * (600*OutputScale) / (127*(1<<WeightScaleBits));
+    std::int32_t winValue = buffer.fc_2_out[0] + fwdOut1;
+    std::int32_t drawValue = buffer.fc_2_out[1] + fwdOut2;
 
-    return outputValue;
+    return { winValue, drawValue };
   }
 };
 

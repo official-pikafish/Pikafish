@@ -107,7 +107,7 @@ using namespace Trace;
 Value Eval::evaluate(const Position& pos, int* complexity) {
 
   int nnueComplexity;
-  Value v = NNUE::evaluate(pos, &nnueComplexity);
+  auto [v, d] = NNUE::evaluate(pos, &nnueComplexity);
   // Blend nnue complexity with material complexity
   nnueComplexity = (13 * nnueComplexity + 128 * abs(v - pos.material_diff())) / 310;
   if (complexity) // Return hybrid NNUE complexity to caller
@@ -116,7 +116,7 @@ Value Eval::evaluate(const Position& pos, int* complexity) {
   int scale = 1068 + 147 * pos.material_sum() / 4302;
   Value optimism = pos.this_thread()->optimism[pos.side_to_move()];
   optimism = optimism * (275 + nnueComplexity) / 238;
-  v = (v * scale + optimism * (scale - 751)) / 918;
+  v = (v * scale + optimism * (scale - d)) / 918;
 
   // Guarantee evaluation does not hit the mate range
   v = std::clamp(v, VALUE_MATED_IN_MAX_PLY + 1, VALUE_MATE_IN_MAX_PLY - 1);
@@ -148,7 +148,7 @@ std::string Eval::trace(Position& pos) {
 
   ss << std::showpoint << std::showpos << std::fixed << std::setprecision(2) << std::setw(15);
 
-  v = NNUE::evaluate(pos);
+  v = NNUE::evaluate(pos).first;
   v = pos.side_to_move() == WHITE ? v : -v;
   ss << "NNUE evaluation        " << to_cp(v) << " (white side)\n";
 
