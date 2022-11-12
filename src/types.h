@@ -110,7 +110,6 @@ constexpr int VALRATE = 1;
 constexpr int VALRATE = 1;
 #endif
 
-#define MINDARKTYPESTOAGV 2
 
 // For chasing detection
 union ChaseMap {

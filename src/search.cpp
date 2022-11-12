@@ -466,7 +466,10 @@ namespace {
     constexpr bool rootNode = nodeType == Root;
     const Depth maxNextDepth = rootNode ? depth : depth + 1;
 #if SEARCHDEBUG
-    std::string debugFen = pos.fen();
+    std::string debugFen = std::to_string(depth);
+    debugFen.append(",");
+    debugFen.append(pos.fen());
+   
     bool debugPrint = false;
     bool darkPrint = false;
     if (!Limits.watchmoves.size())
@@ -822,39 +825,32 @@ namespace {
                 if(pos.do_move(move, st)){
                     StateInfo darkSt;
                     
-                    int tryTypeTimes = 0, typecount = 0, restTotal = 0, sumvalue = 0;
+                    int tryTypeTimes = 0, typecount = 0;
                     bool isDarkDepth;
+                    ScoreCalc SC(Limits.depth, depth, pos.isFirstSide());
                     while (pos.getDark(darkSt, typecount, isDarkDepth))
                     {
                         std::string fen0 = pos.fen();
                         Value vTmp;
                         // Perform a preliminary qsearch to verify that the move holds
                         vTmp = -qsearch<NonPV>(pos, ss + 1, -probCutBeta, -probCutBeta + 1);
-
                         // If the qsearch held, perform the regular search
                         if (vTmp >= probCutBeta)
                             vTmp = -search<NonPV>(pos, ss + 1, -probCutBeta, -probCutBeta + 1, isDarkDepth ? 0 : depth - 4, !cutNode);
-                        
-                        if (tryTypeTimes == 0 || vTmp < value) value = vTmp;
 
-                        vTmp = std::clamp<Value>(vTmp, VALUE_MATED_IN_MAX_PLY, Value(4000));
-                        sumvalue += vTmp * typecount;
-                        restTotal += typecount;
+                        SC.append(pos.piece_on(to_sq(move)), vTmp, typecount);
                         //get worse
-                        
                         tryTypeTimes++;
-                        
-
                         pos.setDark();
                     }
-                    if (tryTypeTimes >= MINDARKTYPESTOAGV
-                        && value > VALUE_MATED_IN_MAX_PLY
-                        && value < VALUE_MATE_IN_MAX_PLY) {
-                        value = Value(sumvalue / restTotal);
-                    }
+                    
                     if (tryTypeTimes == 0) { 
                         pos.undo_move(move);
                         continue; 
+                    }
+                    else
+                    {
+                        value = SC.CalcEvg();
                     }
 
                 }
@@ -960,17 +956,24 @@ moves_loop: // When in check, search starts here
       assert(is_ok(move));
 
 #if SEARCHDEBUG
-      //if (depth == Limits.depth - Limits.watchmoves.size() + 1 - 1 && Limits.watchmoves.size() > 1) {
-      if (Limits.watchmoves.size() > 1) {
+      if (depth == Limits.depth - Limits.watchmoves.size() + 2 && Limits.watchmoves.size() > 1) {
           darkPrint = true;
-          for (int wi = 1; wi < Limits.watchmoves.size(); wi++)
+          if (UCI::move(move) != Limits.watchmoves.at(Limits.watchmoves.size() - 1)) {
+              darkPrint = false;
+          }
+          else
           {
-              if (UCI::move((ss - wi + 1)->currentMove) != Limits.watchmoves.at(Limits.watchmoves.size() - wi))
+              for (int wi = 1; wi < Limits.watchmoves.size() - 2; wi++)
               {
-                  darkPrint = false;
-                  break;
+                  if (UCI::move((ss - wi)->currentMove) != Limits.watchmoves.at(Limits.watchmoves.size() - wi - 1))
+                  {
+                      darkPrint = false;
+                      break;
+                  }
               }
           }
+
+
       }
       else
       {
@@ -1170,7 +1173,8 @@ moves_loop: // When in check, search starts here
       bool fromWhile = false;
       StateInfo darkSt;
       std::string fen3, mvStr = UCI::move(move);
-      int tryTypeTimes = 0, typecount = 0, restTotal = 0, sumvalue = 0;
+      int tryTypeTimes = 0, typecount = 0;
+      ScoreCalc SC(Limits.depth, depth, pos.isFirstSide());
       bool isDarkDepth = false;
       fen3 = pos.fen();
 #if SEARCHDEBUG
@@ -1180,15 +1184,14 @@ moves_loop: // When in check, search starts here
           int a = 0;
       }
       if (pos.do_move(move, st, givesCheck)) {
+          SC.setUs(pos.isFirstSide());
           while (pos.getDark(darkSt, typecount, isDarkDepth))
           {
               fromWhile = true;
               goto dark_calc;
 dark_while:              
               tryTypeTimes++;
-              vTmp = std::clamp<Value>(vTmp, VALUE_MATED_IN_MAX_PLY + 1, Value(4000));
-              sumvalue += vTmp * typecount;
-              restTotal += typecount;
+              SC.append(pos.piece_on(to_sq(move)), vTmp, typecount);
 #if SEARCHDEBUG
               if (darkPrint) {
                   if (!DarkSearchInfo.empty())DarkSearchInfo.append(",");
@@ -1208,29 +1211,16 @@ dark_while:
               pos.undo_move(move);
               continue;
           }
-          if (darkTryTimes > 0) {
-              Value min = value;
-              
+          else
+          {
+              value = SC.CalcEvg();
 #if SEARCHDEBUG
               if (darkPrint) {
                   DarkSearchInfo.append("----evg:");
-                  DarkSearchInfo.append(std::to_string(sumvalue / restTotal));
-                  DarkSearchInfo.append(",min=");
                   DarkSearchInfo.append(std::to_string(value));
                   DarkSearchInfo.append(" ");
               }
 #endif 
-
-              if (tryTypeTimes >= MINDARKTYPESTOAGV
-                  && value > VALUE_MATED_IN_MAX_PLY
-                  && value < VALUE_MATE_IN_MAX_PLY) {
-                  value = Value(sumvalue / restTotal);
-#if SEARCHDEBUG
-                  if (darkPrint) {
-                      DarkSearchInfo.append("E");
-                  }
-#endif 
-              }
               goto dark_undo;
           }
       }
@@ -1737,43 +1727,33 @@ dark_undo:
 
       // Make and search the move
       Value vTmp;
-      int i = 0;
-      int tryTypeTimes = 0, typecount = 0, restTotal = 0, sumvalue = 0;
+      int tryTypeTimes = 0, typecount = 0;
+      ScoreCalc SC(Limits.depth, depth, pos.isFirstSide());
       bool isDarkDepth;
       std::string cfen;
       if (pos.do_move(move, st, givesCheck)) {
           StateInfo darkSt;
+          SC.setUs(pos.isFirstSide());
           while (pos.getDark(darkSt, typecount, isDarkDepth))
           {
               vTmp = -qsearch<nodeType>(pos, ss + 1, -beta, -alpha, isDarkDepth ? 0 : depth - 1);
-              if (i == 0 || vTmp < value) value = vTmp;
               tryTypeTimes++;
-              vTmp = std::clamp<Value>(vTmp, VALUE_MATED_IN_MAX_PLY + 1, Value(4000));
-              sumvalue += vTmp * typecount;
-              restTotal += typecount;
-              //get worse
-              
-              i++;
-
+              SC.append(pos.piece_on(to_sq(move)), vTmp, typecount);
               pos.setDark();
           }
           if (tryTypeTimes == 0) {
               pos.undo_move(move);
               continue;
           }
+          else
+          {
+              value = SC.CalcEvg();
+          }
       }
       else
       {
-          vTmp = -qsearch<nodeType>(pos, ss + 1, -beta, -alpha, depth - 1);
+          value = -qsearch<nodeType>(pos, ss + 1, -beta, -alpha, depth - 1);
       }
-      cfen = pos.fen();
-      if (i == 0)value = vTmp;
-      if (tryTypeTimes >= MINDARKTYPESTOAGV 
-          && value > VALUE_MATED_IN_MAX_PLY 
-          && value < VALUE_MATE_IN_MAX_PLY) {
-          value = Value(sumvalue / restTotal);
-      }
-
       pos.undo_move(move);
 
       assert(value > -VALUE_INFINITE && value < VALUE_INFINITE);

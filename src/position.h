@@ -35,6 +35,8 @@
 namespace Stockfish {
 
 
+#define MINDARKTYPESTOAGV 2
+#define MAXMINIVALUE    500
 #define MAXDARKDEPTH 3
 #define MAXDARKTYPES 7
 
@@ -158,6 +160,7 @@ public:
   Key key_after(Move m) const;
 
   // Other properties of the position
+  bool isFirstSide() const;
   Color side_to_move() const;
   int game_ply() const;
   Thread* this_thread() const;
@@ -198,6 +201,7 @@ private:
   StateInfo* st;
   int gamePly;
   Color sideToMove;
+  Color firdtSideMove;
 
   // Bloom filter for fast repetition filtering
   BloomFilter filter;
@@ -210,6 +214,9 @@ private:
 
 extern std::ostream& operator<<(std::ostream& os, const Position& pos);
 
+inline bool Position::isFirstSide() const {
+    return sideToMove == firdtSideMove;
+}
 inline Color Position::side_to_move() const {
   return sideToMove;
 }

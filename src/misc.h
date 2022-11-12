@@ -348,6 +348,57 @@ private:
 };
 
 
+class ScoreCalc {
+public:
+    ScoreCalc(int Ldepth, int depth, bool us) :
+        _Ldepth(Ldepth), _depth(depth), _us(us){}
+
+    void setUs(bool us) { _us = us; }
+
+    void append(Piece p, int score, int count) {
+        if (_min > score)_min = score;
+        if (_max < score)_max = score;
+        //_typeScore[p] = score;
+        //_typecount[p] = count;
+        _totalScore += score * count;
+        _totalCount += count;
+        //_types++;
+    }
+
+    Value CalcEvg() {
+        int min = _min;
+        int v;
+        if (_us) {
+            _totalScore *= -1;
+            min = _max * -1;
+        }
+        int evg = _totalScore / _totalCount;
+
+        if (evg - min > 1000) {
+            v = min;
+        }
+        else
+        {
+            v = evg;
+        }
+        if (_us) v *= -1;
+        return Value(v);
+    }
+
+private:
+    bool _us;
+    int _Ldepth;
+    int _depth;
+    //int _typeScore[PIECE_NB] = { 0 };
+    //int _typecount[PIECE_NB] = { 0 };
+    int _totalScore = 0;
+    int _totalCount = 0;
+    //int _types = 0;
+    int _min = 99999999;
+    int _max = -99999999;
+};
+
+
 inline uint64_t mul_hi64(uint64_t a, uint64_t b) {
 #if defined(__GNUC__) && defined(IS_64BIT)
     __extension__ typedef unsigned __int128 uint128;

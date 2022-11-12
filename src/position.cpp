@@ -203,7 +203,7 @@ Position& Position::set(const string& fenStr, StateInfo* si, Thread* th) {
       token = lastToken;
   }
 
-  sideToMove = (token == 'w' ? WHITE : BLACK);
+  firdtSideMove =sideToMove = (token == 'w' ? WHITE : BLACK);
   ss >> token;
 
   while ((ss >> token) && !isspace(token));
@@ -516,43 +516,21 @@ bool Position::getDark(StateInfo& newSt, int& typecount, bool& isDarkDepth) {
     Color us = ~sideToMove;
     Piece pc = NO_PIECE;
     typecount = 0;
-    if (st->darkDepth == 1) {
-        int a = 0;
-    }
-    if (st->darkDepth > 4) {
-        //sync_cout << "!!!darkDepth=" << st->darkDepth <<","<< st->darkTypes << sync_endl;
-    }
     Value darkV = Value(restPieces[us].evgValue());
     isDarkDepth = st->darkDepth > MAXDARKDEPTH || st->darkTypes > MAXDARKTYPES;
     if (isDarkDepth>5)return false;
     while (st->darkTypeIndex < BISHOP)
     {
         st->darkTypeIndex++;
-        static int times = 0;
-        times++;
-        if (times == 163) {
-            int a = 0;
-        }
         PieceType t;
-        //if (isDarkDepth) {
-        //    pc = restPieces[us].pop_back();
-        //    st->darkTypeIndex = BISHOP;
-        //    t = type_of(pc);
-        //}
-        //else
-        //{
-            t = PieceType(st->darkTypeIndex);
-            pc = restPieces[us].pop_back(t);
-        //}
-
-        
+        t = PieceType(st->darkTypeIndex);
+        pc = restPieces[us].pop_back(t);
         if (pc == NO_PIECE)continue;
         typecount = restPieces[us].countType(t) + 1;
         break;
     }
     if (pc == NO_PIECE)return false;
 
-    
     // Update the bloom filter
     ++filter[st->key];
     thisThread->nodes.fetch_add(1, std::memory_order_relaxed);
@@ -570,11 +548,8 @@ bool Position::getDark(StateInfo& newSt, int& typecount, bool& isDarkDepth) {
     Piece old = piece_on(from);
     assert(color_of(old) == us);
     {
+        st->material[us] += 50;
 
-        //st->material[us] += std::clamp(PieceValue[MG][pc] - PieceValue[MG][old], Value(-600), Value(600)) + 100;
-        st->material[us] += PieceValue[MG][pc] / 5;
-    
-        
         dp.dirty_num = 2;  // 1 piece moved, 1 piece captured
         dp.piece[0] = old;
         dp.from[0] = from;
@@ -616,18 +591,7 @@ void Position::setDark() {
 
     //update rest
     Piece p = piece_on(st->darkSquare);
-
-    static int times = 0;
-    times++;
-    if (times == 163) {
-        int a = 0;
-    }
-
-
-
     restPieces[~sideToMove].push_back(p);
-
-
 
     //replcae
     remove_piece(st->darkSquare);
@@ -705,6 +669,8 @@ bool Position::do_move(Move m, StateInfo& newSt, bool givesCheck) {
       else
       {
           st->material[them] -= PieceValue[MG][captured];
+          //PieceType p = PieceType(captured & 7);
+          //if (p == KNIGHT || p == CANNON)st->material[them] -= 200;
       }
 
       dp.dirty_num = 2;  // 1 piece moved, 1 piece captured
