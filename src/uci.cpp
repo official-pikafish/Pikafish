@@ -306,6 +306,11 @@ void UCI::loop(int argc, char* argv[]) {
 
 int UCI::pawn_eval(Value v, int ply) {
 
+    // In analyse mode, use original score
+    if (Options["UCI_AnalyseMode"])
+        return v * 100 / PawnValueEg;
+
+    // Otherwise, use WDL score
     long double wdl_w = win_rate_model_double( v, ply);
     long double wdl_l = win_rate_model_double(-v, ply);
     long double win_loss_rate = wdl_w - wdl_l;
