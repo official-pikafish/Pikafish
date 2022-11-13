@@ -1,5 +1,7 @@
 <div align="center">
 
+  [![Pikafish][pikafish-logo]][website-link]
+
   [![Build][build-badge]][build-link]
   [![License][license-badge]][license-link]
   <br>
@@ -309,6 +311,7 @@ first, where the basics of Pikafish development are explained.
 [lockpages-link]:			https://docs.microsoft.com/en-us/sql/database-engine/configure-windows/enable-the-lock-pages-in-memory-option-windows
 [nnue-license-link]:		https://github.com/PikaCat-OuO/Pikafish/blob/master/NNUE-License.txt
 [nodchip-link]:			https://github.com/nodchip/Stockfish
+[pikafish-logo]:  http://pikafish.org/assets/logo_256.png
 [programming-link]:		https://www.chessprogramming.org/Main_Page
 [programmingsf-link]:	https://www.chessprogramming.org/Stockfish
 [pytorch-link]:			https://github.com/glinscott/nnue-pytorch
