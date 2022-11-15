@@ -87,7 +87,7 @@ namespace {
 
     moveList = generate_moves<Us, Type>(pos, moveList, target);
 
-    if (Type != QUIET_CHECKS || pos.blockers_for_king(~Us) & ksq)
+    if (Type != EVASIONS && (Type != QUIET_CHECKS || pos.blockers_for_king(~Us) & ksq))
     {
         Bitboard b = attacks_bb<KING>(ksq) & target;
         if (Type == QUIET_CHECKS)
