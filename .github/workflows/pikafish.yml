@@ -9,17 +9,36 @@ jobs:
   windows:	
     strategy:	
       matrix:	
-        arch: ["-vnni512", "-avx512", "-bmi2", "-avx2", "-modern", ""]	
+        arch: ["-vnni512", "-avx512", "-bmi2", "-avx2", "-modern", ""]
+    env:
+      COMPILER: clang++
+      COMP: clang
+    defaults:
+      run:
+        working-directory: src
+        shell: msys2 {0}
     runs-on: windows-latest
 
     steps:	
-      - uses: actions/checkout@v3	
+      - uses: actions/checkout@v3
 
-      - name: make	
-        run: cd src && make clean && make -j build COMP=mingw ARCH=x86-64${{ matrix.arch }} EXE=pikafish${{ matrix.arch }}.exe && strip pikafish${{ matrix.arch }}.exe	
+      - name: Setup msys and install required packages
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: clang64
+          install: mingw-w64-clang-x86_64-clang make git expect
+
+      - name: make
+        run: |
+          make clean
+          make -j build ARCH=x86-64${{ matrix.arch }} EXE=pikafish${{ matrix.arch }}.exe
+          strip pikafish${{ matrix.arch }}.exe	
 
       - name: copy binary to folder
-        run: mkdir windows && cp src/pikafish*.exe windows
+        run: |
+          cd ..
+          mkdir windows
+          cp src/pikafish*.exe windows
 
       - uses: actions/upload-artifact@v3	
         with:	
@@ -36,13 +55,22 @@ jobs:
     strategy:	
       matrix:	
         arch: ["-avx512", "-bmi2", "-avx2", "-modern", ""]	
+    env:
+      COMPILER: clang++
+      COMP: clang
+    defaults:
+      run:
+        working-directory: src
     runs-on: ubuntu-18.04
 
     steps:
       - uses: actions/checkout@v3
 
       - name: make linux
-        run: cd src && make clean && make -j build COMP=gcc ARCH=x86-64${{ matrix.arch }} EXE=pikafish${{ matrix.arch }} && strip pikafish${{ matrix.arch }}
+        run: |
+          make clean
+          make -j build ARCH=x86-64${{ matrix.arch }} EXE=pikafish${{ matrix.arch }}
+          strip pikafish${{ matrix.arch }}
 
       - name: Setup Android NDK
         if: ${{ matrix.arch == '' }}
@@ -55,14 +83,21 @@ jobs:
         run: |
           export PATH=$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin:$PATH
           export LDFLAGS="-static -Wno-unused-command-line-argument"
-          cd src && make clean && make -j build COMP=ndk ARCH=armv8 EXE=pikafish-arm && make strip COMP=ndk ARCH=armv8 EXE=pikafish-arm
+          export COMP="ndk"
+          export COMPILER="aarch64-linux-android21-clang++"
+          make clean
+          make -j build ARCH=armv8 EXE=pikafish-arm
+          make strip ARCH=armv8 EXE=pikafish-arm
 
       - name: copy binary to folder
-        run: mkdir linux && cp src/pikafish* linux
+        run: |
+          cd ..
+          mkdir linux
+          cp src/pikafish* linux
 
       - name: upload to fishtest
         if: ${{ false && (matrix.arch == '-bmi2') }}
-        run: curl -F engine=@src/pikafish-bmi2 http://test.pikafish.org/api/add_task -F "task_name=${{ github.event.head_commit.message }}" -F "password=${{ secrets.NOTHING }}" -F "game_time=10" -F "inc_time=0.1" -F "depth=-1" -F "nodes=-1" -F "elo0=0" -F "elo1=5" -F "alpha=0.05" -F "beta=0.05" -F "visible=0"
+        run: curl -F engine=@pikafish-bmi2 http://test.pikafish.org/api/add_task -F "task_name=${{ github.event.head_commit.message }}" -F "password=${{ secrets.NOTHING }}" -F "game_time=10" -F "inc_time=0.1" -F "depth=-1" -F "nodes=-1" -F "elo0=0" -F "elo1=5" -F "alpha=0.05" -F "beta=0.05" -F "visible=0"
 
       - uses: actions/upload-artifact@v3	
         with:	

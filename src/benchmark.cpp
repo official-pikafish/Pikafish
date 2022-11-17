@@ -122,7 +122,7 @@ vector<string> setup_bench(const Position& current, istream& is) {
   list.emplace_back("setoption name Hash value " + ttSize);
   list.emplace_back("ucinewgame");
 
-  size_t posCounter = 0;
+  [[maybe_unused]] size_t posCounter = 0;
 
   for (const string& fen : fens)
       if (fen.find("setoption") != string::npos)
