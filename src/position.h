@@ -38,8 +38,10 @@ namespace Stockfish {
 struct StateInfo {
 
   // Copied when making a move
-  Value  material[COLOR_NB];
-  int    pliesFromNull;
+  Value   material[COLOR_NB];
+  int16_t check10[COLOR_NB];
+  int     rule60;
+  int     pliesFromNull;
 
   // Not copied when making a move (will be recomputed anyhow)
   Key        key;
@@ -138,7 +140,8 @@ public:
   Color side_to_move() const;
   int game_ply() const;
   Thread* this_thread() const;
-  bool is_repeated(Value& result, int ply = 0) const;
+  bool rule_judge(Value& result, int ply = 0) const;
+  int rule60_count() const;
   ChaseMap chased(Color c);
   Value material_sum() const;
   Value material_diff() const;
@@ -164,6 +167,8 @@ private:
   void light_undo_move(Move m, Piece captured, int id = 0);
   void set_chase_info(int d);
   bool chase_legal(Move m, Bitboard b) const;
+  template<bool AfterMove>
+  Key adjust_key60(Key k) const;
 
   // Data members
   Piece board[SQUARE_NB];
@@ -276,7 +281,14 @@ inline Bitboard Position::check_squares(PieceType pt) const {
 }
 
 inline Key Position::key() const {
-  return st->key;
+  return adjust_key60<false>(st->key);
+}
+
+template<bool AfterMove>
+inline Key Position::adjust_key60(Key k) const
+{
+    return st->rule60 < 14 - AfterMove
+               ? k : k ^ make_key((st->rule60 - (14 - AfterMove)) / 8);
 }
 
 inline Value Position::material_sum() const {
@@ -289,6 +301,10 @@ inline Value Position::material_diff() const {
 
 inline int Position::game_ply() const {
   return gamePly;
+}
+
+inline int Position::rule60_count() const {
+  return st->rule60;
 }
 
 inline bool Position::capture(Move m) const {

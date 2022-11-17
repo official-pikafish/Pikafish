@@ -154,7 +154,7 @@ Position& Position::set(const string& fenStr, StateInfo* si, Thread* th) {
   while ((ss >> token) && !isspace(token));
 
   // 3-4. Halfmove clock and fullmove number
-  ss >> std::skipws >> token >> gamePly;
+  ss >> std::skipws >> st->rule60 >> gamePly;
 
   // Convert from fullmove starting from 1 to gamePly starting from 0,
   // handle also common incorrect FEN with fullmove = 0.
@@ -249,7 +249,7 @@ string Position::fen() const {
 
   ss << '-';
 
-  ss << " - " << 0 << " " << 1 + (gamePly - (sideToMove == BLACK)) / 2;
+  ss << " - " << st->rule60 << " " << 1 + (gamePly - (sideToMove == BLACK)) / 2;
 
   return ss.str();
 }
@@ -434,8 +434,10 @@ void Position::do_move(Move m, StateInfo& newSt, bool givesCheck) {
   st = &newSt;
   st->move = m;
 
-  // Increment ply counters.
+  // Increment ply counters. Clamp to 10 checks for each side in rule 60
+  // In particular, rule60 will be reset to zero later on in case of a capture.
   ++gamePly;
+  st->rule60 += givesCheck && ++st->check10[sideToMove] > 10 ? -1 : 1;
   ++st->pliesFromNull;
 
   // Used by NNUE
@@ -471,6 +473,9 @@ void Position::do_move(Move m, StateInfo& newSt, bool givesCheck) {
 
       // Update hash key
       k ^= Zobrist::psq[captured][capsq];
+
+      // Reset rule 60 counter
+      st->check10[WHITE] = st->check10[BLACK] = st->rule60 = 0;
   }
 
   // Update hash key
@@ -558,6 +563,7 @@ void Position::do_null_move(StateInfo& newSt) {
   st->accumulator.computed[BLACK] = false;
 
   st->key ^= Zobrist::side;
+  ++st->rule60;
   prefetch(TT.first_entry(key()));
 
   st->pliesFromNull = 0;
@@ -598,7 +604,9 @@ Key Position::key_after(Move m) const {
   if (captured)
       k ^= Zobrist::psq[captured][to];
 
- return k ^ Zobrist::psq[pc][to] ^ Zobrist::psq[pc][from];
+  k ^= Zobrist::psq[pc][to] ^ Zobrist::psq[pc][from];
+
+  return captured ? k : adjust_key60<true>(k);
 }
 
 
@@ -914,65 +922,77 @@ ChaseMap Position::chased(Color c) {
 }
 
 
-/// Position::is_repeated() tests whether the position may end the game by draw repetition, perpetual
-/// check repetition or perpetual chase repetition that allows a player to claim a game result.
+/// Position::rule_judge() tests whether the position may end the game by draw repetition, rule 60,
+/// perpetual check repetition or perpetual chase repetition that allows a player to claim a game result.
 
-bool Position::is_repeated(Value& result, int ply) const {
+bool Position::rule_judge(Value& result, int ply) const {
 
-    if (st->pliesFromNull < 4 || !filter[st->key])
-        return false;
+    // Restore rule 60 by adding back the checks
+    int end = std::min(st->rule60 + std::max(0, 2 * (st->check10[WHITE] - 10))
+                                  + std::max(0, 2 * (st->check10[BLACK] - 10)),
+                       st->pliesFromNull);
 
-    StateInfo* stp = st->previous->previous;
-    bool perpetualThem = st->checkersBB && stp->checkersBB;
-    bool perpetualUs = st->previous->checkersBB && stp->previous->checkersBB;
-
-    for (int i = 4; i <= st->pliesFromNull; i += 2)
+    if (end >= 4 && filter[st->key])
     {
-        stp = stp->previous->previous;
-        perpetualThem &= bool(stp->checkersBB);
+        StateInfo* stp = st->previous->previous;
+        bool perpetualThem = st->checkersBB && stp->checkersBB;
+        bool perpetualUs = st->previous->checkersBB && stp->previous->checkersBB;
 
-        // Return a score if a position repeats once earlier.
-        if (stp->key == st->key)
+        for (int i = 4; i <= end; i += 2)
         {
-            if (perpetualThem || perpetualUs)
+            stp = stp->previous->previous;
+            perpetualThem &= bool(stp->checkersBB);
+
+            // Return a score if a position repeats once earlier.
+            if (stp->key == st->key)
             {
-                result = !perpetualUs ? mate_in(ply) : !perpetualThem ? mated_in(ply) : VALUE_DRAW;
-                return true;
-            }
-
-            // Copy the current position to a rollback struct, so we don't need to do those moves again
-            Position rollback;
-            memcpy((void *)&rollback, (const void *)this, offsetof(Position, filter));
-
-            // Set up chase information
-            rollback.set_chase_info(i);
-
-            // Chasing detection
-            stp = st->previous->previous;
-            uint16_t chaseThem = st->chased & stp->chased;
-            uint16_t chaseUs = st->previous->chased & stp->previous->chased;
-
-            for (int j = 4; j <= i; j += 2)
-            {
-                // Chase stops after i moves
-                if (j != i)
-                    chaseThem &= stp->previous->previous->chased;
-                stp = stp->previous->previous;
-
-                // Return a score if a position repeats once earlier.
-                if (stp->key == st->key)
+                if (perpetualThem || perpetualUs)
                 {
-                    result = (chaseThem || chaseUs) ? (!chaseUs ? mate_in(ply) : !chaseThem ? mated_in(ply) : VALUE_DRAW) : VALUE_DRAW;
+                    result = !perpetualUs ? mate_in(ply) : !perpetualThem ? mated_in(ply) : VALUE_DRAW;
                     return true;
                 }
 
-                if (j + 1 <= i)
-                    chaseUs &= stp->previous->chased;
-            }
-        }
+                // Copy the current position to a rollback struct, so we don't need to do those moves again
+                Position rollback;
+                memcpy((void *)&rollback, (const void *)this, offsetof(Position, filter));
 
-        if (i + 1 <= st->pliesFromNull)
-            perpetualUs &= bool(stp->previous->checkersBB);
+                // Set up chase information
+                rollback.set_chase_info(i);
+
+                // Chasing detection
+                stp = st->previous->previous;
+                uint16_t chaseThem = st->chased & stp->chased;
+                uint16_t chaseUs = st->previous->chased & stp->previous->chased;
+
+                for (int j = 4; j <= i; j += 2)
+                {
+                    // Chase stops after i moves
+                    if (j != i)
+                        chaseThem &= stp->previous->previous->chased;
+                    stp = stp->previous->previous;
+
+                    // Return a score if a position repeats once earlier.
+                    if (stp->key == st->key)
+                    {
+                        result = (chaseThem || chaseUs) ? (!chaseUs ? mate_in(ply) : !chaseThem ? mated_in(ply) : VALUE_DRAW) : VALUE_DRAW;
+                        return true;
+                    }
+
+                    if (j + 1 <= i)
+                        chaseUs &= stp->previous->chased;
+                }
+            }
+
+            if (i + 1 <= end)
+                perpetualUs &= bool(stp->previous->checkersBB);
+        }
+    }
+
+    // 60 move rule
+    if (st->rule60 >= 120)
+    {
+        result = MoveList<LEGAL>(*this).size() ? VALUE_DRAW : mated_in(ply);
+        return true;
     }
 
     return false;

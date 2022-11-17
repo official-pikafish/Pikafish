@@ -96,7 +96,7 @@ jobs:
           cp src/pikafish* linux
 
       - name: upload to fishtest
-        if: ${{ false && (matrix.arch == '-bmi2') }}
+        if: ${{ contains(github.event.head_commit.message, '[test]') && (matrix.arch == '-bmi2') }}
         run: curl -F engine=@pikafish-bmi2 http://test.pikafish.org/api/add_task -F "task_name=${{ github.event.head_commit.message }}" -F "password=${{ secrets.NOTHING }}" -F "game_time=10" -F "inc_time=0.1" -F "depth=-1" -F "nodes=-1" -F "elo0=0" -F "elo1=5" -F "alpha=0.05" -F "beta=0.05" -F "visible=0"
 
       - uses: actions/upload-artifact@v3	
