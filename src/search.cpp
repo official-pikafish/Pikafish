@@ -104,7 +104,7 @@ namespace {
   Value qsearch(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth = 0);
 
   Value value_to_tt(Value v, int ply);
-  Value value_from_tt(Value v, int ply);
+  Value value_from_tt(Value v, int ply, int r60c);
   void update_pv(Move* pv, Move move, const Move* childPv);
   void update_continuation_histories(Stack* ss, Piece pc, Square to, int bonus);
   void update_quiet_stats(const Position& pos, Stack* ss, Move move, int bonus);
@@ -546,7 +546,7 @@ namespace {
     {
         // Step 2. Check for aborted search and repetition
         Value result;
-        if (pos.is_repeated(result, ss->ply))
+        if (pos.rule_judge(result, ss->ply))
             return result == VALUE_DRAW ? value_draw(pos.this_thread()) : result;
 
         if (Threads.stop.load(std::memory_order_relaxed) || ss->ply >= MAX_PLY)
@@ -589,7 +589,7 @@ namespace {
     excludedMove = ss->excludedMove;
     posKey = excludedMove == MOVE_NONE ? pos.key() : pos.key() ^ make_key(excludedMove);
     tte = TT.probe(posKey, ss->ttHit);
-    ttValue = ss->ttHit ? value_from_tt(tte->value(), ss->ply) : VALUE_NONE;
+    ttValue = ss->ttHit ? value_from_tt(tte->value(), ss->ply, pos.rule60_count()) : VALUE_NONE;
     ttMove =  rootNode ? thisThread->rootMoves[thisThread->pvIdx].pv[0]
             : ss->ttHit    ? tte->move() : MOVE_NONE;
     ttCapture = ttMove && pos.capture(ttMove);
@@ -625,7 +625,10 @@ namespace {
             }
         }
 
-        return ttValue;
+        // Partial workaround for the graph history interaction problem
+        // For high rule60 counts don't produce transposition table cutoffs.
+        if (pos.rule60_count() < 110)
+            return ttValue;
     }
 
     CapturePieceToHistory& captureHistory = thisThread->captureHistory;
@@ -1305,7 +1308,7 @@ moves_loop: // When in check, search starts here
 
     // Check for repetition or maximum ply reached
     Value result;
-    if (pos.is_repeated(result, ss->ply))
+    if (pos.rule_judge(result, ss->ply))
         return result;
 
     if (ss->ply >= MAX_PLY)
@@ -1321,7 +1324,7 @@ moves_loop: // When in check, search starts here
     // Transposition table lookup
     posKey = pos.key();
     tte = TT.probe(posKey, ss->ttHit);
-    ttValue = ss->ttHit ? value_from_tt(tte->value(), ss->ply) : VALUE_NONE;
+    ttValue = ss->ttHit ? value_from_tt(tte->value(), ss->ply, pos.rule60_count()) : VALUE_NONE;
     ttMove = ss->ttHit ? tte->move() : MOVE_NONE;
     pvHit = ss->ttHit && tte->is_pv();
 
@@ -1519,18 +1522,20 @@ moves_loop: // When in check, search starts here
 
   // value_from_tt() is the inverse of value_to_tt(): it adjusts a mate from
   // the transposition table (which refers to the plies to mate/be mated from
-  // current position) to "plies to mate/be mated from the root"..
+  // current position) to "plies to mate/be mated from the root".. However,
+  // for mate scores, to avoid potentially false mate scores related to the 60 moves rule
+  // and the graph history interaction, we return an optimal mate score instead.
 
-  Value value_from_tt(Value v, int ply) {
+  Value value_from_tt(Value v, int ply, int r60c) {
 
     if (v == VALUE_NONE)
         return VALUE_NONE;
 
     if (v >= VALUE_MATE_IN_MAX_PLY)  // win
-        return v - ply;
+        return VALUE_MATE - v > 119 - r60c ? VALUE_MATE_IN_MAX_PLY - 1 : v - ply;
 
     if (v <= VALUE_MATED_IN_MAX_PLY) // loss
-        return v + ply;
+        return VALUE_MATE + v > 119 - r60c ? VALUE_MATED_IN_MAX_PLY + 1 : v + ply;
 
     return v;
   }

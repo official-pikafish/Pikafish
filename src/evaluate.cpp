@@ -118,6 +118,9 @@ Value Eval::evaluate(const Position& pos, int* complexity) {
   optimism = optimism * (275 + nnueComplexity) / 238;
   v = (v * scale + optimism * (scale - 751)) / 918;
 
+  // Damp down the evaluation linearly when shuffling
+  v = v * (119 - pos.rule60_count()) / 119;
+
   // Guarantee evaluation does not hit the mate range
   v = std::clamp(v, VALUE_MATED_IN_MAX_PLY + 1, VALUE_MATE_IN_MAX_PLY - 1);
 
