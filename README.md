@@ -117,9 +117,8 @@ change them via a chess GUI. This is a list of available UCI options in Pikafish
     the file. Other locations, such as the directory that contains the binary and the
     working directory, are also searched.
 
-  * #### UCI_AnalyseMode
-    If enabled, use original score to determine engine score outputs.
-    If disabled (by default) , use WDL statistics to determine engine score outputs.
+  * #### UCI_WDLCentipawn
+    Use WDL statistics to calculate centipawn score.
 
   * #### UCI_ShowWDL
     If enabled, show approximate WDL statistics as part of the engine output.
@@ -149,6 +148,9 @@ change them via a chess GUI. This is a list of available UCI options in Pikafish
   * #### nodestime
     Tells the engine to use nodes searched instead of wall time to account for
     elapsed time. Useful for engine testing.
+
+  * #### Rule60
+    Use 60 move rule in gameplay.
 
   * #### Debug Log File
     Write all communication to and from the engine into a text file.

@@ -306,17 +306,15 @@ void UCI::loop(int argc, char* argv[]) {
 
 int UCI::pawn_eval(Value v, int ply) {
 
-    // In analyse mode, use original score
-    if (Options["UCI_AnalyseMode"])
-        return v * 100 / PawnValueEg;
+  if (Options["UCI_WDLCentipawn"]) {
+      long double wdl_w = win_rate_model_double( v, ply);
+      long double wdl_l = win_rate_model_double(-v, ply);
+      long double win_loss_rate = wdl_w - wdl_l;
+      constexpr long double mate = double(VALUE_MATE_IN_MAX_PLY - 1) / 400;
 
-    // Otherwise, use WDL score
-    long double wdl_w = win_rate_model_double( v, ply);
-    long double wdl_l = win_rate_model_double(-v, ply);
-    long double win_loss_rate = wdl_w - wdl_l;
-    constexpr long double mate = double(VALUE_MATE_IN_MAX_PLY - 1) / 400;
-
-    return 400 * std::clamp(std::log10((1 + win_loss_rate) / (1 - win_loss_rate)), -mate, mate) + 0.5;
+      return 400 * std::clamp(std::log10((1 + win_loss_rate) / (1 - win_loss_rate)), -mate, mate) + 0.5;
+  } else
+      return v * 100 / PawnValueEg;
 }
 
 
