@@ -33,7 +33,7 @@ using std::string;
 namespace Stockfish {
 
 UCI::OptionsMap Options; // Global object
-bool UseRule60;
+bool UseRule60 = true;
 
 namespace UCI {
 
