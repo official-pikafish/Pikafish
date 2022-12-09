@@ -975,7 +975,10 @@ moves_loop: // When in check, search starts here
                   if (  !PvNode
                       && value < singularBeta - 29
                       && ss->doubleExtensions <= 8)
+                  {
                       extension = 2;
+                      depth += depth < 12;
+                  }
               }
 
               // Multi-cut pruning
@@ -1200,7 +1203,7 @@ moves_loop: // When in check, search starts here
                       && depth < 7
                       && beta  <  VALUE_KNOWN_WIN
                       && alpha > -VALUE_KNOWN_WIN)
-                     depth -= 1;
+                      depth -= 1;
 
                   assert(depth > 0);
               }
@@ -1424,7 +1427,6 @@ moves_loop: // When in check, search starts here
           &&  to_sq(move) != prevSq
           &&  futilityBase > -VALUE_KNOWN_WIN)
       {
-
           if (moveCount > 2)
               continue;
 
