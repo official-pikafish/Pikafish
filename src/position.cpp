@@ -937,6 +937,7 @@ bool Position::rule_judge(Value& result, int ply) const {
 
     if (end >= 4 && filter[st->key])
     {
+        int cnt = 1;
         StateInfo* stp = st->previous->previous;
         bool perpetualThem = st->checkersBB && stp->checkersBB;
         bool perpetualUs = st->previous->checkersBB && stp->previous->checkersBB;
@@ -946,8 +947,9 @@ bool Position::rule_judge(Value& result, int ply) const {
             stp = stp->previous->previous;
             perpetualThem &= bool(stp->checkersBB);
 
-            // Return a score if a position repeats once earlier.
-            if (stp->key == st->key)
+            // Return a score if a position repeats once earlier but strictly
+            // after the root, or repeats twice before or at the root.
+            if (stp->key == st->key && ++cnt == (!Strict3Fold && ply > i ? 2 : 3))
             {
                 if (perpetualThem || perpetualUs)
                 {
@@ -963,6 +965,7 @@ bool Position::rule_judge(Value& result, int ply) const {
                 rollback.set_chase_info(i);
 
                 // Chasing detection
+                cnt = 1;
                 stp = st->previous->previous;
                 uint16_t chaseThem = st->chased & stp->chased;
                 uint16_t chaseUs = st->previous->chased & stp->previous->chased;
@@ -974,8 +977,9 @@ bool Position::rule_judge(Value& result, int ply) const {
                         chaseThem &= stp->previous->previous->chased;
                     stp = stp->previous->previous;
 
-                    // Return a score if a position repeats once earlier.
-                    if (stp->key == st->key)
+                    // Return a score if a position repeats once earlier but strictly
+                    // after the root, or repeats twice before or at the root.
+                    if (stp->key == st->key && ++cnt == (!Strict3Fold && ply > i ? 2 : 3))
                     {
                         result = (chaseThem || chaseUs) ? (!chaseUs ? mate_in(ply) : !chaseThem ? mated_in(ply) : VALUE_DRAW) : VALUE_DRAW;
                         return true;

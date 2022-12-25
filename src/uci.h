@@ -81,6 +81,7 @@ Move to_move(const Position& pos, std::string& str);
 
 extern UCI::OptionsMap Options;
 extern bool UseRule60;
+extern bool Strict3Fold;
 
 } // namespace Stockfish
 

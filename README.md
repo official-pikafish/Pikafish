@@ -152,6 +152,9 @@ change them via a chess GUI. This is a list of available UCI options in Pikafish
   * #### Rule60
     Use 60 move rule in gameplay.
 
+  * #### Strict3Fold
+    Not only use 3 fold repetition at root nodes, but also use 3 fold at non-root nodes. Enable this will help get better analyses results but lose elo.
+
   * #### Debug Log File
     Write all communication to and from the engine into a text file.
 
