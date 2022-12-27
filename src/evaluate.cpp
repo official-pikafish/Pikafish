@@ -107,16 +107,20 @@ using namespace Trace;
 Value Eval::evaluate(const Position& pos, int* complexity) {
 
   int nnueComplexity;
+  Value m = pos.material_diff();
   Value v = NNUE::evaluate(pos, &nnueComplexity);
   // Blend nnue complexity with material complexity
-  nnueComplexity = (13 * nnueComplexity + 128 * abs(v - pos.material_diff())) / 310;
+  Value optimism = pos.this_thread()->optimism[pos.side_to_move()];
+  nnueComplexity = (  416 * nnueComplexity
+                    + 424 * abs(m - v)
+                    + (optimism > 0 ? int(optimism) * int(m - v) : 0)
+                    ) / 1024;
   if (complexity) // Return hybrid NNUE complexity to caller
       *complexity = nnueComplexity;
 
-  int scale = 1068 + 147 * pos.material_sum() / 4302;
-  Value optimism = pos.this_thread()->optimism[pos.side_to_move()];
-  optimism = optimism * (275 + nnueComplexity) / 238;
-  v = (v * scale + optimism * (scale - 751)) / 918;
+  int scale = 1068 + 147 * pos.material_sum() / 4096;
+  optimism = optimism * (275 + nnueComplexity) / 256;
+  v = (v * scale + optimism * (scale - 751)) / 1024;
 
   // Damp down the evaluation linearly when shuffling
   v = v * (119 - pos.rule60_count()) / 119;
