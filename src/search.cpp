@@ -52,7 +52,7 @@ namespace {
 
   // Futility margin
   Value futility_margin(Depth d, bool improving) {
-    return Value(118 * (d - improving));
+    return Value(114 * (d - improving));
   }
 
   // Reductions lookup table, initialized at startup
@@ -60,7 +60,7 @@ namespace {
 
   Depth reduction(bool i, Depth d, int mn, Value delta, Value rootDelta) {
     int r = Reductions[d] * Reductions[mn];
-    return (r + 1819 - int(delta) * 1024 / int(rootDelta)) / 1024 + (!i && r > 652);
+    return (r + 1853 - int(delta) * 1024 / int(rootDelta)) / 1024 + (!i && r > 652);
   }
 
   constexpr int futility_move_count(bool improving, Depth depth) {
@@ -70,7 +70,7 @@ namespace {
 
   // History and stats update bonus, based on depth
   int stat_bonus(Depth d) {
-    return std::min((8 * d + 317) * d - 298, 1281);
+    return std::min((8 * d + 331) * d - 296, 1252);
   }
 
   // Add a small random component to draw evaluations to avoid 3-fold blindness
@@ -1065,7 +1065,7 @@ moves_loop: // When in check, search starts here
                      - 3825;
 
       // Decrease/increase reduction for moves with a good/bad history (~30 Elo)
-      r -= ss->statScore / (12934 + 4000 * (depth > 7 && depth < 19));
+      r -= ss->statScore / (12512 + 3950 * (depth > 7 && depth < 17));
 
       // Step 16. Late moves reduction / extension (LMR, ~98 Elo)
       // We use various heuristics for the sons of a node after the first son has
@@ -1252,7 +1252,7 @@ moves_loop: // When in check, search starts here
                          quietsSearched, quietCount, capturesSearched, captureCount, depth);
 
     // Bonus for prior countermove that caused the fail low
-    else if (   (depth >= 5 || PvNode || bestValue < alpha - 59 * depth)
+    else if (   (depth >= 5 || PvNode || bestValue < alpha - 56 * depth)
              && !priorCapture)
     {
         //Assign extra bonus if current node is PvNode or cutNode
