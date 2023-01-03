@@ -379,7 +379,7 @@ namespace Stockfish::Eval::NNUE {
 
         // Gather all features to be updated.
         const Square ksq = pos.square<KING>(Perspective);
-        const int ab = pos.count<ADVISOR>(Perspective) * 3 + pos.count<BISHOP>(Perspective);
+        const int ab = bool(pos.count<ADVISOR>(Perspective)) * 2 + bool(pos.count<BISHOP>(Perspective));
         FeatureSet::IndexList removed[2], added[2];
         FeatureSet::append_changed_indices<Perspective>(
           ksq, ab, next->dirtyPiece, removed[0], added[0]);

@@ -29,7 +29,7 @@ namespace Stockfish::Eval::NNUE::Features {
   inline IndexType HalfKAv2_hm::make_index(Square s, Piece pc, Square ksq, int ab) {
     s = Square( Perspective == BLACK ? Rotate[s] : s);
     s = Square(KingBuckets[ksq] >> 3 ? Mirror[s] : s);
-    ksq = Square((KingBuckets[ksq] & 0x7) * 9 + ab);
+    ksq = Square((KingBuckets[ksq] & 0x7) * 4 + ab);
     return IndexType(s + PieceSquareIndex[Perspective][pc] + PS_NB * ksq);
   }
 
@@ -40,7 +40,7 @@ namespace Stockfish::Eval::NNUE::Features {
     IndexList& active
   ) {
     Square ksq = pos.square<KING>(Perspective);
-    int ab = pos.count<ADVISOR>(Perspective) * 3 + pos.count<BISHOP>(Perspective);
+    int ab = bool(pos.count<ADVISOR>(Perspective)) * 2 + bool(pos.count<BISHOP>(Perspective));
     Bitboard bb = pos.pieces();
     while (bb)
     {
@@ -83,11 +83,7 @@ namespace Stockfish::Eval::NNUE::Features {
   }
 
   bool HalfKAv2_hm::requires_refresh(const StateInfo* st, Color perspective) {
-    Piece pt1 = st->dirtyPiece.piece[0];
-    Piece pt2 = st->dirtyPiece.dirty_num > 1 ? st->dirtyPiece.piece[1] : NO_PIECE;
-    return pt1 == make_piece(perspective,    KING)
-        || pt2 == make_piece(perspective,  BISHOP)
-        || pt2 == make_piece(perspective, ADVISOR);
+    return st->dirtyPiece.requires_refresh[perspective];
   }
 
 }  // namespace Stockfish::Eval::NNUE::Features
