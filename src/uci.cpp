@@ -35,7 +35,7 @@ using namespace std;
 
 namespace Stockfish {
 
-extern vector<string> setup_bench(const Position&, istream&);
+vector<string> setup_bench(const Position&, istream&);
 
 namespace {
 
