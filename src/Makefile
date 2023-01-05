@@ -1,5 +1,5 @@
 # Pikafish, a UCI chess playing engine derived from Stockfish
-# Copyright (C) 2004-2022 The Pikafish developers (see AUTHORS file)
+# Copyright (C) 2004-2023 The Pikafish developers (see AUTHORS file)
 #
 # Pikafish is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
