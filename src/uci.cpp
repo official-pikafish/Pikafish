@@ -42,7 +42,7 @@ namespace {
   //fen rest side - - 0 1
   // FEN string for the initial position in standard xiangqi
   //const char* StartFEN = "rnbakabnr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C5C1/9/RNBAKABNR w";
-  const char* StartFEN = "xxxxkxxxx/9/7x1/x1x1x1x1x/9/8P/XpX1X1X2/1X5X1/9/XXXXKXXXX A2B2N2R2C2P4a2b2r2c2p4 w - - 0 1";
+  const char* StartFEN = "xxxxkxxxx/9/1x5x1/x1x1x1x1x/9/9/X1X1X1X1X/1X5X1/9/XXXXKXXXX A2B2N2R2C2P5a2b2n2r2c2p5 w - - 0 1";
 
 
   // position() is called when the engine receives the "position" UCI command.
