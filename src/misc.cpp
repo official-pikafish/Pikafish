@@ -146,14 +146,13 @@ public:
 
 string engine_info(bool to_uci) {
 
-  const string months("Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec");
-  string month, day, year;
-  stringstream ss, date(__DATE__); // From compiler, format is "Sep 21 2008"
+  stringstream ss;
 
   ss << "Pikafish " << version << setfill('0');
 
   if constexpr (version == "dev")
   {
+      ss << " ";
       constexpr string_view months("Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec");
       string month, day, year;
       stringstream date(__DATE__); // From compiler, format is "Sep 21 2008"
