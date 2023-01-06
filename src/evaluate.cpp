@@ -55,7 +55,7 @@ namespace Eval {
 
     vector<string> dirs = { "" , CommandLine::binaryDirectory };
 
-    for (string directory : dirs)
+    for (const string& directory : dirs)
         if (currentEvalFileName != eval_file)
         {
             ifstream stream(directory + eval_file, ios::binary);
