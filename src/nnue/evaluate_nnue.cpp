@@ -18,11 +18,12 @@
 
 // Code for calculating NNUE evaluation function
 
+#include <fstream>
+#include <iomanip>
 #include <iostream>
 #include <set>
 #include <sstream>
-#include <iomanip>
-#include <fstream>
+#include <string_view>
 
 #include "../evaluate.h"
 #include "../position.h"
@@ -205,7 +206,7 @@ namespace Stockfish::Eval::NNUE {
     return t;
   }
 
-  static const std::string PieceToChar(" RACPNBK racpnbk");
+  constexpr std::string_view PieceToChar(" RACPNBK racpnbk");
 
 
   // format_cp_compact() converts a Value into (centi)pawns and writes it in a buffer.
