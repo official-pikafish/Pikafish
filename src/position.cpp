@@ -203,7 +203,7 @@ Position& Position::set(const string& fenStr, StateInfo* si, Thread* th) {
       token = lastToken;
   }
 
-  firdtSideMove =sideToMove = (token == 'w' ? WHITE : BLACK);
+  firstSideMove = sideToMove = (token == 'w' ? WHITE : BLACK);
   ss >> token;
 
   while ((ss >> token) && !isspace(token));

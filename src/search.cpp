@@ -830,7 +830,6 @@ namespace {
                     ScoreCalc SC(Limits.depth, depth, pos.isFirstSide());
                     while (pos.getDark(darkSt, typecount, isDarkDepth))
                     {
-                        std::string fen0 = pos.fen();
                         Value vTmp;
                         // Perform a preliminary qsearch to verify that the move holds
                         vTmp = -qsearch<NonPV>(pos, ss + 1, -probCutBeta, -probCutBeta + 1);
@@ -1394,7 +1393,7 @@ dark_undo:
 
 
               if (!(ss + 1)->pv) {
-                  printf("pv is null!\n");
+                  //printf("pv is null!\n");
                   (ss + 1)->pv = pv;
                   ss->pv[0] = MOVE_NONE;
               }

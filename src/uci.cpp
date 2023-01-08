@@ -122,13 +122,15 @@ namespace {
   // sets the thinking time and other parameters from the input string, then starts
   // with a search.
 
-  void go(Position& pos, istringstream& is, StateListPtr& states) {
+  void go(Position& pos, istringstream& is, StateListPtr& states, const std::vector<Move>& banmoves = {}) {
 
     Search::LimitsType limits;
     string token;
     bool ponderMode = false;
 
     limits.startTime = now(); // The search starts as early as possible
+
+    limits.banmoves = banmoves;
 
     while (is >> token)
         if (token == "searchmoves") // Needs to be the last command on the line
@@ -247,6 +249,8 @@ void UCI::loop(int argc, char* argv[]) {
   for (int i = 1; i < argc; ++i)
       cmd += std::string(argv[i]) + " ";
 
+  std::vector<Move> banmoves = {};
+
   do {
       if (argc == 1 && !getline(cin, cmd)) // Wait for an input or an end-of-file (EOF) indication
           cmd = "quit";
@@ -273,7 +277,10 @@ void UCI::loop(int argc, char* argv[]) {
                     << "\nuciok"  << sync_endl;
 
       else if (token == "setoption")  setoption(is);
-      else if (token == "go")         go(pos, is, states);
+      else if (token == "banmoves")
+          while (is >> token)
+              banmoves.push_back(UCI::to_move(pos, token));
+      else if (token == "go")         go(pos, is, states, banmoves), banmoves.clear();
       else if (token == "position")   position(pos, is, states);
       else if (token == "fen" || token == "startpos") is.seekg(0), position(pos, is, states);
       else if (token == "ucinewgame") Search::clear();

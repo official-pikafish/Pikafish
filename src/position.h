@@ -37,8 +37,8 @@ namespace Stockfish {
 
 #define MINDARKTYPESTOAGV 2
 #define MAXMINIVALUE    500
-#define MAXDARKDEPTH 3
-#define MAXDARKTYPES 7
+#define MAXDARKDEPTH 6
+#define MAXDARKTYPES 15
 
 /// StateInfo struct stores information needed to restore a Position object to
 /// its previous state when we retract a move. Whenever a move is made on the
@@ -201,7 +201,7 @@ private:
   StateInfo* st;
   int gamePly;
   Color sideToMove;
-  Color firdtSideMove;
+  Color firstSideMove;
 
   // Bloom filter for fast repetition filtering
   BloomFilter filter;
@@ -215,7 +215,7 @@ private:
 extern std::ostream& operator<<(std::ostream& os, const Position& pos);
 
 inline bool Position::isFirstSide() const {
-    return sideToMove == firdtSideMove;
+    return sideToMove == firstSideMove;
 }
 inline Color Position::side_to_move() const {
   return sideToMove;

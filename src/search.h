@@ -95,7 +95,7 @@ struct LimitsType {
     return time[WHITE] || time[BLACK];
   }
 
-  std::vector<Move> searchmoves;
+  std::vector<Move> searchmoves, banmoves;
 #if SEARCHDEBUG
   std::vector<std::string> watchmoves;
 #endif
