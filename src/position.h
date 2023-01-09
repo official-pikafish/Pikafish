@@ -43,7 +43,9 @@ namespace Stockfish {
 /// StateInfo struct stores information needed to restore a Position object to
 /// its previous state when we retract a move. Whenever a move is made on the
 /// board (by calling Position::do_move), a StateInfo object must be passed.
-
+namespace PieceExchange {
+    Piece charToPiece(unsigned char);
+}
 struct StateInfo {
 
   // Copied when making a move

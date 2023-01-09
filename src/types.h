@@ -551,7 +551,7 @@ constexpr Rank rank_of(Square s) {
 }
 
 constexpr Square from_sq(Move m) {
-  return Square(m >> 7);
+  return Square((m >> 7) & 0x7F);
 }
 
 constexpr Square to_sq(Move m) {
@@ -559,11 +559,23 @@ constexpr Square to_sq(Move m) {
 }
 
 constexpr int from_to(Move m) {
-  return m;
+    return m & 0x3FFF;
 }
 
 constexpr Move make_move(Square from, Square to) {
   return Move((from << 7) + to);
+}
+
+constexpr Move make_move(Move m,Piece pGet, Piece pCaptured) {
+    return Move(from_to(m) | ((pGet & 0xF) << 14) | ((pCaptured & 0xF) << 18));//b15-18 19-22
+}
+
+constexpr Piece get_Piece(Move m) {
+    return Piece((m >> 14) & 0xF);
+}
+
+constexpr Piece cap_Piece(Move m) {
+    return Piece((m >> 18) & 0xF);
 }
 
 constexpr int make_chase(int piece1, int piece2) {

@@ -40,14 +40,27 @@ namespace Zobrist {
   Key side;
 }
 
-namespace {
+namespace{
 
-const string PieceToChar(" RACPNBK racpnbk XXXXXX  xxxxxx ");
+    const string PieceToChar(" RACPNBK racpnbk XXXXXX  xxxxxx ");
 
-constexpr Piece Pieces[] = { W_ROOK, W_ADVISOR, W_CANNON, W_PAWN, W_KNIGHT, W_BISHOP, W_KING,
-                             B_ROOK, B_ADVISOR, B_CANNON, B_PAWN, B_KNIGHT, B_BISHOP, B_KING,
-                             BW_ROOK, BW_ADVISOR, BW_CANNON, BW_PAWN, BW_KNIGHT, BW_BISHOP,
-                             BB_ROOK, BB_ADVISOR, BB_CANNON, BB_PAWN, BB_KNIGHT, BB_BISHOP };
+    constexpr Piece Pieces[] = { W_ROOK, W_ADVISOR, W_CANNON, W_PAWN, W_KNIGHT, W_BISHOP, W_KING,
+                                 B_ROOK, B_ADVISOR, B_CANNON, B_PAWN, B_KNIGHT, B_BISHOP, B_KING,
+                                 BW_ROOK, BW_ADVISOR, BW_CANNON, BW_PAWN, BW_KNIGHT, BW_BISHOP,
+                                 BB_ROOK, BB_ADVISOR, BB_CANNON, BB_PAWN, BB_KNIGHT, BB_BISHOP };
+}// namespace
+
+namespace PieceExchange {
+    Piece charToPiece(unsigned char token) {
+        size_t idx = PieceToChar.find(token);
+        if (idx != string::npos) {
+            return Piece(idx);
+        }
+        else
+        {
+            return NO_PIECE;
+        }
+    }
 } // namespace
 
 
@@ -617,6 +630,11 @@ bool Position::do_move(Move m, StateInfo& newSt, bool givesCheck) {
   assert(&newSt != st);
   Square from = from_sq(m);
   Square to = to_sq(m);
+  Piece to_pc = get_Piece(m);
+  if (to_pc) {
+      remove_piece(from);
+      put_piece(to_pc,from);
+  }
 
   Piece old = piece_on(from);
   bool dark = Darkof(old);
@@ -680,6 +698,10 @@ bool Position::do_move(Move m, StateInfo& newSt, bool givesCheck) {
 
       // Update board and piece lists
       remove_piece(capsq);
+      Piece capPiece = cap_Piece(m);
+      if (capPiece) {
+          restPieces[them].pop_back(type_of(capPiece));
+      }
 
       // Update hash key
       k ^= Zobrist::psq[captured][capsq];
@@ -724,7 +746,6 @@ bool Position::do_move(Move m, StateInfo& newSt, bool givesCheck) {
 
   return dark;
 }
-
 
 /// Position::undo_move() unmakes a move. When it returns, the position should
 /// be restored to exactly the same state as before the move was made.

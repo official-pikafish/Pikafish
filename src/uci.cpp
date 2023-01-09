@@ -53,7 +53,8 @@ namespace {
   void position(Position& pos, istringstream& is, StateListPtr& states) {
 
     Move m;
-    string token, fen;
+    string token, fen, MoveStr;
+    Piece pGet = NO_PIECE, pCaptured = NO_PIECE;
 
     is >> token;
 
@@ -72,10 +73,39 @@ namespace {
     pos.set(fen, &states->back(), Threads.main());
 
     // Parse the move list, if any
-    while (is >> token && (m = UCI::to_move(pos, token)) != MOVE_NONE)
+    while (is >> token)
     {
+        if (token.size() == 4) {
+            MoveStr = token;
+            pGet = NO_PIECE;
+            pCaptured = NO_PIECE;
+        }
+        else if (token.size() == 5)
+        {
+            MoveStr.assign(token, 0, token.length() - 1);
+            pGet = PieceExchange::charToPiece(token[4]);
+            assert(pGet <= B_KING);
+        }
+        else if (token.size() == 6)
+        {
+            MoveStr.assign(token, 0, token.length() - 2);
+            pGet = PieceExchange::charToPiece(token[4]);
+            pCaptured = PieceExchange::charToPiece(token[5]);
+            assert(pGet <= B_KING);
+            assert(pCaptured <= B_KING);
+        }
+        else
+        {
+            break;
+        }
+        if ((m = UCI::to_move(pos, MoveStr)) == MOVE_NONE)break;
+        if (token.size() == 5 && !pos.isDark(from_sq(m)))
+        {
+            pCaptured = pGet;
+            pGet = NO_PIECE;
+        }
         states->emplace_back();
-        pos.do_move(m, states->back());
+        pos.do_move(make_move(m, pGet, pCaptured), states->back());
     }
   }
 
