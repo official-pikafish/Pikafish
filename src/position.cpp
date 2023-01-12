@@ -52,6 +52,7 @@ namespace{
 
 namespace PieceExchange {
     Piece charToPiece(unsigned char token) {
+        if (token == 'x' || token == 'X')return NO_PIECE;
         size_t idx = PieceToChar.find(token);
         if (idx != string::npos) {
             return Piece(idx);
