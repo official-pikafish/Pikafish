@@ -494,7 +494,6 @@ namespace {
 
     constexpr bool PvNode = nodeType != NonPV;
     constexpr bool rootNode = nodeType == Root;
-    const Depth maxNextDepth = rootNode ? depth : depth + 1;
 
     // Dive into quiescence search when the depth reaches zero
     if (depth <= 0)
@@ -1133,8 +1132,7 @@ moves_loop: // When in check, search starts here
           (ss+1)->pv = pv;
           (ss+1)->pv[0] = MOVE_NONE;
 
-          value = -search<PV>(pos, ss+1, -beta, -alpha,
-                              std::min(maxNextDepth, newDepth), false);
+          value = -search<PV>(pos, ss+1, -beta, -alpha, newDepth, false);
       }
 
       // Step 18. Undo move
