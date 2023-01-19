@@ -54,14 +54,14 @@ jobs:
   linux:
     strategy:	
       matrix:	
-        arch: ["-avx512", "-bmi2", "-avx2", "-modern", ""]	
+        arch: ["-vnni512", "-avx512", "-bmi2", "-avx2", "-modern", ""]	
     env:
       COMPILER: clang++
       COMP: clang
     defaults:
       run:
         working-directory: src
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
 
     steps:
       - uses: actions/checkout@v3
