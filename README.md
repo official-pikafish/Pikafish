@@ -62,11 +62,6 @@ to their code. This is a small ask, for such a great gift, and yet we live in a 
 that gift is not appreciated by some, and worse taken advantage of.
 
 
-## Goal of the project
-The current goal of the project is to make Pikafish suppress all commercial engines and become the top 1. Terminating the domination of those commercial engines like AlphaCat (done), BugChess, and Cyclone in xiangqi. Making the strongest xiangqi engine free and open source to everyone.
-
-I believe if Stockfish can do that for chess, Pikafish can do that for xiangqi.
-
 ## Files
 
 This distribution of Pikafish consists of the following files:
