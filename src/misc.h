@@ -40,9 +40,10 @@ void* aligned_large_pages_alloc(size_t size); // memory aligned by page size, mi
 void aligned_large_pages_free(void* mem); // nop if mem == nullptr
 std::stringstream read_zipped_nnue(const std::string& fpath);
 
-void dbg_hit_on(bool b);
-void dbg_hit_on(bool c, bool b);
-void dbg_mean_of(int v);
+void dbg_hit_on(bool cond, int slot = 0);
+void dbg_mean_of(int64_t value, int slot = 0);
+void dbg_stdev_of(int64_t value, int slot = 0);
+void dbg_correl_of(int64_t value1, int64_t value2, int slot = 0);
 void dbg_print();
 
 typedef std::chrono::milliseconds::rep TimePoint; // A value in milliseconds
