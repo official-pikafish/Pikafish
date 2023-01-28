@@ -33,8 +33,9 @@ using std::string;
 namespace Stockfish {
 
 UCI::OptionsMap Options; // Global object
-bool UseRule60 = true;
-bool Strict3Fold = false;
+bool EnableRule60 = true;
+bool StrictThreeFold = false;
+bool ChaseWithCheck = true;
 
 namespace UCI {
 
@@ -43,8 +44,9 @@ static void on_clear_hash(const Option&) { Search::clear(); }
 static void on_hash_size(const Option& o) { TT.resize(size_t(o)); }
 static void on_logger(const Option& o) { start_logger(o); }
 static void on_threads(const Option& o) { Threads.set(size_t(o)); }
-static void on_rule60(const Option& o) { UseRule60 = bool(o); }
-static void on_strict3fold(const Option& o) { Strict3Fold = bool(o); }
+static void on_rule60(const Option& o) { EnableRule60 = bool(o); }
+static void on_strict_three_fold(const Option& o) { StrictThreeFold = bool(o); }
+static void on_chase_with_check(const Option& o) { ChaseWithCheck = bool(o); }
 static void on_eval_file(const Option& ) { Eval::NNUE::init(); }
 
 /// Our case insensitive less() function as required by UCI protocol
@@ -71,8 +73,9 @@ void init(OptionsMap& o) {
   o["Move Overhead"]         << Option(10, 0, 5000);
   o["Slow Mover"]            << Option(100, 10, 1000);
   o["nodestime"]             << Option(0, 0, 10000);
-  o["Rule60"]                << Option(true, on_rule60);
-  o["Strict3Fold"]           << Option(false, on_strict3fold);
+  o["Sixty Move Rule"]       << Option(true, on_rule60);
+  o["Strict Three Fold"]     << Option(false, on_strict_three_fold);
+  o["Chase With Check"]      << Option(true, on_chase_with_check);
   o["UCI_LimitStrength"]     << Option(false);
   o["UCI_Elo"]               << Option(1350, 1350, 2850);
   o["UCI_WDLCentipawn"]      << Option(true);
