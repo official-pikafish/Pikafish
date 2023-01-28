@@ -933,7 +933,7 @@ bool Position::rule_judge(Value& result, int ply) const {
 
     // Restore rule 60 by adding back the checks, if rule 60 is disabled, reset rule 60 to zero
     int end = st->pliesFromNull;
-    if (UseRule60)
+    if (EnableRule60)
         end = std::min(std::max(0, 2 * (st->check10[WHITE] - 10)) + st->rule60
                      + std::max(0, 2 * (st->check10[BLACK] - 10)), end);
     else
@@ -941,7 +941,7 @@ bool Position::rule_judge(Value& result, int ply) const {
 
     if (end >= 4 && filter[st->key])
     {
-        int cnt = 1;
+        int cnt = 0;
         StateInfo* stp = st->previous->previous;
         bool perpetualThem = st->checkersBB && stp->checkersBB;
         bool perpetualUs = st->previous->checkersBB && stp->previous->checkersBB;
@@ -953,7 +953,7 @@ bool Position::rule_judge(Value& result, int ply) const {
 
             // Return a score if a position repeats once earlier but strictly
             // after the root, or repeats twice before or at the root.
-            if (stp->key == st->key && ++cnt == (!Strict3Fold && ply > i ? 2 : 3))
+            if (stp->key == st->key && ++cnt == (!StrictThreeFold && ply > i ? 1 : 2))
             {
                 if (perpetualThem || perpetualUs)
                 {
@@ -969,27 +969,27 @@ bool Position::rule_judge(Value& result, int ply) const {
                 rollback.set_chase_info(i);
 
                 // Chasing detection
-                cnt = 1;
-                stp = st->previous->previous;
-                uint16_t chaseThem = st->chased & stp->chased;
-                uint16_t chaseUs = st->previous->chased & stp->previous->chased;
+                cnt = 0;
+                stp = st;
+                uint16_t chaseThem = ChaseWithCheck || !st->checkersBB ? st->chased : 0xFFFF;
+                uint16_t chaseUs = ChaseWithCheck || !st->previous->checkersBB ? st->previous->chased : 0xFFFF;
 
-                for (int j = 4; j <= i; j += 2)
+                for (int j = 2; j <= i; j += 2)
                 {
-                    // Chase stops after i moves
-                    if (j != i)
-                        chaseThem &= stp->previous->previous->chased;
                     stp = stp->previous->previous;
+                    // Chase stops after i moves
+                    if (j != i && (ChaseWithCheck || !stp->checkersBB))
+                        chaseThem &= stp->chased;
 
                     // Return a score if a position repeats once earlier but strictly
                     // after the root, or repeats twice before or at the root.
-                    if (stp->key == st->key && ++cnt == (!Strict3Fold && ply > i ? 2 : 3))
+                    if (stp->key == st->key && ++cnt == (!StrictThreeFold && ply > i ? 1 : 2))
                     {
                         result = (chaseThem || chaseUs) ? (!chaseUs ? mate_in(ply) : !chaseThem ? mated_in(ply) : VALUE_DRAW) : VALUE_DRAW;
                         return true;
                     }
 
-                    if (j + 1 <= i)
+                    if (j + 1 <= i && (ChaseWithCheck || !stp->previous->checkersBB))
                         chaseUs &= stp->previous->chased;
                 }
             }

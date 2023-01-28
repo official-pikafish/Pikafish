@@ -70,7 +70,7 @@ namespace {
 
   // History and stats update bonus, based on depth
   int stat_bonus(Depth d) {
-    return std::min(350 * d - 400, 1252);
+    return std::min(360 * d - 393, 1252);
   }
 
   // Add a small random component to draw evaluations to avoid 3-fold blindness
@@ -929,7 +929,7 @@ moves_loop: // When in check, search starts here
 
               history += 2 * thisThread->mainHistory[us][from_to(move)];
 
-              lmrDepth += history / 7208;
+              lmrDepth += history / 7373;
               lmrDepth = std::max(lmrDepth, -2);
 
               // Futility pruning: parent node (~9 Elo)

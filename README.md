@@ -109,11 +109,24 @@ change them via a chess GUI. This is a list of available UCI options in Pikafish
     Tells the engine to use nodes searched instead of wall time to account for
     elapsed time. Useful for engine testing.
 
-  * #### Rule60
-    Use 60 move rule in gameplay.
+  * #### Sixty Move Rule
+    Enable sixty move rule in gameplay.
 
-  * #### Strict3Fold
-    Not only use 3 fold repetition at root nodes, but also use 3 fold at non-root nodes. Enable this will help get better analyses results but lose elo.
+  * #### Strict Three Fold
+    Not only use three fold repetition at root nodes, but also use three fold at non-root nodes. Enable this will help to get better analyses results but lose massive elo in actual gameplay.
+
+  * #### Chase With Check
+    ```EBNF
+    <check-chase> ::= { <check> | <chase> }
+    <check-first> ::= <check> <check-chase> <chase> <check-chase>
+    <chase-first> ::= <chase> <check-chase> <check> <check-chase>
+    <repetition-moves> ::= <check-first> | <chase-first>
+    ```
+    `<repetition-moves>` appears in gameplay:
+    1. When this option is set to true, the engine calculates chase information for every `<check>` in the sequence and replace them with `<chase>`
+    2. When this option is set to false, the engine removes all the `<check>` in the sequence
+
+	After performing either of the above two operations, rule `<repetition-moves>`  according to `Asian Xiangqi Rule`
 
   * #### Debug Log File
     Write all communication to and from the engine into a text file.
