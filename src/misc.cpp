@@ -672,7 +672,7 @@ void init([[maybe_unused]] int argc, char* argv[]) {
 
 std::stringstream read_zipped_nnue(const std::string& fpath) {
     void* buf = NULL;
-    size_t bufsize;
+    size_t bufsize = 0;
 
     struct zip_t *zip = zip_open(fpath.c_str(), 0, 'r');
     if (zip_entries_total(zip) == 1) {
