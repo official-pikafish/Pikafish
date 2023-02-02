@@ -1064,7 +1064,7 @@ moves_loop: // When in check, search starts here
 
       // Decrease reduction if move is a killer and we have a good history
       if (move == ss->killers[0]
-          && (*contHist[0])[movedPiece][to_sq(move)] >= 3600)
+          && (*contHist[0])[movedPiece][to_sq(move)] >= 3606)
           r--;
 
       ss->statScore =  2 * thisThread->mainHistory[us][from_to(move)]
@@ -1453,9 +1453,9 @@ moves_loop: // When in check, search starts here
           }
       }
 
-      // Do not search moves with negative SEE values (~5 Elo)
+      // Do not search moves with bad enough SEE values (~5 Elo)
       if (    bestValue > VALUE_MATED_IN_MAX_PLY
-          && !pos.see_ge(move))
+          && !pos.see_ge(move, Value(-108)))
           continue;
 
       // Speculative prefetch as early as possible
