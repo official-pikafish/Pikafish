@@ -802,6 +802,13 @@ void Position::set_chase_info(int d) {
     // Rollback until we reached st - d
     for (int i = 0; i < d; ++i) {
         uint16_t& chase = st->chased;
+        // Redirect *check* and *mate threat* to *chase all pieces simultaneously* in Chinese Rule
+        if (ChineseRule && (st->checkersBB || has_mate_threat())) {
+            chase = 0xFFFF;
+            light_undo_move(st->move, st->capturedPiece);
+            st = st->previous;
+            continue;
+        }
         ChaseMap newChase = chased(~sideToMove);
         light_undo_move(st->move, st->capturedPiece);
         st = st->previous;
@@ -837,6 +844,42 @@ bool Position::chase_legal(Move m, Bitboard b) const {
 
     // A non-king move is chase legal if the king is not under new attack after the move.
     return !((checkers_to(~us, ksq, occupied) & ~square_bb(to)) & ~b);
+}
+
+
+/// Position::has_mate_threat() calculate mate threat less than certain moves.
+
+bool Position::has_mate_threat(Depth d) {
+    bool mateThreat = false;
+    if (d == -1) {
+        // Use null move to detect mate threats
+        StateInfo nullSt;
+        do_null_move(nullSt);
+        mateThreat = has_mate_threat(0);
+        undo_null_move();
+    } else if (d < MateThreatDepth) {
+        StateInfo tempSt[2];
+        // Try all check moves and see if we can continuously check to get a mate
+        for (const auto& check : MoveList<LEGAL>(*this)) {
+            if (gives_check(check)) {
+              do_move(check, tempSt[0]);
+              bool solvable = false;
+              for (const auto& evasion : MoveList<LEGAL>(*this)) {
+                  do_move(evasion, tempSt[1]);
+                  solvable = !has_mate_threat(d + 1);
+                  undo_move(evasion);
+                  // If there exists any evasions, the check is solvable
+                  if (solvable)
+                      break;
+              }
+              undo_move(check);
+              // If there exists any checks that are not solvable, there exists a mate threat
+              if (!solvable)
+                  return true;
+            }
+        }
+    }
+    return mateThreat;
 }
 
 
@@ -970,15 +1013,15 @@ bool Position::rule_judge(Value& result, int ply) const {
 
                 // Chasing detection
                 cnt = 0;
-                stp = st;
-                uint16_t chaseThem = ChaseWithCheck || !st->checkersBB ? st->chased : 0xFFFF;
-                uint16_t chaseUs = ChaseWithCheck || !st->previous->checkersBB ? st->previous->chased : 0xFFFF;
+                stp = st->previous->previous;
+                uint16_t chaseThem = st->chased & stp->chased;
+                uint16_t chaseUs = st->previous->chased & stp->previous->chased;
 
-                for (int j = 2; j <= i; j += 2)
+                for (int j = 4; j <= i; j += 2)
                 {
                     stp = stp->previous->previous;
                     // Chase stops after i moves
-                    if (j != i && (ChaseWithCheck || !stp->checkersBB))
+                    if (j != i)
                         chaseThem &= stp->chased;
 
                     // Return a score if a position repeats once earlier but strictly
@@ -989,7 +1032,7 @@ bool Position::rule_judge(Value& result, int ply) const {
                         return true;
                     }
 
-                    if (j + 1 <= i && (ChaseWithCheck || !stp->previous->checkersBB))
+                    if (j + 1 <= i)
                         chaseUs &= stp->previous->chased;
                 }
             }
