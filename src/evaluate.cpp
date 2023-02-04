@@ -114,7 +114,7 @@ Value Eval::evaluate(const Position& pos, int* complexity) {
   Value optimism = pos.this_thread()->optimism[pos.side_to_move()];
   nnueComplexity = (  381 * nnueComplexity
                     + 380 * abs(psq - nnue)
-                    + (optimism > 0 ? int(optimism) * int(psq - nnue) : 0)
+                    + int(optimism) * int(psq - nnue)
                     ) / 1024;
   if (complexity) // Return hybrid NNUE complexity to caller
       *complexity = nnueComplexity;
