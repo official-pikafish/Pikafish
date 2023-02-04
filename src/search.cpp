@@ -576,15 +576,16 @@ namespace {
     if (!rootNode)
         (ss+2)->statScore = 0;
 
-    // Step 4. Transposition table lookup. We don't want the score of a partial
-    // search to overwrite a previous full search TT value, so we use a different
-    // position key in case of an excluded move.
+    // Step 4. Transposition table lookup.
     excludedMove = ss->excludedMove;
-    posKey = excludedMove == MOVE_NONE ? pos.key() : pos.key() ^ make_key(excludedMove);
+    posKey = pos.key();
     tte = TT.probe(posKey, ss->ttHit);
     ttValue = ss->ttHit ? value_from_tt(tte->value(), ss->ply, pos.rule60_count()) : VALUE_NONE;
     ttMove =  rootNode ? thisThread->rootMoves[thisThread->pvIdx].pv[0]
             : ss->ttHit    ? tte->move() : MOVE_NONE;
+
+    // At this point, if excluded, skip straight to step 5, static eval. However,
+    // to save indentation, we list the condition in all code between here and there.
     ttCapture = ttMove && pos.capture(ttMove);
     if (!excludedMove)
         ss->ttPv = PvNode || (ss->ttHit && tte->is_pv());
@@ -592,6 +593,7 @@ namespace {
     // At non-PV nodes we check for an early TT cutoff
     if (  !PvNode
         && ss->ttHit
+        && !excludedMove
         && tte->depth() > depth - (tte->bound() == BOUND_EXACT)
         && ttValue != VALUE_NONE // Possible in case of TT access race
         && (tte->bound() & (ttValue >= beta ? BOUND_LOWER : BOUND_UPPER)))
@@ -636,6 +638,12 @@ namespace {
         complexity = 0;
         goto moves_loop;
     }
+    else if (excludedMove) {
+        // excludeMove implies that we had a ttHit on the containing non-excluded search with ss->staticEval filled from TT
+        // However static evals from the TT aren't good enough (-13 elo), presumably due to changing optimism context
+        // Recalculate value with current optimism (without updating thread avgComplexity)
+        ss->staticEval = eval = evaluate(pos, &complexity);
+    }
     else if (ss->ttHit)
     {
         // Never assume anything about values stored in TT
@@ -644,6 +652,7 @@ namespace {
             ss->staticEval = eval = evaluate(pos, &complexity);
         else // Fall back to (semi)classical complexity for TT hits, the NNUE complexity is lost
             complexity = abs(ss->staticEval - pos.psq_score());
+        thisThread->complexityAverage.update(complexity);
 
         // ttValue can be used as a better position evaluation (~4 Elo)
         if (    ttValue != VALUE_NONE
@@ -653,13 +662,11 @@ namespace {
     else
     {
         ss->staticEval = eval = evaluate(pos, &complexity);
+        thisThread->complexityAverage.update(complexity);
 
         // Save static evaluation into transposition table
-        if (!excludedMove)
-            tte->save(posKey, VALUE_NONE, ss->ttPv, BOUND_NONE, DEPTH_NONE, MOVE_NONE, eval);
+        tte->save(posKey, VALUE_NONE, ss->ttPv, BOUND_NONE, DEPTH_NONE, MOVE_NONE, eval);
     }
-
-    thisThread->complexityAverage.update(complexity);
 
     // Use static evaluation difference to improve quiet move ordering (~3 Elo)
     if (is_ok((ss-1)->currentMove) && !(ss-1)->inCheck && !priorCapture)
@@ -967,6 +974,7 @@ moves_loop: // When in check, search starts here
               Depth singularDepth = (depth - 1) / 2;
 
               ss->excludedMove = move;
+              // the search with excludedMove will update ss->staticEval
               value = search<NonPV>(pos, ss, singularBeta - 1, singularBeta, singularDepth, cutNode);
               ss->excludedMove = MOVE_NONE;
 
