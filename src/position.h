@@ -142,6 +142,7 @@ public:
   Thread* this_thread() const;
   bool rule_judge(Value& result, int ply = 0) const;
   int rule60_count() const;
+  bool has_mate_threat(Depth d = -1);
   ChaseMap chased(Color c);
   Value material() const;
   Value psq_score() const;

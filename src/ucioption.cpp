@@ -35,7 +35,8 @@ namespace Stockfish {
 UCI::OptionsMap Options; // Global object
 bool EnableRule60 = true;
 bool StrictThreeFold = false;
-bool ChaseWithCheck = true;
+uint8_t MateThreatDepth = 1;
+bool ChineseRule = false;
 
 namespace UCI {
 
@@ -46,7 +47,8 @@ static void on_logger(const Option& o) { start_logger(o); }
 static void on_threads(const Option& o) { Threads.set(size_t(o)); }
 static void on_rule60(const Option& o) { EnableRule60 = bool(o); }
 static void on_strict_three_fold(const Option& o) { StrictThreeFold = bool(o); }
-static void on_chase_with_check(const Option& o) { ChaseWithCheck = bool(o); }
+static void on_mate_threat_depth(const Option& o) { MateThreatDepth = size_t(o); }
+static void on_repetition_rule(const Option& o) { ChineseRule = o == "ChineseRule"; }
 static void on_eval_file(const Option& ) { Eval::NNUE::init(); }
 
 /// Our case insensitive less() function as required by UCI protocol
@@ -75,7 +77,8 @@ void init(OptionsMap& o) {
   o["nodestime"]             << Option(0, 0, 10000);
   o["Sixty Move Rule"]       << Option(true, on_rule60);
   o["Strict Three Fold"]     << Option(false, on_strict_three_fold);
-  o["Chase With Check"]      << Option(true, on_chase_with_check);
+  o["Mate Threat Depth"]     << Option(1, 1, 10, on_mate_threat_depth);
+  o["Repetition Rule"]       << Option("AsianRule var AsianRule var ChineseRule", "AsianRule" , on_repetition_rule);
   o["UCI_LimitStrength"]     << Option(false);
   o["UCI_Elo"]               << Option(1350, 1350, 2850);
   o["UCI_WDLCentipawn"]      << Option(true);

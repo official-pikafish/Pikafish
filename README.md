@@ -115,18 +115,11 @@ change them via a chess GUI. This is a list of available UCI options in Pikafish
   * #### Strict Three Fold
     Not only use three fold repetition at root nodes, but also use three fold at non-root nodes. Enable this will help to get better analyses results but lose massive elo in actual gameplay.
 
-  * #### Chase With Check
-    ```EBNF
-    <check-chase> ::= { <check> | <chase> }
-    <check-first> ::= <check> <check-chase> <chase> <check-chase>
-    <chase-first> ::= <chase> <check-chase> <check> <check-chase>
-    <repetition-moves> ::= <check-first> | <chase-first>
-    ```
-    `<repetition-moves>` appears in gameplay:
-    1. When this option is set to true, the engine calculates chase information for every `<check>` in the sequence and replace them with `<chase>`
-    2. When this option is set to false, the engine removes all the `<check>` in the sequence
+  * #### Mate Threat Depth
+    When `ChineseRule` is selected as the `Repetition Rule`, how many move at most one needs to make to get a mate in the mate threat. The higher the value, the lower the speed.
 
-	After performing either of the above two operations, rule `<repetition-moves>`  according to `Asian Xiangqi Rule`
+  * #### Repetition Rule
+    Choose to use `AsianRule` or `ChineseRule` to deal with repetitions. Note that `ChineseRule` is not recommend to use unless you are analysing positions, it will loses massive elo in actual gameplay.
 
   * #### Debug Log File
     Write all communication to and from the engine into a text file.

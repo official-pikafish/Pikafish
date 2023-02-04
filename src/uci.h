@@ -82,7 +82,8 @@ Move to_move(const Position& pos, std::string& str);
 extern UCI::OptionsMap Options;
 extern bool EnableRule60;
 extern bool StrictThreeFold;
-extern bool ChaseWithCheck;
+extern uint8_t MateThreatDepth;
+extern bool ChineseRule;
 
 } // namespace Stockfish
 
