@@ -117,6 +117,7 @@ change them via a chess GUI. This is a list of available UCI options in Pikafish
 
   * #### Mate Threat Depth
     When `ChineseRule` is selected as the `Repetition Rule`, how many move at most one needs to make to get a mate in the mate threat. The higher the value, the lower the speed.
+    Especially, if this option is set to 0, then allow mate threat in `ChineseRule`.
 
   * #### Repetition Rule
     Choose to use `AsianRule` or `ChineseRule` to deal with repetitions. Note that `ChineseRule` is not recommend to use unless you are analysing positions, it will loses massive elo in actual gameplay.

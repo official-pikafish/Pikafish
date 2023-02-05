@@ -77,7 +77,7 @@ void init(OptionsMap& o) {
   o["nodestime"]             << Option(0, 0, 10000);
   o["Sixty Move Rule"]       << Option(true, on_rule60);
   o["Strict Three Fold"]     << Option(false, on_strict_three_fold);
-  o["Mate Threat Depth"]     << Option(1, 1, 10, on_mate_threat_depth);
+  o["Mate Threat Depth"]     << Option(1, 0, 10, on_mate_threat_depth);
   o["Repetition Rule"]       << Option("AsianRule var AsianRule var ChineseRule", "AsianRule" , on_repetition_rule);
   o["UCI_LimitStrength"]     << Option(false);
   o["UCI_Elo"]               << Option(1350, 1350, 2850);
