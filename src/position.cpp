@@ -803,7 +803,7 @@ void Position::set_chase_info(int d) {
     for (int i = 0; i < d; ++i) {
         uint16_t& chase = st->chased;
         // Redirect *check* and *mate threat* to *chase all pieces simultaneously* in Chinese Rule
-        if (ChineseRule && (st->checkersBB || has_mate_threat())) {
+        if (ChineseRule && (st->checkersBB || (MateThreatDepth && has_mate_threat()))) {
             chase = 0xFFFF;
             light_undo_move(st->move, st->capturedPiece);
             st = st->previous;
@@ -814,6 +814,9 @@ void Position::set_chase_info(int d) {
         st = st->previous;
         // Take the exact diff to detect the chase
         chase = newChase & chased(sideToMove);
+        // Redirect *chase* to *chase all pieces simultaneously* in Chinese Rule
+        if (ChineseRule && chase)
+            chase = 0xFFFF;
     }
 }
 
