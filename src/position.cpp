@@ -954,7 +954,7 @@ ChaseMap Position::chased(Color c) {
                     if (attackerType == type_of(piece_on(to)))
                     {
                         sideToMove = ~sideToMove;
-                        if (   (attackerType == KNIGHT && !(attacks_bb<KNIGHT>(to, pieces()) & from))
+                        if (   (attackerType == KNIGHT && ((between_bb(from, to) ^ to) & pieces()))
                             || !chase_legal(make_move(to, from), checkThem))
                             chase |= make_chase(idBoard[to], idBoard[from]);
                         sideToMove = ~sideToMove;
