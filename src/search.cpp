@@ -1321,6 +1321,7 @@ moves_loop: // When in check, search starts here
     bool pvHit, givesCheck, capture;
     int moveCount;
 
+    // Step 1. Initialize node
     if (PvNode)
     {
         (ss+1)->pv = pv;
@@ -1332,7 +1333,7 @@ moves_loop: // When in check, search starts here
     ss->inCheck = pos.checkers();
     moveCount = 0;
 
-    // Check for repetition or maximum ply reached
+    // Step 2. Check for repetition or maximum ply reached
     Value result;
     if (pos.rule_judge(result, ss->ply))
         return result;
@@ -1347,13 +1348,14 @@ moves_loop: // When in check, search starts here
     // only two types of depth in TT: DEPTH_QS_CHECKS or DEPTH_QS_NO_CHECKS.
     ttDepth = ss->inCheck || depth >= DEPTH_QS_CHECKS ? DEPTH_QS_CHECKS
                                                   : DEPTH_QS_NO_CHECKS;
-    // Transposition table lookup
+    // Step 3. Transposition table lookup
     posKey = pos.key();
     tte = TT.probe(posKey, ss->ttHit);
     ttValue = ss->ttHit ? value_from_tt(tte->value(), ss->ply, pos.rule60_count()) : VALUE_NONE;
     ttMove = ss->ttHit ? tte->move() : MOVE_NONE;
     pvHit = ss->ttHit && tte->is_pv();
 
+    // At non-PV nodes we check for an early TT cutoff
     if (  !PvNode
         && ss->ttHit
         && tte->depth() >= ttDepth
@@ -1361,7 +1363,7 @@ moves_loop: // When in check, search starts here
         && (tte->bound() & (ttValue >= beta ? BOUND_LOWER : BOUND_UPPER)))
         return ttValue;
 
-    // Evaluate the position statically
+    // Step 4. Static evaluation of the position
     if (ss->inCheck)
     {
         ss->staticEval = VALUE_NONE;
@@ -1418,7 +1420,8 @@ moves_loop: // When in check, search starts here
 
     int quietCheckEvasions = 0;
 
-    // Loop through the moves until no moves remain or a beta cutoff occurs
+    // Step 5. Loop through all pseudo-legal moves until no moves remain
+    // or a beta cutoff occurs.
     while ((move = mp.next_move()) != MOVE_NONE)
     {
       assert(is_ok(move));
@@ -1432,67 +1435,68 @@ moves_loop: // When in check, search starts here
 
       moveCount++;
 
-      // Futility pruning and moveCount pruning (~5 Elo)
-      if (    bestValue > VALUE_MATED_IN_MAX_PLY
-          && !givesCheck
-          &&  to_sq(move) != prevSq
-          &&  futilityBase > -VALUE_KNOWN_WIN)
+      // Step 6. Pruning.
+      if (bestValue > VALUE_MATED_IN_MAX_PLY)
       {
-          if (moveCount > 2)
-              continue;
-
-          futilityValue = futilityBase + PieceValue[EG][pos.piece_on(to_sq(move))];
-
-          if (futilityValue <= alpha)
+          // Futility pruning and moveCount pruning (~5 Elo)
+          if (   !givesCheck
+              &&  to_sq(move) != prevSq
+              &&  futilityBase > -VALUE_KNOWN_WIN)
           {
-              bestValue = std::max(bestValue, futilityValue);
-              continue;
+              if (moveCount > 2)
+                continue;
+
+              futilityValue = futilityBase + PieceValue[EG][pos.piece_on(to_sq(move))];
+
+              if (futilityValue <= alpha)
+              {
+                bestValue = std::max(bestValue, futilityValue);
+                continue;
+              }
+
+              if (futilityBase <= alpha && !pos.see_ge(move, VALUE_ZERO + 1))
+              {
+                bestValue = std::max(bestValue, futilityBase);
+                continue;
+              }
           }
 
-          if (futilityBase <= alpha && !pos.see_ge(move, VALUE_ZERO + 1))
-          {
-              bestValue = std::max(bestValue, futilityBase);
+          // We prune after 2nd quiet check evasion where being 'in check' is implicitly checked through the counter
+          // and being a 'quiet' apart from being a tt move is assumed after an increment because captures are pushed ahead.
+          if (quietCheckEvasions > 1)
+              break;
+
+          // Continuation history based pruning (~2 Elo)
+          if (   !capture
+              && (*contHist[0])[pos.moved_piece(move)][to_sq(move)] < 0
+              && (*contHist[1])[pos.moved_piece(move)][to_sq(move)] < 0)
               continue;
-          }
+
+          // Do not search moves with bad enough SEE values (~5 Elo)
+          if (!pos.see_ge(move, Value(-108)))
+              continue;
       }
-
-      // Do not search moves with bad enough SEE values (~5 Elo)
-      if (    bestValue > VALUE_MATED_IN_MAX_PLY
-          && !pos.see_ge(move, Value(-108)))
-          continue;
 
       // Speculative prefetch as early as possible
       prefetch(TT.first_entry(pos.key_after(move)));
 
+      // Update the current move
       ss->currentMove = move;
       ss->continuationHistory = &thisThread->continuationHistory[ss->inCheck]
                                                                 [capture]
                                                                 [pos.moved_piece(move)]
                                                                 [to_sq(move)];
 
-      // Continuation history based pruning (~2 Elo)
-      if (   !capture
-          && bestValue > VALUE_MATED_IN_MAX_PLY
-          && (*contHist[0])[pos.moved_piece(move)][to_sq(move)] < 0
-          && (*contHist[1])[pos.moved_piece(move)][to_sq(move)] < 0)
-          continue;
-
-      // We prune after 2nd quiet check evasion where being 'in check' is implicitly checked through the counter
-      // and being a 'quiet' apart from being a tt move is assumed after an increment because captures are pushed ahead.
-      if (   bestValue > VALUE_MATED_IN_MAX_PLY
-          && quietCheckEvasions > 1)
-          break;
-
       quietCheckEvasions += !capture && ss->inCheck;
 
-      // Make and search the move
+      // Step 7. Make and search the move
       pos.do_move(move, st, givesCheck);
       value = -qsearch<nodeType>(pos, ss+1, -beta, -alpha, depth - 1);
       pos.undo_move(move);
 
       assert(value > -VALUE_INFINITE && value < VALUE_INFINITE);
 
-      // Check for a new best move
+      // Step 8. Check for a new best move
       if (value > bestValue)
       {
           bestValue = value;
@@ -1512,6 +1516,7 @@ moves_loop: // When in check, search starts here
        }
     }
 
+    // Step 9. Check for mate
     // All legal moves have been searched. A special case:
     // if no legal moves were found, it is checkmate.
     if (bestValue == -VALUE_INFINITE)
