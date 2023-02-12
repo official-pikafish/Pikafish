@@ -308,10 +308,10 @@ Bitboard Position::attackers_to(Square s, Bitboard occupied) const {
 
 Bitboard Position::checkers_to(Color c, Square s, Bitboard occupied) const {
 
-    return ( (pawn_attacks_to_bb(c, s)           & pieces(   PAWN))
-           | (attacks_bb<KNIGHT_TO>(s, occupied) & pieces( KNIGHT))
-           | (attacks_bb<     ROOK>(s, occupied) & pieces(   ROOK))
-           | (attacks_bb<   CANNON>(s, occupied) & pieces( CANNON)) ) & pieces(c);
+    return ( (pawn_attacks_to_bb(c, s)           & pieces(      PAWN))
+           | (attacks_bb<KNIGHT_TO>(s, occupied) & pieces(    KNIGHT))
+           | (attacks_bb<     ROOK>(s, occupied) & pieces(KING, ROOK))
+           | (attacks_bb<   CANNON>(s, occupied) & pieces(    CANNON)) ) & pieces(c);
 }
 
 
@@ -333,10 +333,6 @@ bool Position::legal(Move m) const {
   // A non-king move is always legal when not moving the king or a pinned piece if we don't need slow check
   if (!st->needSlowCheck && ksq != to && !(blockers_for_king(us) & from))
       return true;
-
-  // Flying general rule
-  if (attacks_bb<ROOK>(ksq, occupied) & pieces(~us, KING))
-      return false;
 
   // If the moving piece is a king, check whether the destination square is
   // attacked by the opponent.
@@ -835,18 +831,13 @@ bool Position::chase_legal(Move m, Bitboard b) const {
     assert(color_of(moved_piece(m)) == us);
     assert(piece_on(square<KING>(us)) == make_piece(us, KING));
 
-    // Flying general rule
-    Square ksq = type_of(moved_piece(m)) == KING ? to : square<KING>(us);
-    if (attacks_bb<ROOK>(ksq, occupied) & pieces(~us, KING))
-        return false;
-
     // If the moving piece is a king, check whether the destination
     // square is not under new attack after the move.
     if (type_of(piece_on(from)) == KING)
         return !(checkers_to(~us, to, occupied) & ~b);
 
     // A non-king move is chase legal if the king is not under new attack after the move.
-    return !((checkers_to(~us, ksq, occupied) & ~square_bb(to)) & ~b);
+    return !((checkers_to(~us, square<KING>(us), occupied) & ~square_bb(to)) & ~b);
 }
 
 
@@ -903,7 +894,7 @@ ChaseMap Position::chased(Color c) {
     std::swap(c, sideToMove);
 
     // King and pawn can legally perpetual chase
-    Bitboard attackers = pieces(sideToMove) & ~pieces(sideToMove, KING, PAWN);
+    Bitboard attackers = pieces(sideToMove) ^ pieces(sideToMove, KING, PAWN);
     while (attackers)
     {
         Square from = pop_lsb(attackers);
