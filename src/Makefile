@@ -493,9 +493,14 @@ endif
 ifeq ($(KERNEL),Darwin)
 	CXXFLAGS += -mmacosx-version-min=10.14
 	LDFLAGS += -mmacosx-version-min=10.14
-	ifneq ($(arch),any)
-		CXXFLAGS += -arch $(arch)
-		LDFLAGS += -arch $(arch)
+	ifeq ($(arch),wasm)
+		CXXFLAGS += -s WASM=1
+		LDFLAGS += -s WASM=1
+	else
+		ifneq ($(arch),any)
+			CXXFLAGS += -arch $(arch)
+			LDFLAGS += -arch $(arch)
+		endif
 	endif
 	XCRUN = xcrun
 endif
@@ -529,7 +534,11 @@ endif
 # Compile for webassembly
 ifeq ($(COMP),emscripten)
 	comp=emscripten
+	ifneq ($(KERNEL),Darwin)
 	CXX=em++
+	else
+	CXX=emcc
+	endif
 	CXXFLAGS += -flto -DUSE_POPCNT
 	LDFLAGS += \
 		-flto \
@@ -857,7 +866,10 @@ help:
 	@echo "general-64              > unspecified 64-bit"
 	@echo "general-32              > unspecified 32-bit"
 	@echo "riscv64                 > RISC-V 64-bit"
-	@echo ""
+	@echo "wasm-single             > wasm single thread"
+	@echo "wasm-multi              > wasm multiple thread"
+	@echo "wasm-single-simd128     > wasm single thread SIMD 128"
+	@echo "wasm-multi-simd128      > wasm multi thread SIMD 128"
 	@echo "Supported compilers:"
 	@echo ""
 	@echo "gcc                     > Gnu compiler (default)"
@@ -877,6 +889,7 @@ help:
 	@echo "make -j profile-build ARCH=x86-64-bmi2"
 	@echo "make -j profile-build ARCH=x86-64-bmi2 COMP=gcc COMPCXX=g++-9.0"
 	@echo "make -j build ARCH=x86-64-ssse3 COMP=clang"
+	@echo "make -j build ARCH=wasm-single COMP=emscripten"
 	@echo ""
 	@echo "-------------------------------"
 ifeq ($(SUPPORTED_ARCH)$(help_skip_sanity), true)
