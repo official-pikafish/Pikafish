@@ -1,6 +1,6 @@
 /*
   Stockfish, a UCI chess playing engine derived from Glaurung 2.1
-  Copyright (C) 2004-2022 The Stockfish developers (see AUTHORS file)
+  Copyright (C) 2004-2023 The Stockfish developers (see AUTHORS file)
 
   Stockfish is free software: you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -35,7 +35,7 @@ ThreadPool Threads; // Global object
 
 Thread::Thread(size_t n) : idx(n)
 #ifndef SINGLE_THREAD
-    , stdThread(&Thread::idle_loop, this) 
+    , stdThread(&Thread::idle_loop, this)
 #endif
 {
   wait_for_search_finished();
@@ -64,8 +64,7 @@ void Thread::clear() {
   counterMoves.fill(MOVE_NONE);
   mainHistory.fill(0);
   captureHistory.fill(0);
-  previousDepth = 0;
-  
+
   for (bool inCheck : { false, true })
       for (StatsType c : { NoCaptures, Captures })
           for (auto& to : continuationHistory[inCheck][c])
@@ -77,10 +76,12 @@ void Thread::clear() {
 /// Thread::start_searching() wakes up the thread that will start the search
 
 void Thread::start_searching() {
+  mutex.lock();
 
 #ifndef SINGLE_THREAD
   std::lock_guard<std::mutex> lk(mutex);
   searching = true;
+  mutex.unlock(); // Unlock before notifying saves a few CPU-cycles
   cv.notify_one(); // Wake up the thread in idle_loop()
 #else
   search();
@@ -140,23 +141,23 @@ void Thread::idle_loop() {
 
 void ThreadPool::set(size_t requested) {
 
-  if (size() > 0)   // destroy any existing thread(s)
+  if (threads.size() > 0)   // destroy any existing thread(s)
   {
       main()->wait_for_search_finished();
 
-      while (size() > 0)
-          delete back(), pop_back();
+      while (threads.size() > 0)
+          delete threads.back(), threads.pop_back();
   }
 
   if (requested > 0)   // create new thread(s)
   {
-      push_back(new MainThread(0));
+      threads.push_back(new MainThread(0));
 
-    #ifndef SINGLE_THREAD
+      #ifndef SINGLE_THREAD
       while (size() < requested)
-          push_back(new Thread(size()));
-    #endif
-    
+          threads.push_back(new Thread(size()));
+      #endif
+
       clear();
 
       // Reallocate the hash with the new threadpool size
@@ -172,7 +173,7 @@ void ThreadPool::set(size_t requested) {
 
 void ThreadPool::clear() {
 
-  for (Thread* th : *this)
+  for (Thread* th : threads)
       th->clear();
 
   main()->callsCnt = 0;
@@ -202,7 +203,7 @@ void ThreadPool::start_thinking(Position& pos, StateListPtr& states,
           rootMoves.emplace_back(m);
 
   // After ownership transfer 'states' becomes empty, so if we stop the search
-  // and call 'go' again without setting a new position states.get() == NULL.
+  // and call 'go' again without setting a new position states.get() == nullptr.
   assert(states.get() || setupStates.get());
 
   if (states.get())
@@ -213,7 +214,7 @@ void ThreadPool::start_thinking(Position& pos, StateListPtr& states,
   // be deduced from a fen string, so set() clears them and they are set from
   // setupStates->back() later. The rootState is per thread, earlier states are shared
   // since they are read-only.
-  for (Thread* th : *this)
+  for (Thread* th : threads)
   {
       th->nodes = th->tbHits = th->nmpMinPly = th->bestMoveChanges = 0;
       th->rootDepth = th->completedDepth = 0;
@@ -227,12 +228,12 @@ void ThreadPool::start_thinking(Position& pos, StateListPtr& states,
 
 Thread* ThreadPool::get_best_thread() const {
 
-    Thread* bestThread = front();
+    Thread* bestThread = threads.front();
     std::map<Move, int64_t> votes;
     Value minScore = VALUE_NONE;
 
     // Find minimum score of all threads
-    for (Thread* th: *this)
+    for (Thread* th: threads)
         minScore = std::min(minScore, th->rootMoves[0].score);
 
     // Vote according to score and depth, and select the best thread
@@ -240,10 +241,10 @@ Thread* ThreadPool::get_best_thread() const {
             return (th->rootMoves[0].score - minScore + 14) * int(th->completedDepth);
         };
 
-    for (Thread* th : *this)
+    for (Thread* th : threads)
         votes[th->rootMoves[0].pv[0]] += thread_value(th);
 
-    for (Thread* th : *this)
+    for (Thread* th : threads)
         if (abs(bestThread->rootMoves[0].score) >= VALUE_MATE_IN_MAX_PLY)
         {
             // Make sure we pick the shortest mate / stave off mate the longest
@@ -266,8 +267,8 @@ Thread* ThreadPool::get_best_thread() const {
 
 void ThreadPool::start_searching() {
 
-    for (Thread* th : *this)
-        if (th != front())
+    for (Thread* th : threads)
+        if (th != threads.front())
             th->start_searching();
 }
 
@@ -276,8 +277,8 @@ void ThreadPool::start_searching() {
 
 void ThreadPool::wait_for_search_finished() const {
 
-    for (Thread* th : *this)
-        if (th != front())
+    for (Thread* th : threads)
+        if (th != threads.front())
             th->wait_for_search_finished();
 }
 

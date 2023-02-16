@@ -7,16 +7,23 @@ on:
 
 jobs:
   linux:
-    runs-on: ubuntu-18.04
+    env:
+      COMPILER: clang++
+      COMP: clang
+      ARCH: x86-64-bmi2
+    defaults:
+      run:
+        working-directory: src
+    runs-on: ubuntu-20.04
 
     steps:
       - uses: actions/checkout@v3
 
       - name: make
-        run: cd src && make clean && make -j build COMP=clang ARCH=x86-64-bmi2 EXE=x86-64-bmi2 && strip x86-64-bmi2
+        run: make clean && make -j build && make strip
 
       - name: upload to fishtest
-        run: curl https://test.pikafish.org/api/pre_upload -F file=@src/x86-64-bmi2 -F "file_type=engine" -F "password=${{ secrets.NOTHING }}"
+        run: curl https://test.pikafish.org/api/pre_upload -F file=@pikafish -F "file_type=engine" -F "password=${{ secrets.NOTHING }}"
 
       - name: print variables table
-        run: printf 'quit' | src/x86-64-bmi2
+        run: printf 'quit' | ./pikafish

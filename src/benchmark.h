@@ -16,22 +16,19 @@
   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-// Class for difference calculation of NNUE evaluation function
+#ifndef BENCHMARK_H_INCLUDED
+#define BENCHMARK_H_INCLUDED
 
-#ifndef NNUE_ACCUMULATOR_H_INCLUDED
-#define NNUE_ACCUMULATOR_H_INCLUDED
+#include <iosfwd>
+#include <string>
+#include <vector>
 
-#include "nnue_architecture.h"
+namespace Stockfish {
 
-namespace Stockfish::Eval::NNUE {
+class Position;
 
-  // Class that holds the result of affine transformation of input features
-  struct alignas(CacheLineSize) Accumulator {
-    std::int16_t accumulation[2][TransformedFeatureDimensions];
-    std::int32_t psqtAccumulation[2][PSQTBuckets];
-    bool computed[2];
-  };
+std::vector<std::string> setup_bench(const Position&, std::istream&);
 
-}  // namespace Stockfish::Eval::NNUE
+} // namespace Stockfish
 
-#endif // NNUE_ACCUMULATOR_H_INCLUDED
+#endif // #ifndef BENCHMARK_H_INCLUDED
