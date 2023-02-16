@@ -73,13 +73,15 @@ int pawn_eval(Value v, int ply);
 std::string value(Value v, int ply = 64);
 std::string square(Square s);
 std::string move(Move m);
-std::string pv(const Position& pos, Depth depth, Value alpha, Value beta);
+std::string pv(const Position& pos, Depth depth);
 std::string wdl(Value v, int ply);
 Move to_move(const Position& pos, std::string& str);
 
 } // namespace UCI
 
 extern UCI::OptionsMap Options;
+extern bool UseRule60;
+extern bool Strict3Fold;
 
 } // namespace Stockfish
 

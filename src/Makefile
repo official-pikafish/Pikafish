@@ -396,10 +396,6 @@ endif
 
 CXXFLAGS = $(ENV_CXXFLAGS) -Wall -Wcast-qual -fno-exceptions -std=c++17 $(EXTRACXXFLAGS)
 
-ifeq ($(target_windows),yes)
-	CXXFLAGS += -finput-charset=UTF-8 -fexec-charset=GBK
-endif
-
 DEPENDFLAGS = $(ENV_DEPENDFLAGS) -std=c++17
 LDFLAGS = $(ENV_LDFLAGS) $(EXTRALDFLAGS)
 
@@ -599,7 +595,7 @@ endif
 
 ### Sometimes gcc is really clang
 ifeq ($(COMP),gcc)
-	gccversion = $(shell $(CXX) --version)
+	gccversion = $(shell $(CXX) --version 2>/dev/null)
 	gccisclang = $(findstring clang,$(gccversion))
 	ifneq ($(gccisclang),)
 		profile_make = clang-profile-make
@@ -829,8 +825,8 @@ help:
 	@echo "Supported targets:"
 	@echo ""
 	@echo "help                    > Display architecture details"
-	@echo "build                   > Standard build"
-	@echo "profile-build           > Faster build (with profile-guided optimization)"
+	@echo "profile-build           > standard build with profile-guided optimization"
+	@echo "build                   > skip profile-guided optimization"
 	@echo "strip                   > Strip executable"
 	@echo "install                 > Install executable"
 	@echo "clean                   > Clean up"
@@ -870,14 +866,15 @@ help:
 	@echo "icc                     > Intel compiler"
 	@echo "ndk                     > Google NDK to cross-compile for Android"
 	@echo ""
-	@echo "Simple examples. If you don't know what to do, you likely want to run: "
+	@echo "Simple examples. If you don't know what to do, you likely want to run one of: "
 	@echo ""
-	@echo "make -j build ARCH=x86-64  (A portable, slow compile for 64-bit systems)"
-	@echo "make -j build ARCH=x86-32  (A portable, slow compile for 32-bit systems)"
+	@echo "make -j profile-build ARCH=x86-64-avx2    # typically a fast compile for common systems "
+	@echo "make -j profile-build ARCH=x86-64-modern  # A more portable compile for 64-bit systems "
+	@echo "make -j profile-build ARCH=x86-64         # A portable compile for 64-bit systems "
 	@echo ""
-	@echo "Advanced examples, for experienced users looking for performance: "
+	@echo "Advanced examples, for experienced users: "
 	@echo ""
-	@echo "make    help  ARCH=x86-64-bmi2"
+	@echo "make -j profile-build ARCH=x86-64-bmi2"
 	@echo "make -j profile-build ARCH=x86-64-bmi2 COMP=gcc COMPCXX=g++-9.0"
 	@echo "make -j build ARCH=x86-64-ssse3 COMP=clang"
 	@echo ""
@@ -1054,4 +1051,6 @@ icc-profile-use:
 .depend: $(SRCS)
 	-@$(CXX) $(DEPENDFLAGS) -MM $(SRCS) > $@ 2> /dev/null
 
+ifeq (, $(filter $(MAKECMDGOALS), help strip install clean net objclean profileclean config-sanity))
 -include .depend
+endif
