@@ -139,16 +139,6 @@ public:
 } // namespace
 
 
-/// use_english() tests if the current language environment is Chinese Simplified
-static bool use_english() {
-#ifdef _WIN32
-    return GetSystemDefaultLangID() != 0x0804;
-#else
-    return true;
-#endif
-}
-
-
 /// engine_info() returns the full name of the current PikaFish version. This
 /// will be either "Pikafish YYYY-MM-DD" (where YYYY-MM-DD is the date when
 /// the program was compiled) or "Pikafish <Version>", depending on whether
@@ -160,7 +150,7 @@ string engine_info(bool to_uci) {
   string month, day, year;
   stringstream ss, date(__DATE__); // From compiler, format is "Sep 21 2008"
 
-  ss << (use_english() ? "Pikafish " : "皮卡鱼 ") << Version << setfill('0');
+  ss << "Pikafish " << Version << setfill('0');
 
   if (Version.empty())
   {
@@ -168,11 +158,7 @@ string engine_info(bool to_uci) {
       ss << year << "-" << setw(2) << (1 + months.find(month) / 4) << "-" << setw(2) << day;
   }
 
-  if (use_english())
-      ss << (to_uci ? "\nid author " : " by ") << "the Pikafish developers (see AUTHORS file)";
-  else
-      ss << (to_uci ? "\nid author " : " 开发团队: ") << "皮卡鱼开发团队(详情请查看作者文件)"
-         << (to_uci ? "" : "\n皮卡鱼(http://pikafish.org)是开源免费的象棋引擎, 欢迎加入我们的QQ群: 755655813");
+  ss << (to_uci ? "\nid author " : " by ") << "the Pikafish developers (see AUTHORS file)";
 
   return ss.str();
 }

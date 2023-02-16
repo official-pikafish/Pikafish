@@ -1,5 +1,7 @@
 <div align="center">
 
+  [![Pikafish][pikafish-logo]][website-link]
+
   [![Build][build-badge]][build-link]
   [![License][license-badge]][license-link]
   <br>
@@ -115,8 +117,8 @@ change them via a chess GUI. This is a list of available UCI options in Pikafish
     the file. Other locations, such as the directory that contains the binary and the
     working directory, are also searched.
 
-  * #### UCI_AnalyseMode
-    An option handled by your GUI.
+  * #### UCI_WDLCentipawn
+    Use WDL statistics to calculate centipawn score.
 
   * #### UCI_ShowWDL
     If enabled, show approximate WDL statistics as part of the engine output.
@@ -146,6 +148,12 @@ change them via a chess GUI. This is a list of available UCI options in Pikafish
   * #### nodestime
     Tells the engine to use nodes searched instead of wall time to account for
     elapsed time. Useful for engine testing.
+
+  * #### Rule60
+    Use 60 move rule in gameplay.
+
+  * #### Strict3Fold
+    Not only use 3 fold repetition at root nodes, but also use 3 fold at non-root nodes. Enable this will help get better analyses results but lose elo.
 
   * #### Debug Log File
     Write all communication to and from the engine into a text file.
@@ -291,32 +299,33 @@ The engine testing is done on [Fishtest][fishtest-link].
 If you want to help improve Pikafish, please read this [guideline][guideline-link]
 first, where the basics of Pikafish development are explained.
 
-[authors-link]:			https://github.com/PikaCat-OuO/Pikafish/blob/master/AUTHORS
-[build-badge]:			https://img.shields.io/github/workflow/status/PikaCat-OuO/Pikafish/Pikafish?style=for-the-badge&label=pikafish&logo=github
-[build-link]:				https://github.com/PikaCat-OuO/Pikafish/actions/workflows/pikafish.yml
-[commits-badge]:		https://img.shields.io/github/commits-since/PikaCat-OuO/Pikafish/latest?style=for-the-badge
-[commits-link]:			https://github.com/PikaCat-OuO/Pikafish/commits/master
+[authors-link]:			https://github.com/official-pikafish/Pikafish/blob/master/AUTHORS
+[build-badge]:			https://img.shields.io/github/actions/workflow/status/official-pikafish/Pikafish/pikafish.yml?branch=master&style=for-the-badge&label=pikafish&logo=github
+[build-link]:				https://github.com/official-pikafish/Pikafish/actions/workflows/pikafish.yml
+[commits-badge]:		https://img.shields.io/github/commits-since/official-pikafish/Pikafish/latest?style=for-the-badge
+[commits-link]:			https://github.com/official-pikafish/Pikafish/commits/master
 [discord-badge]:			https://img.shields.io/discord/1013130558089478144?style=for-the-badge&label=discord&logo=Discord
 [discord-link]:			https://discord.com/invite/uSb3RXb7cY
 [qqgroup-link]:			https://jq.qq.com/?_wv=1027&k=FORWUh4W
 [fishtest-badge]:			https://img.shields.io/website?style=for-the-badge&down_color=red&down_message=Offline&label=Fishtest&up_color=success&up_message=Online&url=https://test.pikafish.org
 [fishtest-link]:			https://test.pikafish.org
-[github-link]:			https://github.com/PikaCat-OuO/Pikafish
+[github-link]:			https://github.com/official-pikafish/Pikafish
 [guideline-link]:			https://github.com/glinscott/fishtest/wiki/Creating-my-first-test
-[license-badge]:			https://img.shields.io/github/license/PikaCat-OuO/Pikafish?style=for-the-badge&label=license&color=success
-[license-link]:			https://github.com/PikaCat-OuO/Pikafish/blob/master/Copying.txt
+[license-badge]:			https://img.shields.io/github/license/official-pikafish/Pikafish?style=for-the-badge&label=license&color=success
+[license-link]:			https://github.com/official-pikafish/Pikafish/blob/master/Copying.txt
 [lockpages-link]:			https://docs.microsoft.com/en-us/sql/database-engine/configure-windows/enable-the-lock-pages-in-memory-option-windows
-[nnue-license-link]:		https://github.com/PikaCat-OuO/Pikafish/blob/master/NNUE-License.txt
+[nnue-license-link]:		https://github.com/official-pikafish/Pikafish/blob/master/NNUE-License.txt
 [nodchip-link]:			https://github.com/nodchip/Stockfish
+[pikafish-logo]:			https://pikafish.org/assets/logo_256.png
 [programming-link]:		https://www.chessprogramming.org/Main_Page
 [programmingsf-link]:	https://www.chessprogramming.org/Stockfish
 [pytorch-link]:			https://github.com/glinscott/nnue-pytorch
 [rammap-link]:			https://docs.microsoft.com/en-us/sysinternals/downloads/rammap
-[readme-link]:			https://github.com/PikaCat-OuO/Pikafish/blob/master/README.md
-[release-badge]:			https://img.shields.io/github/v/release/PikaCat-OuO/Pikafish?style=for-the-badge&label=official%20release
-[release-link]:			https://github.com/PikaCat-OuO/Pikafish/releases/latest
-[src-link]:				https://github.com/PikaCat-OuO/Pikafish/tree/master/src
-[tools-link]:				https://github.com/PikaCat-OuO/Pikafish/tree/tools
+[readme-link]:			https://github.com/official-pikafish/Pikafish/blob/master/README.md
+[release-badge]:			https://img.shields.io/github/v/release/official-pikafish/Pikafish?style=for-the-badge&label=official%20release
+[release-link]:			https://github.com/official-pikafish/Pikafish/releases/latest
+[src-link]:				https://github.com/official-pikafish/Pikafish/tree/master/src
+[tools-link]:				https://github.com/official-pikafish/Pikafish/tree/tools
 [uci-link]:				https://www.shredderchess.com/download/div/uci.zip
 [website-badge]:		https://img.shields.io/website?style=for-the-badge&down_color=red&down_message=Offline&label=website&up_color=success&up_message=Online&url=https://pikafish.org
 [website-link]:			https://pikafish.org
