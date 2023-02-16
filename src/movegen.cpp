@@ -1,6 +1,6 @@
 /*
   Stockfish, a UCI chess playing engine derived from Glaurung 2.1
-  Copyright (C) 2004-2022 The Stockfish developers (see AUTHORS file)
+  Copyright (C) 2004-2023 The Stockfish developers (see AUTHORS file)
 
   Stockfish is free software: you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -41,7 +41,7 @@ namespace {
     {
         Square from = pop_lsb(bb);
         Bitboard b = 0;
-        if (Pt != CANNON)
+        if constexpr (Pt != CANNON)
             b = (Pt != PAWN ? attacks_bb<Pt>(from, pos.pieces())
                             : pawn_attacks_bb(Us, from)) & target;
         else {
@@ -59,7 +59,7 @@ namespace {
         }
 
         // To check, you either move freely a blocker or make a direct check.
-        if (Type == QUIET_CHECKS)
+        if constexpr (Type == QUIET_CHECKS)
             b &= Pt == CANNON ? ~line_bb(from, pos.square<KING>(~Us)) & (pos.check_squares(Pt) | HollowCannonDiscover)
                               : (pos.blockers_for_king(~Us) & from) ? ~line_bb(from, pos.square<KING>(~Us))
                               : (pos.check_squares(Pt) | HollowCannonDiscover);
@@ -95,7 +95,7 @@ namespace {
     if (Type != EVASIONS && (Type != QUIET_CHECKS || pos.blockers_for_king(~Us) & ksq))
     {
         Bitboard b = attacks_bb<KING>(ksq) & target;
-        if (Type == QUIET_CHECKS)
+        if constexpr (Type == QUIET_CHECKS)
             b &= ~attacks_bb<ROOK>(pos.square<KING>(~Us));
 
         while (b)
@@ -123,7 +123,7 @@ ExtMove* generate(const Position& pos, ExtMove* moveList) {
   Color us = pos.side_to_move();
 
   // Prepare hollow cannon discover bitboard when generate quite check moves
-  if (Type == QUIET_CHECKS)
+  if constexpr (Type == QUIET_CHECKS)
   {
       Square ksq = pos.square<KING>(~us);
       Bitboard hollowCannons = attacks_bb<ROOK>(ksq, pos.pieces()) & pos.pieces(us, CANNON);

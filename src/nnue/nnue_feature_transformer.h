@@ -1,6 +1,6 @@
 /*
   Stockfish, a UCI chess playing engine derived from Glaurung 2.1
-  Copyright (C) 2004-2022 The Stockfish developers (see AUTHORS file)
+  Copyright (C) 2004-2023 The Stockfish developers (see AUTHORS file)
 
   Stockfish is free software: you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -400,12 +400,13 @@ namespace Stockfish::Eval::NNUE {
 
         // Gather all features to be updated.
         const Square ksq = pos.square<KING>(Perspective);
+        const int ab = bool(pos.count<ADVISOR>(Perspective)) * 2 + bool(pos.count<BISHOP>(Perspective));
         FeatureSet::IndexList removed[2], added[2];
         FeatureSet::append_changed_indices<Perspective>(
-          ksq, next->dirtyPiece, removed[0], added[0]);
+          ksq, ab, next->dirtyPiece, removed[0], added[0]);
         for (StateInfo *st2 = pos.state(); st2 != next; st2 = st2->previous)
           FeatureSet::append_changed_indices<Perspective>(
-            ksq, st2->dirtyPiece, removed[1], added[1]);
+            ksq, ab, st2->dirtyPiece, removed[1], added[1]);
 
         // Mark the accumulators as computed.
         next->accumulator.computed[Perspective] = true;

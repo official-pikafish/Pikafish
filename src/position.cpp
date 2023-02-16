@@ -1,6 +1,6 @@
 /*
   Stockfish, a UCI chess playing engine derived from Glaurung 2.1
-  Copyright (C) 2004-2022 The Stockfish developers (see AUTHORS file)
+  Copyright (C) 2004-2023 The Stockfish developers (see AUTHORS file)
 
   Stockfish is free software: you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -22,6 +22,7 @@
 #include <cstring> // For std::memset, std::memcmp
 #include <iomanip>
 #include <sstream>
+#include <string_view>
 
 #include "bitboard.h"
 #include "misc.h"
@@ -42,7 +43,7 @@ namespace Zobrist {
 
 namespace {
 
-const string PieceToChar(" RACPNBK racpnbk");
+constexpr std::string_view PieceToChar(" RACPNBK racpnbk");
 
 constexpr Piece Pieces[] = { W_ROOK, W_ADVISOR, W_CANNON, W_PAWN, W_KNIGHT, W_BISHOP, W_KING,
                              B_ROOK, B_ADVISOR, B_CANNON, B_PAWN, B_KNIGHT, B_BISHOP, B_KING };
@@ -199,7 +200,6 @@ void Position::set_check_info(StateInfo* si) const {
 void Position::set_state(StateInfo* si) const {
 
   si->key = 0;
-  si->material[WHITE] = si->material[BLACK] = VALUE_ZERO;
   si->checkersBB = checkers_to(~sideToMove, square<KING>(sideToMove));
   si->move = MOVE_NONE;
 
@@ -210,9 +210,6 @@ void Position::set_state(StateInfo* si) const {
       Square s = pop_lsb(b);
       Piece pc = piece_on(s);
       si->key ^= Zobrist::psq[pc][s];
-
-      if (type_of(pc) != KING)
-          si->material[color_of(pc)] += PieceValue[MG][pc];
   }
 
   if (sideToMove == BLACK)
@@ -311,10 +308,10 @@ Bitboard Position::attackers_to(Square s, Bitboard occupied) const {
 
 Bitboard Position::checkers_to(Color c, Square s, Bitboard occupied) const {
 
-    return ( (pawn_attacks_to_bb(c, s)           & pieces(   PAWN))
-           | (attacks_bb<KNIGHT_TO>(s, occupied) & pieces( KNIGHT))
-           | (attacks_bb<     ROOK>(s, occupied) & pieces(   ROOK))
-           | (attacks_bb<   CANNON>(s, occupied) & pieces( CANNON)) ) & pieces(c);
+    return ( (pawn_attacks_to_bb(c, s)           & pieces(      PAWN))
+           | (attacks_bb<KNIGHT_TO>(s, occupied) & pieces(    KNIGHT))
+           | (attacks_bb<     ROOK>(s, occupied) & pieces(KING, ROOK))
+           | (attacks_bb<   CANNON>(s, occupied) & pieces(    CANNON)) ) & pieces(c);
 }
 
 
@@ -336,10 +333,6 @@ bool Position::legal(Move m) const {
   // A non-king move is always legal when not moving the king or a pinned piece if we don't need slow check
   if (!st->needSlowCheck && ksq != to && !(blockers_for_king(us) & from))
       return true;
-
-  // Flying general rule
-  if (attacks_bb<ROOK>(ksq, occupied) & pieces(~us, KING))
-      return false;
 
   // If the moving piece is a king, check whether the destination square is
   // attacked by the opponent.
@@ -453,6 +446,9 @@ void Position::do_move(Move m, StateInfo& newSt, bool givesCheck) {
   Piece pc = piece_on(from);
   Piece captured = piece_on(to);
 
+  dp.requires_refresh[WHITE] = pc == W_KING;
+  dp.requires_refresh[BLACK] = pc == B_KING;
+
   assert(color_of(pc) == us);
   assert(captured == NO_PIECE || color_of(captured) == them);
   assert(type_of(captured) != KING);
@@ -461,8 +457,6 @@ void Position::do_move(Move m, StateInfo& newSt, bool givesCheck) {
   {
       Square capsq = to;
 
-      st->material[them] -= PieceValue[MG][captured];
-
       dp.dirty_num = 2;  // 1 piece moved, 1 piece captured
       dp.piece[1] = captured;
       dp.from[1] = capsq;
@@ -470,6 +464,11 @@ void Position::do_move(Move m, StateInfo& newSt, bool givesCheck) {
 
       // Update board and piece lists
       remove_piece(capsq);
+
+      dp.requires_refresh[WHITE] |= captured == W_ADVISOR && !count<ADVISOR>(WHITE);
+      dp.requires_refresh[WHITE] |= captured ==  W_BISHOP && !count< BISHOP>(WHITE);
+      dp.requires_refresh[BLACK] |= captured == B_ADVISOR && !count<ADVISOR>(BLACK);
+      dp.requires_refresh[BLACK] |= captured ==  B_BISHOP && !count< BISHOP>(BLACK);
 
       // Update hash key
       k ^= Zobrist::psq[captured][capsq];
@@ -557,8 +556,9 @@ void Position::do_null_move(StateInfo& newSt) {
   newSt.previous = st;
   st = &newSt;
 
-  st->dirtyPiece.dirty_num = 0;
-  st->dirtyPiece.piece[0] = NO_PIECE; // Avoid checks in UpdateAccumulator()
+  st->dirtyPiece.dirty_num = 0; // Avoid checks in UpdateAccumulator()
+  st->dirtyPiece.requires_refresh[WHITE] = false;
+  st->dirtyPiece.requires_refresh[BLACK] = false;
   st->accumulator.computed[WHITE] = false;
   st->accumulator.computed[BLACK] = false;
 
@@ -798,11 +798,21 @@ void Position::set_chase_info(int d) {
     // Rollback until we reached st - d
     for (int i = 0; i < d; ++i) {
         uint16_t& chase = st->chased;
+        // Redirect *check* and *mate threat* to *chase all pieces simultaneously* in Chinese Rule
+        if (ChineseRule && (st->checkersBB || (MateThreatDepth && has_mate_threat()))) {
+            chase = 0xFFFF;
+            light_undo_move(st->move, st->capturedPiece);
+            st = st->previous;
+            continue;
+        }
         ChaseMap newChase = chased(~sideToMove);
         light_undo_move(st->move, st->capturedPiece);
         st = st->previous;
         // Take the exact diff to detect the chase
         chase = newChase & chased(sideToMove);
+        // Redirect *chase* to *chase all pieces simultaneously* in Chinese Rule
+        if (ChineseRule && chase)
+            chase = 0xFFFF;
     }
 }
 
@@ -821,18 +831,49 @@ bool Position::chase_legal(Move m, Bitboard b) const {
     assert(color_of(moved_piece(m)) == us);
     assert(piece_on(square<KING>(us)) == make_piece(us, KING));
 
-    // Flying general rule
-    Square ksq = type_of(moved_piece(m)) == KING ? to : square<KING>(us);
-    if (attacks_bb<ROOK>(ksq, occupied) & pieces(~us, KING))
-        return false;
-
     // If the moving piece is a king, check whether the destination
     // square is not under new attack after the move.
     if (type_of(piece_on(from)) == KING)
         return !(checkers_to(~us, to, occupied) & ~b);
 
     // A non-king move is chase legal if the king is not under new attack after the move.
-    return !((checkers_to(~us, ksq, occupied) & ~square_bb(to)) & ~b);
+    return !((checkers_to(~us, square<KING>(us), occupied) & ~square_bb(to)) & ~b);
+}
+
+
+/// Position::has_mate_threat() calculate mate threat less than certain moves.
+
+bool Position::has_mate_threat(Depth d) {
+    bool mateThreat = false;
+    if (d == -1) {
+        // Use null move to detect mate threats
+        StateInfo nullSt;
+        do_null_move(nullSt);
+        mateThreat = has_mate_threat(0);
+        undo_null_move();
+    } else if (d < MateThreatDepth) {
+        StateInfo tempSt[2];
+        // Try all check moves and see if we can continuously check to get a mate
+        for (const auto& check : MoveList<LEGAL>(*this)) {
+            if (gives_check(check)) {
+              do_move(check, tempSt[0]);
+              bool solvable = false;
+              for (const auto& evasion : MoveList<LEGAL>(*this)) {
+                  do_move(evasion, tempSt[1]);
+                  solvable = !has_mate_threat(d + 1);
+                  undo_move(evasion);
+                  // If there exists any evasions, the check is solvable
+                  if (solvable)
+                      break;
+              }
+              undo_move(check);
+              // If there exists any checks that are not solvable, there exists a mate threat
+              if (!solvable)
+                  return true;
+            }
+        }
+    }
+    return mateThreat;
 }
 
 
@@ -853,7 +894,7 @@ ChaseMap Position::chased(Color c) {
     std::swap(c, sideToMove);
 
     // King and pawn can legally perpetual chase
-    Bitboard attackers = pieces(sideToMove) & ~pieces(sideToMove, KING, PAWN);
+    Bitboard attackers = pieces(sideToMove) ^ pieces(sideToMove, KING, PAWN);
     while (attackers)
     {
         Square from = pop_lsb(attackers);
@@ -904,7 +945,7 @@ ChaseMap Position::chased(Color c) {
                     if (attackerType == type_of(piece_on(to)))
                     {
                         sideToMove = ~sideToMove;
-                        if (   (attackerType == KNIGHT && !(attacks_bb<KNIGHT>(to, pieces()) & from))
+                        if (   (attackerType == KNIGHT && ((between_bb(from, to) ^ to) & pieces()))
                             || !chase_legal(make_move(to, from), checkThem))
                             chase |= make_chase(idBoard[to], idBoard[from]);
                         sideToMove = ~sideToMove;
@@ -929,7 +970,7 @@ bool Position::rule_judge(Value& result, int ply) const {
 
     // Restore rule 60 by adding back the checks, if rule 60 is disabled, reset rule 60 to zero
     int end = st->pliesFromNull;
-    if (UseRule60)
+    if (EnableRule60)
         end = std::min(std::max(0, 2 * (st->check10[WHITE] - 10)) + st->rule60
                      + std::max(0, 2 * (st->check10[BLACK] - 10)), end);
     else
@@ -937,7 +978,7 @@ bool Position::rule_judge(Value& result, int ply) const {
 
     if (end >= 4 && filter[st->key])
     {
-        int cnt = 1;
+        int cnt = 0;
         StateInfo* stp = st->previous->previous;
         bool perpetualThem = st->checkersBB && stp->checkersBB;
         bool perpetualUs = st->previous->checkersBB && stp->previous->checkersBB;
@@ -949,7 +990,7 @@ bool Position::rule_judge(Value& result, int ply) const {
 
             // Return a score if a position repeats once earlier but strictly
             // after the root, or repeats twice before or at the root.
-            if (stp->key == st->key && ++cnt == (!Strict3Fold && ply > i ? 2 : 3))
+            if (stp->key == st->key && ++cnt == (!StrictThreeFold && ply > i ? 1 : 2))
             {
                 if (perpetualThem || perpetualUs)
                 {
@@ -965,21 +1006,21 @@ bool Position::rule_judge(Value& result, int ply) const {
                 rollback.set_chase_info(i);
 
                 // Chasing detection
-                cnt = 1;
+                cnt = 0;
                 stp = st->previous->previous;
                 uint16_t chaseThem = st->chased & stp->chased;
                 uint16_t chaseUs = st->previous->chased & stp->previous->chased;
 
                 for (int j = 4; j <= i; j += 2)
                 {
+                    stp = stp->previous->previous;
                     // Chase stops after i moves
                     if (j != i)
-                        chaseThem &= stp->previous->previous->chased;
-                    stp = stp->previous->previous;
+                        chaseThem &= stp->chased;
 
                     // Return a score if a position repeats once earlier but strictly
                     // after the root, or repeats twice before or at the root.
-                    if (stp->key == st->key && ++cnt == (!Strict3Fold && ply > i ? 2 : 3))
+                    if (stp->key == st->key && ++cnt == (!StrictThreeFold && ply > i ? 1 : 2))
                     {
                         result = (chaseThem || chaseUs) ? (!chaseUs ? mate_in(ply) : !chaseThem ? mated_in(ply) : VALUE_DRAW) : VALUE_DRAW;
                         return true;

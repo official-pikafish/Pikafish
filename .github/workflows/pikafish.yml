@@ -54,14 +54,14 @@ jobs:
   linux:
     strategy:	
       matrix:	
-        arch: ["-avx512", "-bmi2", "-avx2", "-modern", ""]	
+        arch: ["-vnni512", "-avx512", "-bmi2", "-avx2", "-modern", ""]	
     env:
       COMPILER: clang++
       COMP: clang
     defaults:
       run:
         working-directory: src
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
 
     steps:
       - uses: actions/checkout@v3
@@ -72,16 +72,22 @@ jobs:
           make -j build ARCH=x86-64${{ matrix.arch }} EXE=pikafish${{ matrix.arch }}
           strip pikafish${{ matrix.arch }}
 
-      - name: Setup Android NDK
-        if: ${{ matrix.arch == '' }}
-        uses: nttld/setup-ndk@v1.2.0
-        with:
-          ndk-version: r25b
-
-      - name: make arm
+      - name: install ndk
         if: ${{ matrix.arch == '' }}
         run: |
-          export PATH=$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin:$PATH
+          NDKV="21.4.7075529"
+          ANDROID_ROOT=/usr/local/lib/android
+          ANDROID_SDK_ROOT=$ANDROID_ROOT/sdk
+          SDKMANAGER=$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager
+          echo "y" | $SDKMANAGER "ndk;$NDKV"
+          ANDROID_NDK_ROOT=$ANDROID_SDK_ROOT/ndk/$NDKV
+          ANDROID_NDK_BIN=$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin
+          echo "ANDROID_NDK_BIN=$ANDROID_NDK_BIN" >> $GITHUB_ENV
+
+      - name: make armv8
+        if: ${{ matrix.arch == '' }}
+        run: |
+          export PATH=${{ env.ANDROID_NDK_BIN }}:$PATH
           export LDFLAGS="-static -Wno-unused-command-line-argument"
           export COMP="ndk"
           export COMPILER="aarch64-linux-android21-clang++"
@@ -104,4 +110,38 @@ jobs:
           name: pikafish	
           path: |
             linux/pikafish*
+            AUTHORS
+
+  macos:
+    strategy:	
+      matrix:	
+        arch: ["-vnni512", "-avx512", "-bmi2", "-avx2", "-modern", ""]	
+    env:
+      COMPILER: clang++
+      COMP: clang
+    defaults:
+      run:
+        working-directory: src
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: make macos
+        run: |
+          make clean
+          make -j build ARCH=x86-64${{ matrix.arch }} EXE=pikafish${{ matrix.arch }}
+          strip pikafish${{ matrix.arch }}
+
+      - name: copy binary to folder
+        run: |
+          cd ..
+          mkdir macos
+          cp src/pikafish* macos
+
+      - uses: actions/upload-artifact@v3	
+        with:	
+          name: pikafish	
+          path: |
+            macos/pikafish*
             AUTHORS

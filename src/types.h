@@ -1,6 +1,6 @@
 /*
   Stockfish, a UCI chess playing engine derived from Glaurung 2.1
-  Copyright (C) 2004-2022 The Stockfish developers (see AUTHORS file)
+  Copyright (C) 2004-2023 The Stockfish developers (see AUTHORS file)
 
   Stockfish is free software: you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -382,6 +382,8 @@ struct DirtyPiece {
   // From and to squares, which may be SQ_NONE
   Square from[2];
   Square to[2];
+
+  bool requires_refresh[2];
 };
 
 /// Score enum stores a middlegame and an endgame value in a single integer (enum).
@@ -478,6 +480,10 @@ constexpr Color operator~(Color c) {
   return Color(c ^ BLACK); // Toggle color
 }
 
+constexpr Piece operator~(Piece pc) {
+  return Piece(pc ^ 8); // Swap color of piece B_KNIGHT <-> W_KNIGHT
+}
+
 constexpr Value mate_in(int ply) {
   return VALUE_MATE - ply;
 }
@@ -513,6 +519,14 @@ constexpr File file_of(Square s) {
 
 constexpr Rank rank_of(Square s) {
   return Rank(s / FILE_NB);
+}
+
+constexpr Square flip_rank(Square s) { // Swap A0 <-> A9
+  return make_square(file_of(s), Rank(RANK_9 - rank_of(s)));
+}
+
+constexpr Square flip_file(Square s) { // Swap A0 <-> I0
+  return make_square(File(FILE_I - file_of(s)), rank_of(s));
 }
 
 constexpr Square from_sq(Move m) {
