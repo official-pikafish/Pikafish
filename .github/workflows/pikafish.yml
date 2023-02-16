@@ -111,3 +111,37 @@ jobs:
           path: |
             linux/pikafish*
             AUTHORS
+
+  macos:
+    strategy:	
+      matrix:	
+        arch: ["-vnni512", "-avx512", "-bmi2", "-avx2", "-modern", ""]	
+    env:
+      COMPILER: clang++
+      COMP: clang
+    defaults:
+      run:
+        working-directory: src
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: make macos
+        run: |
+          make clean
+          make -j build ARCH=x86-64${{ matrix.arch }} EXE=pikafish${{ matrix.arch }}
+          strip pikafish${{ matrix.arch }}
+
+      - name: copy binary to folder
+        run: |
+          cd ..
+          mkdir macos
+          cp src/pikafish* macos
+
+      - uses: actions/upload-artifact@v3	
+        with:	
+          name: pikafish	
+          path: |
+            macos/pikafish*
+            AUTHORS
