@@ -1,6 +1,6 @@
 /*
   Stockfish, a UCI chess playing engine derived from Glaurung 2.1
-  Copyright (C) 2004-2022 The Stockfish developers (see AUTHORS file)
+  Copyright (C) 2004-2023 The Stockfish developers (see AUTHORS file)
 
   Stockfish is free software: you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -73,13 +73,17 @@ int pawn_eval(Value v, int ply);
 std::string value(Value v, int ply = 64);
 std::string square(Square s);
 std::string move(Move m);
-std::string pv(const Position& pos, Depth depth, Value alpha, Value beta);
+std::string pv(const Position& pos, Depth depth);
 std::string wdl(Value v, int ply);
 Move to_move(const Position& pos, std::string& str);
 
 } // namespace UCI
 
 extern UCI::OptionsMap Options;
+extern bool EnableRule60;
+extern bool StrictThreeFold;
+extern uint8_t MateThreatDepth;
+extern bool ChineseRule;
 
 } // namespace Stockfish
 

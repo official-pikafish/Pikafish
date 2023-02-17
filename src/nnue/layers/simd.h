@@ -1,6 +1,6 @@
 /*
   Stockfish, a UCI chess playing engine derived from Glaurung 2.1
-  Copyright (C) 2004-2022 The Stockfish developers (see AUTHORS file)
+  Copyright (C) 2004-2023 The Stockfish developers (see AUTHORS file)
 
   Stockfish is free software: you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -153,7 +153,7 @@ namespace Stockfish::Simd {
       asm(
         "vpdpbusd %[b0], %[a0], %[acc]\n\t"
         "vpdpbusd %[b1], %[a1], %[acc]\n\t"
-        : [acc]"+v"(acc)
+        : [acc]"+&v"(acc)
         : [a0]"v"(a0), [b0]"vm"(b0), [a1]"v"(a1), [b1]"vm"(b1)
       );
 #   else
@@ -249,7 +249,7 @@ namespace Stockfish::Simd {
       asm(
         VNNI_PREFIX "vpdpbusd %[b0], %[a0], %[acc]\n\t"
         VNNI_PREFIX "vpdpbusd %[b1], %[a1], %[acc]\n\t"
-        : [acc]"+v"(acc)
+        : [acc]"+&v"(acc)
         : [a0]"v"(a0), [b0]"vm"(b0), [a1]"v"(a1), [b1]"vm"(b1)
       );
 #   else

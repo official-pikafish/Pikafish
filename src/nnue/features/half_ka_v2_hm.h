@@ -1,6 +1,6 @@
 /*
   Stockfish, a UCI chess playing engine derived from Glaurung 2.1
-  Copyright (C) 2004-2022 The Stockfish developers (see AUTHORS file)
+  Copyright (C) 2004-2023 The Stockfish developers (see AUTHORS file)
 
   Stockfish is free software: you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -37,35 +37,31 @@ namespace Stockfish::Eval::NNUE::Features {
 
     // unique number for each piece type on each square
     enum {
-      PS_NONE      =  0,
-      PS_W_ROOK    =  0,
-      PS_B_ROOK    =  1  * SQUARE_NB,
-      PS_W_ADVISOR =  2  * SQUARE_NB,
-      PS_B_ADVISOR =  3  * SQUARE_NB,
-      PS_W_CANNON  =  4  * SQUARE_NB,
-      PS_B_CANNON  =  5  * SQUARE_NB,
-      PS_W_PAWN    =  6  * SQUARE_NB,
-      PS_B_PAWN    =  7  * SQUARE_NB,
-      PS_W_KNIGHT  =  8  * SQUARE_NB,
-      PS_B_KNIGHT  =  9  * SQUARE_NB,
-      PS_W_BISHOP  =  10 * SQUARE_NB,
-      PS_B_BISHOP  =  11 * SQUARE_NB,
-      PS_KING      =  12 * SQUARE_NB,
-      PS_NB        =  13 * SQUARE_NB
+      PS_NONE           =  0,
+      PS_W_ROOK         =  0,
+      PS_B_ROOK         =  1 * SQUARE_NB,
+      PS_W_CANNON       =  2 * SQUARE_NB,
+      PS_B_CANNON       =  3 * SQUARE_NB,
+      PS_W_KNIGHT       =  4 * SQUARE_NB,
+      PS_B_KNIGHT       =  5 * SQUARE_NB,
+      PS_AB             =  6 * SQUARE_NB, // Advisor and Bishop  are merged into one plane
+      PS_W_KP           =  7 * SQUARE_NB, // White King and Pawn are merged into one plane
+      PS_B_KP           =  8 * SQUARE_NB, // Black King and Pawn are merged into one plane
+      PS_NB             =  9 * SQUARE_NB
     };
 
     static constexpr IndexType PieceSquareIndex[COLOR_NB][PIECE_NB] = {
       // convention: W - us, B - them
       // viewed from other side, W and B are reversed
-      { PS_NONE, PS_W_ROOK, PS_W_ADVISOR, PS_W_CANNON, PS_W_PAWN, PS_W_KNIGHT, PS_W_BISHOP, PS_KING,
-        PS_NONE, PS_B_ROOK, PS_B_ADVISOR, PS_B_CANNON, PS_B_PAWN, PS_B_KNIGHT, PS_B_BISHOP, PS_KING },
-      { PS_NONE, PS_B_ROOK, PS_B_ADVISOR, PS_B_CANNON, PS_B_PAWN, PS_B_KNIGHT, PS_B_BISHOP, PS_KING,
-        PS_NONE, PS_W_ROOK, PS_W_ADVISOR, PS_W_CANNON, PS_W_PAWN, PS_W_KNIGHT, PS_W_BISHOP, PS_KING, }
+      { PS_NONE, PS_W_ROOK, PS_AB, PS_W_CANNON, PS_W_KP, PS_W_KNIGHT, PS_AB, PS_W_KP,
+        PS_NONE, PS_B_ROOK, PS_AB, PS_B_CANNON, PS_B_KP, PS_B_KNIGHT, PS_AB, PS_B_KP },
+      { PS_NONE, PS_B_ROOK, PS_AB, PS_B_CANNON, PS_B_KP, PS_B_KNIGHT, PS_AB, PS_B_KP,
+        PS_NONE, PS_W_ROOK, PS_AB, PS_W_CANNON, PS_W_KP, PS_W_KNIGHT, PS_AB, PS_W_KP, }
     };
 
     // Index of a feature for a given king position and another piece on some square
     template<Color Perspective>
-    static IndexType make_index(Square s, Piece pc, Square ksq);
+    static IndexType make_index(Square s, Piece pc, Square ksq, int ab);
 
    public:
     // Feature name
@@ -75,7 +71,7 @@ namespace Stockfish::Eval::NNUE::Features {
     static constexpr std::uint32_t HashValue = 0xd17b100;
 
     // Number of feature dimensions
-    static constexpr IndexType Dimensions = 6 * static_cast<IndexType>(PS_NB);
+    static constexpr IndexType Dimensions = 6 * 2 * 2 * static_cast<IndexType>(PS_NB);
 
 #define M(s) ((1 << 3) | s)
     // Stored as (mirror << 3 | bucket)
@@ -135,6 +131,7 @@ namespace Stockfish::Eval::NNUE::Features {
     template<Color Perspective>
     static void append_changed_indices(
       Square ksq,
+      int ab,
       const DirtyPiece& dp,
       IndexList& removed,
       IndexList& added

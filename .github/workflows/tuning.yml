@@ -1,0 +1,29 @@
+name: Tune
+
+on:
+  push:
+    branches:
+      - tune
+
+jobs:
+  linux:
+    env:
+      COMPILER: clang++
+      COMP: clang
+      ARCH: x86-64-bmi2
+    defaults:
+      run:
+        working-directory: src
+    runs-on: ubuntu-20.04
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: make
+        run: make clean && make -j build && make strip
+
+      - name: upload to fishtest
+        run: curl https://test.pikafish.org/api/pre_upload -F file=@pikafish -F "file_type=engine" -F "password=${{ secrets.NOTHING }}"
+
+      - name: print variables table
+        run: printf 'quit' | ./pikafish
