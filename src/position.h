@@ -1,6 +1,6 @@
 /*
   Stockfish, a UCI chess playing engine derived from Glaurung 2.1
-  Copyright (C) 2004-2022 The Stockfish developers (see AUTHORS file)
+  Copyright (C) 2004-2023 The Stockfish developers (see AUTHORS file)
 
   Stockfish is free software: you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -25,6 +25,7 @@
 #include <string>
 
 #include "bitboard.h"
+#include "psqt.h"
 #include "types.h"
 
 #include "nnue/nnue_accumulator.h"
@@ -38,8 +39,9 @@ namespace Stockfish {
 struct StateInfo {
 
   // Copied when making a move
-  Value  material[COLOR_NB];
-  int    pliesFromNull;
+  int16_t check10[COLOR_NB];
+  int     rule60;
+  int     pliesFromNull;
 
   // Not copied when making a move (will be recomputed anyhow)
   Key        key;
@@ -138,10 +140,12 @@ public:
   Color side_to_move() const;
   int game_ply() const;
   Thread* this_thread() const;
-  bool is_repeated(Value& result, int ply = 0) const;
+  bool rule_judge(Value& result, int ply = 0) const;
+  int rule60_count() const;
+  bool has_mate_threat(Depth d = -1);
   ChaseMap chased(Color c);
-  Value material_sum() const;
-  Value material_diff() const;
+  Value material() const;
+  Value psq_score() const;
 
   // Position consistency check, for debugging
   bool pos_is_ok() const;
@@ -164,6 +168,8 @@ private:
   void light_undo_move(Move m, Piece captured, int id = 0);
   void set_chase_info(int d);
   bool chase_legal(Move m, Bitboard b) const;
+  template<bool AfterMove>
+  Key adjust_key60(Key k) const;
 
   // Data members
   Piece board[SQUARE_NB];
@@ -174,6 +180,7 @@ private:
   StateInfo* st;
   int gamePly;
   Color sideToMove;
+  Score psq;
 
   // Bloom filter for fast repetition filtering
   BloomFilter filter;
@@ -182,7 +189,7 @@ private:
   int idBoard[SQUARE_NB];
 };
 
-extern std::ostream& operator<<(std::ostream& os, const Position& pos);
+std::ostream& operator<<(std::ostream& os, const Position& pos);
 
 inline Color Position::side_to_move() const {
   return sideToMove;
@@ -276,19 +283,30 @@ inline Bitboard Position::check_squares(PieceType pt) const {
 }
 
 inline Key Position::key() const {
-  return st->key;
+  return adjust_key60<false>(st->key);
 }
 
-inline Value Position::material_sum() const {
-  return st->material[WHITE] + st->material[BLACK];
+template<bool AfterMove>
+inline Key Position::adjust_key60(Key k) const
+{
+    return st->rule60 < 14 - AfterMove
+               ? k : k ^ make_key((st->rule60 - (14 - AfterMove)) / 8);
 }
 
-inline Value Position::material_diff() const {
-  return st->material[sideToMove] - st->material[~sideToMove];
+inline Value Position::material() const {
+  return mg_value(psq);
+}
+
+inline Value Position::psq_score() const {
+  return (sideToMove == WHITE ? 1 : -1) * eg_value(psq);
 }
 
 inline int Position::game_ply() const {
   return gamePly;
+}
+
+inline int Position::rule60_count() const {
+  return st->rule60;
 }
 
 inline bool Position::capture(Move m) const {
@@ -312,6 +330,7 @@ inline void Position::put_piece(Piece pc, Square s) {
   byColorBB[color_of(pc)] |= s;
   pieceCount[pc]++;
   pieceCount[make_piece(color_of(pc), ALL_PIECES)]++;
+  psq += PSQT::psq[pc][s];
 }
 
 inline void Position::remove_piece(Square s) {
@@ -323,6 +342,7 @@ inline void Position::remove_piece(Square s) {
   board[s] = NO_PIECE;
   pieceCount[pc]--;
   pieceCount[make_piece(color_of(pc), ALL_PIECES)]--;
+  psq -= PSQT::psq[pc][s];
 }
 
 inline void Position::move_piece(Square from, Square to) {
@@ -334,6 +354,7 @@ inline void Position::move_piece(Square from, Square to) {
   byColorBB[color_of(pc)] ^= fromTo;
   board[from] = NO_PIECE;
   board[to] = pc;
+  psq += PSQT::psq[pc][to] - PSQT::psq[pc][from];
 }
 
 inline void Position::do_move(Move m, StateInfo& newSt) {

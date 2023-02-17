@@ -1,5 +1,5 @@
 # Pikafish, a UCI chess playing engine derived from Stockfish
-# Copyright (C) 2004-2022 The Pikafish developers (see AUTHORS file)
+# Copyright (C) 2004-2023 The Pikafish developers (see AUTHORS file)
 #
 # Pikafish is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -61,7 +61,7 @@ endif
 
 ### Source and object files
 SRCS = benchmark.cpp bitboard.cpp evaluate.cpp main.cpp \
-	misc.cpp movegen.cpp movepick.cpp position.cpp \
+	misc.cpp movegen.cpp movepick.cpp position.cpp psqt.cpp \
 	search.cpp thread.cpp timeman.cpp tt.cpp uci.cpp ucioption.cpp tune.cpp \
 	nnue/evaluate_nnue.cpp nnue/features/half_ka_v2_hm.cpp \
 	compression/zip.cpp emscripten/wasm_simd.cpp
@@ -396,10 +396,6 @@ endif
 
 CXXFLAGS = $(ENV_CXXFLAGS) -Wall -Wcast-qual -fno-exceptions -std=c++17 $(EXTRACXXFLAGS)
 
-ifeq ($(target_windows),yes)
-	CXXFLAGS += -finput-charset=UTF-8 -fexec-charset=GBK
-endif
-
 DEPENDFLAGS = $(ENV_DEPENDFLAGS) -std=c++17
 LDFLAGS = $(ENV_LDFLAGS) $(EXTRALDFLAGS)
 
@@ -410,7 +406,7 @@ endif
 ifeq ($(COMP),gcc)
 	comp=gcc
 	CXX=g++
-	CXXFLAGS += -pedantic -Wextra -Wshadow
+	CXXFLAGS += -pedantic -Wextra -Wshadow -Wmissing-declarations
 
 	ifeq ($(arch),$(filter $(arch),armv7 armv8 riscv64))
 		ifeq ($(OS),Android)
@@ -454,7 +450,7 @@ ifeq ($(COMP),mingw)
 			CXX=i686-w64-mingw32-c++-posix
 		endif
 	endif
-	CXXFLAGS += -pedantic -Wextra -Wshadow
+	CXXFLAGS += -pedantic -Wextra -Wshadow -Wmissing-declarations
 endif
 
 ifeq ($(COMP),icc)
@@ -470,7 +466,8 @@ ifeq ($(COMP),clang)
 		CXX=x86_64-w64-mingw32-clang++
 	endif
 
-	CXXFLAGS += -pedantic -Wextra -Wshadow
+	CXXFLAGS += -pedantic -Wextra -Wshadow -Wmissing-prototypes \
+	            -Wconditional-uninitialized
 
 	ifeq ($(filter $(KERNEL),Darwin OpenBSD FreeBSD),)
 	ifeq ($(target_windows),)
@@ -497,9 +494,14 @@ endif
 ifeq ($(KERNEL),Darwin)
 	CXXFLAGS += -mmacosx-version-min=10.14
 	LDFLAGS += -mmacosx-version-min=10.14
-	ifneq ($(arch),any)
-		CXXFLAGS += -arch $(arch)
-		LDFLAGS += -arch $(arch)
+	ifeq ($(arch),wasm)
+		CXXFLAGS += -s WASM=1
+		LDFLAGS += -s WASM=1
+	else
+		ifneq ($(arch),any)
+			CXXFLAGS += -arch $(arch)
+			LDFLAGS += -arch $(arch)
+		endif
 	endif
 	XCRUN = xcrun
 endif
@@ -533,7 +535,11 @@ endif
 # Compile for webassembly
 ifeq ($(COMP),emscripten)
 	comp=emscripten
+	ifneq ($(KERNEL),Darwin)
 	CXX=em++
+	else
+	CXX=emcc
+	endif
 	CXXFLAGS += -flto -DUSE_POPCNT
 	LDFLAGS += \
 		-flto \
@@ -599,7 +605,7 @@ endif
 
 ### Sometimes gcc is really clang
 ifeq ($(COMP),gcc)
-	gccversion = $(shell $(CXX) --version)
+	gccversion = $(shell $(CXX) --version 2>/dev/null)
 	gccisclang = $(findstring clang,$(gccversion))
 	ifneq ($(gccisclang),)
 		profile_make = clang-profile-make
@@ -829,8 +835,8 @@ help:
 	@echo "Supported targets:"
 	@echo ""
 	@echo "help                    > Display architecture details"
-	@echo "build                   > Standard build"
-	@echo "profile-build           > Faster build (with profile-guided optimization)"
+	@echo "profile-build           > standard build with profile-guided optimization"
+	@echo "build                   > skip profile-guided optimization"
 	@echo "strip                   > Strip executable"
 	@echo "install                 > Install executable"
 	@echo "clean                   > Clean up"
@@ -861,7 +867,10 @@ help:
 	@echo "general-64              > unspecified 64-bit"
 	@echo "general-32              > unspecified 32-bit"
 	@echo "riscv64                 > RISC-V 64-bit"
-	@echo ""
+	@echo "wasm-single             > wasm single thread"
+	@echo "wasm-multi              > wasm multiple thread"
+	@echo "wasm-single-simd128     > wasm single thread SIMD 128"
+	@echo "wasm-multi-simd128      > wasm multi thread SIMD 128"
 	@echo "Supported compilers:"
 	@echo ""
 	@echo "gcc                     > Gnu compiler (default)"
@@ -870,16 +879,18 @@ help:
 	@echo "icc                     > Intel compiler"
 	@echo "ndk                     > Google NDK to cross-compile for Android"
 	@echo ""
-	@echo "Simple examples. If you don't know what to do, you likely want to run: "
+	@echo "Simple examples. If you don't know what to do, you likely want to run one of: "
 	@echo ""
-	@echo "make -j build ARCH=x86-64  (A portable, slow compile for 64-bit systems)"
-	@echo "make -j build ARCH=x86-32  (A portable, slow compile for 32-bit systems)"
+	@echo "make -j profile-build ARCH=x86-64-avx2    # typically a fast compile for common systems "
+	@echo "make -j profile-build ARCH=x86-64-modern  # A more portable compile for 64-bit systems "
+	@echo "make -j profile-build ARCH=x86-64         # A portable compile for 64-bit systems "
 	@echo ""
-	@echo "Advanced examples, for experienced users looking for performance: "
+	@echo "Advanced examples, for experienced users: "
 	@echo ""
-	@echo "make    help  ARCH=x86-64-bmi2"
+	@echo "make -j profile-build ARCH=x86-64-bmi2"
 	@echo "make -j profile-build ARCH=x86-64-bmi2 COMP=gcc COMPCXX=g++-9.0"
 	@echo "make -j build ARCH=x86-64-ssse3 COMP=clang"
+	@echo "make -j build ARCH=wasm-single COMP=emscripten"
 	@echo ""
 	@echo "-------------------------------"
 ifeq ($(SUPPORTED_ARCH)$(help_skip_sanity), true)
@@ -1054,4 +1065,6 @@ icc-profile-use:
 .depend: $(SRCS)
 	-@$(CXX) $(DEPENDFLAGS) -MM $(SRCS) > $@ 2> /dev/null
 
+ifeq (, $(filter $(MAKECMDGOALS), help strip install clean net objclean profileclean config-sanity))
 -include .depend
+endif
