@@ -32,6 +32,9 @@
 #include "tt.h"
 #include "uci.h"
 
+#define TOML_EXCEPTIONS 0
+#include "external/toml.hpp"
+
 using namespace std;
 
 namespace Stockfish {
@@ -236,6 +239,20 @@ void UCI::loop(int argc, char* argv[]) {
 
   pos.set(StartFEN, &states->back(), Threads.main());
 
+  // Load options from config file
+  if (ifstream("pikafish.toml").good()) {
+      const auto& configs = toml::parse_file("pikafish.toml");
+      if (configs.failed())
+          sync_cout << configs.error() << sync_endl;
+      for (const auto& [key, value] : configs)
+          if (value.is_string()) {
+              istringstream is("name "s + key.data() + " value " + value.as_string()->get());
+              setoption(is);
+          } else
+              sync_cout << "Error while parsing key-value pair: encountered non-string value" << sync_endl
+                        << "\t(error occurred at " << value.source() << ")" << sync_endl;
+  }
+
   for (int i = 1; i < argc; ++i)
       cmd += std::string(argv[i]) + " ";
 
@@ -291,7 +308,7 @@ void UCI::loop(int argc, char* argv[]) {
                        "\nIt is released as free software licensed under the GNU GPLv3 License."
                        "\nPikafish is normally used with a graphical user interface (GUI) and implements"
                        "\nthe Universal Chess Interface (UCI) protocol to communicate with a GUI, an API, etc."
-                       "\nFor any further information, visit https://github.com/PikaCat-OuO/Pikafish#readme"
+                       "\nFor any further information, visit https://github.com/official-pikafish/Pikafish#readme"
                        "\nor read the corresponding README.md and Copying.txt files distributed along with this program.\n" << sync_endl;
       else if (!token.empty() && token[0] != '#')
           sync_cout << "Unknown command: '" << cmd << "'. Type help for more information." << sync_endl;
@@ -384,12 +401,9 @@ string UCI::move(Move m) {
 
 
 /// UCI::to_move() converts a string representing a move in coordinate notation
-/// (g1f3, a7a8q) to the corresponding legal Move, if any.
+/// (g1f3, a7a8) to the corresponding legal Move, if any.
 
 Move UCI::to_move(const Position& pos, string& str) {
-
-  if (str.length() == 5)
-      str[4] = char(tolower(str[4])); // The promotion piece character must be lowercased
 
   for (const auto& m : MoveList<LEGAL>(pos))
       if (str == UCI::move(m))
