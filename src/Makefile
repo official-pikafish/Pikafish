@@ -60,11 +60,11 @@ SRCS = benchmark.cpp bitboard.cpp evaluate.cpp main.cpp \
 	misc.cpp movegen.cpp movepick.cpp position.cpp psqt.cpp \
 	search.cpp thread.cpp timeman.cpp tt.cpp uci.cpp ucioption.cpp tune.cpp \
 	nnue/evaluate_nnue.cpp nnue/features/half_ka_v2_hm.cpp \
-	compression/zip.cpp
+	external/zip.cpp
 
 OBJS = $(notdir $(SRCS:.cpp=.o))
 
-VPATH = compression:nnue:nnue/features
+VPATH = external:nnue:nnue/features
 
 ### ==========================================================================
 ### Section 2. High-level Configuration
@@ -837,12 +837,12 @@ clean: objclean profileclean
 
 # clean binaries and objects
 objclean:
-	@rm -f pikafish pikafish.exe *.o ./compression/*.o ./nnue/*.o ./nnue/features/*.o
+	@rm -f pikafish pikafish.exe *.o ./external/*.o ./nnue/*.o ./nnue/features/*.o
 
 # clean auxiliary profiling files
 profileclean:
 	@rm -rf profdir
-	@rm -f bench.txt *.gcda *.gcno ./compression/*.gcda ./nnue/*.gcda ./nnue/features/*.gcda *.s
+	@rm -f bench.txt *.gcda *.gcno ./external/*.gcda ./nnue/*.gcda ./nnue/features/*.gcda *.s
 	@rm -f pikafish.profdata *.profraw
 	@rm -f pikafish.*args*
 	@rm -f pikafish.*lt*

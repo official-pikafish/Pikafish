@@ -62,7 +62,7 @@ typedef WORD(*fun5_t)();
 
 #include "misc.h"
 #include "thread.h"
-#include "compression/zip.h"
+#include "external/zip.h"
 
 using namespace std;
 
