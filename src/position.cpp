@@ -395,9 +395,12 @@ bool Position::gives_check(Move m) const {
       return true;
 
   // Is there a discovered check?
-  if (attacks_bb<ROOK>(ksq) & pieces(sideToMove, CANNON))
-      return checkers_to(sideToMove, ksq, (pieces() ^ from) | to);
-  else if ((blockers_for_king(~sideToMove) & from) && !aligned(from, to, ksq))
+  if (attacks_bb<ROOK>(ksq) & pieces(sideToMove, CANNON)) {
+      Bitboard checkers = checkers_to(sideToMove, ksq, (pieces() ^ from) | to);
+      if (pt == CANNON)
+          checkers &= ~square_bb(from);
+      return checkers;
+  } else if ((blockers_for_king(~sideToMove) & from) && !aligned(from, to, ksq))
       return true;
 
   return false;
