@@ -136,6 +136,10 @@ namespace Stockfish::Eval::NNUE {
     return (bool)stream;
   }
 
+  void hint_common_parent_position(const Position& pos) {
+    featureTransformer->hint_common_access(pos);
+  }
+
   // Evaluation function. Perform differential calculation.
   Value evaluate(const Position& pos, int* complexity) {
 
