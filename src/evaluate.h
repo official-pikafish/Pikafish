@@ -44,6 +44,7 @@ namespace Eval {
 
     std::string trace(Position& pos);
     Value evaluate(const Position& pos, int* complexity = nullptr);
+    void hint_common_parent_position(const Position& pos);
 
     void init();
     void verify();
