@@ -575,6 +575,9 @@ ifeq ($(COMP),emscripten)
 
 	ifeq ($(debug),yes)
 		LDFLAGS += --emit-symbol-map
+		ifeq ($(COMP),emscripten)
+			LDFLAGS +=  -g -fdebug-compilation-dir='..'
+		endif
 	endif
 endif
 
