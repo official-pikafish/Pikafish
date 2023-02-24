@@ -96,7 +96,7 @@ namespace Trace {
 
   enum Tracing { NO_TRACE, TRACE };
 
-  static double to_cp(Value v) { return double(v) / PawnValueEg; }
+  static double to_cp(Value v) { return double(v) / UCI::NormalizeToPawnValue; }
 }
 
 using namespace Trace;

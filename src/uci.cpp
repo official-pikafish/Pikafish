@@ -208,8 +208,12 @@ namespace {
      // The coefficients of a third-order polynomial fit is based on the fishtest data
      // for two parameters that need to transform eval to the argument of a logistic
      // function.
-     long double as[] = {  7.42211754, -26.5119614,   46.99271939, 340.67524114 };
-     long double bs[] = { -0.50136481,   4.9383151,  -11.86324223,  89.56581513 };
+     constexpr long double as[] = {  7.42211754, -26.5119614,   46.99271939, 340.67524114 };
+     constexpr long double bs[] = { -0.50136481,   4.9383151,  -11.86324223,  89.56581513 };
+
+     // Enforce that NormalizeToPawnValue corresponds to a 50% win rate at ply 64
+     static_assert(UCI::NormalizeToPawnValue == int(as[0] + as[1] + as[2] + as[3]));
+
      long double a = (((as[0] * m + as[1]) * m + as[2]) * m) + as[3];
      long double b = (((bs[0] * m + bs[1]) * m + bs[2]) * m) + bs[3];
 
@@ -330,7 +334,7 @@ int UCI::pawn_eval(Value v, int ply) {
 
       return 400 * std::clamp(std::log10((1 + win_loss_rate) / (1 - win_loss_rate)), -mate, mate) + 0.5;
   } else
-      return v * 100 / PawnValueEg;
+      return v * 100 / NormalizeToPawnValue;
 }
 
 
