@@ -128,7 +128,7 @@ ExtMove* generate(const Position& pos, ExtMove* moveList) {
   if constexpr (Type == QUIET_CHECKS)
   {
       OpponentKingSquare = pos.square<KING>(~us);
-      Bitboard hollowCannons = attacks_bb<ROOK>(OpponentKingSquare, pos.pieces()) & pos.pieces(us, CANNON);
+      Bitboard hollowCannons = pos.check_squares(ROOK) & pos.pieces(us, CANNON);
       HollowCannonDiscover = Bitboard(0);
       while (hollowCannons)
           HollowCannonDiscover |= between_bb(OpponentKingSquare, pop_lsb(hollowCannons));
