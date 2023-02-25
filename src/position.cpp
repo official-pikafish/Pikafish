@@ -900,16 +900,24 @@ ChaseMap Position::chased(Color c) {
     {
         Square from = pop_lsb(attackers);
         PieceType attackerType = type_of(piece_on(from));
-        Bitboard attacks = attacks_bb(attackerType, from, pieces()) & pieces(~sideToMove);
+        Bitboard attacks = attacks_bb(attackerType, from, pieces());
 
-        // Exclude attacks on unpromoted pawns and checks
-        attacks &= ~(pieces(~sideToMove, KING, PAWN) ^ (pieces(~sideToMove, PAWN) & HalfBB[sideToMove]));
+        // Restrict to pinners if pinned, otherwise exclude attacks on unpromoted pawns and checks
+        if (blockers_for_king(sideToMove) & from)
+            attacks &= pinners(~sideToMove);
+        else
+            attacks &= (pieces(~sideToMove) ^ pieces(~sideToMove, KING, PAWN)) |
+                       (pieces(~sideToMove, PAWN) & HalfBB[sideToMove]);
+
+        // Skip if no attacks
+        if (!attacks)
+            continue;
 
         // Attacks against stronger pieces
         Bitboard candidates = 0;
         if (attackerType == KNIGHT || attackerType == CANNON)
             candidates = attacks & pieces(~sideToMove, ROOK);
-        if (attackerType == BISHOP || attackerType == ADVISOR)
+        else if (attackerType == BISHOP || attackerType == ADVISOR)
             candidates = attacks & pieces(~sideToMove, ROOK, CANNON, KNIGHT);
         attacks ^= candidates;
         while (candidates)
