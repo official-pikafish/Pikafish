@@ -452,8 +452,13 @@ void Thread::search() {
 
           double totalTime = Time.optimum() * fallingEval * reduction * bestMoveInstability * complexPosition;
 
-          // Stop the search if we have exceeded the totalTime or in case of a single legal move
-          if (Time.elapsed() > totalTime || rootMoves.size() == 1)
+          // Cap used time in case of a single legal move for a better viewer experience in tournaments
+          // yielding correct scores and sufficiently fast moves.
+          if (rootMoves.size() == 1)
+              totalTime = std::min(500.0, totalTime);
+
+          // Stop the search if we have exceeded the totalTime
+          if (Time.elapsed() > totalTime)
           {
               // If we are allowed to ponder do not stop the search now but
               // keep pondering until the GUI sends "ponderhit" or "stop".
