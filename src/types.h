@@ -103,7 +103,6 @@ constexpr bool Is64Bit = true;
 constexpr bool Is64Bit = false;
 #endif
 
-
 // For chasing detection
 union ChaseMap {
     uint64_t attacks[4] { };
@@ -133,10 +132,10 @@ union ChaseMap {
     }
 };
 
-typedef uint64_t Key;
+using Key = uint64_t;
 
 #if defined(__GNUC__) && defined(IS_64BIT)
-typedef __uint128_t Bitboard;
+using Bitboard = __uint128_t;
 #else
 
 struct Bitboard {
@@ -320,7 +319,7 @@ constexpr Value PieceValue[PHASE_NB][PIECE_NB] = {
     VALUE_ZERO, RookValueEg, AdvisorValueEg, CannonValueEg, PawnValueEg, KnightValueEg, BishopValueEg, VALUE_ZERO }
 };
 
-typedef int Depth;
+using Depth = int;
 
 enum : int {
   DEPTH_QS_CHECKS     =  0,
