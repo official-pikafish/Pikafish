@@ -78,10 +78,6 @@ void Thread::clear() {
 void Thread::start_searching() {
 #ifndef SINGLE_THREAD
   mutex.lock();
-#endif
-
-#ifndef SINGLE_THREAD
-  std::lock_guard<std::mutex> lk(mutex);
   searching = true;
   mutex.unlock(); // Unlock before notifying saves a few CPU-cycles
   cv.notify_one(); // Wake up the thread in idle_loop()
