@@ -110,12 +110,14 @@ change them via a chess GUI. This is a list of available UCI options in Pikafish
   * #### Sixty Move Rule
     Enable sixty move rule in gameplay.
 
-  * #### Strict Three Fold
-    Not only use three fold repetition at root nodes, but also use three fold at non-root nodes. Enable this will help to get better analyses results but lose massive elo in actual gameplay.
-
   * #### Mate Threat Depth
     When `ChineseRule` is selected as the `Repetition Rule`, how many move at most one needs to make to get a mate in the mate threat. The higher the value, the lower the speed.
     Especially, if this option is set to 0, then allow mate threat in `ChineseRule`.
+
+  * #### Repetition Fold
+    Choose the fold rule to be used. `ThreeFold` mean three fold everywhere. `RootThreeFold` means three fold at Root, two fold in search. `TwoFold` means two fold everywhere.
+    For ELO compare: `TwoFold > RootThreeFold > ThreeFold`
+    For score accuracy compare: `ThreeFold > RootThreeFold > TwoFold`
 
   * #### Repetition Rule
     Choose to use `AsianRule` or `ChineseRule` to deal with repetitions. Note that `ChineseRule` is not recommend to use unless you are analysing positions, it will loses massive elo in actual gameplay.
