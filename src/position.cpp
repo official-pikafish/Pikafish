@@ -987,23 +987,21 @@ bool Position::rule_judge(Value& result, int ply) const {
 
     if (end >= 4 && filter[st->key])
     {
-        int cnt = 0;
+        int cnt = 1;
         StateInfo* stp = st->previous->previous;
-        bool perpetualThem = st->checkersBB && stp->checkersBB;
-        bool perpetualUs = st->previous->checkersBB && stp->previous->checkersBB;
+        bool checkThem = st->checkersBB && stp->checkersBB;
+        bool checkUs = st->previous->checkersBB && stp->previous->checkersBB;
 
         for (int i = 4; i <= end; i += 2)
         {
             stp = stp->previous->previous;
-            perpetualThem &= bool(stp->checkersBB);
+            checkThem &= bool(stp->checkersBB);
 
-            // Return a score if a position repeats once earlier but strictly
-            // after the root, or repeats twice before or at the root.
-            if (stp->key == st->key && ++cnt == (!StrictThreeFold && ply > i ? 1 : 2))
+            if (stp->key == st->key && ++cnt == (ply > i ? SearchFold : RootFold))
             {
-                if (perpetualThem || perpetualUs)
+                if (checkThem || checkUs)
                 {
-                    result = !perpetualUs ? mate_in(ply) : !perpetualThem ? mated_in(ply) : VALUE_DRAW;
+                    result = !checkUs ? mate_in(ply) : !checkThem ? mated_in(ply) : VALUE_DRAW;
                     return true;
                 }
 
@@ -1015,7 +1013,7 @@ bool Position::rule_judge(Value& result, int ply) const {
                 rollback.set_chase_info(i);
 
                 // Chasing detection
-                cnt = 0;
+                cnt = 1;
                 stp = st->previous->previous;
                 uint16_t chaseThem = st->chased & stp->chased;
                 uint16_t chaseUs = st->previous->chased & stp->previous->chased;
@@ -1027,9 +1025,7 @@ bool Position::rule_judge(Value& result, int ply) const {
                     if (j != i)
                         chaseThem &= stp->chased;
 
-                    // Return a score if a position repeats once earlier but strictly
-                    // after the root, or repeats twice before or at the root.
-                    if (stp->key == st->key && ++cnt == (!StrictThreeFold && ply > i ? 1 : 2))
+                    if (stp->key == st->key && ++cnt == (ply > i ? SearchFold : RootFold))
                     {
                         result = (chaseThem || chaseUs) ? (!chaseUs ? mate_in(ply) : !chaseThem ? mated_in(ply) : VALUE_DRAW) : VALUE_DRAW;
                         return true;
@@ -1041,7 +1037,7 @@ bool Position::rule_judge(Value& result, int ply) const {
             }
 
             if (i + 1 <= end)
-                perpetualUs &= bool(stp->previous->checkersBB);
+                checkUs &= bool(stp->previous->checkersBB);
         }
     }
 
