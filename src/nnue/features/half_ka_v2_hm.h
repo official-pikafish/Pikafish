@@ -74,7 +74,7 @@ namespace Stockfish::Eval::NNUE::Features {
 
 #define M(s) ((1 << 3) | s)
     // Stored as (mirror << 3 | bucket)
-    static constexpr int KingBuckets[SQUARE_NB] = {
+    static constexpr uint8_t KingBuckets[SQUARE_NB] = {
         0,  0,  0,  0,  1, M(0),  0,  0,  0,
         0,  0,  0,  3,  2, M(3),  0,  0,  0,
         0,  0,  0,  4,  5, M(4),  0,  0,  0,
@@ -89,7 +89,7 @@ namespace Stockfish::Eval::NNUE::Features {
 #undef M
 
     // (Mirror, Rotate, ABMap)
-    static constexpr int IndexMap[2 * 2 * 2 * SQUARE_NB] = {
+    static constexpr uint8_t IndexMap[2 * 2 * 2 * SQUARE_NB] = {
         0,  1,  2,  3,  4,  5,  6,  7,  8,
         9, 10, 11, 12, 13, 14, 15, 16, 17,
        18, 19, 20, 21, 22, 23, 24, 25, 26,
