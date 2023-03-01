@@ -107,7 +107,7 @@ using namespace Trace;
 Value Eval::evaluate(const Position& pos, int* complexity) {
 
   int nnueComplexity;
-  Value nnue = NNUE::evaluate(pos, &nnueComplexity);
+  Value nnue = NNUE::evaluate(pos, true, &nnueComplexity);
   Value  psq = pos.psq_score();
 
   // Blend nnue complexity with (semi)classical complexity
