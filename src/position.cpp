@@ -904,7 +904,7 @@ ChaseMap Position::chased(Color c) {
 
         // Restrict to pinners if pinned, otherwise exclude attacks on unpromoted pawns and checks
         if (blockers_for_king(sideToMove) & from)
-            attacks &= pinners(~sideToMove);
+            attacks &= pinners(~sideToMove) & ~pieces(KING);
         else
             attacks &= (pieces(~sideToMove) ^ pieces(~sideToMove, KING, PAWN)) |
                        (pieces(~sideToMove, PAWN) & HalfBB[sideToMove]);
