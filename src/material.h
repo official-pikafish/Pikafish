@@ -13,33 +13,23 @@
   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include <iostream>
 
-#include "bitboard.h"
-#include "position.h"
-#include "material.h"
-#include "search.h"
-#include "thread.h"
-#include "uci.h"
+#ifndef MATERIAL_H_INCLUDED
+#define MATERIAL_H_INCLUDED
 
-using namespace Stockfish;
 
-int main(int argc, char* argv[]) {
+#include "types.h"
 
-  std::cout << engine_info() << std::endl;
 
-  CommandLine::init(argc, argv);
-  UCI::init(Options);
-  Tune::init();
-  Material::init();
-  Bitboards::init();
-  Position::init();
-  Threads.set(size_t(Options["Threads"]));
-  Search::clear(); // After threads are up
-  Eval::NNUE::init();
+namespace Stockfish::Material
+{
 
-  UCI::loop(argc, argv);
+extern Score value[PIECE_NB];
 
-  Threads.set(0);
-  return 0;
-}
+// Fill material array from a set of internally linked parameters
+void init();
+
+} // namespace Stockfish::Material
+
+
+#endif // #ifndef MATERIAL_H_INCLUDED

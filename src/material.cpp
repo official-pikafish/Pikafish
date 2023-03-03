@@ -14,22 +14,26 @@
 */
 
 
-#ifndef PSQT_H_INCLUDED
-#define PSQT_H_INCLUDED
+#include "material.h"
 
+namespace Stockfish {
 
-#include "types.h"
-
-
-namespace Stockfish::PSQT
+namespace Material
 {
 
-extern Score psq[PIECE_NB][SQUARE_NB];
+Score value[PIECE_NB];
 
-// Fill psqt array from a set of internally linked parameters
-void init();
+// Material::init() initializes material tables, mg part is used to
+// calculate material sum, eg part is used to calculate material diff.
+void init() {
 
-} // namespace Stockfish::PSQT
+  for (Piece pc : { W_ROOK, W_ADVISOR, W_CANNON, W_PAWN, W_KNIGHT, W_BISHOP, W_KING })
+  {
+    value[ pc] = make_score(PieceValue[MG][pc], PieceValue[EG][pc]);
+    value[~pc] = make_score(PieceValue[MG][pc], -PieceValue[EG][pc]);
+  }
+}
 
+} // namespace Material
 
-#endif // PSQT_H_INCLUDED
+} // namespace Stockfish

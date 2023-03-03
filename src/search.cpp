@@ -649,7 +649,7 @@ namespace {
         // Providing the hint that this node's accumulator will be used often brings significant Elo gain (13 elo)
         Eval::NNUE::hint_common_parent_position(pos);
         eval = ss->staticEval;
-        complexity = abs(ss->staticEval - pos.psq_score());
+        complexity = abs(ss->staticEval - pos.material_diff());
     }
     else if (ss->ttHit)
     {
@@ -659,7 +659,7 @@ namespace {
             ss->staticEval = eval = evaluate(pos, &complexity);
         else // Fall back to (semi)classical complexity for TT hits, the NNUE complexity is lost
         {
-            complexity = abs(ss->staticEval - pos.psq_score());
+            complexity = abs(ss->staticEval - pos.material_diff());
             if (PvNode)
                Eval::NNUE::hint_common_parent_position(pos);
         }
