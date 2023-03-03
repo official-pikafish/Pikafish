@@ -25,7 +25,7 @@
 #include <string>
 
 #include "bitboard.h"
-#include "psqt.h"
+#include "material.h"
 #include "types.h"
 
 #include "nnue/nnue_accumulator.h"
@@ -144,8 +144,8 @@ public:
   int rule60_count() const;
   bool has_mate_threat(Depth d = -1);
   ChaseMap chased(Color c);
-  Value material() const;
-  Value psq_score() const;
+  Value material_sum() const;
+  Value material_diff() const;
 
   // Position consistency check, for debugging
   bool pos_is_ok() const;
@@ -180,7 +180,7 @@ private:
   StateInfo* st;
   int gamePly;
   Color sideToMove;
-  Score psq;
+  Score material;
 
   // Bloom filter for fast repetition filtering
   BloomFilter filter;
@@ -293,12 +293,12 @@ inline Key Position::adjust_key60(Key k) const
                ? k : k ^ make_key((st->rule60 - (14 - AfterMove)) / 8);
 }
 
-inline Value Position::material() const {
-  return mg_value(psq);
+inline Value Position::material_sum() const {
+  return mg_value(material);
 }
 
-inline Value Position::psq_score() const {
-  return (sideToMove == WHITE ? 1 : -1) * eg_value(psq);
+inline Value Position::material_diff() const {
+  return (sideToMove == WHITE ? 1 : -1) * eg_value(material);
 }
 
 inline int Position::game_ply() const {
@@ -330,7 +330,7 @@ inline void Position::put_piece(Piece pc, Square s) {
   byColorBB[color_of(pc)] |= s;
   pieceCount[pc]++;
   pieceCount[make_piece(color_of(pc), ALL_PIECES)]++;
-  psq += PSQT::psq[pc][s];
+  material += Material::value[pc];
 }
 
 inline void Position::remove_piece(Square s) {
@@ -342,7 +342,7 @@ inline void Position::remove_piece(Square s) {
   board[s] = NO_PIECE;
   pieceCount[pc]--;
   pieceCount[make_piece(color_of(pc), ALL_PIECES)]--;
-  psq -= PSQT::psq[pc][s];
+  material -= Material::value[pc];
 }
 
 inline void Position::move_piece(Square from, Square to) {
@@ -354,7 +354,6 @@ inline void Position::move_piece(Square from, Square to) {
   byColorBB[color_of(pc)] ^= fromTo;
   board[from] = NO_PIECE;
   board[to] = pc;
-  psq += PSQT::psq[pc][to] - PSQT::psq[pc][from];
 }
 
 inline void Position::do_move(Move m, StateInfo& newSt) {
