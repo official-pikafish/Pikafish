@@ -25,7 +25,6 @@
 #include <string>
 
 #include "bitboard.h"
-#include "material.h"
 #include "types.h"
 
 #include "nnue/nnue_accumulator.h"
@@ -39,6 +38,7 @@ namespace Stockfish {
 struct StateInfo {
 
   // Copied when making a move
+  Value   material[COLOR_NB];
   int16_t check10[COLOR_NB];
   int     rule60;
   int     pliesFromNull;
@@ -180,7 +180,6 @@ private:
   StateInfo* st;
   int gamePly;
   Color sideToMove;
-  Score material;
 
   // Bloom filter for fast repetition filtering
   BloomFilter filter;
@@ -294,11 +293,11 @@ inline Key Position::adjust_key60(Key k) const
 }
 
 inline Value Position::material_sum() const {
-  return mg_value(material);
+  return st->material[WHITE] + st->material[BLACK];
 }
 
 inline Value Position::material_diff() const {
-  return (sideToMove == WHITE ? 1 : -1) * eg_value(material);
+  return st->material[sideToMove] - st->material[~sideToMove];
 }
 
 inline int Position::game_ply() const {
@@ -330,7 +329,6 @@ inline void Position::put_piece(Piece pc, Square s) {
   byColorBB[color_of(pc)] |= s;
   pieceCount[pc]++;
   pieceCount[make_piece(color_of(pc), ALL_PIECES)]++;
-  material += Material::value[pc];
 }
 
 inline void Position::remove_piece(Square s) {
@@ -342,7 +340,6 @@ inline void Position::remove_piece(Square s) {
   board[s] = NO_PIECE;
   pieceCount[pc]--;
   pieceCount[make_piece(color_of(pc), ALL_PIECES)]--;
-  material -= Material::value[pc];
 }
 
 inline void Position::move_piece(Square from, Square to) {
