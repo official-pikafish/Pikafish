@@ -55,11 +55,18 @@ jobs:
           mkdir ${{ matrix.config.name }}
           cp src/$EXE ${{ matrix.config.name }}
 
+      - name: Download wiki
+        run: |
+          git clone https://github.com/official-pikafish/Pikafish.wiki.git ../wiki
+          cd ../wiki
+          rm -rf .git
+
       - uses: actions/upload-artifact@v3
         with:	
           name: Pikafish
           path: |
             ${{ matrix.config.name }}/*
+            wiki
             AUTHORS
             Copying.txt
             README.md
