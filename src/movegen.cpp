@@ -25,10 +25,12 @@ namespace Stockfish {
 
 namespace {
 
-  // To store the places where we can result in hollow cannon discovered check
+  // HollowCannonDiscover is used to store the places where we can result in hollow cannon discovered check
   // by inserting a piece in between the hollow cannon and the king.
-  // This has to be thread local to avoid multi-threading race conditions.
+  // OpponentKingSquare is used to store opponent's king square to avoid multiple calls to pos.square<KING>(~Us)
+  // They have to be thread local to avoid multi-threading race conditions.
   thread_local Bitboard HollowCannonDiscover;
+  thread_local Square OpponentKingSquare;
 
   template<Color Us, PieceType Pt, GenType Type>
   ExtMove* generate_moves(const Position& pos, ExtMove* moveList, Bitboard target) {
@@ -60,8 +62,8 @@ namespace {
 
         // To check, you either move freely a blocker or make a direct check.
         if constexpr (Type == QUIET_CHECKS)
-            b &= Pt == CANNON ? ~line_bb(from, pos.square<KING>(~Us)) & (pos.check_squares(Pt) | HollowCannonDiscover)
-                              : (pos.blockers_for_king(~Us) & from) ? ~line_bb(from, pos.square<KING>(~Us))
+            b &= Pt == CANNON ? ~line_bb(from, OpponentKingSquare) & (pos.check_squares(Pt) | HollowCannonDiscover)
+                              : (pos.blockers_for_king(~Us) & from) ? ~line_bb(from, OpponentKingSquare)
                               : (pos.check_squares(Pt) | HollowCannonDiscover);
 
         while (b)
@@ -96,7 +98,7 @@ namespace {
     {
         Bitboard b = attacks_bb<KING>(ksq) & target;
         if constexpr (Type == QUIET_CHECKS)
-            b &= ~attacks_bb<ROOK>(pos.square<KING>(~Us));
+            b &= ~attacks_bb<ROOK>(OpponentKingSquare);
 
         while (b)
             *moveList++ = make_move(ksq, pop_lsb(b));
@@ -125,11 +127,11 @@ ExtMove* generate(const Position& pos, ExtMove* moveList) {
   // Prepare hollow cannon discover bitboard when generate quite check moves
   if constexpr (Type == QUIET_CHECKS)
   {
-      Square ksq = pos.square<KING>(~us);
-      Bitboard hollowCannons = attacks_bb<ROOK>(ksq, pos.pieces()) & pos.pieces(us, CANNON);
+      OpponentKingSquare = pos.square<KING>(~us);
+      Bitboard hollowCannons = pos.check_squares(ROOK) & pos.pieces(us, CANNON);
       HollowCannonDiscover = Bitboard(0);
       while (hollowCannons)
-          HollowCannonDiscover |= between_bb(ksq, pop_lsb(hollowCannons));
+          HollowCannonDiscover |= between_bb(OpponentKingSquare, pop_lsb(hollowCannons));
   }
 
   return us == WHITE ? generate_all<WHITE, Type>(pos, moveList)

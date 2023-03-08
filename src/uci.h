@@ -30,6 +30,13 @@ class Position;
 
 namespace UCI {
 
+// Normalizes the internal value as reported by evaluate or search
+// to the UCI centipawn result used in output. This value is derived from
+// the win_rate_model() such that Stockfish outputs an advantage of
+// "0 centipawns" for a position if the engine has a 50% probability to win
+// from this position in selfplay at fishtest LTC time control.
+const int NormalizeToPawnValue = 368;
+
 class Option;
 
 /// Define a custom comparator, because the UCI options should be case-insensitive
@@ -38,12 +45,12 @@ struct CaseInsensitiveLess {
 };
 
 /// The options container is defined as a std::map
-typedef std::map<std::string, Option, CaseInsensitiveLess> OptionsMap;
+using OptionsMap = std::map<std::string, Option, CaseInsensitiveLess>;
 
 /// The Option class implements each option as specified by the UCI protocol
 class Option {
 
-  typedef void (*OnChange)(const Option&);
+  using OnChange = void (*)(const Option&);
 
 public:
   Option(OnChange = nullptr);
@@ -81,7 +88,8 @@ Move to_move(const Position& pos, std::string& str);
 
 extern UCI::OptionsMap Options;
 extern bool EnableRule60;
-extern bool StrictThreeFold;
+extern uint8_t RootFold;
+extern uint8_t SearchFold;
 extern uint8_t MateThreatDepth;
 extern bool ChineseRule;
 

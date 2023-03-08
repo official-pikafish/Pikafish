@@ -5,75 +5,93 @@ on:
     branches:
       - master
 
-jobs:	
-  windows:	
-    strategy:	
-      matrix:	
-        arch: ["-vnni512", "-avx512", "-bmi2", "-avx2", "-modern", ""]
+jobs:
+  Pikafish:
+    name: ${{ matrix.config.name }}${{ matrix.arch }}
+    runs-on: ${{ matrix.config.os }}
     env:
+      ARCH: x86-64${{ matrix.arch }}
       COMPILER: clang++
       COMP: clang
+      EXE: pikafish${{ matrix.arch }}${{ matrix.config.ext }}
+    strategy:
+      matrix:
+        config:
+          - name: Linux
+            os: ubuntu-20.04 
+            shell: bash {0}
+          - name: MacOS
+            os: macos-latest
+            shell: bash {0}
+          - name: Windows
+            os: windows-latest
+            shell: msys2 {0}
+            ext: .exe
+        arch: ["-vnni512", "-avx512", "-bmi2", "-avx2", "-modern", ""]
     defaults:
       run:
         working-directory: src
-        shell: msys2 {0}
-    runs-on: windows-latest
+        shell: ${{ matrix.config.shell }}
 
-    steps:	
+    steps:
       - uses: actions/checkout@v3
 
       - name: Setup msys and install required packages
+        if: runner.os == 'Windows'
         uses: msys2/setup-msys2@v2
         with:
           msystem: clang64
           install: mingw-w64-clang-x86_64-clang make git expect
 
-      - name: make
+      - name: Compile ${{ matrix.arch }} build
         run: |
           make clean
-          make -j build ARCH=x86-64${{ matrix.arch }} EXE=pikafish${{ matrix.arch }}.exe
-          strip pikafish${{ matrix.arch }}.exe	
+          make -j build EXE=$EXE
+          make strip EXE=$EXE
 
-      - name: copy binary to folder
+      - name: Copy binary to folder
         run: |
           cd ..
-          mkdir windows
-          cp src/pikafish*.exe windows
+          mkdir ${{ matrix.config.name }}
+          cp src/$EXE ${{ matrix.config.name }}
 
-      - uses: actions/upload-artifact@v3	
+      - name: Download wiki
+        run: |
+          git clone https://github.com/official-pikafish/Pikafish.wiki.git ../wiki
+          cd ../wiki
+          rm -rf .git
+
+      - uses: actions/upload-artifact@v3
         with:	
-          name: pikafish
+          name: Pikafish
           path: |
-            windows/pikafish*
+            ${{ matrix.config.name }}/*
+            wiki
             AUTHORS
             Copying.txt
-            NNUE-License.txt
             README.md
             Top CPU Contributors.txt
 
-  linux:
-    strategy:	
-      matrix:	
-        arch: ["-vnni512", "-avx512", "-bmi2", "-avx2", "-modern", ""]	
+  Pikafish-Android:
+    name: Android-${{ matrix.arch }}
+    runs-on: ubuntu-latest
     env:
-      COMPILER: clang++
-      COMP: clang
+      ARCH: ${{ matrix.arch }}
+      COMPILER: aarch64-linux-android21-clang++
+      COMP: ndk
+      EXE: pikafish-${{ matrix.arch }}
+      LDFLAGS: "-static -Wno-unused-command-line-argument"
+    strategy:
+      matrix:
+        arch: ["armv8-dotprod", "armv8"]
     defaults:
       run:
         working-directory: src
-    runs-on: ubuntu-20.04
 
     steps:
       - uses: actions/checkout@v3
 
-      - name: make linux
-        run: |
-          make clean
-          make -j build ARCH=x86-64${{ matrix.arch }} EXE=pikafish${{ matrix.arch }}
-          strip pikafish${{ matrix.arch }}
-
-      - name: install ndk
-        if: ${{ matrix.arch == '' }}
+      - name: Install NDK
         run: |
           NDKV="21.4.7075529"
           ANDROID_ROOT=/usr/local/lib/android
@@ -84,64 +102,22 @@ jobs:
           ANDROID_NDK_BIN=$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin
           echo "ANDROID_NDK_BIN=$ANDROID_NDK_BIN" >> $GITHUB_ENV
 
-      - name: make armv8
-        if: ${{ matrix.arch == '' }}
+      - name: Compile ${{ matrix.arch }} build
         run: |
           export PATH=${{ env.ANDROID_NDK_BIN }}:$PATH
-          export LDFLAGS="-static -Wno-unused-command-line-argument"
-          export COMP="ndk"
-          export COMPILER="aarch64-linux-android21-clang++"
           make clean
-          make -j build ARCH=armv8 EXE=pikafish-arm
-          make strip ARCH=armv8 EXE=pikafish-arm
+          make -j build EXE=$EXE
+          make strip EXE=$EXE
 
-      - name: copy binary to folder
+      - name: Copy binary to folder
         run: |
           cd ..
-          mkdir linux
-          cp src/pikafish* linux
+          mkdir Android
+          cp src/$EXE Android
 
-      - name: upload to fishtest
-        if: ${{ contains(github.event.head_commit.message, '[test]') && (matrix.arch == '-bmi2') }}
-        run: curl -F engine=@pikafish-bmi2 http://test.pikafish.org/api/add_task -F "task_name=${{ github.event.head_commit.message }}" -F "password=${{ secrets.NOTHING }}" -F "game_time=10" -F "inc_time=0.1" -F "depth=-1" -F "nodes=-1" -F "elo0=0" -F "elo1=5" -F "alpha=0.05" -F "beta=0.05" -F "visible=0"
-
-      - uses: actions/upload-artifact@v3	
+      - uses: actions/upload-artifact@v3
         with:	
-          name: pikafish	
+          name: Pikafish	
           path: |
-            linux/pikafish*
-            AUTHORS
-
-  macos:
-    strategy:	
-      matrix:	
-        arch: ["-vnni512", "-avx512", "-bmi2", "-avx2", "-modern", ""]	
-    env:
-      COMPILER: clang++
-      COMP: clang
-    defaults:
-      run:
-        working-directory: src
-    runs-on: macos-latest
-
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: make macos
-        run: |
-          make clean
-          make -j build ARCH=x86-64${{ matrix.arch }} EXE=pikafish${{ matrix.arch }}
-          strip pikafish${{ matrix.arch }}
-
-      - name: copy binary to folder
-        run: |
-          cd ..
-          mkdir macos
-          cp src/pikafish* macos
-
-      - uses: actions/upload-artifact@v3	
-        with:	
-          name: pikafish	
-          path: |
-            macos/pikafish*
+            Android/*
             AUTHORS

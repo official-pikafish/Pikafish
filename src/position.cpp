@@ -200,6 +200,7 @@ void Position::set_check_info(StateInfo* si) const {
 void Position::set_state(StateInfo* si) const {
 
   si->key = 0;
+  si->material[WHITE] = si->material[BLACK] = VALUE_ZERO;
   si->checkersBB = checkers_to(~sideToMove, square<KING>(sideToMove));
   si->move = MOVE_NONE;
 
@@ -210,6 +211,9 @@ void Position::set_state(StateInfo* si) const {
       Square s = pop_lsb(b);
       Piece pc = piece_on(s);
       si->key ^= Zobrist::psq[pc][s];
+
+      if (type_of(pc) != KING)
+          si->material[color_of(pc)] += PieceValue[MG][pc];
   }
 
   if (sideToMove == BLACK)
@@ -396,7 +400,7 @@ bool Position::gives_check(Move m) const {
 
   // Is there a discovered check?
   if (attacks_bb<ROOK>(ksq) & pieces(sideToMove, CANNON))
-      return checkers_to(sideToMove, ksq, (pieces() ^ from) | to);
+      return checkers_to(sideToMove, ksq, (pieces() ^ from) | to) & ~square_bb(from);
   else if ((blockers_for_king(~sideToMove) & from) && !aligned(from, to, ksq))
       return true;
 
@@ -457,6 +461,8 @@ void Position::do_move(Move m, StateInfo& newSt, bool givesCheck) {
   {
       Square capsq = to;
 
+      st->material[them] -= PieceValue[MG][captured];
+
       dp.dirty_num = 2;  // 1 piece moved, 1 piece captured
       dp.piece[1] = captured;
       dp.from[1] = capsq;
@@ -495,6 +501,7 @@ void Position::do_move(Move m, StateInfo& newSt, bool givesCheck) {
 
   // Calculate checkers bitboard (if move gives check)
   st->checkersBB = givesCheck ? checkers_to(us, square<KING>(them)) : Bitboard(0);
+  assert(givesCheck == bool(st->checkersBB));
 
   sideToMove = ~sideToMove;
 
@@ -899,16 +906,24 @@ ChaseMap Position::chased(Color c) {
     {
         Square from = pop_lsb(attackers);
         PieceType attackerType = type_of(piece_on(from));
-        Bitboard attacks = attacks_bb(attackerType, from, pieces()) & pieces(~sideToMove);
+        Bitboard attacks = attacks_bb(attackerType, from, pieces());
 
-        // Exclude attacks on unpromoted pawns and checks
-        attacks &= ~(pieces(~sideToMove, KING, PAWN) ^ (pieces(~sideToMove, PAWN) & HalfBB[sideToMove]));
+        // Restrict to pinners if pinned, otherwise exclude attacks on unpromoted pawns and checks
+        if (blockers_for_king(sideToMove) & from)
+            attacks &= pinners(~sideToMove) & ~pieces(KING);
+        else
+            attacks &= (pieces(~sideToMove) ^ pieces(~sideToMove, KING, PAWN)) |
+                       (pieces(~sideToMove, PAWN) & HalfBB[sideToMove]);
+
+        // Skip if no attacks
+        if (!attacks)
+            continue;
 
         // Attacks against stronger pieces
         Bitboard candidates = 0;
         if (attackerType == KNIGHT || attackerType == CANNON)
             candidates = attacks & pieces(~sideToMove, ROOK);
-        if (attackerType == BISHOP || attackerType == ADVISOR)
+        else if (attackerType == BISHOP || attackerType == ADVISOR)
             candidates = attacks & pieces(~sideToMove, ROOK, CANNON, KNIGHT);
         attacks ^= candidates;
         while (candidates)
@@ -978,23 +993,21 @@ bool Position::rule_judge(Value& result, int ply) const {
 
     if (end >= 4 && filter[st->key])
     {
-        int cnt = 0;
+        int cnt = 1;
         StateInfo* stp = st->previous->previous;
-        bool perpetualThem = st->checkersBB && stp->checkersBB;
-        bool perpetualUs = st->previous->checkersBB && stp->previous->checkersBB;
+        bool checkThem = st->checkersBB && stp->checkersBB;
+        bool checkUs = st->previous->checkersBB && stp->previous->checkersBB;
 
         for (int i = 4; i <= end; i += 2)
         {
             stp = stp->previous->previous;
-            perpetualThem &= bool(stp->checkersBB);
+            checkThem &= bool(stp->checkersBB);
 
-            // Return a score if a position repeats once earlier but strictly
-            // after the root, or repeats twice before or at the root.
-            if (stp->key == st->key && ++cnt == (!StrictThreeFold && ply > i ? 1 : 2))
+            if (stp->key == st->key && ++cnt == (ply > i ? SearchFold : RootFold))
             {
-                if (perpetualThem || perpetualUs)
+                if (checkThem || checkUs)
                 {
-                    result = !perpetualUs ? mate_in(ply) : !perpetualThem ? mated_in(ply) : VALUE_DRAW;
+                    result = !checkUs ? mate_in(ply) : !checkThem ? mated_in(ply) : VALUE_DRAW;
                     return true;
                 }
 
@@ -1006,7 +1019,7 @@ bool Position::rule_judge(Value& result, int ply) const {
                 rollback.set_chase_info(i);
 
                 // Chasing detection
-                cnt = 0;
+                cnt = 1;
                 stp = st->previous->previous;
                 uint16_t chaseThem = st->chased & stp->chased;
                 uint16_t chaseUs = st->previous->chased & stp->previous->chased;
@@ -1018,9 +1031,7 @@ bool Position::rule_judge(Value& result, int ply) const {
                     if (j != i)
                         chaseThem &= stp->chased;
 
-                    // Return a score if a position repeats once earlier but strictly
-                    // after the root, or repeats twice before or at the root.
-                    if (stp->key == st->key && ++cnt == (!StrictThreeFold && ply > i ? 1 : 2))
+                    if (stp->key == st->key && ++cnt == (ply > i ? SearchFold : RootFold))
                     {
                         result = (chaseThem || chaseUs) ? (!chaseUs ? mate_in(ply) : !chaseThem ? mated_in(ply) : VALUE_DRAW) : VALUE_DRAW;
                         return true;
@@ -1032,7 +1043,7 @@ bool Position::rule_judge(Value& result, int ply) const {
             }
 
             if (i + 1 <= end)
-                perpetualUs &= bool(stp->previous->checkersBB);
+                checkUs &= bool(stp->previous->checkersBB);
         }
     }
 

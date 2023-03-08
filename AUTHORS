@@ -6,50 +6,18 @@ New Horizons (skystarspython)
 d:blue (dhbloo)
 Vincentzyx
 
-# Founders of the fishtest infrastructure, spsa tuner
-Vincentzyx
-d:blue (dhbloo)
-
-# NNUE Architecture Enhancement
-PikaCat++ (PikaCat-OuO)
-d:blue (dhbloo)
+# all other authors of Pikafish in alphabetical order
+afkbad (xiangqishare) -> Xiangqi Rule Consultant
+Celine chen，水殿風來 -> Logo Design
+Fabian Fichter (ianfab)
 mualanhlung017
-Vincentzyx
-
-# NNUE trainer, Distributed training
-d:blue (dhbloo)
-Vincentzyx
-以往（subarashikihibi）
-PikaCat++ (PikaCat-OuO)
-张大仙 (fengxs001)
-New Horizons (skystarspython)
-
-# Training data generator
-d:blue (dhbloo)
-张大仙 (fengxs001)
-Vincentzyx
-PikaCat++ (PikaCat-OuO)
-New Horizons (skystarspython)
-
-# Technical support
-Fabian Fichter (ianfab)
-陶然 (pickaxe919)
-以往（subarashikihibi）
-
-# Bug hunting, Chasing rule
-Fabian Fichter (ianfab)
 Nguyen Hong Pham (nguyenpham) -> A completed implementation for Xiangqi rules - DOI 10.3233/ICG-180054
-New Horizons (skystarspython)
+ousc (SunDaiyue)
+以往 (subarashikihibi)
 陶然 (pickaxe919)
-afkbad (xiangqishare)
-Vincentzyx
 wxc
-
-# JieQi Development
 张大仙 (fengxs001)
 
-# Logo Design
-Celine chen，水殿風來
 
 # List of authors for Stockfish
 
@@ -88,6 +56,7 @@ Ben Chaney (Chaneybenjamini)
 Ben Koshy (BKSpurgeon)
 Bill Henry (VoyagerOne)
 Bojun Guo (noobpwnftw, Nooby)
+borg323
 Boštjan Mejak (PedanticHacker)
 braich
 Brian Sheppard (SapphireBrand, briansheppard-toast)
