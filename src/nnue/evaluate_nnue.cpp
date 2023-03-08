@@ -136,13 +136,18 @@ namespace Stockfish::Eval::NNUE {
     return (bool)stream;
   }
 
+  void hint_common_parent_position(const Position& pos) {
+    featureTransformer->hint_common_access(pos);
+  }
+
   // Evaluation function. Perform differential calculation.
-  Value evaluate(const Position& pos, int* complexity) {
+  Value evaluate(const Position& pos, bool adjusted, int* complexity) {
 
     // We manually align the arrays on the stack because with gcc < 9.3
     // overaligning stack variables with alignas() doesn't work correctly.
 
     constexpr uint64_t alignment = CacheLineSize;
+    int delta = 24 - pos.material_sum() / 8192;
 
 #if defined(ALIGNAS_ON_STACK_VARIABLES_BROKEN)
     TransformedFeatureType transformedFeaturesUnaligned[
@@ -163,7 +168,11 @@ namespace Stockfish::Eval::NNUE {
     if (complexity)
         *complexity = abs(psqt - positional) / OutputScale;
 
-    return static_cast<Value>((psqt + positional) / OutputScale);
+    // Give more value to positional evaluation when adjusted flag is set
+    if (adjusted)
+        return static_cast<Value>(((1024 - delta) * psqt + (1024 + delta) * positional) / (1024 * OutputScale));
+    else
+        return static_cast<Value>((psqt + positional) / OutputScale);
   }
 
   struct NnueEvalTrace {
@@ -215,7 +224,7 @@ namespace Stockfish::Eval::NNUE {
 
     buffer[0] = (v < 0 ? '-' : v > 0 ? '+' : ' ');
 
-    int cp = std::abs(100 * v / PawnValueEg);
+    int cp = std::abs(100 * v / UCI::NormalizeToPawnValue);
     if (cp >= 10000)
     {
         buffer[1] = '0' + cp / 10000; cp %= 10000;
@@ -242,7 +251,7 @@ namespace Stockfish::Eval::NNUE {
 
   // format_cp_aligned_dot() converts a Value into (centi)pawns, always keeping two decimals.
   static void format_cp_aligned_dot(Value v, std::stringstream &stream) {
-    const double cp = 1.0 * std::abs(int(v)) / PawnValueEg;
+    const double cp = 1.0 * std::abs(int(v)) / UCI::NormalizeToPawnValue;
 
     stream << (v < 0 ? '-' : v > 0 ? '+' : ' ')
            << std::setiosflags(std::ios::fixed)

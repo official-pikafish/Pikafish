@@ -17,7 +17,6 @@
 
 #include "bitboard.h"
 #include "position.h"
-#include "psqt.h"
 #include "search.h"
 #include "thread.h"
 #include "uci.h"
@@ -32,7 +31,6 @@ int main(int argc, char* argv[]) {
   CommandLine::init(argc, argv);
   UCI::init(Options);
   Tune::init();
-  PSQT::init();
   Bitboards::init();
   Position::init();
   Threads.set(size_t(Options["Threads"]));

@@ -1,0 +1,23 @@
+# This CITATION.cff file was generated with cffinit.
+# Visit https://bit.ly/cffinit to generate yours today!
+
+cff-version: 1.2.0
+title: Pikafish
+message: >-
+  Please cite this software using the metadata from this
+  file.
+type: software
+authors:
+  - name: The Pikafish developers (see AUTHORS file)
+repository-code: 'https://github.com/official-pikafish/Pikafish'
+url: 'https://pikafish.org/'
+repository-artifact: 'https://pikafish.org/'
+abstract: Pikafish is a free and strong UCI xiangqi engine.
+keywords:
+  - xiangqi
+  - artificial intelligence (AI)
+  - tree search
+  - alpha-beta search
+  - neural networks (NN)
+  - efficiently updatable neural networks (NNUE)
+license: GPL-3.0

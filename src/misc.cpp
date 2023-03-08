@@ -32,12 +32,12 @@
 // the calls at compile time), try to load them at runtime. To do this we need
 // first to define the corresponding function pointers.
 extern "C" {
-typedef bool(*fun1_t)(LOGICAL_PROCESSOR_RELATIONSHIP,
-                      PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX, PDWORD);
-typedef bool(*fun2_t)(USHORT, PGROUP_AFFINITY);
-typedef bool(*fun3_t)(HANDLE, CONST GROUP_AFFINITY*, PGROUP_AFFINITY);
-typedef bool(*fun4_t)(USHORT, PGROUP_AFFINITY, USHORT, PUSHORT);
-typedef WORD(*fun5_t)();
+using fun1_t = bool(*)(LOGICAL_PROCESSOR_RELATIONSHIP,
+                       PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX, PDWORD);
+using fun2_t = bool(*)(USHORT, PGROUP_AFFINITY);
+using fun3_t = bool(*)(HANDLE, CONST GROUP_AFFINITY*, PGROUP_AFFINITY);
+using fun4_t = bool(*)(USHORT, PGROUP_AFFINITY, USHORT, PUSHORT);
+using fun5_t = WORD(*)();
 }
 #endif
 
@@ -62,7 +62,7 @@ typedef WORD(*fun5_t)();
 
 #include "misc.h"
 #include "thread.h"
-#include "compression/zip.h"
+#include "external/zip.h"
 
 using namespace std;
 
@@ -433,8 +433,10 @@ void* std_aligned_alloc(size_t alignment, size_t size) {
 #if defined(POSIXALIGNEDALLOC)
   void *mem;
   return posix_memalign(&mem, alignment, size) ? nullptr : mem;
-#elif defined(_WIN32)
+#elif defined(_WIN32) && !defined(_M_ARM) && !defined(_M_ARM64)
   return _mm_malloc(size, alignment);
+#elif defined(_WIN32)
+  return _aligned_malloc(size, alignment);
 #else
   return std::aligned_alloc(alignment, size);
 #endif
@@ -444,8 +446,10 @@ void std_aligned_free(void* ptr) {
 
 #if defined(POSIXALIGNEDALLOC)
   free(ptr);
-#elif defined(_WIN32)
+#elif defined(_WIN32) && !defined(_M_ARM) && !defined(_M_ARM64)
   _mm_free(ptr);
+#elif defined(_WIN32)
+  _aligned_free(ptr);
 #else
   free(ptr);
 #endif
