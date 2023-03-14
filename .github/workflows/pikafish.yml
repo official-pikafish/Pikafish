@@ -36,6 +36,12 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
+      - name: Download required linux packages
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt update
+          sudo apt install clang llvm
+
       - name: Setup msys and install required packages
         if: runner.os == 'Windows'
         uses: msys2/setup-msys2@v2
@@ -43,10 +49,23 @@ jobs:
           msystem: clang64
           install: mingw-w64-clang-x86_64-clang make git expect
 
+      - name: Install unzip on msys
+        if: runner.os == 'Windows'
+        run: |
+          pacman -S unzip --noconfirm
+      
+      - name: Download nnue weight for profile guided optimization build
+        uses: robinraju/release-downloader@v1.7
+        with:
+          latest: true
+          zipBall: true
+          out-file-path: "nnue-weights"
+
       - name: Compile ${{ matrix.arch }} build
         run: |
+          unzip $GITHUB_WORKSPACE/nnue-weights/Pikafish.*.zip pikafish.nnue
           make clean
-          make -j build EXE=$EXE
+          make -j profile-build EXE=$EXE
           make strip EXE=$EXE
 
       - name: Copy binary to folder
@@ -91,6 +110,11 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
+      - name: Download required linux packages
+        run: |
+          sudo apt update
+          sudo apt install qemu-user
+
       - name: Install NDK
         run: |
           NDKV="21.4.7075529"
@@ -101,12 +125,20 @@ jobs:
           ANDROID_NDK_ROOT=$ANDROID_SDK_ROOT/ndk/$NDKV
           ANDROID_NDK_BIN=$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin
           echo "ANDROID_NDK_BIN=$ANDROID_NDK_BIN" >> $GITHUB_ENV
+ 
+      - name: Download nnue weight for profile guided optimization build
+        uses: robinraju/release-downloader@v1.7
+        with:
+          latest: true
+          zipBall: true
+          out-file-path: "nnue-weights"
 
       - name: Compile ${{ matrix.arch }} build
         run: |
           export PATH=${{ env.ANDROID_NDK_BIN }}:$PATH
+          unzip $GITHUB_WORKSPACE/nnue-weights/Pikafish.*.zip pikafish.nnue
           make clean
-          make -j build EXE=$EXE
+          make -j profile-build EXE=$EXE WINE_PATH=$EMU
           make strip EXE=$EXE
 
       - name: Copy binary to folder
