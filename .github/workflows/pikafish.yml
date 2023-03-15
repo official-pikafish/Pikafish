@@ -36,7 +36,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Download required linux packages
+      - name: Install LLVM and Clang
         if: runner.os == 'Linux'
         run: |
           sudo apt update
@@ -76,7 +76,7 @@ jobs:
 
       - name: Download wiki
         run: |
-          git clone https://github.com/official-pikafish/Pikafish.wiki.git ../wiki
+          git clone https://github.com/official-pikafish/Pikafish.wiki.git ../Wiki
           cd ../wiki
           rm -rf .git
 
@@ -85,7 +85,7 @@ jobs:
           name: Pikafish
           path: |
             ${{ matrix.config.name }}/*
-            wiki
+            Wiki
             AUTHORS
             Copying.txt
             README.md
