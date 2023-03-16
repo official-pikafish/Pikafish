@@ -49,12 +49,8 @@ jobs:
           msystem: clang64
           install: mingw-w64-clang-x86_64-clang make git expect
 
-      - name: Install unzip on msys
-        if: runner.os == 'Windows'
-        run: |
-          pacman -S unzip --noconfirm
-      
       - name: Download nnue weight for profile guided optimization build
+        if: runner.os == 'Windows'
         uses: robinraju/release-downloader@v1.7
         with:
           latest: true
@@ -63,9 +59,14 @@ jobs:
 
       - name: Compile ${{ matrix.arch }} build
         run: |
-          unzip $GITHUB_WORKSPACE/nnue-weights/Pikafish.*.zip pikafish.nnue
           make clean
-          make -j profile-build EXE=$EXE
+          if [ "$RUNNER_OS" == "Windows" ]; then
+              pacman -S unzip --noconfirm
+              unzip $GITHUB_WORKSPACE/nnue-weights/Pikafish.*.zip pikafish.nnue
+              make -j profile-build EXE=$EXE
+          else
+              make -j build EXE=$EXE
+          fi
           make strip EXE=$EXE
 
       - name: Copy binary to folder
