@@ -69,6 +69,7 @@ MovePicker::MovePicker(const Position& p, Move ttm, Depth d, const ButterflyHist
 
   stage = (pos.checkers() ? EVASION_TT : MAIN_TT) +
           !(ttm && pos.pseudo_legal(ttm));
+  threatenedPieces = 0;
 }
 
 /// MovePicker constructor for quiescence search
@@ -105,21 +106,19 @@ void MovePicker::score() {
 
   static_assert(Type == CAPTURES || Type == QUIETS || Type == EVASIONS, "Wrong type");
 
-  [[maybe_unused]] Bitboard threatened, threatenedByPawn, threatenedByDefender, threatenedByMinor;
+  [[maybe_unused]] Bitboard threatenedByPawn, threatenedByDefender, threatenedByMinor;
   if constexpr (Type == QUIETS)
   {
       Color us = pos.side_to_move();
-      // squares threatened by pawns
+
       threatenedByPawn     = pos.attacks_by<PAWN>(~us);
-      // squares threatened by defenders or pawns
       threatenedByDefender = pos.attacks_by<ADVISOR>(~us) | pos.attacks_by<BISHOP>(~us) | threatenedByPawn;
-      // squares threatened by minors, defenders or pawns
       threatenedByMinor    = pos.attacks_by< KNIGHT>(~us) | pos.attacks_by<CANNON>(~us) | threatenedByDefender;
 
-      // pieces threatened by pieces of lesser material value
-      threatened =  (pos.pieces(us,            ROOK) & threatenedByMinor)
-                  | (pos.pieces(us,  KNIGHT, CANNON) & threatenedByDefender)
-                  | (pos.pieces(us, ADVISOR, BISHOP) & threatenedByPawn);
+      // Pieces threatened by pieces of lesser material value
+      threatenedPieces =  (pos.pieces(us,            ROOK) & threatenedByMinor)
+                        | (pos.pieces(us,  KNIGHT, CANNON) & threatenedByDefender)
+                        | (pos.pieces(us, ADVISOR, BISHOP) & threatenedByPawn);
   }
 
   for (auto& m : *this) {
@@ -136,7 +135,7 @@ void MovePicker::score() {
                    +     (*continuationHistory[1])[pos.moved_piece(m)][to_sq(m)]
                    +     (*continuationHistory[3])[pos.moved_piece(m)][to_sq(m)]
                    +     (*continuationHistory[5])[pos.moved_piece(m)][to_sq(m)]
-                   +     (threatened & from_sq(m) ?
+                   +     (threatenedPieces & from_sq(m) ?
                             (pt == ROOK                    && !(to_sq(m) & threatenedByMinor)    ? 50000
                           : (pt == KNIGHT || pt == CANNON) && !(to_sq(m) & threatenedByDefender) ? 25000
                           :                                   !(to_sq(m) & threatenedByPawn)     ? 15000

@@ -231,7 +231,7 @@ namespace {
 
 /// UCI::loop() waits for a command from the stdin, parses it and then calls the appropriate
 /// function. It also intercepts an end-of-file (EOF) indication from the stdin to ensure a
-/// graceful exit if the GUI dies unexpectedly. When called with some command-line arguments, 
+/// graceful exit if the GUI dies unexpectedly. When called with some command-line arguments,
 /// like running 'bench', the function returns immediately after the command is executed.
 /// In addition to the UCI ones, some additional debug commands are also supported.
 
