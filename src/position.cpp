@@ -162,7 +162,7 @@ Position& Position::set(const string& fenStr, StateInfo* si, Thread* th) {
   gamePly = std::max(2 * (gamePly - 1), 0) + (sideToMove == BLACK);
 
   thisThread = th;
-  set_state(st);
+  set_state();
 
   assert(pos_is_ok());
 
@@ -172,23 +172,23 @@ Position& Position::set(const string& fenStr, StateInfo* si, Thread* th) {
 
 /// Position::set_check_info() sets king attacks to detect if a move gives check
 
-void Position::set_check_info(StateInfo* si) const {
+void Position::set_check_info() const {
 
   Color  us   = sideToMove;
   Square uksq = square<KING>( us);
   Square oksq = square<KING>(~us);
 
-  si->blockersForKing[ us] = blockers_for_king(pieces(~us), uksq, si->pinners[~us]);
-  si->blockersForKing[~us] = blockers_for_king(pieces( us), oksq, si->pinners[ us]);
+  st->blockersForKing[ us] = blockers_for_king(pieces(~us), uksq, st->pinners[~us]);
+  st->blockersForKing[~us] = blockers_for_king(pieces( us), oksq, st->pinners[ us]);
 
   // We have to take special cares about the cannon and checks
-  si->needSlowCheck = checkers() || (attacks_bb<ROOK>(uksq) & pieces(~us, CANNON));
+  st->needSlowCheck = checkers() || (attacks_bb<ROOK>(uksq) & pieces(~us, CANNON));
 
-  si->checkSquares[PAWN]   = pawn_attacks_to_bb(sideToMove, oksq);
-  si->checkSquares[KNIGHT] = attacks_bb<KNIGHT_TO>(oksq, pieces());
-  si->checkSquares[CANNON] = attacks_bb<CANNON>(oksq, pieces());
-  si->checkSquares[ROOK]   = attacks_bb<ROOK>(oksq, pieces());
-  si->checkSquares[KING]   = si->checkSquares[ADVISOR] = si->checkSquares[BISHOP] = 0;
+  st->checkSquares[PAWN]   = pawn_attacks_to_bb(sideToMove, oksq);
+  st->checkSquares[KNIGHT] = attacks_bb<KNIGHT_TO>(oksq, pieces());
+  st->checkSquares[CANNON] = attacks_bb<CANNON>(oksq, pieces());
+  st->checkSquares[ROOK]   = attacks_bb<ROOK>(oksq, pieces());
+  st->checkSquares[KING]   = st->checkSquares[ADVISOR] = st->checkSquares[BISHOP] = 0;
 }
 
 
@@ -197,27 +197,27 @@ void Position::set_check_info(StateInfo* si) const {
 /// The function is only used when a new position is set up, and to verify
 /// the correctness of the StateInfo data when running in debug mode.
 
-void Position::set_state(StateInfo* si) const {
+void Position::set_state() const {
 
-  si->key = 0;
-  si->material[WHITE] = si->material[BLACK] = VALUE_ZERO;
-  si->checkersBB = checkers_to(~sideToMove, square<KING>(sideToMove));
-  si->move = MOVE_NONE;
+  st->key = 0;
+  st->material[WHITE] = st->material[BLACK] = VALUE_ZERO;
+  st->checkersBB = checkers_to(~sideToMove, square<KING>(sideToMove));
+  st->move = MOVE_NONE;
 
-  set_check_info(si);
+  set_check_info();
 
   for (Bitboard b = pieces(); b; )
   {
       Square s = pop_lsb(b);
       Piece pc = piece_on(s);
-      si->key ^= Zobrist::psq[pc][s];
+      st->key ^= Zobrist::psq[pc][s];
 
       if (type_of(pc) != KING)
-          si->material[color_of(pc)] += PieceValue[MG][pc];
+          st->material[color_of(pc)] += PieceValue[MG][pc];
   }
 
   if (sideToMove == BLACK)
-      si->key ^= Zobrist::side;
+      st->key ^= Zobrist::side;
 }
 
 
@@ -506,7 +506,7 @@ void Position::do_move(Move m, StateInfo& newSt, bool givesCheck) {
   sideToMove = ~sideToMove;
 
   // Update king attacks used for fast check detection
-  set_check_info(st);
+  set_check_info();
 
   assert(pos_is_ok());
 }
@@ -577,7 +577,7 @@ void Position::do_null_move(StateInfo& newSt) {
 
   sideToMove = ~sideToMove;
 
-  set_check_info(st);
+  set_check_info();
 
   assert(pos_is_ok());
 }
@@ -1130,13 +1130,6 @@ bool Position::pos_is_ok() const {
       for (PieceType p2 = PAWN; p2 <= KING; ++p2)
           if (p1 != p2 && (pieces(p1) & pieces(p2)))
               assert(0 && "pos_is_ok: Bitboards");
-
-  StateInfo si = *st;
-  ASSERT_ALIGNED(&si, Eval::NNUE::CacheLineSize);
-
-  set_state(&si);
-  if (std::memcmp(&si, st, sizeof(StateInfo)))
-      assert(0 && "pos_is_ok: State");
 
   for (Piece pc : Pieces)
       if (   pieceCount[pc] != popcount(pieces(color_of(pc), type_of(pc)))

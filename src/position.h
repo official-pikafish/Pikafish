@@ -159,8 +159,8 @@ public:
 
 private:
   // Initialization helpers (used while setting up a position)
-  void set_state(StateInfo* si) const;
-  void set_check_info(StateInfo* si) const;
+  void set_state() const;
+  void set_check_info() const;
 
   // Other helpers
   void move_piece(Square from, Square to);
