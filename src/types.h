@@ -508,6 +508,10 @@ inline Color color_of(Piece pc) {
   return Color(pc >> 3);
 }
 
+constexpr bool is_ok(Move m) {
+  return m != MOVE_NONE && m != MOVE_NULL;
+}
+
 constexpr bool is_ok(Square s) {
   return s >= SQ_A0 && s <= SQ_I9;
 }
@@ -529,10 +533,12 @@ constexpr Square flip_file(Square s) { // Swap A0 <-> I0
 }
 
 constexpr Square from_sq(Move m) {
+  assert(is_ok(m));
   return Square(m >> 7);
 }
 
 constexpr Square to_sq(Move m) {
+  assert(is_ok(m));
   return Square(m & 0x7F);
 }
 
@@ -546,10 +552,6 @@ constexpr Move make_move(Square from, Square to) {
 
 constexpr int make_chase(int piece1, int piece2) {
   return (piece1 << 4) + piece2;
-}
-
-constexpr bool is_ok(Move m) {
-  return from_sq(m) != to_sq(m); // Catch MOVE_NULL and MOVE_NONE
 }
 
 /// Based on a congruential pseudo random number generator

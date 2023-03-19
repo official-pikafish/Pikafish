@@ -389,14 +389,14 @@ std::string UCI::square(Square s) {
 
 string UCI::move(Move m) {
 
-  Square from = from_sq(m);
-  Square to = to_sq(m);
-
   if (m == MOVE_NONE)
       return "(none)";
 
   if (m == MOVE_NULL)
       return "0000";
+
+  Square from = from_sq(m);
+  Square to = to_sq(m);
 
   string move = UCI::square(from) + UCI::square(to);
 
