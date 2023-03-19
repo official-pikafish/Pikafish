@@ -33,6 +33,8 @@
 #include "thread.h"
 #include "uci.h"
 
+#include "nnue/evaluate_nnue.h"
+
 using namespace std;
 
 namespace Stockfish {
@@ -60,7 +62,7 @@ namespace Eval {
         {
             ifstream stream(directory + eval_file, ios::binary);
             stringstream ss = read_zipped_nnue(directory + eval_file);
-            if (load_eval(eval_file, stream) || load_eval(eval_file, ss))
+            if (NNUE::load_eval(eval_file, stream) || NNUE::load_eval(eval_file, ss))
                 currentEvalFileName = eval_file;
         }
   }

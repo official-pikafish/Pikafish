@@ -33,6 +33,7 @@
 #include "timeman.h"
 #include "tt.h"
 #include "uci.h"
+#include "nnue/evaluate_nnue.h"
 
 namespace Stockfish {
 
