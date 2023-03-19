@@ -31,6 +31,7 @@
 #include "timeman.h"
 #include "tt.h"
 #include "uci.h"
+#include "nnue/evaluate_nnue.h"
 
 #define TOML_EXCEPTIONS 0
 #include "external/toml.hpp"
