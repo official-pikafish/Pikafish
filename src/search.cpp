@@ -965,8 +965,7 @@ moves_loop: // When in check, search starts here
               lmrDepth = std::max(lmrDepth, 0);
 
               // Prune moves with negative SEE (~3 Elo)
-              Bitboard occupied;
-              if (!pos.see_ge(move, occupied, Value(-29 * lmrDepth * lmrDepth - 24 * lmrDepth)))
+              if (!pos.see_ge(move, Value(-29 * lmrDepth * lmrDepth - 24 * lmrDepth)))
                   continue;
           }
       }
@@ -1452,7 +1451,6 @@ moves_loop: // When in check, search starts here
                                       prevSq);
 
     int quietCheckEvasions = 0;
-    Bitboard occupied;
 
     // Step 5. Loop through all pseudo-legal moves until no moves remain
     // or a beta cutoff occurs.
@@ -1488,7 +1486,7 @@ moves_loop: // When in check, search starts here
                 continue;
               }
 
-              if (futilityBase <= alpha && !pos.see_ge(move, occupied, VALUE_ZERO + 1))
+              if (futilityBase <= alpha && !pos.see_ge(move, VALUE_ZERO + 1))
               {
                 bestValue = std::max(bestValue, futilityBase);
                 continue;
@@ -1507,7 +1505,7 @@ moves_loop: // When in check, search starts here
               continue;
 
           // Do not search moves with bad enough SEE values (~5 Elo)
-          if (!pos.see_ge(move, occupied, Value(-117)))
+          if (!pos.see_ge(move, Value(-117)))
               continue;
       }
 
