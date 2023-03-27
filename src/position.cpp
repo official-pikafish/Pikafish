@@ -739,6 +739,11 @@ bool Position::see_ge(Move m, Bitboard& occupied, Value threshold) const {
   return bool(res);
 }
 
+bool Position::see_ge(Move m, Value threshold) const {
+    Bitboard occupied;
+    return see_ge(m, occupied, threshold);
+}
+
 
 /// light_do_move() just like do move, but a little lighter
 
