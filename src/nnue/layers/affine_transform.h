@@ -250,8 +250,7 @@ namespace Stockfish::Eval::NNUE::Layers {
 
     // Read network parameters
     bool read_parameters(std::istream& stream) {
-      for (IndexType i = 0; i < OutputDimensions; ++i)
-        biases[i] = read_little_endian<BiasType>(stream);
+      read_little_endian<BiasType>(stream, biases, OutputDimensions);
 
       for (IndexType i = 0; i < OutputDimensions * PaddedInputDimensions; ++i)
         weights[get_weight_index(i)] = read_little_endian<WeightType>(stream);
@@ -261,8 +260,7 @@ namespace Stockfish::Eval::NNUE::Layers {
 
     // Write network parameters
     bool write_parameters(std::ostream& stream) const {
-      for (IndexType i = 0; i < OutputDimensions; ++i)
-          write_little_endian<BiasType>(stream, biases[i]);
+      write_little_endian<BiasType>(stream, biases, OutputDimensions);
 
       for (IndexType i = 0; i < OutputDimensions * PaddedInputDimensions; ++i)
         write_little_endian<WeightType>(stream, weights[get_weight_index(i)]);
@@ -446,8 +444,7 @@ namespace Stockfish::Eval::NNUE::Layers {
 
     // Read network parameters
     bool read_parameters(std::istream& stream) {
-      for (IndexType i = 0; i < OutputDimensions; ++i)
-        biases[i] = read_little_endian<BiasType>(stream);
+      read_little_endian<BiasType>(stream, biases, OutputDimensions);
       for (IndexType i = 0; i < OutputDimensions * PaddedInputDimensions; ++i)
         weights[get_weight_index(i)] = read_little_endian<WeightType>(stream);
 
@@ -456,8 +453,7 @@ namespace Stockfish::Eval::NNUE::Layers {
 
     // Write network parameters
     bool write_parameters(std::ostream& stream) const {
-      for (IndexType i = 0; i < OutputDimensions; ++i)
-        write_little_endian<BiasType>(stream, biases[i]);
+      write_little_endian<BiasType>(stream, biases, OutputDimensions);
 
       for (IndexType i = 0; i < OutputDimensions * PaddedInputDimensions; ++i)
         write_little_endian<WeightType>(stream, weights[get_weight_index(i)]);
