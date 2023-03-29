@@ -1809,7 +1809,7 @@ string UCI::pv(const Position& pos, Depth depth) {
          << " depth "    << d
          << " seldepth " << rootMoves[i].selDepth
          << " multipv "  << i + 1
-         << " score "    << UCI::value(v, pos.game_ply());
+         << " score "    << UCI::value(v);
 
       if (Options["UCI_ShowWDL"])
           ss << UCI::wdl(v, pos.game_ply());

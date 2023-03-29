@@ -981,13 +981,9 @@ ChaseMap Position::chased(Color c) {
 
 bool Position::rule_judge(Value& result, int ply) const {
 
-    // Restore rule 60 by adding back the checks, if rule 60 is disabled, reset rule 60 to zero
-    int end = st->pliesFromNull;
-    if (EnableRule60)
-        end = std::min(std::max(0, 2 * (st->check10[WHITE] - 10)) + st->rule60
-                     + std::max(0, 2 * (st->check10[BLACK] - 10)), end);
-    else
-        st->rule60 = 0;
+    // Restore rule 60 by adding back the checks
+    int end = std::min(std::max(0, 2 * (st->check10[WHITE] - 10)) + st->rule60
+                     + std::max(0, 2 * (st->check10[BLACK] - 10)), st->pliesFromNull);
 
     if (end >= 4 && filter[st->key])
     {
