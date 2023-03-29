@@ -33,9 +33,6 @@
 #include "uci.h"
 #include "nnue/evaluate_nnue.h"
 
-#define TOML_EXCEPTIONS 0
-#include "external/toml.hpp"
-
 using namespace std;
 
 namespace Stockfish {
@@ -199,32 +196,30 @@ namespace {
          << "\nNodes/second    : " << 1000 * nodes / elapsed << endl;
   }
 
-  // The win rate model returns the probability of winning given an eval
-  // and a game ply. It fits the LTC fishtest statistics rather accurately.
-  long double win_rate_model_double(Value v, int ply) {
+  // The win rate model returns the probability of winning (in per mille units) given an
+  // eval and a game ply. It fits the LTC fishtest statistics rather accurately.
+  int win_rate_model(Value v, int ply) {
 
      // The model only captures up to 240 plies, so limit the input and then rescale
-     long double m = std::min(240, ply) / 64.0;
+     double m = std::min(240, ply) / 64.0;
 
      // The coefficients of a third-order polynomial fit is based on the fishtest data
      // for two parameters that need to transform eval to the argument of a logistic
      // function.
-     constexpr long double as[] = {  7.42211754, -26.5119614,   46.99271939, 340.67524114 };
-     constexpr long double bs[] = { -0.50136481,   4.9383151,  -11.86324223,  89.56581513 };
+     constexpr double as[] = {  7.42211754, -26.5119614,   46.99271939, 340.67524114 };
+     constexpr double bs[] = { -0.50136481,   4.9383151,  -11.86324223,  89.56581513 };
 
      // Enforce that NormalizeToPawnValue corresponds to a 50% win rate at ply 64
      static_assert(UCI::NormalizeToPawnValue == int(as[0] + as[1] + as[2] + as[3]));
 
-     long double a = (((as[0] * m + as[1]) * m + as[2]) * m) + as[3];
-     long double b = (((bs[0] * m + bs[1]) * m + bs[2]) * m) + bs[3];
+     double a = (((as[0] * m + as[1]) * m + as[2]) * m) + as[3];
+     double b = (((bs[0] * m + bs[1]) * m + bs[2]) * m) + bs[3];
 
-     // Return the win rate
-     return 1 / (1 + std::exp((a - v) / b));
-  }
+     // Transform the eval to centipawns with limited range
+     double x = std::clamp(double(v), -4000.0, 4000.0);
 
-  // Return the win rate in per mille units rounded to the nearest value
-  int win_rate_model(Value v, int ply) {
-      return int(0.5 + 1000 * win_rate_model_double(v, ply));
+     // Return the win rate in per mille units rounded to the nearest value
+     return int(0.5 + 1000 / (1 + std::exp((a - x) / b)));
   }
 
 } // namespace
@@ -243,20 +238,6 @@ void UCI::loop(int argc, char* argv[]) {
   StateListPtr states(new std::deque<StateInfo>(1));
 
   pos.set(StartFEN, &states->back(), Threads.main());
-
-  // Load options from config file
-  if (ifstream("pikafish.toml").good()) {
-      const auto& configs = toml::parse_file("pikafish.toml");
-      if (configs.failed())
-          sync_cout << configs.error() << sync_endl;
-      for (const auto& [key, value] : configs)
-          if (value.is_string()) {
-              istringstream is("name "s + key.data() + " value " + value.as_string()->get());
-              setoption(is);
-          } else
-              sync_cout << "Error while parsing key-value pair: encountered non-string value" << sync_endl
-                        << "\t(error occurred at " << value.source() << ")" << sync_endl;
-  }
 
   for (int i = 1; i < argc; ++i)
       cmd += std::string(argv[i]) + " ";
@@ -322,37 +303,20 @@ void UCI::loop(int argc, char* argv[]) {
 }
 
 
-/// UCI::pawn_eval() uses the win_rate_model to convert
-/// internal score and ply to an objective pawn evaluation.
-
-int UCI::pawn_eval(Value v, int ply) {
-
-  if (Options["UCI_WDLCentipawn"]) {
-      long double wdl_w = win_rate_model_double( v, ply);
-      long double wdl_l = win_rate_model_double(-v, ply);
-      long double win_loss_rate = wdl_w - wdl_l;
-      constexpr long double mate = double(VALUE_MATE_IN_MAX_PLY - 1) / NormalizeToPawnValue;
-
-      return NormalizeToPawnValue * std::clamp(std::log10((1 + win_loss_rate) / (1 - win_loss_rate)), -mate, mate) + 0.5;
-  } else
-      return v * 100 / NormalizeToPawnValue;
-}
-
-
 /// UCI::value() converts a Value to a string by adhering to the UCI protocol specification:
 ///
 /// cp <x>    The score from the engine's point of view in centipawns.
 /// mate <y>  Mate in 'y' moves (not plies). If the engine is getting mated,
 ///           uses negative values for 'y'.
 
-string UCI::value(Value v, int ply) {
+string UCI::value(Value v) {
 
   assert(-VALUE_INFINITE < v && v < VALUE_INFINITE);
 
   stringstream ss;
 
   if (abs(v) < VALUE_MATE_IN_MAX_PLY)
-      ss << "cp " << UCI::pawn_eval(v, ply);
+      ss << "cp " << v * 100 / NormalizeToPawnValue;
   else
       ss << "mate " << (v > 0 ? VALUE_MATE - v + 1 : -VALUE_MATE - v) / 2;
 

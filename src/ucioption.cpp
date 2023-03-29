@@ -33,7 +33,6 @@ using std::string;
 namespace Stockfish {
 
 UCI::OptionsMap Options; // Global object
-bool EnableRule60 = true;
 uint8_t RootFold = 3;
 uint8_t SearchFold = 2;
 uint8_t MateThreatDepth = 1;
@@ -46,7 +45,6 @@ static void on_clear_hash(const Option&) { Search::clear(); }
 static void on_hash_size(const Option& o) { TT.resize(size_t(o)); }
 static void on_logger(const Option& o) { start_logger(o); }
 static void on_threads(const Option& o) { Threads.set(size_t(o)); }
-static void on_rule60(const Option& o) { EnableRule60 = bool(o); }
 static void on_repetition_fold(const Option& o) {
   if (o == "TwoFold")
     RootFold = SearchFold = 2;
@@ -83,13 +81,11 @@ void init(OptionsMap& o) {
   o["Move Overhead"]         << Option(10, 0, 5000);
   o["Slow Mover"]            << Option(100, 10, 1000);
   o["nodestime"]             << Option(0, 0, 10000);
-  o["Sixty Move Rule"]       << Option(true, on_rule60);
   o["Mate Threat Depth"]     << Option(1, 0, 10, on_mate_threat_depth);
   o["Repetition Fold"]       << Option("RootThreeFold var TwoFold var RootThreeFold var ThreeFold", "RootThreeFold" , on_repetition_fold);
   o["Repetition Rule"]       << Option("AsianRule var AsianRule var ChineseRule", "AsianRule" , on_repetition_rule);
   o["UCI_LimitStrength"]     << Option(false);
   o["UCI_Elo"]               << Option(1350, 1350, 2850);
-  o["UCI_WDLCentipawn"]      << Option(true);
   o["UCI_ShowWDL"]           << Option(false);
   o["EvalFile"]              << Option(EvalFileDefaultName, on_eval_file);
 }
