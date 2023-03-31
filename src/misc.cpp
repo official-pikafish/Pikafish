@@ -140,26 +140,41 @@ public:
 } // namespace
 
 
-/// engine_info() returns the full name of the current PikaFish version. This
-/// will be either "Pikafish YYYY-MM-DD" (where YYYY-MM-DD is the date when
-/// the program was compiled) or "Pikafish <Version>", depending on whether
-/// Version is empty.
+/// engine_info() returns the full name of the current Pikafish version.
+/// For local dev compiles we try to append the commit sha and commit date
+/// from git if that fails only the local compilation date is set and "nogit" is specified:
+/// Pikafish dev-YYYYMMDD-SHA
+/// or
+/// Pikafish dev-YYYYMMDD-nogit
+///
+/// For releases (non dev builds) we only include the version number:
+/// Pikafish version
 
 string engine_info(bool to_uci) {
-
   stringstream ss;
-
   ss << "Pikafish " << version << setfill('0');
 
   if constexpr (version == "dev")
   {
-      ss << " ";
+      ss << "-";
+      #ifdef GIT_DATE
+      ss << GIT_DATE;
+      #else
       constexpr string_view months("Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec");
       string month, day, year;
       stringstream date(__DATE__); // From compiler, format is "Sep 21 2008"
 
       date >> month >> day >> year;
-      ss << year << "-" << setw(2) << (1 + months.find(month) / 4) << "-" << setw(2) << day;
+      ss << year << setw(2) << setfill('0') << (1 + months.find(month) / 4) << setw(2) << setfill('0') << day;
+      #endif
+
+      ss << "-";
+
+      #ifdef GIT_SHA
+      ss << GIT_SHA;
+      #else
+      ss << "nogit";
+      #endif
   }
 
   ss << (to_uci ? "\nid author " : " by ") << "the Pikafish developers (see AUTHORS file)";
