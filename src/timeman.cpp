@@ -61,8 +61,8 @@ void TimeManagement::init(Search::LimitsType& limits, Color us, int ply) {
 
   startTime = limits.startTime;
 
-  // Maximum move horizon of 50 moves
-  int mtg = limits.movestogo ? std::min(limits.movestogo, 50) : 50;
+  // Maximum move horizon of 60 moves
+  int mtg = limits.movestogo ? std::min(limits.movestogo, 60) : 60;
 
   // Make sure timeLeft is > 0 since we may use it as a divisor
   TimePoint timeLeft =  std::max(TimePoint(1),
