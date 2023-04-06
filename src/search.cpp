@@ -254,6 +254,7 @@ void Thread::search() {
 
   bestValue = delta = alpha = -VALUE_INFINITE;
   beta = VALUE_INFINITE;
+  optimism[us] = optimism[~us] = VALUE_ZERO;
 
   if (mainThread)
   {
@@ -274,8 +275,6 @@ void Thread::search() {
   size_t multiPV = size_t(Options["MultiPV"]);
 
   multiPV = std::min(multiPV, rootMoves.size());
-
-  optimism[us] = optimism[~us] = VALUE_ZERO;
 
   int searchAgainCounter = 0;
 
