@@ -50,9 +50,10 @@ jobs:
           install: mingw-w64-clang-x86_64-clang make git expect
 
       - name: Download nnue weight for profile guided optimization build
-        if: runner.os != 'macOS' && !endsWith(matrix.arch, '512')
+        if: ${{ (runner.os != 'macOS' && !endsWith(matrix.arch, '512')) || (runner.os == 'macOS' && !endsWith(matrix.arch, '2')) }}
         uses: robinraju/release-downloader@v1.7
         with:
+          repository: "official-pikafish/Pikafish"
           latest: true
           zipBall: true
           out-file-path: "nnue-weights"
@@ -60,7 +61,7 @@ jobs:
       - name: Compile ${{ matrix.arch }} build
         run: |
           make clean
-          if [ "$RUNNER_OS" != "macOS" ] && [ ! $(echo "$ARCH" | grep "512") ]; then
+          if ([ "$RUNNER_OS" != "macOS" ] && [ ! $(echo "$ARCH" | grep "512") ]) || ([ "$RUNNER_OS" == "macOS" ] && [ ! $(echo "$ARCH" | grep "2") ]); then
               if [ "$RUNNER_OS" == "Windows" ]; then
                   pacman -S unzip --noconfirm
               fi
@@ -132,6 +133,7 @@ jobs:
       - name: Download nnue weight for profile guided optimization build
         uses: robinraju/release-downloader@v1.7
         with:
+          repository: "official-pikafish/Pikafish"
           latest: true
           zipBall: true
           out-file-path: "nnue-weights"
