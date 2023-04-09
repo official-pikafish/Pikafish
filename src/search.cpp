@@ -1207,12 +1207,12 @@ moves_loop: // When in check, search starts here
 
                   // Reduce other moves if we have found at least one score improvement
                   if (   depth > 2
-                      && ((improving && complexity > 971) || (value < (5 * alpha + 75 * beta) / 87) || depth < 6)
+                      && (   (improving && complexity > 971)
+                          || value < (5 * alpha + 75 * beta) / 87
+                          || depth < 6)
                       && beta  <  12535
-                      && value > -12535) {
-                      bool extraReduction = depth > 2 && alpha > -12535 && bestValue != -VALUE_INFINITE && (value - bestValue) > (7 * (beta - alpha)) / 8;
-                      depth -= 1 + extraReduction;
-                  }
+                      && value > -12535)
+                      depth -= 1;
 
                   assert(depth > 0);
                   alpha = value;
