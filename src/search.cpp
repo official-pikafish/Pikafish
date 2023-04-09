@@ -677,7 +677,7 @@ namespace {
         &&  eval >= ss->staticEval
         &&  ss->staticEval >= beta - 17 * depth - improvement / 16 + 111 + complexity / 21
         && !excludedMove
-        && (ss->ply >= thisThread->nmpMinPly || us != thisThread->nmpColor))
+        && ss->ply >= thisThread->nmpMinPly)
     {
         assert(eval - beta >= 0);
 
@@ -705,9 +705,8 @@ namespace {
             assert(!thisThread->nmpMinPly); // Recursive verification is not allowed
 
             // Do verification search at high depths, with null move pruning disabled
-            // for us, until ply exceeds nmpMinPly.
+            // until ply exceeds nmpMinPly.
             thisThread->nmpMinPly = ss->ply + 3 * (depth-R) / 4;
-            thisThread->nmpColor = us;
 
             Value v = search<NonPV>(pos, ss, beta-1, beta, depth-R, false);
 
