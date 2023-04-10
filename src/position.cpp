@@ -992,7 +992,7 @@ bool Position::rule_judge(Value& result, int ply) const {
 
     if (end >= 4 && filter[st->key])
     {
-        int cnt = 1;
+        int cnt = 0;
         StateInfo* stp = st->previous->previous;
         bool checkThem = st->checkersBB && stp->checkersBB;
         bool checkUs = st->previous->checkersBB && stp->previous->checkersBB;
@@ -1007,7 +1007,7 @@ bool Position::rule_judge(Value& result, int ply) const {
             // In Asian Rule, special cases are check chase interleaving is draw,
             // so make sure that they are not wrongly judged as mate.
             if (stp->key == st->key
-             && ++cnt == (ply > i && (ChineseRule || (stp->previous && st->previous->key == stp->previous->key)) ? 2 : 3))
+                && ++cnt == 1 + (ply <= i || (!ChineseRule && (!stp->previous || st->previous->key != stp->previous->key))))
             {
                 if (checkThem || checkUs)
                 {
@@ -1035,9 +1035,7 @@ bool Position::rule_judge(Value& result, int ply) const {
                     if (j != i)
                         chaseThem &= stp->chased;
 
-                    // Return a draw score if a position repeats once earlier but strictly
-                    // after the root, or repeats twice before or at the root.
-                    if (stp->key == st->key && ++cnt == (ply > i ? 2 : 3))
+                    if (stp->key == st->key && --cnt == 0)
                     {
                         result = (chaseThem || chaseUs) ? (!chaseUs ? mate_in(ply) : !chaseThem ? mated_in(ply) : VALUE_DRAW) : VALUE_DRAW;
                         return true;
