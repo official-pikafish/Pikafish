@@ -259,10 +259,12 @@ void Thread::search() {
   if (mainThread)
   {
 
-      int rootComplexity;
-      Eval::evaluate(rootPos, &rootComplexity);
-
-      mainThread->complexity = std::min(0.88 + (rootComplexity - 306) / 1608.73, 1.40);
+      if (!rootPos.checkers())
+      {
+          int rootComplexity;
+          Eval::evaluate(rootPos, &rootComplexity);
+          mainThread->complexity = std::min(0.88 + (rootComplexity - 306) / 1608.73, 1.40);
+      }
 
       if (mainThread->bestPreviousScore == VALUE_INFINITE)
           for (int i = 0; i < 4; ++i)

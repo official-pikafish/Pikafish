@@ -1004,8 +1004,8 @@ bool Position::rule_judge(Value& result, int ply) const {
 
             // Return a draw score if a position repeats once earlier but strictly
             // after the root, or repeats twice before or at the root.
-            // In Asian Rule, we need special cases are check chase interleaving is
-            // draw, so make sure that they are not wrongly judged as mate.
+            // In Asian Rule, special cases are check chase interleaving is draw,
+            // so make sure that they are not wrongly judged as mate.
             if (stp->key == st->key
              && ++cnt == (ply > i && (ChineseRule || (stp->previous && st->previous->key == stp->previous->key)) ? 2 : 3))
             {

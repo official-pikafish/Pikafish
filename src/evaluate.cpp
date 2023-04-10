@@ -108,6 +108,8 @@ using namespace Trace;
 
 Value Eval::evaluate(const Position& pos, int* complexity) {
 
+  assert(!pos.checkers());
+
   int nnueComplexity;
   Value     nnue = NNUE::evaluate(pos, true, &nnueComplexity);
   Value material = pos.material_diff();
