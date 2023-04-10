@@ -1007,7 +1007,7 @@ bool Position::rule_judge(Value& result, int ply) const {
             // In Asian Rule, special cases are check chase interleaving is draw,
             // so make sure that they are not wrongly judged as mate.
             if (stp->key == st->key
-                && ++cnt == 1 + (ply <= i || (!ChineseRule && (!stp->previous || st->previous->key != stp->previous->key))))
+             && ++cnt == 1 + (ply <= i || (!ChineseRule && (!stp->previous || st->previous->key != stp->previous->key))))
             {
                 if (checkThem || checkUs)
                 {

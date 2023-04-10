@@ -888,7 +888,9 @@ moves_loop: // When in check, search starts here
               if (!pos.see_ge(move, occupied, Value(-223) * depth)) {
                   if (depth < 2 - capture)
                       continue;
-                  // don't prune move if a heavy enemy piece (KR) is under attack after the exchanges
+                  // Don't prune the move if opp. King/Rook is attacked by a slider after the exchanges.
+                  // Since in see_ge we don't update occupied when the king recaptures, we also don't prune the
+                  // move when the opp. King gets a discovered slider attack DURING the exchanges.
                   Bitboard leftEnemies = pos.pieces(~us, KING, ROOK) & occupied;
                   Bitboard attacks = 0;
                   occupied |= to_sq(move);
@@ -896,8 +898,8 @@ moves_loop: // When in check, search starts here
                   {
                       Square sq = pop_lsb(leftEnemies);
                       attacks |= pos.attackers_to(sq, occupied) & pos.pieces(us) & occupied;
-                      // exclude Rook(s) which were already threatened before SEE
-                      if (attacks && (sq != pos.square<KING>(~us) && (pos.attackers_to(sq, pos.pieces()) & pos.pieces(us))))
+                      // Exclude Rook(s) which were already threatened before SEE
+                      if (attacks && sq != pos.square<KING>(~us) && (pos.attackers_to(sq, pos.pieces()) & pos.pieces(us)))
                         attacks = 0;
                   }
                   if (!attacks)
