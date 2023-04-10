@@ -121,7 +121,7 @@ Value Eval::evaluate(const Position& pos, int* complexity) {
       *complexity = nnueComplexity;
 
   // scale nnue score according to material and optimism
-  int scale = 668 + 106 * pos.material_sum() / 4096;
+  int scale = 668 + pos.material_sum() / 64;
   optimism = optimism * (281 + nnueComplexity) / 256;
   Value v = (nnue * scale + optimism * (scale - 740)) / 1024;
 
