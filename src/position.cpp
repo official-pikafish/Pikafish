@@ -805,8 +805,18 @@ void Position::set_chase_info(int d) {
         if (board[s] != NO_PIECE)
             idBoard[s] = color_of(board[s]) == WHITE ? whiteId++ : blackId++;
 
+    // For speed up
+    bool violation[COLOR_NB] = { true, true };
+
     // Rollback until we reached st - d
     for (int i = 0; i < d; ++i) {
+        if (!violation[~sideToMove]) {
+            if (!violation[sideToMove])
+              break;
+            light_undo_move(st->move, st->capturedPiece);
+            st = st->previous;
+            continue;
+        }
         uint16_t& chase = st->chased;
         // Redirect *check* and *mate threat* to *chase all pieces simultaneously* in Chinese Rule
         if (ChineseRule && (st->checkersBB || (MateThreatDepth && has_mate_threat()))) {
@@ -819,7 +829,7 @@ void Position::set_chase_info(int d) {
         light_undo_move(st->move, st->capturedPiece);
         st = st->previous;
         // Take the exact diff to detect the chase
-        chase = newChase & chased(sideToMove);
+        violation[sideToMove] = chase = newChase & chased(sideToMove);
         // Redirect *chase* to *chase all pieces simultaneously* in Chinese Rule
         if (ChineseRule && chase)
             chase = 0xFFFF;
@@ -1041,8 +1051,7 @@ bool Position::rule_judge(Value& result, int ply) const {
                         return true;
                     }
 
-                    if (j + 1 <= i)
-                        chaseUs &= stp->previous->chased;
+                    chaseUs &= stp->previous->chased;
                 }
             }
 
