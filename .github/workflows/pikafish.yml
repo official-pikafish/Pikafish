@@ -28,6 +28,11 @@ jobs:
             shell: msys2 {0}
             ext: .exe
         arch: ["-vnni512", "-avx512", "-bmi2", "-avx2", "-modern", ""]
+        exclude:
+          - arch: -vnni512
+            config: {os: macos-latest}
+          - arch: -avx512
+            config: {os: macos-latest}
     defaults:
       run:
         working-directory: src
