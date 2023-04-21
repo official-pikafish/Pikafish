@@ -166,7 +166,7 @@ private:
   std::pair<Piece, int> light_do_move(Move m);
   void light_undo_move(Move m, Piece captured, int id = 0);
   void set_chase_info(int d);
-  bool chase_legal(Move m, Bitboard b) const;
+  bool chase_legal(Move m, Bitboard b = 0) const;
   template<bool AfterMove>
   Key adjust_key60(Key k) const;
 

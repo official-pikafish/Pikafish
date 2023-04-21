@@ -806,33 +806,40 @@ void Position::set_chase_info(int d) {
             idBoard[s] = color_of(board[s]) == WHITE ? whiteId++ : blackId++;
 
     // For speed up
-    bool violation[COLOR_NB] = { true, true };
+    bool chasing[COLOR_NB] = { true, true };
 
     // Rollback until we reached st - d
-    for (int i = 0; i < d; ++i) {
-        if (!violation[~sideToMove]) {
-            if (!violation[sideToMove])
+    ChaseMap chaseMap[COLOR_NB];
+    chaseMap[sideToMove] = chased(sideToMove);
+    for (int i = 0; i < d; ++i)
+    {
+        if (!chasing[~sideToMove])
+        {
+            if (!chasing[sideToMove])
               break;
             light_undo_move(st->move, st->capturedPiece);
             st = st->previous;
-            continue;
+        } else {
+            uint16_t& chase = st->chased;
+            if (st->checkersBB || (ChineseRule && (MateThreatDepth && has_mate_threat())))
+            {
+              // Redirect *check* and *mate threat* to *chase all pieces simultaneously* in Chinese Rule
+              chase = ChineseRule ? 0xFFFF : 0;
+              light_undo_move(st->move, st->capturedPiece);
+              st = st->previous;
+            } else {
+              ChaseMap newChase = chased(~sideToMove);
+              light_undo_move(st->move, st->capturedPiece);
+              st = st->previous;
+              // Take the exact diff to detect the chase
+              ChaseMap oldChase = chased(sideToMove);
+              chasing[sideToMove] = chase = newChase & oldChase & chaseMap[sideToMove];
+              chaseMap[sideToMove] = oldChase;
+              // Redirect *chase* to *chase all pieces simultaneously* in Chinese Rule
+              if (ChineseRule && chase)
+                chase = 0xFFFF;
+            }
         }
-        uint16_t& chase = st->chased;
-        // Redirect *check* and *mate threat* to *chase all pieces simultaneously* in Chinese Rule
-        if (ChineseRule && (st->checkersBB || (MateThreatDepth && has_mate_threat()))) {
-            chase = 0xFFFF;
-            light_undo_move(st->move, st->capturedPiece);
-            st = st->previous;
-            continue;
-        }
-        ChaseMap newChase = chased(~sideToMove);
-        light_undo_move(st->move, st->capturedPiece);
-        st = st->previous;
-        // Take the exact diff to detect the chase
-        violation[sideToMove] = chase = newChase & chased(sideToMove);
-        // Redirect *chase* to *chase all pieces simultaneously* in Chinese Rule
-        if (ChineseRule && chase)
-            chase = 0xFFFF;
     }
 }
 
@@ -905,11 +912,8 @@ ChaseMap Position::chased(Color c) {
     if (st->move == MOVE_NONE)
         return chase;
 
-    // Checkers bitboard for both side
-    Bitboard checkUs = st->checkersBB;
-    Bitboard checkThem = checkers_to(sideToMove, square<KING>(~sideToMove));
-    if (c != sideToMove)
-        std::swap(checkUs, checkThem);
+    // Checkers bitboard for our side
+    Bitboard checkers = c == sideToMove ? st->checkersBB : 0;
 
     std::swap(c, sideToMove);
 
@@ -942,7 +946,7 @@ ChaseMap Position::chased(Color c) {
         while (candidates)
         {
             Square to = pop_lsb(candidates);
-            if (chase_legal(make_move(from, to), checkUs))
+            if (chase_legal(make_move(from, to), checkers))
                 chase |= make_chase(idBoard[to], idBoard[from]);
         }
 
@@ -952,7 +956,7 @@ ChaseMap Position::chased(Color c) {
             Square to = pop_lsb(attacks);
             Move m = make_move(from, to);
 
-            if (chase_legal(m, checkUs))
+            if (chase_legal(m, checkers))
             {
                 bool trueChase = true;
                 const auto& [captured, id] = light_do_move(m);
@@ -960,7 +964,7 @@ ChaseMap Position::chased(Color c) {
                 while (recaptures)
                 {
                     Square s = pop_lsb(recaptures);
-                    if (chase_legal(make_move(s, to), checkThem)) {
+                    if (chase_legal(make_move(s, to))) {
                         trueChase = false;
                         break;
                     }
@@ -974,7 +978,7 @@ ChaseMap Position::chased(Color c) {
                     {
                         sideToMove = ~sideToMove;
                         if (   (attackerType == KNIGHT && ((between_bb(from, to) ^ to) & pieces()))
-                            || !chase_legal(make_move(to, from), checkThem))
+                            || !chase_legal(make_move(to, from)))
                             chase |= make_chase(idBoard[to], idBoard[from]);
                         sideToMove = ~sideToMove;
                     }
