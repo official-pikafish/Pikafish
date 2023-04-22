@@ -52,7 +52,6 @@ struct StateInfo {
   Bitboard   checkSquares[PIECE_TYPE_NB];
   bool       needSlowCheck;
   Piece      capturedPiece;
-  uint16_t   chased;
   Move       move;
 
   // Used by NNUE
@@ -165,7 +164,7 @@ private:
   void move_piece(Square from, Square to);
   std::pair<Piece, int> light_do_move(Move m);
   void light_undo_move(Move m, Piece captured, int id = 0);
-  void set_chase_info(int d);
+  Value detect_chases(int d, int ply = 0);
   bool chase_legal(Move m, Bitboard b = 0) const;
   template<bool AfterMove>
   Key adjust_key60(Key k) const;

@@ -794,9 +794,9 @@ void Position::light_undo_move(Move m, Piece captured, int id) {
 }
 
 
-/// Position::set_chase_info() sets the chase information from state st - d to state st
+/// Position::detect_chases() detects chases from state st - d to state st
 
-void Position::set_chase_info(int d) {
+Value Position::detect_chases(int d, int ply) {
 
     // Grant each piece on board a unique id for each side
     int whiteId = 0;
@@ -805,42 +805,62 @@ void Position::set_chase_info(int d) {
         if (board[s] != NO_PIECE)
             idBoard[s] = color_of(board[s]) == WHITE ? whiteId++ : blackId++;
 
-    // For speed up
-    bool chasing[COLOR_NB] = { true, true };
-
     // Rollback until we reached st - d
+    uint16_t rooks[COLOR_NB] = { 0xFFFF, 0xFFFF };
+    uint16_t chase[COLOR_NB] = { 0xFFFF, 0xFFFF };
     ChaseMap chaseMap[COLOR_NB];
     chaseMap[sideToMove] = chased(sideToMove);
     for (int i = 0; i < d; ++i)
     {
-        if (!chasing[~sideToMove])
+        if (!chase[~sideToMove])
         {
-            if (!chasing[sideToMove])
+            if (!chase[sideToMove])
               break;
             light_undo_move(st->move, st->capturedPiece);
             st = st->previous;
         } else {
-            uint16_t& chase = st->chased;
             if (st->checkersBB || (ChineseRule && (MateThreatDepth && has_mate_threat())))
             {
               // Redirect *check* and *mate threat* to *chase all pieces simultaneously* in Chinese Rule
-              chase = ChineseRule ? 0xFFFF : 0;
+              chase[~sideToMove] &= ChineseRule ? 0xFFFF : 0;
               light_undo_move(st->move, st->capturedPiece);
               st = st->previous;
             } else {
               ChaseMap newChase = chased(~sideToMove);
+              // Calculate rooks pinned by knight
+              uint16_t flag = 0;
+              if (!ChineseRule && rooks[~sideToMove] && (blockers_for_king(sideToMove) & pieces(sideToMove, ROOK))) {
+                Bitboard knights = pinners(~sideToMove) & pieces(KNIGHT);
+                while (knights) {
+                  Square s = pop_lsb(knights);
+                  Bitboard b = between_bb(square<KING>(sideToMove), s) ^ s;
+                  s = pop_lsb(b);
+                  if (piece_on(s) == make_piece(sideToMove, ROOK))
+                    flag |= 1 << idBoard[s];
+                }
+              }
               light_undo_move(st->move, st->capturedPiece);
               st = st->previous;
               // Take the exact diff to detect the chase
               ChaseMap oldChase = chased(sideToMove);
-              chasing[sideToMove] = chase = newChase & oldChase & chaseMap[sideToMove];
-              chaseMap[sideToMove] = oldChase;
+              uint16_t chases = uint16_t(newChase & oldChase) & uint16_t(newChase & chaseMap[sideToMove]);
+              rooks[sideToMove] &= chases & flag;
               // Redirect *chase* to *chase all pieces simultaneously* in Chinese Rule
-              if (ChineseRule && chase)
-                chase = 0xFFFF;
+              chase[sideToMove] &= ChineseRule && chases ? 0xFFFF : chases;
+              chaseMap[sideToMove] = oldChase;
             }
         }
     }
+
+    // Overrides chases if rooks pinned by knight is being chased
+    if ((!chase[sideToMove] && !chase[~sideToMove]) || (rooks[sideToMove] && rooks[~sideToMove]))
+        return VALUE_DRAW;
+    else if (rooks[sideToMove])
+        return mated_in(ply);
+    else if (rooks[~sideToMove])
+        return mate_in(ply);
+
+    return !chase[sideToMove] ? mate_in(ply) : !chase[~sideToMove] ? mated_in(ply) : VALUE_DRAW;
 }
 
 
@@ -1033,30 +1053,9 @@ bool Position::rule_judge(Value& result, int ply) const {
                 Position rollback;
                 memcpy((void *)&rollback, (const void *)this, offsetof(Position, filter));
 
-                // Set up chase information
-                rollback.set_chase_info(i);
-
                 // Chasing detection
-                cnt = 1;
-                stp = st->previous->previous;
-                uint16_t chaseThem = st->chased & stp->chased;
-                uint16_t chaseUs = st->previous->chased & stp->previous->chased;
-
-                for (int j = 4; j <= i; j += 2)
-                {
-                    stp = stp->previous->previous;
-                    // Chase stops after i moves
-                    if (j != i)
-                        chaseThem &= stp->chased;
-
-                    if (stp->key == st->key && --cnt == 0)
-                    {
-                        result = (chaseThem || chaseUs) ? (!chaseUs ? mate_in(ply) : !chaseThem ? mated_in(ply) : VALUE_DRAW) : VALUE_DRAW;
-                        return true;
-                    }
-
-                    chaseUs &= stp->previous->chased;
-                }
+                result = rollback.detect_chases(i, ply);
+                return true;
             }
 
             // Break early if we know there can't be another fold
