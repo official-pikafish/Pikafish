@@ -804,11 +804,13 @@ Value Position::detect_chases(int d, int ply) {
         if (board[s] != NO_PIECE)
             idBoard[s] = color_of(board[s]) == WHITE ? whiteId++ : blackId++;
 
+    Color us = sideToMove, them = ~us;
+
     // Rollback until we reached st - d
     uint16_t rooks[COLOR_NB] = { 0xFFFF, 0xFFFF };
     uint16_t chase[COLOR_NB] = { 0xFFFF, 0xFFFF };
     ChaseMap chaseMap[COLOR_NB];
-    chaseMap[sideToMove] = chased(sideToMove);
+    chaseMap[us] = chased(us);
     for (int i = 0; i < d; ++i)
     {
         if (!chase[~sideToMove])
@@ -822,6 +824,7 @@ Value Position::detect_chases(int d, int ply) {
             {
               // Redirect *check* and *mate threat* to *chase all pieces simultaneously* in Chinese Rule
               chase[~sideToMove] &= ChineseRule ? 0xFFFF : 0;
+              rooks[~sideToMove] = 0;
               light_undo_move(st->move, st->capturedPiece);
               st = st->previous;
             } else {
@@ -852,14 +855,14 @@ Value Position::detect_chases(int d, int ply) {
     }
 
     // Overrides chases if rooks pinned by knight is being chased
-    if ((!chase[sideToMove] && !chase[~sideToMove]) || (rooks[sideToMove] && rooks[~sideToMove]))
+    if ((!chase[us] && !chase[them]) || (rooks[us] && rooks[them]))
         return VALUE_DRAW;
-    else if (rooks[sideToMove])
+    else if (rooks[us])
         return mated_in(ply);
-    else if (rooks[~sideToMove])
+    else if (rooks[them])
         return mate_in(ply);
 
-    return !chase[sideToMove] ? mate_in(ply) : !chase[~sideToMove] ? mated_in(ply) : VALUE_DRAW;
+    return !chase[us] ? mate_in(ply) : !chase[them] ? mated_in(ply) : VALUE_DRAW;
 }
 
 
