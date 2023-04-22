@@ -106,7 +106,7 @@ using namespace Trace;
 /// evaluate() is the evaluator for the outer world. It returns a static
 /// evaluation of the position from the point of view of the side to move.
 
-Value Eval::evaluate(const Position& pos, int* complexity) {
+Value Eval::evaluate(const Position& pos) {
 
   assert(!pos.checkers());
 
@@ -117,8 +117,6 @@ Value Eval::evaluate(const Position& pos, int* complexity) {
   // Blend nnue complexity with (semi)classical complexity
   Value optimism = pos.this_thread()->optimism[pos.side_to_move()];
   nnueComplexity = (477 * nnueComplexity + (401 + optimism) * abs(material - nnue)) / 1024;
-  if (complexity) // Return hybrid NNUE complexity to caller
-      *complexity = nnueComplexity;
 
   // scale nnue score according to material and optimism
   int scale = 668 + pos.material_sum() / 64;

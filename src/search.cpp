@@ -259,13 +259,6 @@ void Thread::search() {
   if (mainThread)
   {
 
-      if (!rootPos.checkers())
-      {
-          int rootComplexity;
-          Eval::evaluate(rootPos, &rootComplexity);
-          mainThread->complexity = std::min(0.88 + (rootComplexity - 306) / 1608.73, 1.40);
-      }
-
       if (mainThread->bestPreviousScore == VALUE_INFINITE)
           for (int i = 0; i < 4; ++i)
               mainThread->iterValue[i] = VALUE_ZERO;
@@ -424,7 +417,7 @@ void Thread::search() {
           double reduction = (1.42 + mainThread->previousTimeReduction) / (2.15 * timeReduction);
           double bestMoveInstability = 1 + 1.90 * totBestMoveChanges / Threads.size();
 
-          double totalTime = Time.optimum() * fallingEval * reduction * bestMoveInstability * mainThread->complexity;
+          double totalTime = Time.optimum() * fallingEval * reduction * bestMoveInstability;
 
           // Cap used time in case of a single legal move for a better viewer experience in tournaments
           // yielding correct scores and sufficiently fast moves.
@@ -490,7 +483,7 @@ namespace {
     bool givesCheck, improving, priorCapture, singularQuietLMR;
     bool capture, moveCountPruning, ttCapture;
     Piece movedPiece;
-    int moveCount, captureCount, quietCount, improvement, complexity;
+    int moveCount, captureCount, quietCount, improvement;
 
     // Step 1. Initialize node
     Thread* thisThread = pos.this_thread();
@@ -601,7 +594,6 @@ namespace {
         ss->staticEval = eval = VALUE_NONE;
         improving = false;
         improvement = 0;
-        complexity = 0;
         goto moves_loop;
     }
     else if (excludedMove)
@@ -609,17 +601,15 @@ namespace {
         // Providing the hint that this node's accumulator will be used often brings significant Elo gain (13 elo)
         Eval::NNUE::hint_common_parent_position(pos);
         eval = ss->staticEval;
-        complexity = abs(ss->staticEval - pos.material_diff());
     }
     else if (ss->ttHit)
     {
         // Never assume anything about values stored in TT
         ss->staticEval = eval = tte->eval();
         if (eval == VALUE_NONE)
-            ss->staticEval = eval = evaluate(pos, &complexity);
-        else // Fall back to (semi)classical complexity for TT hits, the NNUE complexity is lost
+            ss->staticEval = eval = evaluate(pos);
+        else
         {
-            complexity = abs(ss->staticEval - pos.material_diff());
             if (PvNode)
                Eval::NNUE::hint_common_parent_position(pos);
         }
@@ -631,7 +621,7 @@ namespace {
     }
     else
     {
-        ss->staticEval = eval = evaluate(pos, &complexity);
+        ss->staticEval = eval = evaluate(pos);
         // Save static evaluation into transposition table
         tte->save(posKey, VALUE_NONE, ss->ttPv, BOUND_NONE, DEPTH_NONE, MOVE_NONE, eval);
     }
@@ -677,14 +667,14 @@ namespace {
         && (ss-1)->statScore < 13484
         &&  eval >= beta
         &&  eval >= ss->staticEval
-        &&  ss->staticEval >= beta - 17 * depth - improvement / 16 + 111 + complexity / 21
+        &&  ss->staticEval >= beta - 17 * depth - improvement / 16 + 111
         && !excludedMove
         && ss->ply >= thisThread->nmpMinPly)
     {
         assert(eval - beta >= 0);
 
-        // Null move dynamic reduction based on depth, eval and complexity of position
-        Depth R = std::min(int(eval - beta) / 184, 5) + depth / 3 + 4 - (complexity > 741);
+        // Null move dynamic reduction based on depth and eval
+        Depth R = std::min(int(eval - beta) / 184, 5) + depth / 3 + 4;
 
         ss->currentMove = MOVE_NULL;
         ss->continuationHistory = &thisThread->continuationHistory[0][0][NO_PIECE][0];

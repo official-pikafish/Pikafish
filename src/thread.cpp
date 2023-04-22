@@ -159,7 +159,6 @@ void ThreadPool::clear() {
   main()->bestPreviousScore = VALUE_INFINITE;
   main()->bestPreviousAverageScore = VALUE_INFINITE;
   main()->previousTimeReduction = 1.0;
-  main()->complexity = 1.0;
 }
 
 
