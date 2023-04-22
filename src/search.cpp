@@ -252,9 +252,7 @@ void Thread::search() {
 
   ss->pv = pv;
 
-  bestValue = delta = alpha = -VALUE_INFINITE;
-  beta = VALUE_INFINITE;
-  optimism[WHITE] = optimism[BLACK] = VALUE_ZERO;
+  bestValue = -VALUE_INFINITE;
 
   if (mainThread)
   {
@@ -300,18 +298,15 @@ void Thread::search() {
           selDepth = 0;
 
           // Reset aspiration window starting size
-          if (rootDepth >= 4)
-          {
-              Value prev = rootMoves[pvIdx].averageScore;
-              delta = Value(16) + int(prev) * prev / 18271;
-              alpha = std::max(prev - delta,-VALUE_INFINITE);
-              beta  = std::min(prev + delta, VALUE_INFINITE);
+          Value prev = rootMoves[pvIdx].averageScore;
+          delta = Value(16) + int(prev) * prev / 18271;
+          alpha = std::max(prev - delta,-VALUE_INFINITE);
+          beta  = std::min(prev + delta, VALUE_INFINITE);
 
-              // Adjust optimism based on root move's previousScore
-              int opt = 135 * prev / (std::abs(prev) + 138);
-              optimism[ us] = Value(opt);
-              optimism[~us] = -optimism[us];
-          }
+          // Adjust optimism based on root move's previousScore
+          int opt = 135 * prev / (std::abs(prev) + 138);
+          optimism[ us] = Value(opt);
+          optimism[~us] = -optimism[us];
 
           // Start with a small aspiration window and, in the case of a fail
           // high/low, re-search with a bigger window until we don't fail
