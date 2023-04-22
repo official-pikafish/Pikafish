@@ -956,12 +956,10 @@ ChaseMap Position::chased(Color c) {
         if (!attacks)
             continue;
 
-        // Attacks against stronger pieces
+        // Knight and cannon attacks against protected rooks
         Bitboard candidates = 0;
         if (attackerType == KNIGHT || attackerType == CANNON)
             candidates = attacks & pieces(~sideToMove, ROOK);
-        else if (attackerType == BISHOP || attackerType == ADVISOR)
-            candidates = attacks & pieces(~sideToMove, ROOK, CANNON, KNIGHT);
         attacks ^= candidates;
         while (candidates)
         {
