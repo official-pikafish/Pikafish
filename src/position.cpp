@@ -845,7 +845,7 @@ Value Position::detect_chases(int d, int ply) {
               st = st->previous;
               // Take the exact diff to detect the chase
               ChaseMap oldChase = chased(sideToMove);
-              uint16_t chases = uint16_t(newChase & oldChase) & uint16_t(newChase & chaseMap[sideToMove]);
+              uint16_t chases = uint16_t(newChase & oldChase) & ~uint16_t(chaseMap[sideToMove]);
               rooks[sideToMove] &= chases & flag;
               // Redirect *chase* to *chase all pieces simultaneously* in Chinese Rule
               chase[sideToMove] &= ChineseRule && chases ? 0xFFFF : chases;
