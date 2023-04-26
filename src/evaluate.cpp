@@ -110,18 +110,13 @@ Value Eval::evaluate(const Position& pos) {
 
   assert(!pos.checkers());
 
-  int nnueComplexity;
-  Value     nnue = NNUE::evaluate(pos, true, &nnueComplexity);
-  Value material = pos.material_diff();
-
-  // Blend nnue complexity with (semi)classical complexity
-  Value optimism = pos.this_thread()->optimism[pos.side_to_move()];
-  nnueComplexity = (477 * nnueComplexity + (401 + optimism) * abs(material - nnue)) / 1024;
+  Value v = NNUE::evaluate(pos, true);
 
   // scale nnue score according to material and optimism
-  int scale = 668 + pos.material_sum() / 64;
-  optimism = optimism * (281 + nnueComplexity) / 256;
-  Value v = (nnue * scale + optimism * (scale - 740)) / 1024;
+  int scale = 668 + 16 * pos.material_sum() / 1024;
+  Value optimism = pos.this_thread()->optimism[pos.side_to_move()];
+  optimism = optimism * (281 + (401 + optimism) * abs(pos.material_diff() - v) / 1024) / 256;
+  v = (v * scale + optimism * (scale - 740)) / 1024;
 
   // Damp down the evaluation linearly when shuffling
   v = v * (205 - pos.rule60_count()) / 120;
