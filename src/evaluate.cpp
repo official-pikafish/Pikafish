@@ -112,11 +112,11 @@ Value Eval::evaluate(const Position& pos) {
 
   Value v = NNUE::evaluate(pos, true);
 
-  // scale nnue score according to material and optimism
-  int scale = 668 + 16 * pos.material_sum() / 1024;
+  // Scale nnue score according to material and optimism
   Value optimism = pos.this_thread()->optimism[pos.side_to_move()];
-  optimism = optimism * (281 + (401 + optimism) * abs(pos.material_diff() - v) / 1024) / 256;
-  v = (v * scale + optimism * (scale - 740)) / 1024;
+  optimism += optimism * ((401 + optimism) * abs(pos.material_diff() - v) / 1024) / 256;
+  int material = pos.material_sum() / 64;
+  v = (v * (668 + material) + optimism * (174 + material)) / 1024;
 
   // Damp down the evaluation linearly when shuffling
   v = v * (205 - pos.rule60_count()) / 120;
