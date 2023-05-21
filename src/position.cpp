@@ -809,8 +809,8 @@ Value Position::detect_chases(int d, int ply) {
     // Rollback until we reached st - d
     uint16_t rooks[COLOR_NB] = { 0xFFFF, 0xFFFF };
     uint16_t chase[COLOR_NB] = { 0xFFFF, 0xFFFF };
-    ChaseMap chaseMap[COLOR_NB];
-    chaseMap[us] = chased(us);
+    uint16_t newChase[COLOR_NB] { };
+    newChase[us] = chased(us);
     for (int i = 0; i < d; ++i)
     {
         if (!chase[~sideToMove])
@@ -828,7 +828,7 @@ Value Position::detect_chases(int d, int ply) {
               light_undo_move(st->move, st->capturedPiece);
               st = st->previous;
             } else {
-              ChaseMap newChase = chased(~sideToMove);
+              uint16_t oldChase = chased(~sideToMove);
               // Calculate rooks pinned by knight
               uint16_t flag = 0;
               if (!ChineseRule && rooks[~sideToMove] && (blockers_for_king(sideToMove) & pieces(sideToMove, ROOK))) {
@@ -844,12 +844,11 @@ Value Position::detect_chases(int d, int ply) {
               light_undo_move(st->move, st->capturedPiece);
               st = st->previous;
               // Take the exact diff to detect the chase
-              ChaseMap oldChase = chased(sideToMove);
-              uint16_t chases = uint16_t(newChase & oldChase) & ~uint16_t(chaseMap[sideToMove]);
+              uint16_t chases = oldChase & ~newChase[sideToMove];
               rooks[sideToMove] &= chases & flag;
               // Redirect *chase* to *chase all pieces simultaneously* in Chinese Rule
               chase[sideToMove] &= ChineseRule && chases ? 0xFFFF : chases;
-              chaseMap[sideToMove] = oldChase;
+              newChase[sideToMove] = chased(sideToMove);
             }
         }
     }
@@ -868,7 +867,7 @@ Value Position::detect_chases(int d, int ply) {
 
 /// Position::chase_legal() tests whether a pseudo-legal move is chase legal
 
-bool Position::chase_legal(Move m, Bitboard b) const {
+bool Position::chase_legal(Move m) const {
 
     assert(is_ok(m));
 
@@ -883,10 +882,10 @@ bool Position::chase_legal(Move m, Bitboard b) const {
     // If the moving piece is a king, check whether the destination
     // square is not under new attack after the move.
     if (type_of(piece_on(from)) == KING)
-        return !(checkers_to(~us, to, occupied) & ~b);
+        return !(checkers_to(~us, to, occupied));
 
     // A non-king move is chase legal if the king is not under new attack after the move.
-    return !((checkers_to(~us, square<KING>(us), occupied) & ~square_bb(to)) & ~b);
+    return !(checkers_to(~us, square<KING>(us), occupied) & ~square_bb(to));
 }
 
 
@@ -928,14 +927,11 @@ bool Position::has_mate_threat(Depth d) {
 
 /// Position::chased() calculate the chase information for a given color.
 
-ChaseMap Position::chased(Color c) {
+uint16_t Position::chased(Color c) {
 
-    ChaseMap chase;
+    uint16_t chase = 0;
     if (st->move == MOVE_NONE)
         return chase;
-
-    // Checkers bitboard for our side
-    Bitboard checkers = c == sideToMove ? st->checkersBB : 0;
 
     std::swap(c, sideToMove);
 
@@ -958,16 +954,19 @@ ChaseMap Position::chased(Color c) {
         if (!attacks)
             continue;
 
-        // Knight and cannon attacks against protected rooks
+        // Knight and Cannon attacks against protected rooks
         Bitboard candidates = 0;
         if (attackerType == KNIGHT || attackerType == CANNON)
             candidates = attacks & pieces(~sideToMove, ROOK);
+        // In Chinese Rule, also take cares of Advisor and Bishop attacks against protected stronger pieces
+        if (ChineseRule && (attackerType == ADVISOR || attackerType == BISHOP))
+            candidates |= attacks & pieces(~sideToMove, ROOK, KNIGHT, CANNON);
         attacks ^= candidates;
         while (candidates)
         {
             Square to = pop_lsb(candidates);
-            if (chase_legal(make_move(from, to), checkers))
-                chase |= make_chase(idBoard[to], idBoard[from]);
+            if (chase_legal(make_move(from, to)))
+                chase |= (1 << idBoard[to]);
         }
 
         // Attacks against potentially unprotected pieces
@@ -976,7 +975,7 @@ ChaseMap Position::chased(Color c) {
             Square to = pop_lsb(attacks);
             Move m = make_move(from, to);
 
-            if (chase_legal(m, checkers))
+            if (chase_legal(m))
             {
                 bool trueChase = true;
                 const auto& [captured, id] = light_do_move(m);
@@ -999,11 +998,11 @@ ChaseMap Position::chased(Color c) {
                         sideToMove = ~sideToMove;
                         if (   (attackerType == KNIGHT && ((between_bb(from, to) ^ to) & pieces()))
                             || !chase_legal(make_move(to, from)))
-                            chase |= make_chase(idBoard[to], idBoard[from]);
+                            chase |= (1 << idBoard[to]);
                         sideToMove = ~sideToMove;
                     }
                     else
-                        chase |= make_chase(idBoard[to], idBoard[from]);
+                        chase |= (1 << idBoard[to]);
                 }
             }
         }
