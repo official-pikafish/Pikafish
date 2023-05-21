@@ -141,7 +141,7 @@ public:
   bool rule_judge(Value& result, int ply = 0) const;
   int rule60_count() const;
   bool has_mate_threat(Depth d = -1);
-  ChaseMap chased(Color c);
+  uint16_t chased(Color c);
   Value material_sum() const;
   Value material_diff() const;
 
@@ -165,7 +165,7 @@ private:
   std::pair<Piece, int> light_do_move(Move m);
   void light_undo_move(Move m, Piece captured, int id = 0);
   Value detect_chases(int d, int ply = 0);
-  bool chase_legal(Move m, Bitboard b = 0) const;
+  bool chase_legal(Move m) const;
   template<bool AfterMove>
   Key adjust_key60(Key k) const;
 
