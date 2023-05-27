@@ -33,7 +33,7 @@
 ## Overview
 
 [Pikafish][website-link] is a **free and strong UCI xiangqi engine** derived from
-Stockfish that analyzes xiangqi positions and computes the optimal moves.
+[Stockfish][stockfish-link] that analyzes xiangqi positions and computes the optimal moves.
 
 Pikafish **does not include a graphical user interface** (GUI) that is required
 to display a chessboard and to make it easy to input moves. These GUIs are
@@ -178,6 +178,7 @@ derived from this program due to their unfriendly actions, activities, and licen
 [release-badge]:			https://img.shields.io/github/v/release/official-pikafish/Pikafish?style=for-the-badge&label=official%20release
 [release-link]:			https://github.com/official-pikafish/Pikafish/releases/latest
 [src-link]:				https://github.com/official-pikafish/Pikafish/tree/master/src
+[stockfish-link]:			https://github.com/official-stockfish/Stockfish
 [uci-link]:				https://backscattering.de/chess/uci/
 [website-badge]:		https://img.shields.io/website?style=for-the-badge&down_color=red&down_message=Offline&label=website&up_color=success&up_message=Online&url=https://pikafish.org
 [website-link]:			https://pikafish.org
