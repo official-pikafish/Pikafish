@@ -114,7 +114,7 @@ Value Eval::evaluate(const Position& pos) {
 
   // Scale nnue score according to material and optimism
   Value optimism = pos.this_thread()->optimism[pos.side_to_move()];
-  optimism += optimism * ((401 + optimism) * abs(pos.material_diff() - v) / 1024) / 256;
+  optimism += optimism * (401 * abs(pos.material_diff() - v) / 1024) / 256;
   int material = pos.material_sum() / 64;
   v = (v * (668 + material) + optimism * (174 + material)) / 1024;
 
