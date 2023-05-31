@@ -845,10 +845,12 @@ Value Position::detect_chases(int d, int ply) {
               st = st->previous;
               // Take the exact diff to detect the chase
               uint16_t chases = oldChase & ~newChase[sideToMove];
+              newChase[sideToMove] = chased(sideToMove);
+              if (ChineseRule)
+                chases = oldChase & ~newChase[sideToMove];
               rooks[sideToMove] &= chases & flag;
               // Redirect *chase* to *chase all pieces simultaneously* in Chinese Rule
               chase[sideToMove] &= ChineseRule && chases ? 0xFFFF : chases;
-              newChase[sideToMove] = chased(sideToMove);
             }
         }
     }
@@ -1035,12 +1037,8 @@ bool Position::rule_judge(Value& result, int ply) const {
             stp = stp->previous->previous;
             checkThem &= bool(stp->checkersBB);
 
-            // Return a draw score if a position repeats once earlier but strictly
-            // after the root, or repeats twice before or at the root.
-            // In Asian Rule, special cases are check chase interleaving is draw,
-            // so make sure that they are not wrongly judged as mate.
-            if (stp->key == st->key
-             && ++cnt == 1 + (ply <= i || (!ChineseRule && (!stp->previous || st->previous->key != stp->previous->key))))
+            // Return a score if a position repeats twice earlier.
+            if (stp->key == st->key && ++cnt == 2)
             {
                 if (checkThem || checkUs)
                 {
@@ -1058,7 +1056,7 @@ bool Position::rule_judge(Value& result, int ply) const {
             }
 
             // Break early if we know there can't be another fold
-            if (cnt == 2 && (end < 8 || filter[st->key] == 1))
+            if (cnt == 1 && (end < 8 || filter[st->key] == 1))
                 break;
 
             if (i + 1 <= end)
