@@ -1025,7 +1025,7 @@ bool Position::rule_judge(Value& result, int ply) const {
     int end = std::min(std::max(0, 2 * (st->check10[WHITE] - 10)) + st->rule60
                      + std::max(0, 2 * (st->check10[BLACK] - 10)), st->pliesFromNull);
 
-    if (end >= 4 && filter[st->key])
+    if (end >= 8 && filter[st->key] == 2)
     {
         int cnt = 0;
         StateInfo* stp = st->previous->previous;
@@ -1054,10 +1054,6 @@ bool Position::rule_judge(Value& result, int ply) const {
                 result = rollback.detect_chases(i, ply);
                 return true;
             }
-
-            // Break early if we know there can't be another fold
-            if (cnt == 1 && (end < 8 || filter[st->key] == 1))
-                break;
 
             if (i + 1 <= end)
                 checkUs &= bool(stp->previous->checkersBB);
