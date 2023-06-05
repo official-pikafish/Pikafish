@@ -658,7 +658,7 @@ namespace {
         && (ss-1)->statScore < 13484
         &&  eval >= beta
         &&  eval >= ss->staticEval
-        &&  ss->staticEval >= beta - 17 * depth - improvement / 16 + 111
+        &&  ss->staticEval >= beta - 17 * depth - improvement * 100 / 1600 + 111
         && !excludedMove
         && ss->ply >= thisThread->nmpMinPly)
     {
@@ -1379,7 +1379,7 @@ moves_loop: // When in check, search starts here
     // Initialize a MovePicker object for the current position, and prepare
     // to search the moves. Because the depth is <= 0 here, only captures
     // and other checks (only if depth >= DEPTH_QS_CHECKS) will be generated.
-    Square prevSq = (ss-1)->currentMove != MOVE_NULL ? to_sq((ss-1)->currentMove) : SQ_NONE;
+    Square prevSq = is_ok((ss-1)->currentMove) ? to_sq((ss-1)->currentMove) : SQ_NONE;
     MovePicker mp(pos, ttMove, depth, &thisThread->mainHistory,
                                       &thisThread->captureHistory,
                                       contHist,
