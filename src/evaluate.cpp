@@ -115,10 +115,10 @@ Value Eval::evaluate(const Position& pos) {
   // Scale nnue score according to material and optimism
   Value optimism = pos.this_thread()->optimism[pos.side_to_move()] * abs(pos.material_diff() - v) / 512;
   Value material = pos.material_sum() / 64;
-  v = (v * (668 + material) + optimism * (174 + material)) / 1024;
+  v = (v * (591 + material) + optimism * (165 + material)) / 1024;
 
   // Damp down the evaluation linearly when shuffling
-  v = v * (205 - pos.rule60_count()) / 120;
+  v = v * (203 - pos.rule60_count()) / 135;
 
   // Guarantee evaluation does not hit the mate range
   v = std::clamp(v, VALUE_MATED_IN_MAX_PLY + 1, VALUE_MATE_IN_MAX_PLY - 1);
