@@ -1025,7 +1025,7 @@ bool Position::rule_judge(Value& result, int ply) const {
     int end = std::min(std::max(0, 2 * (st->check10[WHITE] - 10)) + st->rule60
                      + std::max(0, 2 * (st->check10[BLACK] - 10)), st->pliesFromNull);
 
-    if (end >= 8 && filter[st->key] == 2)
+    if (end >= 8 && filter[st->key] >= 2)
     {
         int cnt = 0;
         StateInfo* stp = st->previous->previous;
