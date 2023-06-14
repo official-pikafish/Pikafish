@@ -27,10 +27,9 @@ namespace Stockfish::Eval::NNUE::Features {
   // Index of a feature for a given king position and another piece on some square
   template<Color Perspective>
   inline IndexType HalfKAv2_hm::make_index(Square s, Piece pc, Square ksq, int ab) {
-    return IndexType(IndexMap[(4 * bool(KingBuckets[ksq] >> 3)
-                             + 2 * bool(Perspective == BLACK)
-                             + bool(type_of(pc) == ADVISOR || type_of(pc) == BISHOP)) * SQUARE_NB
-                             + s] + PieceSquareIndex[Perspective][pc]
+    return IndexType(IndexMap[KingBuckets[ksq] >> 3][Perspective == BLACK]
+                             [type_of(pc) == ADVISOR || type_of(pc) == BISHOP][s]
+                   + PieceSquareIndex[Perspective][pc]
                    + PS_NB * ((KingBuckets[ksq] & 0x7) * 4 + ab));
   }
 
