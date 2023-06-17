@@ -848,6 +848,8 @@ Value Position::detect_chases(int d, int ply) {
               newChase[sideToMove] = chased(sideToMove);
               if (ChineseRule)
                 chases = oldChase & ~newChase[sideToMove];
+              else if (i == d - 2)
+                chases &= ~newChase[sideToMove];
               rooks[sideToMove] &= chases & flag;
               // Redirect *chase* to *chase all pieces simultaneously* in Chinese Rule
               chase[sideToMove] &= ChineseRule && chases ? 0xFFFF : chases;
@@ -1025,7 +1027,7 @@ bool Position::rule_judge(Value& result, int ply) const {
     int end = std::min(std::max(0, 2 * (st->check10[WHITE] - 10)) + st->rule60
                      + std::max(0, 2 * (st->check10[BLACK] - 10)), st->pliesFromNull);
 
-    if (end >= 8 && filter[st->key] >= 2)
+    if (end >= 4 && filter[st->key] >= 1)
     {
         int cnt = 0;
         StateInfo* stp = st->previous->previous;
@@ -1037,22 +1039,28 @@ bool Position::rule_judge(Value& result, int ply) const {
             stp = stp->previous->previous;
             checkThem &= bool(stp->checkersBB);
 
-            // Return a score if a position repeats twice earlier.
-            if (stp->key == st->key && ++cnt == 2)
+            // Return a score if a position repeats once earlier but strictly
+            // after the root, or repeats twice before or at the root.
+            if (stp->key == st->key && (++cnt == 2 || ply > i))
             {
-                if (checkThem || checkUs)
+                if (!checkThem && !checkUs)
                 {
+                    // Copy the current position to a rollback struct, so we don't need to do those moves again
+                    Position rollback;
+                    memcpy((void *)&rollback, (const void *)this, offsetof(Position, filter));
+
+                    // Chasing detection
+                    result = rollback.detect_chases(i, ply);
+                } else
+                    // Checking detection
                     result = !checkUs ? mate_in(ply) : !checkThem ? mated_in(ply) : VALUE_DRAW;
+
+                // Catch false mates
+                if (result == VALUE_DRAW || cnt == 2)
                     return true;
-                }
-
-                // Copy the current position to a rollback struct, so we don't need to do those moves again
-                Position rollback;
-                memcpy((void *)&rollback, (const void *)this, offsetof(Position, filter));
-
-                // Chasing detection
-                result = rollback.detect_chases(i, ply);
-                return true;
+                // We know there can't be another fold
+                if (filter[st->key] <= 1)
+                    return false;
             }
 
             if (i + 1 <= end)
