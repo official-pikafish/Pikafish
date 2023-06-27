@@ -660,7 +660,8 @@ namespace {
         &&  eval >= ss->staticEval
         &&  ss->staticEval >= beta - 17 * depth - improvement / 16 + 111
         && !excludedMove
-        && ss->ply >= thisThread->nmpMinPly)
+        &&  ss->ply >= thisThread->nmpMinPly
+        &&  beta > VALUE_MATED_IN_MAX_PLY)
     {
         assert(eval - beta >= 0);
 
