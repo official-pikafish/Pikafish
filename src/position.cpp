@@ -934,8 +934,6 @@ bool Position::has_mate_threat(Depth d) {
 uint16_t Position::chased(Color c) {
 
     uint16_t chase = 0;
-    if (st->move == MOVE_NONE)
-        return chase;
 
     std::swap(c, sideToMove);
 
