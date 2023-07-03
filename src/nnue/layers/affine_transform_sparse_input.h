@@ -74,21 +74,6 @@ namespace Stockfish::Eval::NNUE::Layers {
     }
     return v;
   }();
-  alignas(CacheLineSize) static inline const std::array<unsigned, 256> lookup_count = [](){
-    std::array<unsigned, 256> v;
-    for (int i = 0; i < 256; ++i)
-    {
-      int j = i;
-      int k = 0;
-      while(j)
-      {
-        j &= j - 1;
-        ++k;
-      }
-      v[i] = k;
-    }
-    return v;
-  }();
 
   // Find indices of nonzero numbers in an int32_t array
   template<const IndexType InputDimensions>
@@ -128,7 +113,7 @@ namespace Stockfish::Eval::NNUE::Layers {
         const auto lookup = (nnz >> (j * 8)) & 0xFF;
         const auto offsets = _mm_loadu_si128(reinterpret_cast<const __m128i*>(&lookup_indices[lookup]));
         _mm_storeu_si128(reinterpret_cast<__m128i*>(out + count), _mm_add_epi16(base, offsets));
-        count += lookup_count[lookup];
+        count += popcount(lookup);
         base = _mm_add_epi16(base, increment);
       }
     }
