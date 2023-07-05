@@ -110,7 +110,7 @@ namespace Stockfish::Eval::NNUE::Features {
         for (uint8_t m = 0; m < 2; ++m)
           for (uint8_t r = 0; r < 2; ++r)
             for (uint8_t ab = 0; ab < 2; ++ab)
-              for (uint8_t s = 0; s < 90; ++s) {
+              for (uint8_t s = 0; s < SQUARE_NB; ++s) {
                 uint8_t ss = s;
                 ss =  m ? flip_file(Square(ss)) : ss;
                 ss =  r ? flip_rank(Square(ss)) : ss;
