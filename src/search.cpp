@@ -56,7 +56,7 @@ namespace {
     return Value(119 * (d - improving));
   }
 
-  // Reductions lookup table, initialized at startup
+  // Reductions lookup table initialized at startup
   int Reductions[MAX_MOVES]; // [depth or moveNumber]
 
   Depth reduction(bool i, Depth d, int mn, Value delta, Value rootDelta) {
@@ -280,7 +280,7 @@ void Thread::search() {
       if (mainThread)
           totBestMoveChanges /= 2;
 
-      // Save the last iteration's scores before first PV line is searched and
+      // Save the last iteration's scores before the first PV line is searched and
       // all the move scores except the (new) PV are set to -VALUE_INFINITE.
       for (RootMove& rm : rootMoves)
           rm.previousScore = rm.score;
@@ -314,16 +314,16 @@ void Thread::search() {
           int failedHighCnt = 0;
           while (true)
           {
-              // Adjust the effective depth searched, but ensuring at least one effective increment for every
+              // Adjust the effective depth searched, but ensure at least one effective increment for every
               // four searchAgain steps (see issue #2717).
               Depth adjustedDepth = std::max(1, rootDepth - failedHighCnt - 3 * (searchAgainCounter + 1) / 4);
               bestValue = Stockfish::search<Root>(rootPos, ss, alpha, beta, adjustedDepth, false);
 
               // Bring the best move to the front. It is critical that sorting
               // is done with a stable algorithm because all the values but the
-              // first and eventually the new best one are set to -VALUE_INFINITE
+              // first and eventually the new best one is set to -VALUE_INFINITE
               // and we want to keep the same order for all the moves except the
-              // new PV that goes to the front. Note that in case of MultiPV
+              // new PV that goes to the front. Note that in the case of MultiPV
               // search the already searched PV lines are preserved.
               std::stable_sort(rootMoves.begin() + pvIdx, rootMoves.begin() + pvLast);
 
@@ -511,8 +511,8 @@ namespace {
         // would be at best mate_in(ss->ply+1), but if alpha is already bigger because
         // a shorter mate was found upward in the tree then there is no need to search
         // because we will never beat the current alpha. Same logic but with reversed
-        // signs applies also in the opposite condition of being mated instead of giving
-        // mate. In this case return a fail-high score.
+        // signs apply also in the opposite condition of being mated instead of giving
+        // mate. In this case, return a fail-high score.
         alpha = std::max(mated_in(ss->ply), alpha);
         beta = std::min(mate_in(ss->ply+1), beta);
         if (alpha >= beta)
@@ -613,7 +613,7 @@ namespace {
     else
     {
         ss->staticEval = eval = evaluate(pos);
-        // Save static evaluation into transposition table
+        // Save static evaluation into the transposition table
         tte->save(posKey, VALUE_NONE, ss->ttPv, BOUND_NONE, DEPTH_NONE, MOVE_NONE, eval);
     }
 
@@ -723,10 +723,10 @@ namespace {
     if (   !PvNode
         &&  depth > 4
         &&  abs(beta) < VALUE_MATE_IN_MAX_PLY
-        // if value from transposition table is lower than probCutBeta, don't attempt probCut
+        // If value from transposition table is lower than probCutBeta, don't attempt probCut
         // there and in further interactions with transposition table cutoff depth is set to depth - 3
         // because probCut search has depth set to depth - 4 but we also do a move before it
-        // so effective depth is equal to depth - 3
+        // So effective depth is equal to depth - 3
         && !(   tte->depth() >= depth - 3
              && ttValue != VALUE_NONE
              && ttValue < probCutBeta))
@@ -798,7 +798,7 @@ moves_loop: // When in check, search starts here
     moveCountPruning = singularQuietLMR = false;
 
     // Indicate PvNodes that will probably fail low if the node was searched
-    // at a depth equal or greater than the current depth, and the result of this search was a fail low.
+    // at a depth equal to or greater than the current depth, and the result of this search was a fail low.
     bool likelyFailLow =    PvNode
                          && ttMove
                          && (tte->bound() & BOUND_UPPER)
@@ -814,9 +814,8 @@ moves_loop: // When in check, search starts here
           continue;
 
       // At root obey the "searchmoves" option and skip moves not listed in Root
-      // Move List. As a consequence any illegal move is also skipped. In MultiPV
-      // mode we also skip PV moves which have been already searched and those
-      // of lower "TB rank" if we are in a TB root position.
+      // Move List. As a consequence, any illegal move is also skipped. In MultiPV
+      // mode we also skip PV moves that have been already searched.
       if (rootNode && !std::count(thisThread->rootMoves.begin() + thisThread->pvIdx,
                                   thisThread->rootMoves.begin() + thisThread->pvLast, move))
           continue;
@@ -878,7 +877,7 @@ moves_loop: // When in check, search starts here
                   {
                       Square sq = pop_lsb(leftEnemies);
                       attacks |= pos.attackers_to(sq, occupied) & pos.pieces(us) & occupied;
-                      // don't consider pieces which were already threatened/hanging before SEE exchanges
+                      // Don't consider pieces that were already threatened/hanging before SEE exchanges
                       if (attacks && (sq != pos.square<KING>(~us) && (pos.attackers_to(sq, pos.pieces()) & pos.pieces(us))))
                           attacks = 0;
                   }
@@ -963,7 +962,7 @@ moves_loop: // When in check, search starts here
               // Our ttMove is assumed to fail high, and now we failed high also on a reduced
               // search without the ttMove. So we assume this expected Cut-node is not singular,
               // that multiple moves fail high, and we can prune the whole subtree by returning
-              // a soft bound.
+              // a softbound.
               else if (singularBeta >= beta)
                   return singularBeta;
 
@@ -1055,7 +1054,7 @@ moves_loop: // When in check, search starts here
 
       // Step 16. Late moves reduction / extension (LMR, ~98 Elo)
       // We use various heuristics for the sons of a node after the first son has
-      // been searched. In general we would like to reduce them, but there are many
+      // been searched. In general, we would like to reduce them, but there are many
       // cases where we extend a son if it has good chances to be "interesting".
       if (    depth >= 2
           &&  moveCount > 1 + (PvNode && ss->ply <= 1)
@@ -1070,10 +1069,10 @@ moves_loop: // When in check, search starts here
 
           value = -search<NonPV>(pos, ss+1, -(alpha+1), -alpha, d, true);
 
-          // Do full depth search when reduced LMR search fails high
+          // Do a full-depth search when reduced LMR search fails high
           if (value > alpha && d < newDepth)
           {
-              // Adjust full depth search based on LMR results - if result
+              // Adjust full-depth search based on LMR results - if the result
               // was good enough search deeper, if it was bad enough search shallower
               const bool doDeeperSearch = value > (bestValue + 57 + 9 * (newDepth - d));
               const bool doEvenDeeperSearch = value > alpha + 648 && ss->doubleExtensions <= 5;
@@ -1094,7 +1093,7 @@ moves_loop: // When in check, search starts here
           }
       }
 
-      // Step 17. Full depth search when LMR is skipped. If expected reduction is high, reduce its depth by 1.
+      // Step 17. Full-depth search when LMR is skipped. If expected reduction is high, reduce its depth by 1.
       else if (!PvNode || moveCount > 1)
       {
           // Increase reduction for cut nodes and not ttMove (~1 Elo)
@@ -1167,7 +1166,7 @@ moves_loop: // When in check, search starts here
                   ++thisThread->bestMoveChanges;
           }
           else
-              // All other moves but the PV are set to the lowest value: this
+              // All other moves but the PV, are set to the lowest value: this
               // is not a problem when sorting because the sort is stable and the
               // move position in the list is preserved - just the PV is pushed up.
               rm.score = -VALUE_INFINITE;
@@ -1206,7 +1205,7 @@ moves_loop: // When in check, search starts here
       }
 
 
-      // If the move is worse than some previously searched move, remember it to update its stats later
+      // If the move is worse than some previously searched move, remember it, to update its stats later
       if (move != bestMove)
       {
           if (capture && captureCount < 32)
@@ -1218,7 +1217,7 @@ moves_loop: // When in check, search starts here
     }
 
     // The following condition would detect a stop only after move loop has been
-    // completed. But in this case bestValue is valid because we have fully
+    // completed. But in this case, bestValue is valid because we have fully
     // searched our subtree, and we can anyhow save the result in TT.
     /*
        if (Threads.stop)
@@ -1235,7 +1234,7 @@ moves_loop: // When in check, search starts here
     if (!moveCount)
         bestValue = excludedMove ? alpha : mated_in(ss->ply);
 
-    // If there is a move which produces search value greater than alpha we update stats of searched moves
+    // If there is a move that produces search value greater than alpha we update the stats of searched moves
     else if (bestMove)
         update_all_stats(pos, ss, bestMove, bestValue, beta, prevSq,
                          quietsSearched, quietCount, capturesSearched, captureCount, depth);
@@ -1609,7 +1608,7 @@ moves_loop: // When in check, search starts here
 
     for (int i : {1, 2, 4, 6})
     {
-        // Only update first 2 continuation histories if we are in check
+        // Only update the first 2 continuation histories if we are in check
         if (ss->inCheck && i > 2)
             break;
         if (is_ok((ss-i)->currentMove))
@@ -1736,7 +1735,7 @@ string UCI::pv(const Position& pos, Depth depth) {
 /// RootMove::extract_ponder_from_tt() is called in case we have no ponder move
 /// before exiting the search, for instance, in case we stop the search during a
 /// fail high at root. We try hard to have a ponder move to return to the GUI,
-/// otherwise in case of 'ponder on' we have nothing to think on.
+/// otherwise in case of 'ponder on' we have nothing to think about.
 
 bool RootMove::extract_ponder_from_tt(Position& pos) {
 
