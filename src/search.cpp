@@ -658,7 +658,7 @@ namespace {
         && (ss-1)->statScore < 13484
         &&  eval >= beta
         &&  eval >= ss->staticEval
-        &&  ss->staticEval >= beta - 17 * depth - improvement / 16 + 111
+        &&  ss->staticEval >= beta - 17 * depth + 111
         && !excludedMove
         &&  ss->ply >= thisThread->nmpMinPly
         &&  beta > VALUE_MATED_IN_MAX_PLY)
