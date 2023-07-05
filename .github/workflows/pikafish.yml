@@ -19,10 +19,10 @@ jobs:
         config:
           - name: Linux
             os: ubuntu-20.04 
-            shell: bash {0}
+            shell: bash
           - name: MacOS
             os: macos-latest
-            shell: bash {0}
+            shell: bash
           - name: Windows
             os: windows-latest
             shell: msys2 {0}
@@ -54,23 +54,10 @@ jobs:
           msystem: clang64
           install: mingw-w64-clang-x86_64-clang make git expect
 
-      - name: Download nnue weight for profile guided optimization build
-        if: ${{ (runner.os != 'macOS' && !endsWith(matrix.arch, '512')) || (runner.os == 'macOS' && !endsWith(matrix.arch, '2')) }}
-        uses: robinraju/release-downloader@v1.7
-        with:
-          repository: "official-pikafish/Pikafish"
-          latest: true
-          zipBall: true
-          out-file-path: "nnue-weights"
-
       - name: Compile ${{ matrix.arch }} build
         run: |
-          make clean
           if ([ "$RUNNER_OS" != "macOS" ] && [ ! $(echo "$ARCH" | grep "512") ]) || ([ "$RUNNER_OS" == "macOS" ] && [ ! $(echo "$ARCH" | grep "2") ]); then
-              if [ "$RUNNER_OS" == "Windows" ]; then
-                  pacman -S unzip --noconfirm
-              fi
-              unzip $GITHUB_WORKSPACE/nnue-weights/Pikafish.*.zip pikafish.nnue
+              wget https://github.com/official-pikafish/Networks/releases/download/master-net/pikafish.nnue
               make -j profile-build EXE=$EXE
           else
               make -j build EXE=$EXE
@@ -86,7 +73,7 @@ jobs:
       - name: Download wiki
         run: |
           git clone https://github.com/official-pikafish/Pikafish.wiki.git ../Wiki
-          cd ../wiki
+          cd ../Wiki
           rm -rf .git
 
       - uses: actions/upload-artifact@v3
@@ -134,20 +121,11 @@ jobs:
           ANDROID_NDK_ROOT=$ANDROID_SDK_ROOT/ndk/$NDKV
           ANDROID_NDK_BIN=$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin
           echo "ANDROID_NDK_BIN=$ANDROID_NDK_BIN" >> $GITHUB_ENV
- 
-      - name: Download nnue weight for profile guided optimization build
-        uses: robinraju/release-downloader@v1.7
-        with:
-          repository: "official-pikafish/Pikafish"
-          latest: true
-          zipBall: true
-          out-file-path: "nnue-weights"
 
       - name: Compile ${{ matrix.arch }} build
         run: |
           export PATH=${{ env.ANDROID_NDK_BIN }}:$PATH
-          unzip $GITHUB_WORKSPACE/nnue-weights/Pikafish.*.zip pikafish.nnue
-          make clean
+          wget https://github.com/official-pikafish/Networks/releases/download/master-net/pikafish.nnue
           make -j profile-build EXE=$EXE WINE_PATH=$EMU
           make strip EXE=$EXE
 
