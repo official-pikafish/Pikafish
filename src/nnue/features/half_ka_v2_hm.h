@@ -61,7 +61,7 @@ namespace Stockfish::Eval::NNUE::Features {
 
     // Index of a feature for a given king position and another piece on some square
     template<Color Perspective>
-    static IndexType make_index(Square s, Piece pc, Square ksq, int ab);
+    static IndexType make_index(Square s, Piece pc, Square ksq);
 
    public:
     // Feature name
@@ -71,7 +71,7 @@ namespace Stockfish::Eval::NNUE::Features {
     static constexpr std::uint32_t HashValue = 0xd17b100;
 
     // Number of feature dimensions
-    static constexpr IndexType Dimensions = 6 * 2 * 2 * static_cast<IndexType>(PS_NB);
+    static constexpr IndexType Dimensions = 6 * static_cast<IndexType>(PS_NB);
 
 #define M(s) ((1 << 3) | s)
     // Stored as (mirror << 3 | bucket)
@@ -134,7 +134,6 @@ namespace Stockfish::Eval::NNUE::Features {
     template<Color Perspective>
     static void append_changed_indices(
       Square ksq,
-      int ab,
       const DirtyPiece& dp,
       IndexList& removed,
       IndexList& added

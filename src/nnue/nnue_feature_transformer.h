@@ -384,7 +384,6 @@ namespace Stockfish::Eval::NNUE {
 
       // Gather all features to be updated.
       const Square ksq = pos.square<KING>(Perspective);
-      const int ab = bool(pos.count<ADVISOR>(Perspective)) * 2 + bool(pos.count<BISHOP>(Perspective));
 
       // The size must be enough to contain the largest possible update.
       // That might depend on the feature set and generally relies on the
@@ -407,7 +406,7 @@ namespace Stockfish::Eval::NNUE {
 
           for (; st2 != end_state; st2 = st2->previous)
             FeatureSet::append_changed_indices<Perspective>(
-              ksq, ab, st2->dirtyPiece, removed[i], added[i]);
+              ksq, st2->dirtyPiece, removed[i], added[i]);
         }
       }
 

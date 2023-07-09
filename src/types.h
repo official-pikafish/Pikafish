@@ -352,8 +352,6 @@ struct DirtyPiece {
   // From and to squares, which may be SQ_NONE
   Square from[2];
   Square to[2];
-
-  bool requires_refresh[2];
 };
 
 /// Score enum stores a middlegame and an endgame value in a single integer (enum).

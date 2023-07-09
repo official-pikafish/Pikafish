@@ -449,9 +449,6 @@ void Position::do_move(Move m, StateInfo& newSt, bool givesCheck) {
   Piece pc = piece_on(from);
   Piece captured = piece_on(to);
 
-  dp.requires_refresh[WHITE] = pc == W_KING;
-  dp.requires_refresh[BLACK] = pc == B_KING;
-
   assert(color_of(pc) == us);
   assert(captured == NO_PIECE || color_of(captured) == them);
   assert(type_of(captured) != KING);
@@ -469,11 +466,6 @@ void Position::do_move(Move m, StateInfo& newSt, bool givesCheck) {
 
       // Update board and piece lists
       remove_piece(capsq);
-
-      dp.requires_refresh[WHITE] |= captured == W_ADVISOR && !count<ADVISOR>(WHITE);
-      dp.requires_refresh[WHITE] |= captured ==  W_BISHOP && !count< BISHOP>(WHITE);
-      dp.requires_refresh[BLACK] |= captured == B_ADVISOR && !count<ADVISOR>(BLACK);
-      dp.requires_refresh[BLACK] |= captured ==  B_BISHOP && !count< BISHOP>(BLACK);
 
       // Update hash key
       k ^= Zobrist::psq[captured][capsq];
@@ -562,9 +554,8 @@ void Position::do_null_move(StateInfo& newSt) {
   newSt.previous = st;
   st = &newSt;
 
-  st->dirtyPiece.dirty_num = 0; // Avoid checks in UpdateAccumulator()
-  st->dirtyPiece.requires_refresh[WHITE] = false;
-  st->dirtyPiece.requires_refresh[BLACK] = false;
+  st->dirtyPiece.dirty_num = 0;
+  st->dirtyPiece.piece[0] = NO_PIECE; // Avoid checks in UpdateAccumulator()
   st->accumulator.computed[WHITE] = false;
   st->accumulator.computed[BLACK] = false;
 
