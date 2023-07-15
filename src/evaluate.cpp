@@ -41,8 +41,6 @@ namespace Eval {
 
   string currentEvalFileName = "None";
 
-  static double to_cp(Value v) { return double(v) / UCI::NormalizeToPawnValue; }
-
   /// NNUE::init() tries to load a NNUE network at startup time, or when the engine
   /// receives a UCI command "setoption name EvalFile value .*.nnue"
   /// The name of the NNUE network is always retrieved from the EvalFile option.
@@ -145,11 +143,13 @@ std::string Eval::trace(Position& pos) {
 
   v = NNUE::evaluate(pos);
   v = pos.side_to_move() == WHITE ? v : -v;
-  ss << "NNUE evaluation        " << to_cp(v) << " (white side)\n";
+  ss << "NNUE evaluation        " << 0.01 * UCI::to_cp(v) << " (white side)\n";
 
   v = evaluate(pos);
   v = pos.side_to_move() == WHITE ? v : -v;
-  ss << "Final evaluation       " << to_cp(v) << " (white side) [with scaled NNUE, optimism, ...]\n";
+  ss << "Final evaluation       " << 0.01 * UCI::to_cp(v) << " (white side)";
+  ss << " [with scaled NNUE, ...]";
+  ss << "\n";
 
   return ss.str();
 }
