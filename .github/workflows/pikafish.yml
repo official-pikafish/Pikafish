@@ -14,12 +14,14 @@ jobs:
       COMPILER: clang++
       COMP: clang
       EXE: pikafish${{ matrix.arch }}${{ matrix.config.ext }}
+      SDE: ${{ matrix.config.sde }}
     strategy:
       matrix:
         config:
           - name: Linux
             os: ubuntu-20.04 
             shell: bash
+            sde: /home/runner/work/Pikafish/Pikafish/.output/sde-temp-files/sde-external-9.14.0-2022-10-25-lin/sde -future --
           - name: MacOS
             os: macos-latest
             shell: bash
@@ -27,11 +29,20 @@ jobs:
             os: windows-latest
             shell: msys2 {0}
             ext: .exe
-        arch: ["-vnni512", "-avx512", "-bmi2", "-avx2", "-modern", ""]
+            sde: /d/a/Pikafish/Pikafish/.output/sde-temp-files/sde-external-9.14.0-2022-10-25-win/sde.exe -future --
+        arch: ["-vnni512", "-avx512", "-avxvnni", "-bmi2", "-avx2", "-modern", ""]
         exclude:
+          - arch: -avxvnni
+            config: {os: ubuntu-20.04}
           - arch: -vnni512
             config: {os: macos-latest}
           - arch: -avx512
+            config: {os: macos-latest}
+          - arch: -avxvnni
+            config: {os: macos-latest}
+          - arch: -bmi2
+            config: {os: macos-latest}
+          - arch: -avx2
             config: {os: macos-latest}
     defaults:
       run:
@@ -54,14 +65,17 @@ jobs:
           msystem: clang64
           install: mingw-w64-clang-x86_64-clang make git expect
 
+      - name: Download SDE package
+        if: runner.os == 'Linux' || runner.os == 'Windows'
+        uses: petarpetrovt/setup-sde@v2.1
+        with:
+          environmentVariableName: SDE_DIR
+          sdeVersion: 9.14.0
+
       - name: Compile ${{ matrix.arch }} build
         run: |
-          if ([ "$RUNNER_OS" != "macOS" ] && [ ! $(echo "$ARCH" | grep "512") ]) || ([ "$RUNNER_OS" == "macOS" ] && [ ! $(echo "$ARCH" | grep "2") ]); then
-              wget https://github.com/official-pikafish/Networks/releases/download/master-net/pikafish.nnue
-              make -j profile-build EXE=$EXE
-          else
-              make -j build EXE=$EXE
-          fi
+          wget https://github.com/official-pikafish/Networks/releases/download/master-net/pikafish.nnue
+          make -j profile-build EXE=$EXE WINE_PATH="$SDE"
           make strip EXE=$EXE
 
       - name: Copy binary to folder

@@ -40,7 +40,8 @@ namespace Stockfish::Eval::NNUE::Layers {
     std::array<std::array<std::uint16_t, 8>, 256> v{};
     for (unsigned i = 0; i < 256; ++i)
     {
-      std::uint64_t j = i, k = 0;
+      Bitboard j = i;
+      std::uint64_t k = 0;
       while(j)
         v[i][k++] = pop_lsb(j);
     }
