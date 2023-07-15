@@ -18,8 +18,6 @@
 
 #include <algorithm>
 #include <cassert>
-#include <cstdlib>
-#include <cstring>   // For std::memset
 #include <fstream>
 #include <iomanip>
 #include <sstream>
@@ -42,6 +40,8 @@ namespace Stockfish {
 namespace Eval {
 
   string currentEvalFileName = "None";
+
+  static double to_cp(Value v) { return double(v) / UCI::NormalizeToPawnValue; }
 
   /// NNUE::init() tries to load a NNUE network at startup time, or when the engine
   /// receives a UCI command "setoption name EvalFile value .*.nnue"
@@ -80,12 +80,14 @@ namespace Eval {
         string msg1 = "Network evaluation parameters compatible with the engine must be available.";
         string msg2 = "The network file " + eval_file + " was not loaded successfully.";
         string msg3 = "The UCI option EvalFile might need to specify the full path, including the directory name, to the network file.";
-        string msg4 = "The engine will be terminated now.";
+        string msg4 = "The default net can be downloaded from: https://github.com/official-pikafish/Networks/releases/download/master-net/" + std::string(EvalFileDefaultName);
+        string msg5 = "The engine will be terminated now.";
 
         sync_cout << "info string ERROR: " << msg1 << sync_endl;
         sync_cout << "info string ERROR: " << msg2 << sync_endl;
         sync_cout << "info string ERROR: " << msg3 << sync_endl;
         sync_cout << "info string ERROR: " << msg4 << sync_endl;
+        sync_cout << "info string ERROR: " << msg5 << sync_endl;
 
         exit(EXIT_FAILURE);
     }
@@ -93,15 +95,6 @@ namespace Eval {
     sync_cout << "info string NNUE evaluation using " << eval_file << " enabled" << sync_endl;
   }
 }
-
-namespace Trace {
-
-  enum Tracing { NO_TRACE, TRACE };
-
-  static double to_cp(Value v) { return double(v) / UCI::NormalizeToPawnValue; }
-}
-
-using namespace Trace;
 
 /// evaluate() is the evaluator for the outer world. It returns a static
 /// evaluation of the position from the point of view of the side to move.
