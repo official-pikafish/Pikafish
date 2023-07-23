@@ -56,14 +56,6 @@ inline TimePoint now() {
         (std::chrono::steady_clock::now().time_since_epoch()).count();
 }
 
-template<class Entry, int Size>
-struct HashTable {
-  Entry* operator[](Key key) { return &table[(uint32_t)key & (Size - 1)]; }
-
-private:
-  std::vector<Entry> table = std::vector<Entry>(Size); // Allocate on the heap
-};
-
 struct BloomFilter {
     constexpr static uint64_t FILTER_SIZE = 1 << 14;
     uint8_t  operator[](Key key) const { return table[key & (FILTER_SIZE - 1)]; }
