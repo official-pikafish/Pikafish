@@ -178,5 +178,6 @@ CPU Hours                     Username
 59943                         dblue
 39465                         qianbai
 
+
 3. Stockfish Fishtest Contributors (https://github.com/official-stockfish/Stockfish/blob/master/Top CPU Contributors.txt)
 Thank you!
