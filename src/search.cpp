@@ -857,7 +857,7 @@ moves_loop: // When in check, search starts here
               if (   !givesCheck
                   && lmrDepth < 5
                   && !ss->inCheck
-                  && ss->staticEval + 304 + 176 * lmrDepth + PieceValue[EG][pos.piece_on(to_sq(move))]
+                  && ss->staticEval + 304 + 176 * lmrDepth + PieceValue[pos.piece_on(to_sq(move))]
                    + captureHistory[movedPiece][to_sq(move)][type_of(pos.piece_on(to_sq(move)))] / 6 < alpha)
                   continue;
 
@@ -1393,7 +1393,7 @@ moves_loop: // When in check, search starts here
               if (moveCount > 2)
                 continue;
 
-              futilityValue = futilityBase + PieceValue[EG][pos.piece_on(to_sq(move))];
+              futilityValue = futilityBase + PieceValue[pos.piece_on(to_sq(move))];
 
               if (futilityValue <= alpha)
               {
