@@ -112,9 +112,9 @@ namespace Stockfish::Eval::NNUE::Features {
             for (uint8_t ab = 0; ab < 2; ++ab)
               for (uint8_t s = 0; s < SQUARE_NB; ++s) {
                 uint8_t ss = s;
-                ss =  m ? flip_file(Square(ss)) : ss;
-                ss =  r ? flip_rank(Square(ss)) : ss;
-                ss = ab ?            ABMap[ss]  : ss;
+                ss =  m ? uint8_t(flip_file(Square(ss))) : ss;
+                ss =  r ? uint8_t(flip_rank(Square(ss))) : ss;
+                ss = ab ?                     ABMap[ss]  : ss;
                 v[m][r][ab][s] = ss;
               }
         return v;
