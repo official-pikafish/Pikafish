@@ -238,10 +238,6 @@ enum Color {
   WHITE, BLACK, COLOR_NB = 2
 };
 
-enum Phase {
-  MG = 0, EG = 1, PHASE_NB = 2
-};
-
 enum Bound {
   BOUND_NONE,
   BOUND_UPPER,
@@ -260,12 +256,12 @@ enum Value : int {
   VALUE_MATE_IN_MAX_PLY  =  VALUE_MATE - MAX_PLY,
   VALUE_MATED_IN_MAX_PLY = -VALUE_MATE_IN_MAX_PLY,
 
-  RookValueMg    = 1245,  RookValueEg    = 1540,
-  AdvisorValueMg = 229 ,  AdvisorValueEg = 187 ,
-  CannonValueMg  = 653 ,  CannonValueEg  = 632 ,
-  PawnValueMg    = 80  ,  PawnValueEg    = 129 ,
-  KnightValueMg  = 574 ,  KnightValueEg  = 747 ,
-  BishopValueMg  = 308 ,  BishopValueEg  = 223 ,
+  RookValue    = 1245,
+  AdvisorValue = 229 ,
+  CannonValue  = 653 ,
+  PawnValue    = 129 ,
+  KnightValue  = 574 ,
+  BishopValue  = 308 ,
 };
 
 enum PieceType {
@@ -281,12 +277,8 @@ enum Piece {
   PIECE_NB
 };
 
-constexpr Value PieceValue[PHASE_NB][PIECE_NB] = {
-  { VALUE_ZERO, RookValueMg, AdvisorValueMg, CannonValueMg, PawnValueMg, KnightValueMg, BishopValueMg, VALUE_ZERO,
-    VALUE_ZERO, RookValueMg, AdvisorValueMg, CannonValueMg, PawnValueMg, KnightValueMg, BishopValueMg, VALUE_ZERO },
-  { VALUE_ZERO, RookValueEg, AdvisorValueEg, CannonValueEg, PawnValueEg, KnightValueEg, BishopValueEg, VALUE_ZERO,
-    VALUE_ZERO, RookValueEg, AdvisorValueEg, CannonValueEg, PawnValueEg, KnightValueEg, BishopValueEg, VALUE_ZERO }
-};
+constexpr Value PieceValue[PIECE_NB] = { VALUE_ZERO, RookValue, AdvisorValue, CannonValue, PawnValue, KnightValue, BishopValue, VALUE_ZERO,
+                                         VALUE_ZERO, RookValue, AdvisorValue, CannonValue, PawnValue, KnightValue, BishopValue, VALUE_ZERO };
 
 using Depth = int;
 

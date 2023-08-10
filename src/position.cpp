@@ -212,7 +212,7 @@ void Position::set_state() const {
       st->key ^= Zobrist::psq[pc][s];
 
       if (type_of(pc) != KING)
-          st->material[color_of(pc)] += PieceValue[MG][pc];
+          st->material[color_of(pc)] += PieceValue[pc];
   }
 
   if (sideToMove == BLACK)
@@ -460,7 +460,7 @@ void Position::do_move(Move m, StateInfo& newSt, bool givesCheck) {
   {
       Square capsq = to;
 
-      st->material[them] -= PieceValue[MG][captured];
+      st->material[them] -= PieceValue[captured];
 
       dp.dirty_num = 2;  // 1 piece moved, 1 piece captured
       dp.piece[1] = captured;
@@ -626,11 +626,11 @@ bool Position::see_ge(Move m, Value threshold) const {
 
   Square from = from_sq(m), to = to_sq(m);
 
-  int swap = PieceValue[MG][piece_on(to)] - threshold;
+  int swap = PieceValue[piece_on(to)] - threshold;
   if (swap < 0)
       return false;
 
-  swap = PieceValue[MG][piece_on(from)] - swap;
+  swap = PieceValue[piece_on(from)] - swap;
   if (swap <= 0)
       return true;
 
@@ -675,7 +675,7 @@ bool Position::see_ge(Move m, Value threshold) const {
       // bitboard 'attackers' any protential attackers when it is removed.
       if ((bb = stmAttackers & pieces(PAWN)))
       {
-          if ((swap = PawnValueMg - swap) < res)
+          if ((swap = PawnValue - swap) < res)
               break;
           occupied ^= least_significant_square_bb(bb);
 
@@ -686,7 +686,7 @@ bool Position::see_ge(Move m, Value threshold) const {
 
       else if ((bb = stmAttackers & pieces(ADVISOR)))
       {
-          if ((swap = AdvisorValueMg - swap) < res)
+          if ((swap = AdvisorValue - swap) < res)
               break;
           occupied ^= least_significant_square_bb(bb);
 
@@ -696,14 +696,14 @@ bool Position::see_ge(Move m, Value threshold) const {
 
       else if ((bb = stmAttackers & pieces(BISHOP)))
       {
-          if ((swap = BishopValueMg - swap) < res)
+          if ((swap = BishopValue - swap) < res)
               break;
           occupied ^= least_significant_square_bb(bb);
       }
 
       else if ((bb = stmAttackers & pieces(CANNON)))
       {
-          if ((swap = CannonValueMg - swap) < res)
+          if ((swap = CannonValue - swap) < res)
               break;
           occupied ^= least_significant_square_bb(bb);
 
@@ -713,14 +713,14 @@ bool Position::see_ge(Move m, Value threshold) const {
 
       else if ((bb = stmAttackers & pieces(KNIGHT)))
       {
-          if ((swap = KnightValueMg - swap) < res)
+          if ((swap = KnightValue - swap) < res)
               break;
           occupied ^= least_significant_square_bb(bb);
       }
 
       else if ((bb = stmAttackers & pieces(ROOK)))
       {
-          if ((swap = RookValueMg - swap) < res)
+          if ((swap = RookValue - swap) < res)
               break;
           occupied ^= least_significant_square_bb(bb);
 
