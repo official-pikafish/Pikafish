@@ -110,7 +110,7 @@ Value Eval::evaluate(const Position& pos) {
 
   assert(!pos.checkers());
 
-  Value v = NNUE::evaluate(pos, true);
+  Value v = NNUE::evaluate(pos);
 
   // Scale nnue score according to material and optimism
   Value optimism = pos.this_thread()->optimism[pos.side_to_move()] * abs(pos.material_diff() - v) / 512;

@@ -141,13 +141,12 @@ namespace Stockfish::Eval::NNUE {
   }
 
   // Evaluation function. Perform differential calculation.
-  Value evaluate(const Position& pos, bool adjusted) {
+  Value evaluate(const Position& pos) {
 
     // We manually align the arrays on the stack because with gcc < 9.3
     // overaligning stack variables with alignas() doesn't work correctly.
 
     constexpr uint64_t alignment = CacheLineSize;
-    constexpr int delta = 24;
 
 #if defined(ALIGNAS_ON_STACK_VARIABLES_BROKEN)
     TransformedFeatureType transformedFeaturesUnaligned[
@@ -161,15 +160,10 @@ namespace Stockfish::Eval::NNUE {
 
     ASSERT_ALIGNED(transformedFeatures, alignment);
 
-    const int bucket = (pos.count<ALL_PIECES>() - 1) / 4;
-    const auto psqt = featureTransformer->transform(pos, transformedFeatures, bucket);
+    const auto bucket = featureTransformer->transform(pos, transformedFeatures);
     const auto positional = network[bucket]->propagate(transformedFeatures);
 
-    // Give more value to positional evaluation when adjusted flag is set
-    if (adjusted)
-        return static_cast<Value>(((1024 - delta) * psqt + (1024 + delta) * positional) / (1024 * OutputScale));
-    else
-        return static_cast<Value>((psqt + positional) / OutputScale);
+    return static_cast<Value>(positional / OutputScale);
   }
 
   struct NnueEvalTrace {
@@ -202,7 +196,7 @@ namespace Stockfish::Eval::NNUE {
     NnueEvalTrace t{};
     t.correctBucket = (pos.count<ALL_PIECES>() - 1) / 4;
     for (IndexType bucket = 0; bucket < LayerStacks; ++bucket) {
-      const auto materialist = featureTransformer->transform(pos, transformedFeatures, bucket);
+      const auto materialist = featureTransformer->transform(pos, transformedFeatures);
       const auto positional = network[bucket]->propagate(transformedFeatures);
 
       t.psqt[bucket] = static_cast<Value>( materialist / OutputScale );
