@@ -121,9 +121,6 @@ void MovePicker::score() {
   }
 
   for (auto& m : *this) {
-      // Type of moved piece
-      PieceType pt = type_of(pos.moved_piece(m));
-
       if constexpr (Type == CAPTURES)
           m.value =  (7 * int(PieceValue[pos.piece_on(to_sq(m))])
                    + (*captureHistory)[pos.moved_piece(m)][to_sq(m)][type_of(pos.piece_on(to_sq(m)))]) / 16;
@@ -168,7 +165,7 @@ void MovePicker::score() {
       {
           if (pos.capture(m))
               m.value =  PieceValue[pos.piece_on(to_sq(m))]
-                       - Value(pt)
+                       - Value(type_of(pos.moved_piece(m)))
                        + (1 << 28);
           else
               m.value =  (*mainHistory)[pos.side_to_move()][from_to(m)]
