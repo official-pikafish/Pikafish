@@ -1678,9 +1678,6 @@ string UCI::pv(const Position& pos, Depth depth) {
       Depth d = updated ? depth : std::max(1, depth - 1);
       Value v = updated ? rootMoves[i].uciScore : rootMoves[i].previousScore;
 
-      if (v == -VALUE_INFINITE)
-          v = VALUE_ZERO;
-
       if (ss.rdbuf()->in_avail()) // Not at first line
           ss << "\n";
 
