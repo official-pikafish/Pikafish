@@ -30,7 +30,7 @@ namespace Stockfish::Eval::NNUE::Features {
     return IndexType(IndexMap[KingBuckets[ksq] >> 3][Perspective == BLACK]
                              [type_of(pc) == ADVISOR || type_of(pc) == BISHOP][s]
                    + PieceSquareIndex[Perspective][pc]
-                   + PS_NB * ((KingBuckets[ksq] & 0x7) * 4 + ab));
+                   + PS_NB * ((KingBuckets[ksq] & 0x7) * 9 + ab));
   }
 
   // Get a list of indices for active features
@@ -40,7 +40,7 @@ namespace Stockfish::Eval::NNUE::Features {
     IndexList& active
   ) {
     Square ksq = pos.square<KING>(Perspective);
-    int ab = bool(pos.count<ADVISOR>(Perspective)) * 2 + bool(pos.count<BISHOP>(Perspective));
+    int ab = pos.count<ADVISOR>(Perspective) * 3 + pos.count<BISHOP>(Perspective);
     Bitboard bb = pos.pieces();
     while (bb)
     {

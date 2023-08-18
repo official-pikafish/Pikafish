@@ -384,7 +384,7 @@ namespace Stockfish::Eval::NNUE {
 
       // Gather all features to be updated.
       const Square ksq = pos.square<KING>(Perspective);
-      const int ab = bool(pos.count<ADVISOR>(Perspective)) * 2 + bool(pos.count<BISHOP>(Perspective));
+      const int ab = pos.count<ADVISOR>(Perspective) * 3 + pos.count<BISHOP>(Perspective);
 
       // The size must be enough to contain the largest possible update.
       // That might depend on the feature set and generally relies on the

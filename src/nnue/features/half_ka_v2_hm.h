@@ -71,7 +71,7 @@ namespace Stockfish::Eval::NNUE::Features {
     static constexpr std::uint32_t HashValue = 0xd17b100;
 
     // Number of feature dimensions
-    static constexpr IndexType Dimensions = 6 * 2 * 2 * static_cast<IndexType>(PS_NB);
+    static constexpr IndexType Dimensions = 6 * 3 * 3 * static_cast<IndexType>(PS_NB);
 
 #define M(s) ((1 << 3) | s)
     // Stored as (mirror << 3 | bucket)

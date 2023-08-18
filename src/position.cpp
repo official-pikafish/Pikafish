@@ -470,10 +470,8 @@ void Position::do_move(Move m, StateInfo& newSt, bool givesCheck) {
       // Update board and piece lists
       remove_piece(capsq);
 
-      dp.requires_refresh[WHITE] |= captured == W_ADVISOR && !count<ADVISOR>(WHITE);
-      dp.requires_refresh[WHITE] |= captured ==  W_BISHOP && !count< BISHOP>(WHITE);
-      dp.requires_refresh[BLACK] |= captured == B_ADVISOR && !count<ADVISOR>(BLACK);
-      dp.requires_refresh[BLACK] |= captured ==  B_BISHOP && !count< BISHOP>(BLACK);
+      dp.requires_refresh[WHITE] |= captured == W_ADVISOR || captured ==  W_BISHOP;
+      dp.requires_refresh[BLACK] |= captured == B_ADVISOR || captured ==  B_BISHOP;
 
       // Update hash key
       k ^= Zobrist::psq[captured][capsq];
