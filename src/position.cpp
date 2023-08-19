@@ -1047,7 +1047,7 @@ bool Position::rule_judge(Value& result, int ply) const {
                     result = !checkUs ? mate_in(ply) : !checkThem ? mated_in(ply) : VALUE_DRAW;
 
                 // Catch false mates
-                if (result == VALUE_DRAW || cnt == 2)
+                if (result > VALUE_MATED_IN_MAX_PLY || cnt == 2)
                     return true;
                 // We know there can't be another fold
                 if (filter[st->key] <= 1)
