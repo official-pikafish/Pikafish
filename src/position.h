@@ -301,7 +301,6 @@ inline int Position::rule60_count() const {
 
 inline bool Position::capture(Move m) const {
   assert(is_ok(m));
-  // Castling is encoded as "king captures rook"
   return !empty(to_sq(m));
 }
 
