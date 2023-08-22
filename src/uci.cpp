@@ -356,10 +356,7 @@ std::string UCI::square(Square s) {
 }
 
 
-/// UCI::move() converts a Move to a string in coordinate notation (g1f3, a7a8q).
-/// The only special case is castling where the e1g1 notation is printed in
-/// standard chess mode.
-/// Internally, all castling moves are always encoded as 'king captures rook'.
+/// UCI::move() converts a Move to a string in coordinate notation (g1f3, a7a8).
 
 string UCI::move(Move m) {
 

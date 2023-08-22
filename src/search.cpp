@@ -648,7 +648,7 @@ namespace {
         &&  depth < 7
         &&  eval - futility_margin(depth, cutNode && !ss->ttHit, improving) - (ss-1)->statScore / 249 >= beta
         &&  eval >= beta
-        &&  eval < 28604) // larger than VALUE_KNOWN_WIN, but smaller than TB wins.
+        &&  eval < 28604) // larger than VALUE_KNOWN_WIN, but smaller than wins.
         return eval;
 
     // Step 8. Null move search with verification search (~22 Elo)
