@@ -100,13 +100,13 @@ public:
   // Checking
   Bitboard checkers() const;
   Bitboard blockers_for_king(Color c) const;
-  Bitboard blockers_for_king(Bitboard sliders, Square s, Bitboard& pinners) const;
   Bitboard check_squares(PieceType pt) const;
   Bitboard pinners(Color c) const;
 
   // Attacks to/from a given square
   Bitboard attackers_to(Square s) const;
   Bitboard attackers_to(Square s, Bitboard occupied) const;
+  template <Color c> void blockers_for_king() const;
   Bitboard checkers_to(Color c, Square s) const;
   Bitboard checkers_to(Color c, Square s, Bitboard occupied) const;
   template<PieceType Pt> Bitboard attacks_by(Color c) const;
