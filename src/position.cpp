@@ -174,20 +174,18 @@ Position& Position::set(const string& fenStr, StateInfo* si, Thread* th) {
 
 void Position::set_check_info() const {
 
-  Color  us   = sideToMove;
-  Square uksq = square<KING>( us);
-  Square oksq = square<KING>(~us);
+  blockers_for_king<WHITE>();
+  blockers_for_king<BLACK>();
 
-  st->blockersForKing[ us] = blockers_for_king(pieces(~us), uksq, st->pinners[~us]);
-  st->blockersForKing[~us] = blockers_for_king(pieces( us), oksq, st->pinners[ us]);
+  Square ksq = square<KING>(~sideToMove);
 
   // We have to take special cares about the cannon and checks
-  st->needSlowCheck = checkers() || (attacks_bb<ROOK>(uksq) & pieces(~us, CANNON));
+  st->needSlowCheck = checkers() || (attacks_bb<ROOK>(square<KING>(sideToMove)) & pieces(~sideToMove, CANNON));
 
-  st->checkSquares[PAWN]   = pawn_attacks_to_bb(sideToMove, oksq);
-  st->checkSquares[KNIGHT] = attacks_bb<KNIGHT_TO>(oksq, pieces());
-  st->checkSquares[CANNON] = attacks_bb<CANNON>(oksq, pieces());
-  st->checkSquares[ROOK]   = attacks_bb<ROOK>(oksq, pieces());
+  st->checkSquares[PAWN]   = pawn_attacks_to_bb(sideToMove, ksq);
+  st->checkSquares[KNIGHT] = attacks_bb<KNIGHT_TO>(ksq, pieces());
+  st->checkSquares[CANNON] = attacks_bb<CANNON>(ksq, pieces());
+  st->checkSquares[ROOK]   = attacks_bb<ROOK>(ksq, pieces());
   st->checkSquares[KING]   = st->checkSquares[ADVISOR] = st->checkSquares[BISHOP] = 0;
 }
 
@@ -255,37 +253,37 @@ string Position::fen() const {
 }
 
 
-/// Position::blockers_for_king() returns a bitboard of all the pieces (both colors)
-/// that are blocking attacks on the square 's' from 'sliders'. A piece blocks a
-/// slider if removing that piece from the board would result in a position where
-/// square 's' is attacked. For example, a king-attack blocking piece can be either
-/// a pinned or a discovered check piece, according if its color is the opposite
-/// or the same of the color of the slider.
+/// Position::blockers_for_king() calculates
+/// into st->blockersForKing[c]:
+///        which pieces prevent king of color c from being in check
+/// into st->pinners[c]:
+///        which pieces of color c are pinning pieces of ~c to the king.
 
-Bitboard Position::blockers_for_king(Bitboard sliders, Square s, Bitboard& pinners) const {
+template <Color c>
+void Position::blockers_for_king() const {
 
-  Bitboard blockers = 0;
-  pinners = 0;
+  Square ksq = square<KING>(c);
+  st->blockersForKing[c] = 0;
+  st->pinners[~c] = 0;
 
   // Snipers are pieces that attack 's' when a piece and other pieces are removed
-  Bitboard snipers = (  (attacks_bb<  ROOK>(s) & (pieces(ROOK) | pieces(CANNON) | pieces(KING)))
-                      | (attacks_bb<KNIGHT>(s) & pieces(KNIGHT))) & sliders;
+  Bitboard snipers = (  (attacks_bb<  ROOK>(ksq) & (pieces(ROOK) | pieces(CANNON) | pieces(KING)))
+                      | (attacks_bb<KNIGHT>(ksq) & pieces(KNIGHT))) & pieces(~c);
   Bitboard occupancy = pieces() ^ (snipers & ~pieces(CANNON));
 
   while (snipers)
   {
     Square sniperSq = pop_lsb(snipers);
     bool isCannon = type_of(piece_on(sniperSq)) == CANNON;
-    Bitboard b = between_bb(s, sniperSq) & (isCannon ? pieces() ^ sniperSq : occupancy);
+    Bitboard b = between_bb(ksq, sniperSq) & (isCannon ? pieces() ^ sniperSq : occupancy);
 
     if (b && ((!isCannon && !more_than_one(b)) || (isCannon && popcount(b) == 2)))
     {
-        blockers |= b;
-        if (b & pieces(color_of(piece_on(s))))
-            pinners |= sniperSq;
+        st->blockersForKing[c] |= b;
+        if (b & pieces(c))
+            st->pinners[~c] |= sniperSq;
     }
   }
-  return blockers;
 }
 
 
