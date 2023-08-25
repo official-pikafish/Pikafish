@@ -101,15 +101,26 @@ Value Eval::evaluate(const Position& pos) {
 
   assert(!pos.checkers());
 
-  Value v = NNUE::evaluate(pos, true);
+  Value v;
 
-  // Scale nnue score according to material and optimism
-  Value optimism = pos.this_thread()->optimism[pos.side_to_move()] * abs(pos.material_diff() - v) / 568;
-  Value material = pos.material_sum() / 40;
-  v = (v * (622 + material) + optimism * (171 + material)) / 1041;
+  int nnueComplexity;
+  int material = pos.material_sum() / 42;
+
+  Color stm = pos.side_to_move();
+  Value optimism = pos.this_thread()->optimism[stm];
+
+  Value nnue = NNUE::evaluate(pos, true, &nnueComplexity);
+
+  int imbalance = pos.material_diff();
+
+  // Blend optimism and eval with nnue complexity and material imbalance
+  optimism += optimism * (nnueComplexity + abs(imbalance - nnue)) / 708;
+  nnue     -= nnue     * (nnueComplexity + abs(imbalance - nnue)) / 35116;
+
+  v = (nnue * (625 + material) + optimism * (130 + material)) / 1225;
 
   // Damp down the evaluation linearly when shuffling
-  v = v * (258 - pos.rule60_count()) / 134;
+  v = v * (268 - pos.rule60_count()) / 175;
 
   // Guarantee evaluation does not hit the mate range
   v = std::clamp(v, VALUE_MATED_IN_MAX_PLY + 1, VALUE_MATE_IN_MAX_PLY - 1);

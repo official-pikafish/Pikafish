@@ -173,9 +173,9 @@ Position& Position::set(const string& fenStr, StateInfo* si, Thread* th) {
 /// Position::set_check_info() sets king attacks to detect if a move gives check
 
 void Position::set_check_info() const {
-
-  blockers_for_king<WHITE>();
-  blockers_for_king<BLACK>();
+  
+  update_blockers<WHITE>();
+  update_blockers<BLACK>();
 
   Square ksq = square<KING>(~sideToMove);
 
@@ -253,14 +253,14 @@ string Position::fen() const {
 }
 
 
-/// Position::blockers_for_king() calculates
+/// Position::update_blockers() calculates
 /// into st->blockersForKing[c]:
 ///        which pieces prevent king of color c from being in check
 /// into st->pinners[c]:
 ///        which pieces of color c are pinning pieces of ~c to the king.
 
 template <Color c>
-void Position::blockers_for_king() const {
+void Position::update_blockers() const {
 
   Square ksq = square<KING>(c);
   st->blockersForKing[c] = 0;
