@@ -142,13 +142,12 @@ namespace Stockfish::Eval::NNUE {
   }
 
   // Evaluation function. Perform differential calculation.
-  Value evaluate(const Position& pos, bool adjusted) {
+  Value evaluate(const Position& pos, bool adjusted, int* complexity) {
 
     // We manually align the arrays on the stack because with gcc < 9.3
     // overaligning stack variables with alignas() doesn't work correctly.
 
     constexpr uint64_t alignment = CacheLineSize;
-    constexpr int delta = 26;
 
 #if defined(ALIGNAS_ON_STACK_VARIABLES_BROKEN)
     TransformedFeatureType transformedFeaturesUnaligned[
@@ -166,9 +165,12 @@ namespace Stockfish::Eval::NNUE {
     const auto psqt = featureTransformer->transform(pos, transformedFeatures, bucket);
     const auto positional = network[bucket]->propagate(transformedFeatures);
 
-    // Give more value to positional evaluation when adjusted flag is set
+    if (complexity)
+      *complexity = abs(psqt - positional) / OutputScale;
+
+    // Adjust psqt and positional ratio in evaluation when adjusted flag is set
     if (adjusted)
-        return static_cast<Value>(((1024 - delta) * psqt + (1024 + delta) * positional) / (1024 * OutputScale));
+        return static_cast<Value>((1159 * psqt + 1191 * positional) / (845 * OutputScale));
     else
         return static_cast<Value>((psqt + positional) / OutputScale);
   }

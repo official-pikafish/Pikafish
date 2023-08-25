@@ -106,7 +106,7 @@ public:
   // Attacks to/from a given square
   Bitboard attackers_to(Square s) const;
   Bitboard attackers_to(Square s, Bitboard occupied) const;
-  template <Color c> void blockers_for_king() const;
+  template <Color c> void update_blockers() const;
   Bitboard checkers_to(Color c, Square s) const;
   Bitboard checkers_to(Color c, Square s, Bitboard occupied) const;
   template<PieceType Pt> Bitboard attacks_by(Color c) const;
