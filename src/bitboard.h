@@ -305,7 +305,7 @@ inline int popcount(Bitboard b) {
   return  PopCnt16[v.u[0]] + PopCnt16[v.u[1]] + PopCnt16[v.u[2]] + PopCnt16[v.u[3]]
          + PopCnt16[v.u[4]] + PopCnt16[v.u[5]] + PopCnt16[v.u[6]] + PopCnt16[v.u[7]];
 
-#elif defined(_MSC_VER) || defined(__INTEL_COMPILER)
+#elif defined(_MSC_VER)
 
     return (int)_mm_popcnt_u64(b >> 64) + (int)_mm_popcnt_u64(b);
 
