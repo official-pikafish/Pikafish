@@ -94,6 +94,16 @@ namespace Eval {
   }
 }
 
+
+/// simple_eval() returns a static, purely materialistic evaluation of
+/// the position from the point of view of the given color. It can be
+/// divided by PawnValue to get an approximation of the material advantage
+/// on the board in terms of pawns.
+
+Value Eval::simple_eval(const Position& pos, Color c) {
+   return pos.material(c) - pos.material(~c);
+}
+
 /// evaluate() is the evaluator for the outer world. It returns a static
 /// evaluation of the position from the point of view of the side to move.
 
@@ -102,25 +112,24 @@ Value Eval::evaluate(const Position& pos) {
   assert(!pos.checkers());
 
   Value v;
+  Color stm      = pos.side_to_move();
+  int shuffling  = pos.rule60_count();
+  int simpleEval = simple_eval(pos, stm);
 
   int nnueComplexity;
-  int material = pos.material_sum() / 42;
-
-  Color stm = pos.side_to_move();
-  Value optimism = pos.this_thread()->optimism[stm];
-
   Value nnue = NNUE::evaluate(pos, true, &nnueComplexity);
 
-  int imbalance = pos.material_diff();
+  int material = pos.material() / 42;
+  Value optimism = pos.this_thread()->optimism[stm];
 
   // Blend optimism and eval with nnue complexity and material imbalance
-  optimism += optimism * (nnueComplexity + abs(imbalance - nnue)) / 708;
-  nnue     -= nnue     * (nnueComplexity + abs(imbalance - nnue)) / 35116;
+  optimism += optimism * (nnueComplexity + abs(simpleEval - nnue)) / 708;
+  nnue     -= nnue     * (nnueComplexity + abs(simpleEval - nnue)) / 35116;
 
   v = (nnue * (625 + material) + optimism * (130 + material)) / 1225;
 
   // Damp down the evaluation linearly when shuffling
-  v = v * (268 - pos.rule60_count()) / 175;
+  v = v * (268 - shuffling) / 175;
 
   // Guarantee evaluation does not hit the mate range
   v = std::clamp(v, VALUE_MATED_IN_MAX_PLY + 1, VALUE_MATE_IN_MAX_PLY - 1);
