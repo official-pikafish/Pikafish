@@ -141,8 +141,8 @@ public:
   int rule60_count() const;
   bool has_mate_threat(Depth d = -1);
   uint16_t chased(Color c);
-  Value material_sum() const;
-  Value material_diff() const;
+  Value material(Color c) const;
+  Value material() const;
 
   // Position consistency check, for debugging
   bool pos_is_ok() const;
@@ -279,16 +279,16 @@ inline Key Position::key() const {
 template<bool AfterMove>
 inline Key Position::adjust_key60(Key k) const
 {
-    return st->rule60 < 14 - AfterMove
-               ? k : k ^ make_key((st->rule60 - (14 - AfterMove)) / 8);
+  return st->rule60 < 14 - AfterMove
+             ? k : k ^ make_key((st->rule60 - (14 - AfterMove)) / 8);
 }
 
-inline Value Position::material_sum() const {
-  return st->material[WHITE] + st->material[BLACK];
+inline Value Position::material(Color c) const {
+  return st->material[c];
 }
 
-inline Value Position::material_diff() const {
-  return st->material[sideToMove] - st->material[~sideToMove];
+inline Value Position::material() const {
+  return material(WHITE) + material(BLACK);
 }
 
 inline int Position::game_ply() const {
