@@ -97,6 +97,7 @@ jobs:
             ${{ matrix.config.name }}/*
             Wiki
             AUTHORS
+            CONTRIBUTING.md
             Copying.txt
             README.md
             Top CPU Contributors.txt
