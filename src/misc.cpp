@@ -58,6 +58,7 @@ using fun8_t = bool(*)(HANDLE, BOOL, PTOKEN_PRIVILEGES, DWORD, PTOKEN_PRIVILEGES
 #include <vector>
 
 #include "types.h"
+#include "external/zip.h"
 
 #if defined(__linux__) && !defined(__ANDROID__)
 #include <sys/mman.h>
@@ -68,16 +69,12 @@ using fun8_t = bool(*)(HANDLE, BOOL, PTOKEN_PRIVILEGES, DWORD, PTOKEN_PRIVILEGES
 #include <stdlib.h>
 #endif
 
-#include "external/zip.h"
-
-using namespace std;
-
 namespace Stockfish {
 
 namespace {
 
 /// Version number or dev.
-constexpr string_view version = "dev";
+constexpr std::string_view version = "dev";
 
 /// Our fancy logging facility. The trick here is to replace cin.rdbuf() and
 /// cout.rdbuf() with two Tie objects that tie cin and cout to a file stream. We
@@ -85,16 +82,16 @@ constexpr string_view version = "dev";
 /// usual I/O functionality, all without changing a single line of code!
 /// Idea from http://groups.google.com/group/comp.lang.c++/msg/1d941c0f26ea0d81
 
-struct Tie: public streambuf { // MSVC requires split streambuf for cin and cout
+struct Tie: public std::streambuf { // MSVC requires split streambuf for cin and cout
 
-  Tie(streambuf* b, streambuf* l) : buf(b), logBuf(l) {}
+  Tie(std::streambuf* b, std::streambuf* l) : buf(b), logBuf(l) {}
 
   int sync() override { return logBuf->pubsync(), buf->pubsync(); }
   int overflow(int c) override { return log(buf->sputc((char)c), "<< "); }
   int underflow() override { return buf->sgetc(); }
   int uflow() override { return log(buf->sbumpc(), ">> "); }
 
-  streambuf *buf, *logBuf;
+  std::streambuf *buf, *logBuf;
 
   int log(int c, const char* prefix) {
 
@@ -109,10 +106,10 @@ struct Tie: public streambuf { // MSVC requires split streambuf for cin and cout
 
 class Logger {
 
-  Logger() : in(cin.rdbuf(), file.rdbuf()), out(cout.rdbuf(), file.rdbuf()) {}
+  Logger() : in(std::cin.rdbuf(), file.rdbuf()), out(std::cout.rdbuf(), file.rdbuf()) {}
  ~Logger() { start(""); }
 
-  ofstream file;
+  std::ofstream file;
   Tie in, out;
 
 public:
@@ -122,23 +119,23 @@ public:
 
     if (l.file.is_open())
     {
-        cout.rdbuf(l.out.buf);
-        cin.rdbuf(l.in.buf);
+        std::cout.rdbuf(l.out.buf);
+        std::cin.rdbuf(l.in.buf);
         l.file.close();
     }
 
     if (!fname.empty())
     {
-        l.file.open(fname, ifstream::out);
+        l.file.open(fname, std::ifstream::out);
 
         if (!l.file.is_open())
         {
-            cerr << "Unable to open debug log file " << fname << endl;
+            std::cerr << "Unable to open debug log file " << fname << std::endl;
             exit(EXIT_FAILURE);
         }
 
-        cin.rdbuf(&l.in);
-        cout.rdbuf(&l.out);
+        std::cin.rdbuf(&l.in);
+        std::cout.rdbuf(&l.out);
     }
   }
 };
@@ -156,9 +153,9 @@ public:
 /// For releases (non dev builds) we only include the version number:
 /// Pikafish version
 
-string engine_info(bool to_uci) {
-  stringstream ss;
-  ss << "Pikafish " << version << setfill('0');
+std::string engine_info(bool to_uci) {
+  std::stringstream ss;
+  ss << "Pikafish " << version << std::setfill('0');
 
   if constexpr (version == "dev")
   {
@@ -166,12 +163,12 @@ string engine_info(bool to_uci) {
       #ifdef GIT_DATE
       ss << stringify(GIT_DATE);
       #else
-      constexpr string_view months("Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec");
-      string month, day, year;
-      stringstream date(__DATE__); // From compiler, format is "Sep 21 2008"
+      constexpr std::string_view months("Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec");
+      std::string month, day, year;
+      std::stringstream date(__DATE__); // From compiler, format is "Sep 21 2008"
 
       date >> month >> day >> year;
-      ss << year << setw(2) << setfill('0') << (1 + months.find(month) / 4) << setw(2) << setfill('0') << day;
+      ss << year << std::setw(2) << std::setfill('0') << (1 + months.find(month) / 4) << std::setw(2) << std::setfill('0') << day;
       #endif
 
       ss << "-";
@@ -743,12 +740,12 @@ void bindThisThread(size_t idx) {
 
 namespace CommandLine {
 
-string argv0;            // path+name of the executable binary, as given by argv[0]
-string binaryDirectory;  // path of the executable directory
-string workingDirectory; // path of the working directory
+std::string argv0;            // path+name of the executable binary, as given by argv[0]
+std::string binaryDirectory;  // path of the executable directory
+std::string workingDirectory; // path of the working directory
 
 void init([[maybe_unused]] int argc, char* argv[]) {
-    string pathSeparator;
+    std::string pathSeparator;
 
     // extract the path+name of the executable binary
     argv0 = argv[0];
@@ -794,7 +791,8 @@ std::stringstream read_zipped_nnue(const std::string& fpath) {
     size_t bufsize = 0;
 
     struct zip_t *zip = zip_open(fpath.c_str(), 0, 'r');
-    if (zip_entries_total(zip) == 1) {
+    if (zip_entries_total(zip) == 1)
+    {
         zip_entry_openbyindex(zip, 0);
         {
             zip_entry_read(zip, &buf, &bufsize);
