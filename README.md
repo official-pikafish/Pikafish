@@ -60,40 +60,9 @@ This distribution of Pikafish consists of the following files:
   * a file with the .nnue extension, storing the neural network for the NNUE
     evaluation.
 
-## The UCI protocol
-
-The [Universal Chess Interface][uci-link] (UCI) is a standard text-based protocol
-used to communicate with a chess engine and is the recommended way to do so for
-typical graphical user interfaces (GUI) or chess tools. Pikafish implements the
-majority of its options.
-
-Developers can see the default values for the UCI options available in Pikafish
-by typing `./pikafish uci` in a terminal, but most users should typically use a
-xiangqi GUI to interact with Pikafish.
-
-For more information on UCI or debug commands, see our [documentation][wiki-commands-link].
-
-## Compiling Pikafish
-
-Pikafish has support for 32 or 64-bit CPUs, certain hardware instructions,
-big-endian machines such as Power PC, and other platforms.
-
-On Unix-like systems, it should be easy to compile Pikafish directly from the
-source code with the included Makefile in the folder `src`. In general, it is
-recommended to run `make help` to see a list of make targets with corresponding
-descriptions.
-
-```
-cd src
-make -j build ARCH=x86-64-modern
-```
-
-Detailed compilation instructions for all platforms can be found in our
-[documentation][wiki-compile-link].
-
 ## Contributing
 
-__See [Contributing Guide](./.github/CONTRIBUTING.md).__
+__See [Contributing Guide](./CONTRIBUTING.md).__
 
 ### Donating hardware
 
@@ -116,6 +85,26 @@ first, where the basics of Pikafish development are explained.
 Discussions about Pikafish take place these days mainly in the Pikafish
 [Discord server][discord-link]. This is also the best place to ask questions
 about the codebase and how to improve it.
+
+
+## Compiling Pikafish
+
+Pikafish has support for 32 or 64-bit CPUs, certain hardware instructions,
+big-endian machines such as Power PC, and other platforms.
+
+On Unix-like systems, it should be easy to compile Pikafish directly from the
+source code with the included Makefile in the folder `src`. In general, it is
+recommended to run `make help` to see a list of make targets with corresponding
+descriptions.
+
+```
+cd src
+make -j build ARCH=x86-64-modern
+```
+
+Detailed compilation instructions for all platforms can be found in our
+[documentation][wiki-compile-link].
+the [UCI commands][wiki-uci-link] supported by Pikafish.
 
 ## Terms of use
 
@@ -163,7 +152,7 @@ also be made available under GPL v3.
 [website-link]:			https://pikafish.org
 [website-blog-link]:  https://pikafish.org/
 [wiki-link]:          https://github.com/official-pikafish/Pikafish/wiki
-[wiki-usage-link]:    https://github.com/official-pikafish/Pikafish/wiki/Download-and-usage
 [wiki-compile-link]:  https://github.com/official-pikafish/Pikafish/wiki/Compiling-from-source
-[wiki-commands-link]: https://github.com/official-pikafish/Pikafish/wiki/Commands
+[wiki-commands-link]: https://github.com/official-pikafish/Pikafish/wiki/UCI-&-Commands
+[wiki-usage-link]:    https://github.com/official-pikafish/Pikafish/wiki/Download-and-usage
 [worker-link]:			https://github.com/xyztnecniV/yolo

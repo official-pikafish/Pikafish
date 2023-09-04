@@ -21,6 +21,7 @@
 #ifndef NNUE_FEATURES_HALF_KA_V2_HM_H_INCLUDED
 #define NNUE_FEATURES_HALF_KA_V2_HM_H_INCLUDED
 
+#include <array>
 #include <cstdint>
 
 #include "../../misc.h"
