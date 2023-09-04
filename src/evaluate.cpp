@@ -34,13 +34,12 @@
 #include "types.h"
 #include "uci.h"
 
-using namespace std;
 
 namespace Stockfish {
 
 namespace Eval {
 
-  string currentEvalFileName = "None";
+  std::string currentEvalFileName = "None";
 
   /// NNUE::init() tries to load a NNUE network at startup time, or when the engine
   /// receives a UCI command "setoption name EvalFile value .*.nnue"
@@ -50,17 +49,17 @@ namespace Eval {
 
   void NNUE::init() {
 
-    string eval_file = string(Options["EvalFile"]);
+    std::string eval_file = std::string(Options["EvalFile"]);
     if (eval_file.empty())
         eval_file = EvalFileDefaultName;
 
-    vector<string> dirs = { "" , CommandLine::binaryDirectory };
+    std::vector<std::string> dirs = { "" , CommandLine::binaryDirectory };
 
-    for (const string& directory : dirs)
+    for (const std::string& directory : dirs)
         if (currentEvalFileName != eval_file)
         {
-            ifstream stream(directory + eval_file, ios::binary);
-            stringstream ss = read_zipped_nnue(directory + eval_file);
+            std::ifstream stream(directory + eval_file, std::ios::binary);
+            std::stringstream ss = read_zipped_nnue(directory + eval_file);
             if (NNUE::load_eval(eval_file, stream) || NNUE::load_eval(eval_file, ss))
                 currentEvalFileName = eval_file;
         }
@@ -69,18 +68,18 @@ namespace Eval {
   /// NNUE::verify() verifies that the last net used was loaded successfully
   void NNUE::verify() {
 
-    string eval_file = string(Options["EvalFile"]);
+    std::string eval_file = std::string(Options["EvalFile"]);
     if (eval_file.empty())
         eval_file = EvalFileDefaultName;
 
     if (currentEvalFileName != eval_file)
     {
 
-        string msg1 = "Network evaluation parameters compatible with the engine must be available.";
-        string msg2 = "The network file " + eval_file + " was not loaded successfully.";
-        string msg3 = "The UCI option EvalFile might need to specify the full path, including the directory name, to the network file.";
-        string msg4 = "The default net can be downloaded from: https://github.com/official-pikafish/Networks/releases/download/master-net/" + std::string(EvalFileDefaultName);
-        string msg5 = "The engine will be terminated now.";
+        std::string msg1 = "Network evaluation parameters compatible with the engine must be available.";
+        std::string msg2 = "The network file " + eval_file + " was not loaded successfully.";
+        std::string msg3 = "The UCI option EvalFile might need to specify the full path, including the directory name, to the network file.";
+        std::string msg4 = "The default net can be downloaded from: https://github.com/official-pikafish/Networks/releases/download/master-net/" + std::string(EvalFileDefaultName);
+        std::string msg5 = "The engine will be terminated now.";
 
         sync_cout << "info string ERROR: " << msg1 << sync_endl;
         sync_cout << "info string ERROR: " << msg2 << sync_endl;

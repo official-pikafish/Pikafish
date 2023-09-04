@@ -41,8 +41,6 @@
 #include "search.h"
 #include "thread.h"
 
-using namespace std;
-
 namespace Stockfish {
 
 namespace {
@@ -56,10 +54,10 @@ namespace {
   // the initial position ("startpos") and then makes the moves given in the following
   // move list ("moves").
 
-  void position(Position& pos, istringstream& is, StateListPtr& states) {
+  void position(Position& pos, std::istringstream& is, StateListPtr& states) {
 
     Move m;
-    string token, fen;
+    std::string token, fen;
 
     is >> token;
 
@@ -103,11 +101,11 @@ namespace {
   // setoption() is called when the engine receives the "setoption" UCI command.
   // The function updates the UCI option ("name") to the given value ("value").
 
-  void setoption(istringstream& is) {
+  void setoption(std::istringstream& is) {
 
     Threads.main()->wait_for_search_finished();
 
-    string token, name, value;
+    std::string token, name, value;
 
     is >> token; // Consume the "name" token
 
@@ -130,10 +128,10 @@ namespace {
   // sets the thinking time and other parameters from the input string, then starts
   // with a search.
 
-  void go(Position& pos, istringstream& is, StateListPtr& states) {
+  void go(Position& pos, std::istringstream& is, StateListPtr& states) {
 
     Search::LimitsType limits;
-    string token;
+    std::string token;
     bool ponderMode = false;
 
     limits.startTime = now(); // The search starts as early as possible
@@ -164,24 +162,24 @@ namespace {
   // Firstly, a list of UCI commands is set up according to the bench
   // parameters, then it is run one by one, printing a summary at the end.
 
-  void bench(Position& pos, istream& args, StateListPtr& states) {
+  void bench(Position& pos, std::istream& args, StateListPtr& states) {
 
-    string token;
+    std::string token;
     uint64_t num, nodes = 0, cnt = 1;
 
-    vector<string> list = setup_bench(pos, args);
-    num = count_if(list.begin(), list.end(), [](const string& s) { return s.find("go ") == 0 || s.find("eval") == 0; });
+    std::vector<std::string> list = setup_bench(pos, args);
+    num = count_if(list.begin(), list.end(), [](const std::string& s) { return s.find("go ") == 0 || s.find("eval") == 0; });
 
     TimePoint elapsed = now();
 
     for (const auto& cmd : list)
     {
-        istringstream is(cmd);
-        is >> skipws >> token;
+        std::istringstream is(cmd);
+        is >> std::skipws >> token;
 
         if (token == "go" || token == "eval")
         {
-            cerr << "\nPosition: " << cnt++ << '/' << num << " (" << pos.fen() << ")" << endl;
+            std::cerr << "\nPosition: " << cnt++ << '/' << num << " (" << pos.fen() << ")" << std::endl;
             if (token == "go")
             {
                go(pos, is, states);
@@ -200,10 +198,10 @@ namespace {
 
     dbg_print();
 
-    cerr << "\n==========================="
-         << "\nTotal time (ms) : " << elapsed
-         << "\nNodes searched  : " << nodes
-         << "\nNodes/second    : " << 1000 * nodes / elapsed << endl;
+    std::cerr << "\n==========================="
+              << "\nTotal time (ms) : " << elapsed
+              << "\nNodes searched  : " << nodes
+              << "\nNodes/second    : " << 1000 * nodes / elapsed << std::endl;
   }
 
   // The win rate model returns the probability of winning (in per mille units) given an
@@ -244,7 +242,7 @@ namespace {
 void UCI::loop(int argc, char* argv[]) {
 
   Position pos;
-  string token, cmd;
+  std::string token, cmd;
   StateListPtr states(new std::deque<StateInfo>(1));
 
   pos.set(StartFEN, &states->back(), Threads.main());
@@ -253,13 +251,13 @@ void UCI::loop(int argc, char* argv[]) {
       cmd += std::string(argv[i]) + " ";
 
   do {
-      if (argc == 1 && !getline(cin, cmd)) // Wait for an input or an end-of-file (EOF) indication
+      if (argc == 1 && !getline(std::cin, cmd)) // Wait for an input or an end-of-file (EOF) indication
           cmd = "quit";
 
-      istringstream is(cmd);
+      std::istringstream is(cmd);
 
       token.clear(); // Avoid a stale if getline() returns nothing or a blank line
-      is >> skipws >> token;
+      is >> std::skipws >> token;
 
       if (    token == "quit"
           ||  token == "stop")
@@ -295,7 +293,7 @@ void UCI::loop(int argc, char* argv[]) {
       {
           std::optional<std::string> filename;
           std::string f;
-          if (is >> skipws >> f)
+          if (is >> std::skipws >> f)
               filename = f;
           Eval::NNUE::save_eval(filename);
       }
@@ -326,11 +324,11 @@ int UCI::to_cp(Value v) {
 /// mate <y>  Mate in 'y' moves (not plies). If the engine is getting mated,
 ///           uses negative values for 'y'.
 
-string UCI::value(Value v) {
+std::string UCI::value(Value v) {
 
   assert(-VALUE_INFINITE < v && v < VALUE_INFINITE);
 
-  stringstream ss;
+  std::stringstream ss;
 
   if (abs(v) < VALUE_MATE_IN_MAX_PLY)
       ss << "cp " << UCI::to_cp(v);
@@ -344,9 +342,9 @@ string UCI::value(Value v) {
 /// UCI::wdl() reports the win-draw-loss (WDL) statistics given an evaluation
 /// and a game ply based on the data gathered for fishtest LTC games.
 
-string UCI::wdl(Value v, int ply) {
+std::string UCI::wdl(Value v, int ply) {
 
-  stringstream ss;
+  std::stringstream ss;
 
   int wdl_w = win_rate_model( v, ply);
   int wdl_l = win_rate_model(-v, ply);
@@ -366,7 +364,7 @@ std::string UCI::square(Square s) {
 
 /// UCI::move() converts a Move to a string in coordinate notation (g1f3, a7a8).
 
-string UCI::move(Move m) {
+std::string UCI::move(Move m) {
 
   if (m == MOVE_NONE)
       return "(none)";
@@ -377,7 +375,7 @@ string UCI::move(Move m) {
   Square from = from_sq(m);
   Square to = to_sq(m);
 
-  string move = UCI::square(from) + UCI::square(to);
+  std::string move = UCI::square(from) + UCI::square(to);
 
   return move;
 }
@@ -386,7 +384,7 @@ string UCI::move(Move m) {
 /// UCI::to_move() converts a string representing a move in coordinate notation
 /// (g1f3, a7a8) to the corresponding legal Move, if any.
 
-Move UCI::to_move(const Position& pos, string& str) {
+Move UCI::to_move(const Position& pos, std::string& str) {
 
   for (const auto& m : MoveList<LEGAL>(pos))
       if (str == UCI::move(m))

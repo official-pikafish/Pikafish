@@ -25,12 +25,10 @@
 
 #include "position.h"
 
-using namespace std;
-
 namespace {
 
 // Positions from https://www.chessprogramming.org/Chinese_Chess_Perft_Results
-const vector<string> Defaults = {
+const std::vector<std::string> Defaults = {
 
     // Initial Position
     "rnbakabnr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C5C1/9/RNBAKABNR w",
@@ -104,17 +102,17 @@ namespace Stockfish {
 /// bench 64 4 5000 current movetime : search current position with 4 threads for 5 sec
 /// bench 16 1 5 blah perft          : run a perft 5 on positions in file "blah"
 
-vector<string> setup_bench(const Position& current, istream& is) {
+std::vector<std::string> setup_bench(const Position& current, std::istream& is) {
 
-  vector<string> fens, list;
-  string go, token;
+  std::vector<std::string> fens, list;
+  std::string go, token;
 
   // Assign default values to missing arguments
-  string ttSize    = (is >> token) ? token : "16";
-  string threads   = (is >> token) ? token : "1";
-  string limit     = (is >> token) ? token : "13";
-  string fenFile   = (is >> token) ? token : "default";
-  string limitType = (is >> token) ? token : "depth";
+  std::string ttSize    = (is >> token) ? token : "16";
+  std::string threads   = (is >> token) ? token : "1";
+  std::string limit     = (is >> token) ? token : "13";
+  std::string fenFile   = (is >> token) ? token : "default";
+  std::string limitType = (is >> token) ? token : "depth";
 
   go = limitType == "eval" ? "eval" : "go " + limitType + " " + limit;
 
@@ -126,12 +124,12 @@ vector<string> setup_bench(const Position& current, istream& is) {
 
   else
   {
-      string fen;
-      ifstream file(fenFile);
+      std::string fen;
+      std::ifstream file(fenFile);
 
       if (!file.is_open())
       {
-          cerr << "Unable to open file " << fenFile << endl;
+          std::cerr << "Unable to open file " << fenFile << std::endl;
           exit(EXIT_FAILURE);
       }
 
@@ -146,8 +144,8 @@ vector<string> setup_bench(const Position& current, istream& is) {
   list.emplace_back("setoption name Hash value " + ttSize);
   list.emplace_back("ucinewgame");
 
-  for (const string& fen : fens)
-      if (fen.find("setoption") != string::npos)
+  for (const std::string& fen : fens)
+      if (fen.find("setoption") != std::string::npos)
           list.emplace_back(fen);
       else
       {
