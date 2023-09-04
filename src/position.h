@@ -21,13 +21,14 @@
 
 #include <cassert>
 #include <deque>
-#include <memory> // For std::unique_ptr
+#include <iosfwd>
+#include <memory>
 #include <string>
 
 #include "bitboard.h"
-#include "types.h"
 
 #include "nnue/nnue_accumulator.h"
+#include "types.h"
 
 namespace Stockfish {
 

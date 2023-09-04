@@ -21,12 +21,10 @@
 
 #include <cassert>
 #include <chrono>
-#include <ostream>
-#include <string>
-#include <vector>
+#include <cstddef>
 #include <cstdint>
-
-#include "types.h"
+#include <iosfwd>
+#include <string>
 
 #define stringify2(x) #x
 #define stringify(x) stringify2(x)
@@ -55,15 +53,6 @@ inline TimePoint now() {
   return std::chrono::duration_cast<std::chrono::milliseconds>
         (std::chrono::steady_clock::now().time_since_epoch()).count();
 }
-
-struct BloomFilter {
-    constexpr static uint64_t FILTER_SIZE = 1 << 14;
-    uint8_t  operator[](Key key) const { return table[key & (FILTER_SIZE - 1)]; }
-    uint8_t& operator[](Key key)       { return table[key & (FILTER_SIZE - 1)]; }
-
-private:
-    uint8_t table[1 << 14];
-};
 
 enum SyncCout { IO_LOCK, IO_UNLOCK };
 std::ostream& operator<<(std::ostream&, SyncCout);
