@@ -70,8 +70,9 @@ namespace {
   int Reductions[MAX_MOVES]; // [depth or moveNumber]
 
   Depth reduction(bool i, Depth d, int mn, Value delta, Value rootDelta) {
-    int r = Reductions[d] * Reductions[mn];
-    return (r + 1778 - int(delta) * 1194 / int(rootDelta)) / 1184 + (!i && r > 848);
+    int reductionScale  = Reductions[d] * Reductions[mn];
+    return (reductionScale  + 1778 - int(delta) * 1194 / int(rootDelta)) / 1184
+         + (!i && reductionScale  > 848);
   }
 
   constexpr int futility_move_count(bool improving, Depth depth) {
