@@ -37,10 +37,7 @@
 ///               | only in 64-bit mode and requires hardware with pext support.
 
 #include <cassert>
-#include <cctype>
 #include <cstdint>
-#include <cstdlib>
-#include <algorithm>
 
 #if defined(_MSC_VER)
 // Disable some silly and noisy warning from MSVC compiler
@@ -327,6 +324,16 @@ enum File : int {
 
 enum Rank : int {
   RANK_0, RANK_1, RANK_2, RANK_3, RANK_4, RANK_5, RANK_6, RANK_7, RANK_8, RANK_9, RANK_NB
+};
+
+// For fast repetition checks
+struct BloomFilter {
+    constexpr static uint64_t FILTER_SIZE = 1 << 14;
+    uint8_t  operator[](Key key) const { return table[key & (FILTER_SIZE - 1)]; }
+    uint8_t& operator[](Key key)       { return table[key & (FILTER_SIZE - 1)]; }
+
+private:
+    uint8_t table[1 << 14];
 };
 
 // Keep track of what a move changes on the board (used by NNUE)

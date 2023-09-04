@@ -16,24 +16,34 @@
   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include "search.h"
+
 #include <algorithm>
+#include <array>
+#include <atomic>
 #include <cassert>
 #include <cmath>
-#include <cstring>   // For std::memset
+#include <cstdlib>
+#include <cstring>
+#include <initializer_list>
 #include <iostream>
 #include <sstream>
+#include <string>
+#include <utility>
 
+#include "bitboard.h"
 #include "evaluate.h"
 #include "misc.h"
 #include "movegen.h"
 #include "movepick.h"
+#include "nnue/evaluate_nnue.h"
+#include "nnue/nnue_common.h"
 #include "position.h"
 #include "search.h"
 #include "thread.h"
 #include "timeman.h"
 #include "tt.h"
 #include "uci.h"
-#include "nnue/evaluate_nnue.h"
 
 namespace Stockfish {
 
