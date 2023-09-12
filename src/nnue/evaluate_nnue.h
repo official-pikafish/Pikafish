@@ -74,6 +74,8 @@ namespace Stockfish::Eval::NNUE {
   bool save_eval(std::ostream& stream);
   bool save_eval(const std::optional<std::string>& filename);
 
+  extern LargePagePtr<FeatureTransformer> featureTransformer;
+
 }  // namespace Stockfish::Eval::NNUE
 
 #endif // #ifndef NNUE_EVALUATE_NNUE_H_INCLUDED

@@ -25,8 +25,31 @@
 #include "tune.h"
 #include "types.h"
 #include "uci.h"
+#include "nnue/evaluate_nnue.h"
 
 using namespace Stockfish;
+using namespace Eval::NNUE;
+
+int old_psqt[311040];
+bool first = true;
+
+int psqt_calibrate[720] {};
+
+static void post_update() {
+    if (featureTransformer && first) {
+        memcpy(old_psqt, featureTransformer->psqtWeights, sizeof(old_psqt));
+        first = false;
+    }
+    for (int i = 0; i < 9; ++i) {
+        int a = 1 * 9 + i;
+        for (int j = 0; j < 720; ++j)
+            for (int k = 0; k < 8; ++k)
+                if (featureTransformer)
+                    featureTransformer->psqtWeights[a * 720 * 8 + j * 8 + k] = old_psqt[a * 720 * 8 + j * 8 + k] + psqt_calibrate[j];
+    }
+}
+
+TUNE(SetRange(-640, 640), psqt_calibrate, post_update);
 
 int main(int argc, char* argv[]) {
 
