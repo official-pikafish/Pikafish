@@ -18,11 +18,11 @@ jobs:
     strategy:
       matrix:
         config:
-          - name: Linux
+          -# name: Linux
             os: ubuntu-20.04 
             shell: bash
             sde: /home/runner/work/Pikafish/Pikafish/.output/sde-temp-files/sde-external-9.14.0-2022-10-25-lin/sde -future --
-          - name: MacOS
+          -# name: MacOS
             os: macos-latest
             shell: bash
           - name: Windows
@@ -30,7 +30,7 @@ jobs:
             shell: msys2 {0}
             ext: .exe
             sde: /d/a/Pikafish/Pikafish/.output/sde-temp-files/sde-external-9.14.0-2022-10-25-win/sde.exe -future --
-        arch: ["-vnni512", "-avx512", "-avxvnni", "-bmi2", "-avx2", "-sse41-popcnt", "-ssse3"]
+        arch: ["-vnni512", "-avx512", "-avxvnni", "-bmi2", "-avx2", "-sse41-popcnt", "-ssse3","-ssse2","-sse3-popcnt"]
         exclude:
           - arch: -avxvnni
             config: {os: ubuntu-20.04}
