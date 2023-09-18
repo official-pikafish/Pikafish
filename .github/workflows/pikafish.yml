@@ -3,7 +3,7 @@ name: Pikafish
 on:
   push:
     branches:
-      - master
+      - tune
       
 jobs:
   Pikafish:
@@ -25,18 +25,7 @@ jobs:
             sde: /d/a/Pikafish/Pikafish/.output/sde-temp-files/sde-external-9.14.0-2022-10-25-win/sde.exe -future --
         arch: ["-vnni512", "-avx512", "-avxvnni", "-bmi2",  "-sse3-popcnt", "-avx2", "-sse41-popcnt", "-ssse3"]
         exclude:
-          - arch: -avxvnni
-            config: {os: ubuntu-20.04}
-          - arch: -vnni512
-            config: {os: macos-latest}
-          - arch: -avx512
-            config: {os: macos-latest}
-          - arch: -avxvnni
-            config: {os: macos-latest}
-          - arch: -bmi2
-            config: {os: macos-latest}
-          - arch: -avx2
-            config: {os: macos-latest}
+
     defaults:
       run:
         working-directory: src
