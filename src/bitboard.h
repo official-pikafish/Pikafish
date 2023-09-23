@@ -307,7 +307,7 @@ inline int popcount(Bitboard b) {
 
 #elif defined(_MSC_VER)
 
-    return (int)_mm_popcnt_u64(b >> 64) + (int)_mm_popcnt_u64(b);
+  return int(_mm_popcnt_u64(b >> 64)) + int(_mm_popcnt_u64(b));
 
 #else // Assumed gcc or compatible compiler
 
