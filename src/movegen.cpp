@@ -123,8 +123,7 @@ namespace {
 template<GenType Type>
 ExtMove* generate(const Position& pos, ExtMove* moveList) {
 
-  static_assert(Type != LEGAL, "Unsupported type in generate()");
-  assert((Type == EVASIONS) == bool(pos.checkers()));
+  static_assert(Type != LEGAL && Type != EVASIONS, "Unsupported type in generate()");
 
   Color us = pos.side_to_move();
 
@@ -154,6 +153,8 @@ template ExtMove* generate<PSEUDO_LEGAL>(const Position&, ExtMove*);
 
 template<>
 ExtMove* generate<EVASIONS>(const Position& pos, ExtMove* moveList) {
+
+    assert(bool(pos.checkers()));
 
     // If there are more than one checker, use slow version
     if (more_than_one(pos.checkers()))
