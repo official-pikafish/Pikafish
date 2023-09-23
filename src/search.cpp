@@ -659,7 +659,7 @@ namespace {
         &&  depth < 7
         &&  eval - futility_margin(depth, cutNode && !ss->ttHit, improving) - (ss-1)->statScore / 249 >= beta
         &&  eval >= beta
-        &&  eval < 26626) // larger than VALUE_KNOWN_WIN, but smaller than wins.
+        &&  eval < 26626) // smaller than wins.
         return eval;
 
     // Step 8. Null move search with verification search (~22 Elo)
@@ -788,8 +788,8 @@ moves_loop: // When in check, search starts here
         && (tte->bound() & BOUND_LOWER)
         && tte->depth() >= depth - 3
         && ttValue >= probCutBeta
-        && abs(ttValue) <= VALUE_KNOWN_WIN
-        && abs(beta) <= VALUE_KNOWN_WIN)
+        && abs(ttValue) < VALUE_MATE_IN_MAX_PLY
+        && abs(beta) < VALUE_MATE_IN_MAX_PLY)
         return probCutBeta;
 
     const PieceToHistory* contHist[] = { (ss-1)->continuationHistory, (ss-2)->continuationHistory,
@@ -924,7 +924,7 @@ moves_loop: // When in check, search starts here
               &&  move == ttMove
               && !excludedMove // Avoid recursive singular search
            /* &&  ttValue != VALUE_NONE Already implicit in the next condition */
-              &&  abs(ttValue) < VALUE_KNOWN_WIN
+              &&  abs(ttValue) < VALUE_MATE_IN_MAX_PLY
               && (tte->bound() & BOUND_LOWER)
               &&  tte->depth() >= depth - 3)
           {
@@ -1401,7 +1401,7 @@ moves_loop: // When in check, search starts here
           // Futility pruning and moveCount pruning (~5 Elo)
           if (   !givesCheck
               &&  to_sq(move) != prevSq
-              &&  futilityBase > -VALUE_KNOWN_WIN)
+              &&  futilityBase > VALUE_MATED_IN_MAX_PLY)
           {
               if (moveCount > 2)
                 continue;
