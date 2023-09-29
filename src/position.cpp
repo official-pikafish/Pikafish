@@ -353,7 +353,7 @@ bool Position::legal(Move m) const {
 
 
 /// Position::pseudo_legal() takes a random move and tests whether the move is
-/// pseudo legal. It is used to validate moves from TT that can be corrupted
+/// pseudo-legal. It is used to validate moves from TT that can be corrupted
 /// due to SMP concurrent access or hash position key aliasing.
 
 bool Position::pseudo_legal(const Move m) const {
@@ -733,7 +733,7 @@ bool Position::see_ge(Move m, Value threshold) const {
       }
 
       else // KING
-           // If we "capture" with the king but opponent still has attackers,
+           // If we "capture" with the king but the opponent still has attackers,
            // reverse the result.
           return (attackers & ~pieces(stm)) ? res ^ 1 : res;
   }
@@ -1111,7 +1111,7 @@ void Position::flip() {
 
 
 /// Position::pos_is_ok() performs some consistency checks for the
-/// position object and raises an asserts if something wrong is detected.
+/// position object and raise an assert if something wrong is detected.
 /// This is meant to be helpful when debugging.
 
 bool Position::pos_is_ok() const {
