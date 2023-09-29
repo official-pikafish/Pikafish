@@ -248,7 +248,7 @@ inline int edge_distance(File f) { return std::min(f, File(FILE_I - f)); }
 inline int edge_distance(Rank r) { return std::min(r, Rank(RANK_9 - r)); }
 
 
-/// attacks_bb(Square) returns the pseudo attacks of the give piece type
+/// attacks_bb(Square) returns the pseudo attacks of the given piece type
 /// assuming an empty board.
 
 template<PieceType Pt>
