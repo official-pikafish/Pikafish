@@ -658,10 +658,13 @@ namespace {
         &&  depth < 7
         &&  eval - futility_margin(depth, cutNode && !ss->ttHit, improving) - (ss-1)->statScore / 249 >= beta
         &&  eval >= beta
-        &&  eval < 26626) // smaller than wins.
+        &&  eval < 26626 // smaller than wins.
+        && !(  !ttCapture
+             && ttMove
+             && thisThread->mainHistory[us][from_to(ttMove)] < 989))
         return eval;
 
-    // Step 8. Null move search with verification search (~22 Elo)
+    // Step 8. Null move search with verification search (~35 Elo)
     if (   !PvNode
         && (ss-1)->currentMove != MOVE_NULL
         && (ss-1)->statScore < 13010
