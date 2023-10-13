@@ -124,7 +124,7 @@ inline Bitboard  operator^(Square s, Bitboard b) { return b ^ s; }
 inline Bitboard  operator|(Square s1, Square s2) { return square_bb(s1) | s2; }
 
 constexpr bool more_than_one(Bitboard b) {
-  return b & (b - 1);
+  return bool(b & (b - 1));
 }
 
 
@@ -140,7 +140,7 @@ constexpr Bitboard rank_bb(Square s) {
 }
 
 constexpr Bitboard file_bb(File f) {
-  return FileABB << f;
+  return FileABB << std::uint8_t(f);
 }
 
 constexpr Bitboard file_bb(Square s) {
@@ -152,11 +152,11 @@ constexpr Bitboard file_bb(Square s) {
 
 template<Direction D>
 constexpr Bitboard shift(Bitboard b) {
-  return  D == NORTH      ? (b & ~Rank9BB           ) << NORTH       : D == SOUTH      ?  b             >> NORTH
-        : D == NORTH+NORTH? (b & ~Rank9BB & ~Rank8BB) << NORTH+NORTH : D == SOUTH+SOUTH?  b             >> NORTH+NORTH
-        : D == EAST       ? (b & ~FileIBB           ) << EAST        : D == WEST       ? (b & ~FileABB) >> EAST
-        : D == NORTH_EAST ? (b & ~FileIBB           ) << NORTH_EAST  : D == NORTH_WEST ? (b & ~FileABB) << NORTH_WEST
-        : D == SOUTH_EAST ? (b & ~FileIBB           ) >> NORTH_WEST  : D == SOUTH_WEST ? (b & ~FileABB) >> NORTH_EAST
+  return  D == NORTH      ? (b & ~Rank9BB           ) << std::uint8_t(NORTH      ) : D == SOUTH      ?  b             >> std::uint8_t(NORTH      )
+        : D == NORTH+NORTH? (b & ~Rank9BB & ~Rank8BB) << std::uint8_t(NORTH+NORTH) : D == SOUTH+SOUTH?  b             >> std::uint8_t(NORTH+NORTH)
+        : D == EAST       ? (b & ~FileIBB           ) << std::uint8_t(EAST       ) : D == WEST       ? (b & ~FileABB) >> std::uint8_t(EAST       )
+        : D == NORTH_EAST ? (b & ~FileIBB           ) << std::uint8_t(NORTH_EAST ) : D == NORTH_WEST ? (b & ~FileABB) << std::uint8_t(NORTH_WEST )
+        : D == SOUTH_EAST ? (b & ~FileIBB           ) >> std::uint8_t(NORTH_WEST ) : D == SOUTH_WEST ? (b & ~FileABB) >> std::uint8_t(NORTH_EAST )
         : Bitboard(0);
 }
 
@@ -232,7 +232,7 @@ inline Bitboard between_bb(Square s1, Square s2) {
 /// straight or on a diagonal line.
 
 inline bool aligned(Square s1, Square s2, Square s3) {
-  return line_bb(s1, s2) & s3;
+  return bool(line_bb(s1, s2) & s3);
 }
 
 
@@ -307,7 +307,7 @@ inline int popcount(Bitboard b) {
 
 #elif defined(_MSC_VER)
 
-  return int(_mm_popcnt_u64(b >> 64)) + int(_mm_popcnt_u64(b));
+  return int(_mm_popcnt_u64(b._Word[1])) + int(_mm_popcnt_u64(b._Word[0]));
 
 #else // Assumed gcc or compatible compiler
 
@@ -325,14 +325,14 @@ inline Square lsb(Bitboard b) {
 #if defined(_MSC_VER) // MSVC
 
   unsigned long idx;
-  if (uint64_t(b))
+  if (b._Word[0])
   {
-      _BitScanForward64(&idx, b);
+      _BitScanForward64(&idx, b._Word[0]);
       return Square(idx);
   }
   else
   {
-      _BitScanForward64(&idx, b >> 64);
+      _BitScanForward64(&idx, b._Word[1]);
       return Square(idx + 64);
   }
 
