@@ -492,7 +492,7 @@ namespace {
 
     // Step 1. Initialize node
     Thread* thisThread = pos.this_thread();
-    ss->inCheck        = pos.checkers();
+    ss->inCheck        = bool(pos.checkers());
     priorCapture       = pos.captured_piece();
     Color us           = pos.side_to_move();
     moveCount          = captureCount = quietCount = ss->moveCount = 0;
@@ -1296,7 +1296,7 @@ moves_loop: // When in check, search starts here
 
     Thread* thisThread = pos.this_thread();
     bestMove = MOVE_NONE;
-    ss->inCheck = pos.checkers();
+    ss->inCheck = bool(pos.checkers());
     moveCount = 0;
 
     // Step 2. Check for repetition or maximum ply reached

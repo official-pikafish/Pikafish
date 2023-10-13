@@ -374,11 +374,11 @@ bool Position::pseudo_legal(const Move m) const {
 
   // Handle the special cases
   if (type_of(pc) == PAWN)
-      return pawn_attacks_bb(us, from) & to;
+      return bool(pawn_attacks_bb(us, from) & to);
   else if (type_of(pc) == CANNON && !capture(m))
-      return attacks_bb<ROOK>(from, pieces()) & to;
+      return bool(attacks_bb<ROOK>(from, pieces()) & to);
   else
-      return attacks_bb(type_of(pc), from, pieces()) & to;
+      return bool(attacks_bb(type_of(pc), from, pieces()) & to);
 }
 
 
@@ -404,7 +404,7 @@ bool Position::gives_check(Move m) const {
 
   // Is there a discovered check?
   if (attacks_bb<ROOK>(ksq) & pieces(sideToMove, CANNON))
-      return checkers_to(sideToMove, ksq, (pieces() ^ from) | to) & ~square_bb(from);
+      return bool(checkers_to(sideToMove, ksq, (pieces() ^ from) | to) & ~square_bb(from));
   else if ((blockers_for_king(~sideToMove) & from) && !aligned(from, to, ksq))
       return true;
 
