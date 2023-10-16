@@ -414,7 +414,7 @@ Move UCI::to_move(const Position& pos, std::string& str) {
 
 // Execute UCI::loop() only once.
 extern "C" void wasm_uci_execute() {
-  string input;
+  std::string input;
   std::getline(std::cin, input);
   char *argv[2] = {input.data(), input.data()};
   Stockfish::UCI::loop(2, argv);
