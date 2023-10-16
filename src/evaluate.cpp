@@ -124,12 +124,12 @@ Value Eval::evaluate(const Position& pos) {
 
   // Blend optimism and eval with nnue complexity and material imbalance
   optimism += optimism * (nnueComplexity + abs(simpleEval - nnue)) / 708;
-  nnue     -= nnue     * (nnueComplexity + abs(simpleEval - nnue)) / 35116;
+  nnue     -= nnue     * (nnueComplexity + abs(simpleEval - nnue)) / 32858;
 
-  v = (nnue * (625 + material) + optimism * (130 + material)) / 1225;
+  v = (nnue * (545 + material) + optimism * (128 + material)) / 1312;
 
   // Damp down the evaluation linearly when shuffling
-  v = v * (268 - shuffling) / 175;
+  v = v * (263 - shuffling) / 192;
 
   // Guarantee evaluation does not hit the mate range
   v = std::clamp(v, VALUE_MATED_IN_MAX_PLY + 1, VALUE_MATE_IN_MAX_PLY - 1);
