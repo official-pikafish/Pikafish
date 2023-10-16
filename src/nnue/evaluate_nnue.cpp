@@ -175,7 +175,7 @@ namespace Stockfish::Eval::NNUE {
 
     // Adjust psqt and positional ratio in evaluation when adjusted flag is set
     if (adjusted)
-        return static_cast<Value>((1159 * psqt + 1191 * positional) / (845 * OutputScale));
+        return static_cast<Value>((1414 * psqt + 1448 * positional) / (860 * OutputScale));
     else
         return static_cast<Value>((psqt + positional) / OutputScale);
   }
