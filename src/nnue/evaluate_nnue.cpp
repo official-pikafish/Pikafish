@@ -18,19 +18,24 @@
 
 // Code for calculating NNUE evaluation function
 
+#include "evaluate_nnue.h"
+
+#include <cmath>
+#include <cstdlib>
+#include <cstring>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
-#include <set>
 #include <sstream>
 #include <string_view>
 
 #include "../evaluate.h"
+#include "../misc.h"
 #include "../position.h"
-#include "../uci.h"
 #include "../types.h"
-
-#include "evaluate_nnue.h"
+#include "../uci.h"
+#include "nnue_accumulator.h"
+#include "nnue_common.h"
 
 namespace Stockfish::Eval::NNUE {
 
@@ -81,6 +86,7 @@ namespace Stockfish::Eval::NNUE {
   }
 
   }  // namespace Detail
+
 
   // Initialize the evaluation function parameters
   static void initialize() {
@@ -133,7 +139,7 @@ namespace Stockfish::Eval::NNUE {
     if (!Detail::write_parameters(stream, *featureTransformer)) return false;
     for (std::size_t i = 0; i < LayerStacks; ++i)
       if (!Detail::write_parameters(stream, *(network[i]))) return false;
-    return (bool)stream;
+    return bool(stream);
   }
 
   void hint_common_parent_position(const Position& pos) {
@@ -147,7 +153,6 @@ namespace Stockfish::Eval::NNUE {
     // overaligning stack variables with alignas() doesn't work correctly.
 
     constexpr uint64_t alignment = CacheLineSize;
-    int delta = 24 - pos.material_sum() / 8192;
 
 #if defined(ALIGNAS_ON_STACK_VARIABLES_BROKEN)
     TransformedFeatureType transformedFeaturesUnaligned[
@@ -166,11 +171,11 @@ namespace Stockfish::Eval::NNUE {
     const auto positional = network[bucket]->propagate(transformedFeatures);
 
     if (complexity)
-        *complexity = abs(psqt - positional) / OutputScale;
+      *complexity = abs(psqt - positional) / OutputScale;
 
-    // Give more value to positional evaluation when adjusted flag is set
+    // Adjust psqt and positional ratio in evaluation when adjusted flag is set
     if (adjusted)
-        return static_cast<Value>(((1024 - delta) * psqt + (1024 + delta) * positional) / (1024 * OutputScale));
+        return static_cast<Value>((1159 * psqt + 1191 * positional) / (845 * OutputScale));
     else
         return static_cast<Value>((psqt + positional) / OutputScale);
   }
@@ -187,7 +192,6 @@ namespace Stockfish::Eval::NNUE {
 
     // We manually align the arrays on the stack because with gcc < 9.3
     // overaligning stack variables with alignas() doesn't work correctly.
-
     constexpr uint64_t alignment = CacheLineSize;
 
 #if defined(ALIGNAS_ON_STACK_VARIABLES_BROKEN)
@@ -224,7 +228,7 @@ namespace Stockfish::Eval::NNUE {
 
     buffer[0] = (v < 0 ? '-' : v > 0 ? '+' : ' ');
 
-    int cp = std::abs(100 * v / UCI::NormalizeToPawnValue);
+    int cp = std::abs(UCI::to_cp(v));
     if (cp >= 10000)
     {
         buffer[1] = '0' + cp / 10000; cp %= 10000;
@@ -249,21 +253,21 @@ namespace Stockfish::Eval::NNUE {
   }
 
 
-  // format_cp_aligned_dot() converts a Value into (centi)pawns, always keeping two decimals.
+  // format_cp_aligned_dot() converts a Value into pawns, always keeping two decimals
   static void format_cp_aligned_dot(Value v, std::stringstream &stream) {
-    const double cp = 1.0 * std::abs(int(v)) / UCI::NormalizeToPawnValue;
+  
+    const double pawns = std::abs(0.01 * UCI::to_cp(v));
 
     stream << (v < 0 ? '-' : v > 0 ? '+' : ' ')
            << std::setiosflags(std::ios::fixed)
            << std::setw(6)
            << std::setprecision(2)
-           << cp;
+           << pawns;
   }
 
 
   // trace() returns a string with the value of each piece on a board,
   // and a table for (PSQT, Layers) values bucket by bucket.
-
   std::string trace(Position& pos) {
 
     std::stringstream ss;
@@ -276,8 +280,8 @@ namespace Stockfish::Eval::NNUE {
     // A lambda to output one box of the board
     auto writeSquare = [&board](File file, Rank rank, Piece pc, Value value) {
 
-      const int x = ((int)file) * 8;
-      const int y = (RANK_9 - (int)rank) * 3;
+      const int x = int(file) * 8;
+      const int y = (RANK_9 - int(rank)) * 3;
       for (int i = 1; i < 8; ++i)
          board[y][x+i] = board[y+3][x+i] = '-';
       for (int i = 1; i < 3; ++i)

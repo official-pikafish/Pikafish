@@ -21,13 +21,14 @@
 
 #include <cassert>
 #include <deque>
-#include <memory> // For std::unique_ptr
+#include <iosfwd>
+#include <memory>
 #include <string>
 
 #include "bitboard.h"
-#include "types.h"
 
 #include "nnue/nnue_accumulator.h"
+#include "types.h"
 
 namespace Stockfish {
 
@@ -52,7 +53,6 @@ struct StateInfo {
   Bitboard   checkSquares[PIECE_TYPE_NB];
   bool       needSlowCheck;
   Piece      capturedPiece;
-  uint16_t   chased;
   Move       move;
 
   // Used by NNUE
@@ -88,12 +88,10 @@ public:
   std::string fen() const;
 
   // Position representation
-  Bitboard pieces(PieceType pt) const;
-  Bitboard pieces(PieceType pt1, PieceType pt2) const;
+  Bitboard pieces(PieceType pt = ALL_PIECES) const;
+  template<typename ...PieceTypes> Bitboard pieces(PieceType pt, PieceTypes... pts) const;
   Bitboard pieces(Color c) const;
-  Bitboard pieces(Color c, PieceType pt) const;
-  Bitboard pieces(Color c, PieceType pt1, PieceType pt2) const;
-  Bitboard pieces(Color c, PieceType pt1, PieceType pt2, PieceType pt3) const;
+  template<typename ...PieceTypes> Bitboard pieces(Color c, PieceTypes... pts) const;
   Piece piece_on(Square s) const;
   bool empty(Square s) const;
   template<PieceType Pt> int count(Color c) const;
@@ -103,13 +101,13 @@ public:
   // Checking
   Bitboard checkers() const;
   Bitboard blockers_for_king(Color c) const;
-  Bitboard blockers_for_king(Bitboard sliders, Square s, Bitboard& pinners) const;
   Bitboard check_squares(PieceType pt) const;
   Bitboard pinners(Color c) const;
 
   // Attacks to/from a given square
   Bitboard attackers_to(Square s) const;
   Bitboard attackers_to(Square s, Bitboard occupied) const;
+  template <Color c> void update_blockers() const;
   Bitboard checkers_to(Color c, Square s) const;
   Bitboard checkers_to(Color c, Square s, Bitboard occupied) const;
   template<PieceType Pt> Bitboard attacks_by(Color c) const;
@@ -143,9 +141,9 @@ public:
   bool rule_judge(Value& result, int ply = 0) const;
   int rule60_count() const;
   bool has_mate_threat(Depth d = -1);
-  ChaseMap chased(Color c);
-  Value material_sum() const;
-  Value material_diff() const;
+  uint16_t chased(Color c);
+  Value material(Color c) const;
+  Value material() const;
 
   // Position consistency check, for debugging
   bool pos_is_ok() const;
@@ -159,15 +157,15 @@ public:
 
 private:
   // Initialization helpers (used while setting up a position)
-  void set_state(StateInfo* si) const;
-  void set_check_info(StateInfo* si) const;
+  void set_state() const;
+  void set_check_info() const;
 
   // Other helpers
   void move_piece(Square from, Square to);
   std::pair<Piece, int> light_do_move(Move m);
   void light_undo_move(Move m, Piece captured, int id = 0);
-  void set_chase_info(int d);
-  bool chase_legal(Move m, Bitboard b) const;
+  Value detect_chases(int d, int ply = 0);
+  bool chase_legal(Move m) const;
   template<bool AfterMove>
   Key adjust_key60(Key k) const;
 
@@ -207,28 +205,22 @@ inline Piece Position::moved_piece(Move m) const {
   return piece_on(from_sq(m));
 }
 
-inline Bitboard Position::pieces(PieceType pt = ALL_PIECES) const {
+inline Bitboard Position::pieces(PieceType pt) const {
   return byTypeBB[pt];
 }
 
-inline Bitboard Position::pieces(PieceType pt1, PieceType pt2) const {
-  return pieces(pt1) | pieces(pt2);
+template<typename ...PieceTypes>
+inline Bitboard Position::pieces(PieceType pt, PieceTypes... pts) const {
+  return pieces(pt) | pieces(pts...);
 }
 
 inline Bitboard Position::pieces(Color c) const {
   return byColorBB[c];
 }
 
-inline Bitboard Position::pieces(Color c, PieceType pt) const {
-  return pieces(c) & pieces(pt);
-}
-
-inline Bitboard Position::pieces(Color c, PieceType pt1, PieceType pt2) const {
-  return pieces(c) & (pieces(pt1) | pieces(pt2));
-}
-
-inline Bitboard Position::pieces(Color c, PieceType pt1, PieceType pt2, PieceType pt3) const {
-  return pieces(c) & (pieces(pt1) | pieces(pt2) | pieces(pt3));
+template<typename ...PieceTypes>
+inline Bitboard Position::pieces(Color c, PieceTypes... pts) const {
+  return pieces(c) & pieces(pts...);
 }
 
 template<PieceType Pt> inline int Position::count(Color c) const {
@@ -288,16 +280,16 @@ inline Key Position::key() const {
 template<bool AfterMove>
 inline Key Position::adjust_key60(Key k) const
 {
-    return st->rule60 < 14 - AfterMove
-               ? k : k ^ make_key((st->rule60 - (14 - AfterMove)) / 8);
+  return st->rule60 < 14 - AfterMove
+             ? k : k ^ make_key((st->rule60 - (14 - AfterMove)) / 8);
 }
 
-inline Value Position::material_sum() const {
-  return st->material[WHITE] + st->material[BLACK];
+inline Value Position::material(Color c) const {
+  return st->material[c];
 }
 
-inline Value Position::material_diff() const {
-  return st->material[sideToMove] - st->material[~sideToMove];
+inline Value Position::material() const {
+  return material(WHITE) + material(BLACK);
 }
 
 inline int Position::game_ply() const {
@@ -310,7 +302,6 @@ inline int Position::rule60_count() const {
 
 inline bool Position::capture(Move m) const {
   assert(is_ok(m));
-  // Castling is encoded as "king captures rook"
   return !empty(to_sq(m));
 }
 

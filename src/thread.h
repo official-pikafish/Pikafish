@@ -21,14 +21,16 @@
 
 #include <atomic>
 #include <condition_variable>
+#include <cstddef>
+#include <cstdint>
 #include <mutex>
-#include <thread>
 #include <vector>
 
 #include "movepick.h"
 #include "position.h"
 #include "search.h"
 #include "thread_win32_osx.h"
+#include "types.h"
 
 namespace Stockfish {
 
@@ -60,10 +62,8 @@ public:
   size_t id() const { return idx; }
 
   size_t pvIdx, pvLast;
-  RunningAverage complexityAverage;
   std::atomic<uint64_t> nodes, tbHits, bestMoveChanges;
   int selDepth, nmpMinPly;
-  Color nmpColor;
   Value bestValue, optimism[COLOR_NB];
 
   Position rootPos;
@@ -71,6 +71,7 @@ public:
   Search::RootMoves rootMoves;
   Depth rootDepth, completedDepth;
   Value rootDelta;
+  Value rootSimpleEval;
   CounterMoveHistory counterMoves;
   ButterflyHistory mainHistory;
   CapturePieceToHistory captureHistory;

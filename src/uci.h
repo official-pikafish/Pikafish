@@ -19,6 +19,8 @@
 #ifndef UCI_H_INCLUDED
 #define UCI_H_INCLUDED
 
+#include <cstddef>
+#include <iosfwd>
 #include <map>
 #include <string>
 
@@ -61,7 +63,7 @@ public:
 
   Option& operator=(const std::string&);
   void operator<<(const Option&);
-  operator double() const;
+  operator int() const;
   operator std::string() const;
   bool operator==(const char*) const;
 
@@ -76,8 +78,8 @@ private:
 
 void init(OptionsMap&);
 void loop(int argc, char* argv[]);
-int pawn_eval(Value v, int ply);
-std::string value(Value v, int ply = 64);
+int to_cp(Value v);
+std::string value(Value v);
 std::string square(Square s);
 std::string move(Move m);
 std::string pv(const Position& pos, Depth depth);
@@ -87,9 +89,6 @@ Move to_move(const Position& pos, std::string& str);
 } // namespace UCI
 
 extern UCI::OptionsMap Options;
-extern bool EnableRule60;
-extern uint8_t RootFold;
-extern uint8_t SearchFold;
 extern uint8_t MateThreatDepth;
 extern bool ChineseRule;
 

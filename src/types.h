@@ -37,13 +37,10 @@
 ///               | only in 64-bit mode and requires hardware with pext support.
 
 #include <cassert>
-#include <cctype>
 #include <cstdint>
-#include <cstdlib>
-#include <algorithm>
 
 #if defined(_MSC_VER)
-// Disable some silly and noisy warning from MSVC compiler
+// Disable some silly and noisy warnings from MSVC compiler
 #pragma warning(disable: 4127) // Conditional expression is constant
 #pragma warning(disable: 4146) // Unary minus operator applied to unsigned type
 #pragma warning(disable: 4800) // Forcing value to bool 'true' or 'false'
@@ -51,11 +48,12 @@
 
 /// Predefined macros hell:
 ///
-/// __GNUC__           Compiler is gcc, Clang or Intel on Linux
-/// __INTEL_COMPILER   Compiler is Intel
-/// _MSC_VER           Compiler is MSVC or Intel on Windows
-/// _WIN32             Building on Windows (any)
-/// _WIN64             Building on Windows 64 bit
+/// __GNUC__                Compiler is GCC, Clang or ICX
+/// __clang__               Compiler is Clang or ICX
+/// __INTEL_LLVM_COMPILER   Compiler is ICX
+/// _MSC_VER                Compiler is MSVC
+/// _WIN32                  Building on Windows (any)
+/// _WIN64                  Building on Windows 64 bit
 
 #if defined(__GNUC__ ) && (__GNUC__ < 9 || (__GNUC__ == 9 && __GNUC_MINOR__ <= 2)) && defined(_WIN32) && !defined(__clang__)
 #define ALIGNAS_ON_STACK_VARIABLES_BROKEN
@@ -63,22 +61,31 @@
 
 #define ASSERT_ALIGNED(ptr, alignment) assert(reinterpret_cast<uintptr_t>(ptr) % alignment == 0)
 
+#if defined(_MSC_VER) && !defined(__clang__)
+#  include <__msvc_int128.hpp> // Microsoft header for std::_Unsigned128
+using __uint128_t = std::_Unsigned128;
+#endif
+
 #if defined(_WIN64) && defined(_MSC_VER) // No Makefile used
 #  include <intrin.h> // Microsoft header for _BitScanForward64()
 #  define IS_64BIT
 #endif
 
-#if defined(USE_POPCNT) && (defined(__INTEL_COMPILER) || defined(_MSC_VER))
-#  include <nmmintrin.h> // Intel and Microsoft header for _mm_popcnt_u64()
+#if defined(USE_POPCNT) && defined(_MSC_VER)
+#  include <nmmintrin.h> // Microsoft header for _mm_popcnt_u64()
 #endif
 
-#if !defined(NO_PREFETCH) && (defined(__INTEL_COMPILER) || defined(_MSC_VER))
-#  include <xmmintrin.h> // Intel and Microsoft header for _mm_prefetch()
+#if !defined(NO_PREFETCH) && defined(_MSC_VER)
+#  include <xmmintrin.h> // Microsoft header for _mm_prefetch()
 #endif
 
 #if defined(USE_PEXT)
 #  include <immintrin.h> // Header for _pext_u64() intrinsic
+#if defined(_MSC_VER) && !defined(__clang__)
+#  define pext(b, m, s) ((_pext_u64(b._Word[1], m._Word[1]) << s) | _pext_u64(b._Word[0], m._Word[0]))
+#else
 #  define pext(b, m, s) ((_pext_u64(b >> 64, m >> 64) << s) | _pext_u64(b, m))
+#endif
 #else
 #  define pext(b, m, s) 0
 #endif
@@ -103,148 +110,8 @@ constexpr bool Is64Bit = true;
 constexpr bool Is64Bit = false;
 #endif
 
-// For chasing detection
-union ChaseMap {
-    uint64_t attacks[4] { };
-    uint16_t victims[16];
-
-    // For adding victim <- attacker pair
-    void operator |= (int id) {
-        attacks[id >> 6] |= 1ULL << (id & 63);
-    }
-
-    // For exact diff
-    ChaseMap& operator & (const ChaseMap &rhs) {
-        attacks[0] &= ~rhs.attacks[0];
-        attacks[1] &= ~rhs.attacks[1];
-        attacks[2] &= ~rhs.attacks[2];
-        attacks[3] &= ~rhs.attacks[3];
-        return *this;
-    }
-
-    // For victims extraction
-    operator uint16_t() {
-        uint16_t ret = 0;
-        for (int i = 0; i < 16; ++i)
-            if (this->victims[i])
-                ret |= 1 << i;
-        return ret;
-    }
-};
-
 using Key = uint64_t;
-
-#if defined(__GNUC__) && defined(IS_64BIT)
 using Bitboard = __uint128_t;
-#else
-
-struct Bitboard {
-    uint64_t b64[2];
-
-    constexpr Bitboard() : b64{ 0, 0 } {}
-    constexpr Bitboard(uint64_t i) : b64{ 0, i } {}
-    constexpr Bitboard(uint64_t hi, uint64_t lo) : b64{ hi, lo } {};
-
-    constexpr operator bool() const {
-        return b64[0] || b64[1];
-    }
-
-    constexpr operator long long unsigned() const {
-        return b64[1];
-    }
-
-    constexpr operator unsigned() const {
-        return b64[1];
-    }
-
-    constexpr Bitboard operator << (const unsigned int bits) const {
-        return Bitboard(bits >= 64 ? b64[1] << (bits - 64)
-            : bits == 0 ? b64[0]
-            : ((b64[0] << bits) | (b64[1] >> (64 - bits))),
-            bits >= 64 ? 0 : b64[1] << bits);
-    }
-
-    constexpr Bitboard operator >> (const unsigned int bits) const {
-        return Bitboard(bits >= 64 ? 0 : b64[0] >> bits,
-            bits >= 64 ? b64[0] >> (bits - 64)
-            : bits == 0 ? b64[1]
-            : ((b64[1] >> bits) | (b64[0] << (64 - bits))));
-    }
-
-    constexpr Bitboard operator << (const int bits) const {
-        return *this << unsigned(bits);
-    }
-
-    constexpr Bitboard operator >> (const int bits) const {
-        return *this >> unsigned(bits);
-    }
-
-    constexpr bool operator == (const Bitboard y) const {
-        return (b64[0] == y.b64[0]) && (b64[1] == y.b64[1]);
-    }
-
-    constexpr bool operator != (const Bitboard y) const {
-        return !(*this == y);
-    }
-
-    inline Bitboard& operator |=(const Bitboard x) {
-        b64[0] |= x.b64[0];
-        b64[1] |= x.b64[1];
-        return *this;
-    }
-    inline Bitboard& operator &=(const Bitboard x) {
-        b64[0] &= x.b64[0];
-        b64[1] &= x.b64[1];
-        return *this;
-    }
-    inline Bitboard& operator ^=(const Bitboard x) {
-        b64[0] ^= x.b64[0];
-        b64[1] ^= x.b64[1];
-        return *this;
-    }
-
-    constexpr Bitboard operator ~ () const {
-        return Bitboard(~b64[0], ~b64[1]);
-    }
-
-    constexpr Bitboard operator - () const {
-        return Bitboard(-b64[0] - (b64[1] > 0), -b64[1]);
-    }
-
-    constexpr Bitboard operator | (const Bitboard x) const {
-        return Bitboard(b64[0] | x.b64[0], b64[1] | x.b64[1]);
-    }
-
-    constexpr Bitboard operator & (const Bitboard x) const {
-        return Bitboard(b64[0] & x.b64[0], b64[1] & x.b64[1]);
-    }
-
-    constexpr Bitboard operator ^ (const Bitboard x) const {
-        return Bitboard(b64[0] ^ x.b64[0], b64[1] ^ x.b64[1]);
-    }
-
-    constexpr Bitboard operator - (const Bitboard x) const {
-        return Bitboard(b64[0] - x.b64[0] - (b64[1] < x.b64[1]), b64[1] - x.b64[1]);
-    }
-
-    constexpr Bitboard operator - (const int x) const {
-        return *this - Bitboard(x);
-    }
-
-    inline Bitboard operator * (const Bitboard x) const {
-        uint64_t a_lo = (uint32_t)b64[1];
-        uint64_t a_hi = b64[1] >> 32;
-        uint64_t b_lo = (uint32_t)x.b64[1];
-        uint64_t b_hi = x.b64[1] >> 32;
-
-        uint64_t t1 = (a_hi * b_lo) + ((a_lo * b_lo) >> 32);
-        uint64_t t2 = (a_lo * b_hi) + (t1 & 0xFFFFFFFF);
-
-        return Bitboard(b64[0] * x.b64[1] + b64[1] * x.b64[0] + (a_hi * b_hi) + (t1 >> 32) + (t2 >> 32),
-            (t2 << 32) + (a_lo * b_lo & 0xFFFFFFFF));
-    }
-};
-#endif
 
 constexpr int MAX_MOVES = 128;
 constexpr int MAX_PLY   = 246;
@@ -267,12 +134,6 @@ enum Color {
   WHITE, BLACK, COLOR_NB = 2
 };
 
-enum Phase {
-  PHASE_ENDGAME,
-  PHASE_MIDGAME = 128,
-  MG = 0, EG = 1, PHASE_NB = 2
-};
-
 enum Bound {
   BOUND_NONE,
   BOUND_UPPER,
@@ -283,7 +144,6 @@ enum Bound {
 enum Value : int {
   VALUE_ZERO      = 0,
   VALUE_DRAW      = 0,
-  VALUE_KNOWN_WIN = 10000,
   VALUE_MATE      = 32000,
   VALUE_INFINITE  = 32001,
   VALUE_NONE      = 32002,
@@ -291,12 +151,12 @@ enum Value : int {
   VALUE_MATE_IN_MAX_PLY  =  VALUE_MATE - MAX_PLY,
   VALUE_MATED_IN_MAX_PLY = -VALUE_MATE_IN_MAX_PLY,
 
-  RookValueMg    = 1245,  RookValueEg    = 1540,
-  AdvisorValueMg = 229 ,  AdvisorValueEg = 187 ,
-  CannonValueMg  = 653 ,  CannonValueEg  = 632 ,
-  PawnValueMg    = 80  ,  PawnValueEg    = 129 ,
-  KnightValueMg  = 574 ,  KnightValueEg  = 747 ,
-  BishopValueMg  = 308 ,  BishopValueEg  = 223 ,
+  RookValue    = 1436,
+  AdvisorValue = 228 ,
+  CannonValue  = 667 ,
+  PawnValue    = 127 ,
+  KnightValue  = 719 ,
+  BishopValue  = 265 ,
 };
 
 enum PieceType {
@@ -312,12 +172,8 @@ enum Piece {
   PIECE_NB
 };
 
-constexpr Value PieceValue[PHASE_NB][PIECE_NB] = {
-  { VALUE_ZERO, RookValueMg, AdvisorValueMg, CannonValueMg, PawnValueMg, KnightValueMg, BishopValueMg, VALUE_ZERO,
-    VALUE_ZERO, RookValueMg, AdvisorValueMg, CannonValueMg, PawnValueMg, KnightValueMg, BishopValueMg, VALUE_ZERO },
-  { VALUE_ZERO, RookValueEg, AdvisorValueEg, CannonValueEg, PawnValueEg, KnightValueEg, BishopValueEg, VALUE_ZERO,
-    VALUE_ZERO, RookValueEg, AdvisorValueEg, CannonValueEg, PawnValueEg, KnightValueEg, BishopValueEg, VALUE_ZERO }
-};
+constexpr Value PieceValue[PIECE_NB] = { VALUE_ZERO, RookValue, AdvisorValue, CannonValue, PawnValue, KnightValue, BishopValue, VALUE_ZERO,
+                                         VALUE_ZERO, RookValue, AdvisorValue, CannonValue, PawnValue, KnightValue, BishopValue, VALUE_ZERO };
 
 using Depth = int;
 
@@ -368,6 +224,16 @@ enum Rank : int {
   RANK_0, RANK_1, RANK_2, RANK_3, RANK_4, RANK_5, RANK_6, RANK_7, RANK_8, RANK_9, RANK_NB
 };
 
+// For fast repetition checks
+struct BloomFilter {
+    constexpr static uint64_t FILTER_SIZE = 1 << 14;
+    uint8_t  operator[](Key key) const { return table[key & (FILTER_SIZE - 1)]; }
+    uint8_t& operator[](Key key)       { return table[key & (FILTER_SIZE - 1)]; }
+
+private:
+    uint8_t table[1 << 14];
+};
+
 // Keep track of what a move changes on the board (used by NNUE)
 struct DirtyPiece {
 
@@ -384,29 +250,6 @@ struct DirtyPiece {
 
   bool requires_refresh[2];
 };
-
-/// Score enum stores a middlegame and an endgame value in a single integer (enum).
-/// The least significant 16 bits are used to store the middlegame value and the
-/// upper 16 bits are used to store the endgame value. We have to take care to
-/// avoid left-shifting a signed int to avoid undefined behavior.
-enum Score : int { SCORE_ZERO };
-
-constexpr Score make_score(int mg, int eg) {
-  return Score((int)((unsigned int)eg << 16) + mg);
-}
-
-/// Extracting the signed lower and upper 16 bits is not so trivial because
-/// according to the standard a simple cast to short is implementation defined
-/// and so is a right shift of a signed integer.
-inline Value eg_value(Score s) {
-  union { uint16_t u; int16_t s; } eg = { uint16_t(unsigned(s + 0x8000) >> 16) };
-  return Value(eg.s);
-}
-
-inline Value mg_value(Score s) {
-  union { uint16_t u; int16_t s; } mg = { uint16_t(unsigned(s)) };
-  return Value(mg.s);
-}
 
 #define ENABLE_BASE_OPERATORS_ON(T)                                \
 constexpr T operator+(T d1, int d2) { return T(int(d1) + d2); }    \
@@ -431,13 +274,10 @@ inline T& operator/=(T& d, int i) { return d = T(int(d) / i); }
 ENABLE_FULL_OPERATORS_ON(Value)
 ENABLE_FULL_OPERATORS_ON(Direction)
 
-ENABLE_INCR_OPERATORS_ON(Piece)
 ENABLE_INCR_OPERATORS_ON(PieceType)
 ENABLE_INCR_OPERATORS_ON(Square)
 ENABLE_INCR_OPERATORS_ON(File)
 ENABLE_INCR_OPERATORS_ON(Rank)
-
-ENABLE_BASE_OPERATORS_ON(Score)
 
 #undef ENABLE_FULL_OPERATORS_ON
 #undef ENABLE_INCR_OPERATORS_ON
@@ -448,32 +288,6 @@ constexpr Square operator+(Square s, Direction d) { return Square(int(s) + int(d
 constexpr Square operator-(Square s, Direction d) { return Square(int(s) - int(d)); }
 inline Square& operator+=(Square& s, Direction d) { return s = s + d; }
 inline Square& operator-=(Square& s, Direction d) { return s = s - d; }
-
-/// Only declared but not defined. We don't want to multiply two scores due to
-/// a very high risk of overflow. So user should explicitly convert to integer.
-Score operator*(Score, Score) = delete;
-
-/// Division of a Score must be handled separately for each term
-inline Score operator/(Score s, int i) {
-  return make_score(mg_value(s) / i, eg_value(s) / i);
-}
-
-/// Multiplication of a Score by an integer. We check for overflow in debug mode.
-inline Score operator*(Score s, int i) {
-
-  Score result = Score(int(s) * i);
-
-  assert(eg_value(result) == (i * eg_value(s)));
-  assert(mg_value(result) == (i * mg_value(s)));
-  assert((i == 0) || (result / i) == s);
-
-  return result;
-}
-
-/// Multiplication of a Score by a boolean
-inline Score operator*(Score s, bool b) {
-  return b ? s : SCORE_ZERO;
-}
 
 constexpr Color operator~(Color c) {
   return Color(c ^ BLACK); // Toggle color
@@ -508,6 +322,10 @@ inline Color color_of(Piece pc) {
   return Color(pc >> 3);
 }
 
+constexpr bool is_ok(Move m) {
+  return m != MOVE_NONE && m != MOVE_NULL;
+}
+
 constexpr bool is_ok(Square s) {
   return s >= SQ_A0 && s <= SQ_I9;
 }
@@ -529,10 +347,12 @@ constexpr Square flip_file(Square s) { // Swap A0 <-> I0
 }
 
 constexpr Square from_sq(Move m) {
+  assert(is_ok(m));
   return Square(m >> 7);
 }
 
 constexpr Square to_sq(Move m) {
+  assert(is_ok(m));
   return Square(m & 0x7F);
 }
 
@@ -544,15 +364,7 @@ constexpr Move make_move(Square from, Square to) {
   return Move((from << 7) + to);
 }
 
-constexpr int make_chase(int piece1, int piece2) {
-  return (piece1 << 4) + piece2;
-}
-
-constexpr bool is_ok(Move m) {
-  return from_sq(m) != to_sq(m); // Catch MOVE_NULL and MOVE_NONE
-}
-
-/// Based on a congruential pseudo random number generator
+/// Based on a congruential pseudo-random number generator
 constexpr Key make_key(uint64_t seed) {
   return seed * 6364136223846793005ULL + 1442695040888963407ULL;
 }

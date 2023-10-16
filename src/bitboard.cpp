@@ -16,14 +16,15 @@
   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include "bitboard.h"
+
 #include <algorithm>
 #include <bitset>
+#include <initializer_list>
 
-#include "bitboard.h"
 #include "misc.h"
 #include "magics.h"
 #include <set>
-#include <iostream>
 
 namespace Stockfish {
 
@@ -102,7 +103,7 @@ void Bitboards::init() {
       PopCnt16[i] = uint8_t(std::bitset<16>(i).count());
 
   for (Square s = SQ_A0; s <= SQ_I9; ++s)
-      SquareBB[s] = (Bitboard(1ULL) << s);
+      SquareBB[s] = (Bitboard(1ULL) << std::uint8_t(s));
 
   for (Square s1 = SQ_A0; s1 <= SQ_I9; ++s1)
       for (Square s2 = SQ_A0; s2 <= SQ_I9; ++s2)

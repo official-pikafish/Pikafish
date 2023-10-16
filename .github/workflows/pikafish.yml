@@ -14,20 +14,36 @@ jobs:
       COMPILER: clang++
       COMP: clang
       EXE: pikafish${{ matrix.arch }}${{ matrix.config.ext }}
+      SDE: ${{ matrix.config.sde }}
     strategy:
       matrix:
         config:
           - name: Linux
             os: ubuntu-20.04 
-            shell: bash {0}
+            shell: bash
+            sde: /home/runner/work/Pikafish/Pikafish/.output/sde-temp-files/sde-external-9.14.0-2022-10-25-lin/sde -future --
           - name: MacOS
             os: macos-latest
-            shell: bash {0}
+            shell: bash
           - name: Windows
             os: windows-latest
             shell: msys2 {0}
             ext: .exe
-        arch: ["-vnni512", "-avx512", "-bmi2", "-avx2", "-modern", ""]
+            sde: /d/a/Pikafish/Pikafish/.output/sde-temp-files/sde-external-9.14.0-2022-10-25-win/sde.exe -future --
+        arch: ["-vnni512", "-avx512", "-avxvnni", "-bmi2", "-avx2", "-sse41-popcnt", "-ssse3"]
+        exclude:
+          - arch: -avxvnni
+            config: {os: ubuntu-20.04}
+          - arch: -vnni512
+            config: {os: macos-latest}
+          - arch: -avx512
+            config: {os: macos-latest}
+          - arch: -avxvnni
+            config: {os: macos-latest}
+          - arch: -bmi2
+            config: {os: macos-latest}
+          - arch: -avx2
+            config: {os: macos-latest}
     defaults:
       run:
         working-directory: src
@@ -36,6 +52,12 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
+      - name: Install LLVM and Clang
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt update
+          sudo apt install clang llvm
+
       - name: Setup msys and install required packages
         if: runner.os == 'Windows'
         uses: msys2/setup-msys2@v2
@@ -43,10 +65,17 @@ jobs:
           msystem: clang64
           install: mingw-w64-clang-x86_64-clang make git expect
 
+      - name: Download SDE package
+        if: runner.os == 'Linux' || runner.os == 'Windows'
+        uses: petarpetrovt/setup-sde@v2.1
+        with:
+          environmentVariableName: SDE_DIR
+          sdeVersion: 9.14.0
+
       - name: Compile ${{ matrix.arch }} build
         run: |
-          make clean
-          make -j build EXE=$EXE
+          wget https://github.com/official-pikafish/Networks/releases/download/master-net/pikafish.nnue
+          make -j profile-build EXE=$EXE WINE_PATH="$SDE"
           make strip EXE=$EXE
 
       - name: Copy binary to folder
@@ -57,8 +86,8 @@ jobs:
 
       - name: Download wiki
         run: |
-          git clone https://github.com/official-pikafish/Pikafish.wiki.git ../wiki
-          cd ../wiki
+          git clone https://github.com/official-pikafish/Pikafish.wiki.git ../Wiki
+          cd ../Wiki
           rm -rf .git
 
       - uses: actions/upload-artifact@v3
@@ -66,8 +95,9 @@ jobs:
           name: Pikafish
           path: |
             ${{ matrix.config.name }}/*
-            wiki
+            Wiki
             AUTHORS
+            CONTRIBUTING.md
             Copying.txt
             README.md
             Top CPU Contributors.txt
@@ -91,6 +121,11 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
+      - name: Download required linux packages
+        run: |
+          sudo apt update
+          sudo apt install qemu-user
+
       - name: Install NDK
         run: |
           NDKV="21.4.7075529"
@@ -105,8 +140,8 @@ jobs:
       - name: Compile ${{ matrix.arch }} build
         run: |
           export PATH=${{ env.ANDROID_NDK_BIN }}:$PATH
-          make clean
-          make -j build EXE=$EXE
+          wget https://github.com/official-pikafish/Networks/releases/download/master-net/pikafish.nnue
+          make -j profile-build EXE=$EXE WINE_PATH=$EMU
           make strip EXE=$EXE
 
       - name: Copy binary to folder

@@ -16,12 +16,12 @@
   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include "timeman.h"
+
 #include <algorithm>
-#include <cfloat>
 #include <cmath>
 
 #include "search.h"
-#include "timeman.h"
 #include "uci.h"
 
 namespace Stockfish {
@@ -35,6 +35,12 @@ TimeManagement Time; // Our global time management object
 //      2) x moves in y seconds (+ z increment)
 
 void TimeManagement::init(Search::LimitsType& limits, Color us, int ply) {
+
+  // if we have no time, no need to initialize TM, except for the start time,
+  // which is used by movetime.
+  startTime = limits.startTime;
+  if (limits.time[us] == 0)
+      return;
 
   TimePoint moveOverhead    = TimePoint(Options["Move Overhead"]);
   TimePoint slowMover       = TimePoint(Options["Slow Mover"]);
@@ -59,10 +65,8 @@ void TimeManagement::init(Search::LimitsType& limits, Color us, int ply) {
       limits.npmsec = npmsec;
   }
 
-  startTime = limits.startTime;
-
-  // Maximum move horizon of 50 moves
-  int mtg = limits.movestogo ? std::min(limits.movestogo, 50) : 50;
+  // Maximum move horizon of 60 moves
+  int mtg = limits.movestogo ? std::min(limits.movestogo, 60) : 60;
 
   // Make sure timeLeft is > 0 since we may use it as a divisor
   TimePoint timeLeft =  std::max(TimePoint(1),
@@ -96,7 +100,7 @@ void TimeManagement::init(Search::LimitsType& limits, Color us, int ply) {
 
   // Never use more than 80% of the available time for this move
   optimumTime = TimePoint(optScale * timeLeft);
-  maximumTime = TimePoint(std::min(0.8 * limits.time[us] - moveOverhead, maxScale * optimumTime));
+  maximumTime = TimePoint(std::min(0.8 * limits.time[us] - moveOverhead, maxScale * optimumTime)) - 10;
 
   if (Options["Ponder"])
       optimumTime += optimumTime / 4;

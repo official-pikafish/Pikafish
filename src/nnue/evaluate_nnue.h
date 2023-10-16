@@ -21,9 +21,20 @@
 #ifndef NNUE_EVALUATE_NNUE_H_INCLUDED
 #define NNUE_EVALUATE_NNUE_H_INCLUDED
 
+#include <cstdint>
+#include <iosfwd>
+#include <memory>
+#include <optional>
+#include <string>
+
+#include "../misc.h"
+#include "nnue_architecture.h"
 #include "nnue_feature_transformer.h"
 
-#include <memory>
+namespace Stockfish {
+class Position;
+enum Value : int;
+}
 
 namespace Stockfish::Eval::NNUE {
 
@@ -54,6 +65,14 @@ namespace Stockfish::Eval::NNUE {
 
   template <typename T>
   using LargePagePtr = std::unique_ptr<T, LargePageDeleter<T>>;
+
+  std::string trace(Position& pos);
+  Value evaluate(const Position& pos, bool adjusted = false, int* complexity = nullptr);
+  void hint_common_parent_position(const Position& pos);
+
+  bool load_eval(std::string name, std::istream& stream);
+  bool save_eval(std::ostream& stream);
+  bool save_eval(const std::optional<std::string>& filename);
 
 }  // namespace Stockfish::Eval::NNUE
 

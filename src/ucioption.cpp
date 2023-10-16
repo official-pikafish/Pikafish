@@ -18,14 +18,21 @@
 
 #include <algorithm>
 #include <cassert>
+#include <cctype>
+#include <cstddef>
+#include <iosfwd>
+#include <istream>
+#include <map>
 #include <ostream>
 #include <sstream>
+#include <string>
 
 #include "evaluate.h"
 #include "misc.h"
 #include "search.h"
 #include "thread.h"
 #include "tt.h"
+#include "types.h"
 #include "uci.h"
 
 using std::string;
@@ -33,9 +40,6 @@ using std::string;
 namespace Stockfish {
 
 UCI::OptionsMap Options; // Global object
-bool EnableRule60 = true;
-uint8_t RootFold = 3;
-uint8_t SearchFold = 2;
 uint8_t MateThreatDepth = 1;
 bool ChineseRule = false;
 
@@ -46,15 +50,6 @@ static void on_clear_hash(const Option&) { Search::clear(); }
 static void on_hash_size(const Option& o) { TT.resize(size_t(o)); }
 static void on_logger(const Option& o) { start_logger(o); }
 static void on_threads(const Option& o) { Threads.set(size_t(o)); }
-static void on_rule60(const Option& o) { EnableRule60 = bool(o); }
-static void on_repetition_fold(const Option& o) {
-  if (o == "TwoFold")
-    RootFold = SearchFold = 2;
-  else if (o == "RootThreeFold")
-    RootFold = 3, SearchFold = 2;
-  else if (o == "ThreeFold")
-    RootFold = SearchFold = 3;
-}
 static void on_mate_threat_depth(const Option& o) { MateThreatDepth = size_t(o); }
 static void on_repetition_rule(const Option& o) { ChineseRule = o == "ChineseRule"; }
 static void on_eval_file(const Option& ) { Eval::NNUE::init(); }
@@ -79,17 +74,11 @@ void init(OptionsMap& o) {
   o["Clear Hash"]            << Option(on_clear_hash);
   o["Ponder"]                << Option(false);
   o["MultiPV"]               << Option(1, 1, 500);
-  o["Skill Level"]           << Option(20, 0, 20);
   o["Move Overhead"]         << Option(10, 0, 5000);
   o["Slow Mover"]            << Option(100, 10, 1000);
   o["nodestime"]             << Option(0, 0, 10000);
-  o["Sixty Move Rule"]       << Option(true, on_rule60);
   o["Mate Threat Depth"]     << Option(1, 0, 10, on_mate_threat_depth);
-  o["Repetition Fold"]       << Option("RootThreeFold var TwoFold var RootThreeFold var ThreeFold", "RootThreeFold" , on_repetition_fold);
   o["Repetition Rule"]       << Option("AsianRule var AsianRule var ChineseRule", "AsianRule" , on_repetition_rule);
-  o["UCI_LimitStrength"]     << Option(false);
-  o["UCI_Elo"]               << Option(1350, 1350, 2850);
-  o["UCI_WDLCentipawn"]      << Option(true);
   o["UCI_ShowWDL"]           << Option(false);
   o["EvalFile"]              << Option(EvalFileDefaultName, on_eval_file);
 }
@@ -139,9 +128,9 @@ Option::Option(double v, int minv, int maxv, OnChange f) : type("spin"), min(min
 Option::Option(const char* v, const char* cur, OnChange f) : type("combo"), min(0), max(0), on_change(f)
 { defaultValue = v; currentValue = cur; }
 
-Option::operator double() const {
+Option::operator int() const {
   assert(type == "check" || type == "spin");
-  return (type == "spin" ? stof(currentValue) : currentValue == "true");
+  return (type == "spin" ? std::stoi(currentValue) : currentValue == "true");
 }
 
 Option::operator std::string() const {

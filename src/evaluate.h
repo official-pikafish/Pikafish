@@ -20,7 +20,6 @@
 #define EVALUATE_H_INCLUDED
 
 #include <string>
-#include <optional>
 
 #include "types.h"
 
@@ -31,7 +30,9 @@ class Position;
 namespace Eval {
 
   std::string trace(Position& pos);
-  Value evaluate(const Position& pos, int* complexity = nullptr);
+
+  Value simple_eval(const Position& pos, Color c);
+  Value evaluate(const Position& pos);
 
   extern std::string currentEvalFileName;
 
@@ -42,16 +43,8 @@ namespace Eval {
 
   namespace NNUE {
 
-    std::string trace(Position& pos);
-    Value evaluate(const Position& pos, bool adjusted = false, int* complexity = nullptr);
-    void hint_common_parent_position(const Position& pos);
-
     void init();
     void verify();
-
-    bool load_eval(std::string name, std::istream& stream);
-    bool save_eval(std::ostream& stream);
-    bool save_eval(const std::optional<std::string>& filename);
 
   } // namespace NNUE
 

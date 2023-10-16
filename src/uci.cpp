@@ -16,26 +16,30 @@
   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include "uci.h"
+
+#include <algorithm>
 #include <cassert>
+#include <cctype>
 #include <cmath>
+#include <cstdint>
+#include <cstdlib>
+#include <deque>
 #include <iostream>
+#include <memory>
+#include <optional>
 #include <sstream>
 #include <string>
+#include <vector>
 
 #include "benchmark.h"
 #include "evaluate.h"
+#include "misc.h"
 #include "movegen.h"
+#include "nnue/evaluate_nnue.h"
 #include "position.h"
 #include "search.h"
 #include "thread.h"
-#include "timeman.h"
-#include "tt.h"
-#include "uci.h"
-
-#define TOML_EXCEPTIONS 0
-#include "external/toml.hpp"
-
-using namespace std;
 
 namespace Stockfish {
 
@@ -50,10 +54,10 @@ namespace {
   // the initial position ("startpos") and then makes the moves given in the following
   // move list ("moves").
 
-  void position(Position& pos, istringstream& is, StateListPtr& states) {
+  void position(Position& pos, std::istringstream& is, StateListPtr& states) {
 
     Move m;
-    string token, fen;
+    std::string token, fen;
 
     is >> token;
 
@@ -97,9 +101,11 @@ namespace {
   // setoption() is called when the engine receives the "setoption" UCI command.
   // The function updates the UCI option ("name") to the given value ("value").
 
-  void setoption(istringstream& is) {
+  void setoption(std::istringstream& is) {
 
-    string token, name, value;
+    Threads.main()->wait_for_search_finished();
+
+    std::string token, name, value;
 
     is >> token; // Consume the "name" token
 
@@ -122,10 +128,10 @@ namespace {
   // sets the thinking time and other parameters from the input string, then starts
   // with a search.
 
-  void go(Position& pos, istringstream& is, StateListPtr& states) {
+  void go(Position& pos, std::istringstream& is, StateListPtr& states) {
 
     Search::LimitsType limits;
-    string token;
+    std::string token;
     bool ponderMode = false;
 
     limits.startTime = now(); // The search starts as early as possible
@@ -153,27 +159,27 @@ namespace {
 
 
   // bench() is called when the engine receives the "bench" command.
-  // Firstly, a list of UCI commands is set up according to the bench
+  // First, a list of UCI commands is set up according to the bench
   // parameters, then it is run one by one, printing a summary at the end.
 
-  void bench(Position& pos, istream& args, StateListPtr& states) {
+  void bench(Position& pos, std::istream& args, StateListPtr& states) {
 
-    string token;
+    std::string token;
     uint64_t num, nodes = 0, cnt = 1;
 
-    vector<string> list = setup_bench(pos, args);
-    num = count_if(list.begin(), list.end(), [](const string& s) { return s.find("go ") == 0 || s.find("eval") == 0; });
+    std::vector<std::string> list = setup_bench(pos, args);
+    num = count_if(list.begin(), list.end(), [](const std::string& s) { return s.find("go ") == 0 || s.find("eval") == 0; });
 
     TimePoint elapsed = now();
 
     for (const auto& cmd : list)
     {
-        istringstream is(cmd);
-        is >> skipws >> token;
+        std::istringstream is(cmd);
+        is >> std::skipws >> token;
 
         if (token == "go" || token == "eval")
         {
-            cerr << "\nPosition: " << cnt++ << '/' << num << " (" << pos.fen() << ")" << endl;
+            std::cerr << "\nPosition: " << cnt++ << '/' << num << " (" << pos.fen() << ")" << std::endl;
             if (token == "go")
             {
                go(pos, is, states);
@@ -192,46 +198,44 @@ namespace {
 
     dbg_print();
 
-    cerr << "\n==========================="
-         << "\nTotal time (ms) : " << elapsed
-         << "\nNodes searched  : " << nodes
-         << "\nNodes/second    : " << 1000 * nodes / elapsed << endl;
+    std::cerr << "\n==========================="
+              << "\nTotal time (ms) : " << elapsed
+              << "\nNodes searched  : " << nodes
+              << "\nNodes/second    : " << 1000 * nodes / elapsed << std::endl;
   }
 
-  // The win rate model returns the probability of winning given an eval
-  // and a game ply. It fits the LTC fishtest statistics rather accurately.
-  long double win_rate_model_double(Value v, int ply) {
+  // The win rate model returns the probability of winning (in per mille units) given an
+  // eval and a game ply. It fits the LTC fishtest statistics rather accurately.
+  int win_rate_model(Value v, int ply) {
 
      // The model only captures up to 240 plies, so limit the input and then rescale
-     long double m = std::min(240, ply) / 64.0;
+     double m = std::min(240, ply) / 64.0;
 
      // The coefficients of a third-order polynomial fit is based on the fishtest data
      // for two parameters that need to transform eval to the argument of a logistic
      // function.
-     constexpr long double as[] = {  7.42211754, -26.5119614,   46.99271939, 340.67524114 };
-     constexpr long double bs[] = { -0.50136481,   4.9383151,  -11.86324223,  89.56581513 };
+     constexpr double as[] = {  7.42211754, -26.5119614,   46.99271939, 340.67524114 };
+     constexpr double bs[] = { -0.50136481,   4.9383151,  -11.86324223,  89.56581513 };
 
      // Enforce that NormalizeToPawnValue corresponds to a 50% win rate at ply 64
      static_assert(UCI::NormalizeToPawnValue == int(as[0] + as[1] + as[2] + as[3]));
 
-     long double a = (((as[0] * m + as[1]) * m + as[2]) * m) + as[3];
-     long double b = (((bs[0] * m + bs[1]) * m + bs[2]) * m) + bs[3];
+     double a = (((as[0] * m + as[1]) * m + as[2]) * m) + as[3];
+     double b = (((bs[0] * m + bs[1]) * m + bs[2]) * m) + bs[3];
 
-     // Return the win rate
-     return 1 / (1 + std::exp((a - v) / b));
-  }
+     // Transform the eval to centipawns with limited range
+     double x = std::clamp(double(v), -4000.0, 4000.0);
 
-  // Return the win rate in per mille units rounded to the nearest value
-  int win_rate_model(Value v, int ply) {
-      return int(0.5 + 1000 * win_rate_model_double(v, ply));
+     // Return the win rate in per mille units, rounded to the nearest integer
+     return int(0.5 + 1000 / (1 + std::exp((a - x) / b)));
   }
 
 } // namespace
 
 
-/// UCI::loop() waits for a command from the stdin, parses it and then calls the appropriate
+/// UCI::loop() waits for a command from the stdin, parses it, and then calls the appropriate
 /// function. It also intercepts an end-of-file (EOF) indication from the stdin to ensure a
-/// graceful exit if the GUI dies unexpectedly. When called with some command-line arguments, 
+/// graceful exit if the GUI dies unexpectedly. When called with some command-line arguments,
 /// like running 'bench', the function returns immediately after the command is executed.
 /// In addition to the UCI ones, some additional debug commands are also supported.
 
@@ -243,8 +247,8 @@ void UCI::loop(int argc, char* argv[]) {
   #define EM_STATIC 
 #endif
 
-  string token, cmd;
   EM_STATIC Position pos;
+  std::string token, cmd;
   EM_STATIC StateListPtr states(new std::deque<StateInfo>(1));
 
   EM_STATIC auto __init_once = [&]() {
@@ -260,31 +264,17 @@ void UCI::loop(int argc, char* argv[]) {
     return 0;
   }();
 
-  // Load options from config file
-  if (ifstream("pikafish.toml").good()) {
-      const auto& configs = toml::parse_file("pikafish.toml");
-      if (configs.failed())
-          sync_cout << configs.error() << sync_endl;
-      for (const auto& [key, value] : configs)
-          if (value.is_string()) {
-              istringstream is("name "s + key.data() + " value " + value.as_string()->get());
-              setoption(is);
-          } else
-              sync_cout << "Error while parsing key-value pair: encountered non-string value" << sync_endl
-                        << "\t(error occurred at " << value.source() << ")" << sync_endl;
-  }
-
   for (int i = 1; i < argc; ++i)
       cmd += std::string(argv[i]) + " ";
 
   do {
-      if (argc == 1 && !getline(cin, cmd)) // Wait for an input or an end-of-file (EOF) indication
+      if (argc == 1 && !getline(std::cin, cmd)) // Wait for an input or an end-of-file (EOF) indication
           cmd = "quit";
 
-      istringstream is(cmd);
+      std::istringstream is(cmd);
 
       token.clear(); // Avoid a stale if getline() returns nothing or a blank line
-      is >> skipws >> token;
+      is >> std::skipws >> token;
 
       if (    token == "quit"
           ||  token == "stop")
@@ -320,7 +310,7 @@ void UCI::loop(int argc, char* argv[]) {
       {
           std::optional<std::string> filename;
           std::string f;
-          if (is >> skipws >> f)
+          if (is >> std::skipws >> f)
               filename = f;
           Eval::NNUE::save_eval(filename);
       }
@@ -338,22 +328,12 @@ void UCI::loop(int argc, char* argv[]) {
 }
 
 
-/// UCI::pawn_eval() uses the win_rate_model to convert
-/// internal score and ply to an objective pawn evaluation.
+/// Turns a Value to an integer centipawn number,
+/// without treatment of mate and similar special scores.
+int UCI::to_cp(Value v) {
 
-int UCI::pawn_eval(Value v, int ply) {
-
-  if (Options["UCI_WDLCentipawn"]) {
-      long double wdl_w = win_rate_model_double( v, ply);
-      long double wdl_l = win_rate_model_double(-v, ply);
-      long double win_loss_rate = wdl_w - wdl_l;
-      constexpr long double mate = double(VALUE_MATE_IN_MAX_PLY - 1) / 400;
-
-      return 400 * std::clamp(std::log10((1 + win_loss_rate) / (1 - win_loss_rate)), -mate, mate) + 0.5;
-  } else
-      return v * 100 / NormalizeToPawnValue;
+  return 100 * v / UCI::NormalizeToPawnValue;
 }
-
 
 /// UCI::value() converts a Value to a string by adhering to the UCI protocol specification:
 ///
@@ -361,14 +341,14 @@ int UCI::pawn_eval(Value v, int ply) {
 /// mate <y>  Mate in 'y' moves (not plies). If the engine is getting mated,
 ///           uses negative values for 'y'.
 
-string UCI::value(Value v, int ply) {
+std::string UCI::value(Value v) {
 
   assert(-VALUE_INFINITE < v && v < VALUE_INFINITE);
 
-  stringstream ss;
+  std::stringstream ss;
 
   if (abs(v) < VALUE_MATE_IN_MAX_PLY)
-      ss << "cp " << UCI::pawn_eval(v, ply);
+      ss << "cp " << UCI::to_cp(v);
   else
       ss << "mate " << (v > 0 ? VALUE_MATE - v + 1 : -VALUE_MATE - v) / 2;
 
@@ -379,9 +359,9 @@ string UCI::value(Value v, int ply) {
 /// UCI::wdl() reports the win-draw-loss (WDL) statistics given an evaluation
 /// and a game ply based on the data gathered for fishtest LTC games.
 
-string UCI::wdl(Value v, int ply) {
+std::string UCI::wdl(Value v, int ply) {
 
-  stringstream ss;
+  std::stringstream ss;
 
   int wdl_w = win_rate_model( v, ply);
   int wdl_l = win_rate_model(-v, ply);
@@ -399,15 +379,9 @@ std::string UCI::square(Square s) {
 }
 
 
-/// UCI::move() converts a Move to a string in coordinate notation (g1f3, a7a8q).
-/// The only special case is castling where the e1g1 notation is printed in
-/// standard chess mode.
-/// Internally, all castling moves are always encoded as 'king captures rook'.
+/// UCI::move() converts a Move to a string in coordinate notation (g1f3, a7a8).
 
-string UCI::move(Move m) {
-
-  Square from = from_sq(m);
-  Square to = to_sq(m);
+std::string UCI::move(Move m) {
 
   if (m == MOVE_NONE)
       return "(none)";
@@ -415,7 +389,10 @@ string UCI::move(Move m) {
   if (m == MOVE_NULL)
       return "0000";
 
-  string move = UCI::square(from) + UCI::square(to);
+  Square from = from_sq(m);
+  Square to = to_sq(m);
+
+  std::string move = UCI::square(from) + UCI::square(to);
 
   return move;
 }
@@ -424,7 +401,7 @@ string UCI::move(Move m) {
 /// UCI::to_move() converts a string representing a move in coordinate notation
 /// (g1f3, a7a8) to the corresponding legal Move, if any.
 
-Move UCI::to_move(const Position& pos, string& str) {
+Move UCI::to_move(const Position& pos, std::string& str) {
 
   for (const auto& m : MoveList<LEGAL>(pos))
       if (str == UCI::move(m))

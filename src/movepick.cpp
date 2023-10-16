@@ -16,10 +16,15 @@
   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include "movepick.h"
+
+#include <algorithm>
 #include <cassert>
+#include <iterator>
+#include <utility>
 
 #include "bitboard.h"
-#include "movepick.h"
+#include "position.h"
 
 namespace Stockfish {
 
@@ -50,11 +55,11 @@ namespace {
 } // namespace
 
 
-/// Constructors of the MovePicker class. As arguments we pass information
-/// to help it to return the (presumably) good moves first, to decide which
+/// Constructors of the MovePicker class. As arguments, we pass information
+/// to help it return the (presumably) good moves first, to decide which
 /// moves to return (in the quiescence search, for instance, we only want to
-/// search captures and some checks) and how important good move
-/// ordering is at the current node.
+/// search captures and some checks) and how important a good
+/// move ordering is at the current node.
 
 /// MovePicker constructor for the main search
 MovePicker::MovePicker(const Position& p, Move ttm, Depth d, const ButterflyHistory* mh,
@@ -105,49 +110,69 @@ void MovePicker::score() {
 
   static_assert(Type == CAPTURES || Type == QUIETS || Type == EVASIONS, "Wrong type");
 
-  [[maybe_unused]] Bitboard threatened, threatenedByPawn, threatenedByDefender, threatenedByMinor;
+  [[maybe_unused]] Bitboard threatenedByPawn, threatenedByDefender, threatenedByMinor, threatenedPieces;
   if constexpr (Type == QUIETS)
   {
       Color us = pos.side_to_move();
-      // squares threatened by pawns
+
       threatenedByPawn     = pos.attacks_by<PAWN>(~us);
-      // squares threatened by defenders or pawns
       threatenedByDefender = pos.attacks_by<ADVISOR>(~us) | pos.attacks_by<BISHOP>(~us) | threatenedByPawn;
-      // squares threatened by minors, defenders or pawns
       threatenedByMinor    = pos.attacks_by< KNIGHT>(~us) | pos.attacks_by<CANNON>(~us) | threatenedByDefender;
 
-      // pieces threatened by pieces of lesser material value
-      threatened =  (pos.pieces(us,            ROOK) & threatenedByMinor)
-                  | (pos.pieces(us,  KNIGHT, CANNON) & threatenedByDefender)
-                  | (pos.pieces(us, ADVISOR, BISHOP) & threatenedByPawn);
+      // Pieces threatened by pieces of lesser material value
+      threatenedPieces =  (pos.pieces(us,            ROOK) & threatenedByMinor)
+                        | (pos.pieces(us,  KNIGHT, CANNON) & threatenedByDefender)
+                        | (pos.pieces(us, ADVISOR, BISHOP) & threatenedByPawn);
   }
 
   for (auto& m : *this) {
-      // Type of moved piece
-      PieceType pt = type_of(pos.moved_piece(m));
-
       if constexpr (Type == CAPTURES)
-          m.value =  (7 * int(PieceValue[MG][pos.piece_on(to_sq(m))])
-                   +     (*captureHistory)[pos.moved_piece(m)][to_sq(m)][type_of(pos.piece_on(to_sq(m)))]) / 16;
+          m.value =  (7 * int(PieceValue[pos.piece_on(to_sq(m))])
+                   + (*captureHistory)[pos.moved_piece(m)][to_sq(m)][type_of(pos.piece_on(to_sq(m)))]) / 16;
 
       else if constexpr (Type == QUIETS)
-          m.value =  2 * (*mainHistory)[pos.side_to_move()][from_to(m)]
-                   + 2 * (*continuationHistory[0])[pos.moved_piece(m)][to_sq(m)]
-                   +     (*continuationHistory[1])[pos.moved_piece(m)][to_sq(m)]
-                   +     (*continuationHistory[3])[pos.moved_piece(m)][to_sq(m)]
-                   +     (*continuationHistory[5])[pos.moved_piece(m)][to_sq(m)]
-                   +     (threatened & from_sq(m) ?
-                            (pt == ROOK                    && !(to_sq(m) & threatenedByMinor)    ? 50000
-                          : (pt == KNIGHT || pt == CANNON) && !(to_sq(m) & threatenedByDefender) ? 25000
-                          :                                   !(to_sq(m) & threatenedByPawn)     ? 15000
-                          :                                                                        0)
-                          :                                                                        0)
-                   +     bool(pos.check_squares(type_of(pos.moved_piece(m))) & to_sq(m)) * 16384;
+      {
+          Piece     pc   = pos.moved_piece(m);
+          PieceType pt   = type_of(pos.moved_piece(m));
+          Square    from = from_sq(m);
+          Square    to   = to_sq(m);
+
+          // histories
+          m.value =  2 * (*mainHistory)[pos.side_to_move()][from_to(m)];
+          m.value += 2 * (*continuationHistory[0])[pc][to];
+          m.value +=     (*continuationHistory[1])[pc][to];
+          m.value +=     (*continuationHistory[2])[pc][to] / 4;
+          m.value +=     (*continuationHistory[3])[pc][to];
+          m.value +=     (*continuationHistory[5])[pc][to];
+
+          // bonus for checks
+          m.value += bool(pos.check_squares(pt) & to) * 16384;
+
+          // bonus for escaping from capture
+          m.value += threatenedPieces & from ?
+                       (pt == ROOK                    && !(to & threatenedByMinor)    ? 50000
+                     : (pt == KNIGHT || pt == CANNON) && !(to & threatenedByDefender) ? 25000
+                     :                                   !(to & threatenedByPawn)     ? 15000
+                     :                                                                  0 )
+                     :                                                                  0 ;
+
+          // malus for putting piece en prise
+          m.value -= !(threatenedPieces & from) ?
+                         (pt == ROOK                    ?   bool(to & threatenedByMinor)    * 50000
+                                                          + bool(to & threatenedByDefender) * 10000
+                                                          + bool(to & threatenedByPawn)     * 20000
+                       : (pt == KNIGHT || pt == CANNON) ?   bool(to & threatenedByDefender) * 25000
+                                                          + bool(to & threatenedByPawn)     * 10000
+                       :  pt != PAWN                    ?   bool(to & threatenedByPawn)     * 15000
+                       :                                                                      0 )
+                       :                                                                      0 ;
+      }
+
       else // Type == EVASIONS
       {
           if (pos.capture(m))
-              m.value =  PieceValue[MG][pos.piece_on(to_sq(m))]
-                       - Value(pt)
+              m.value =  PieceValue[pos.piece_on(to_sq(m))]
+                       - Value(type_of(pos.moved_piece(m)))
                        + (1 << 28);
           else
               m.value =  (*mainHistory)[pos.side_to_move()][from_to(m)]

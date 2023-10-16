@@ -1,0 +1,91 @@
+name: "Analyzer"
+
+on:
+  schedule:
+    - cron: '17 18 * * 1'
+
+jobs:
+  CodeQL:
+    name: CodeQL
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [ 'cpp' ]
+        # CodeQL supports [ 'cpp', 'csharp', 'go', 'java', 'javascript', 'python', 'ruby' ]
+        # Use only 'java' to analyze code written in Java, Kotlin or both
+        # Use only 'javascript' to analyze code written in JavaScript, TypeScript or both
+        # Learn more about CodeQL language support at https://aka.ms/codeql-docs/language-support
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    # Initializes the CodeQL tools for scanning.
+    - name: Initialize CodeQL
+      uses: github/codeql-action/init@v2
+      with:
+        languages: ${{ matrix.language }}
+        # If you wish to specify custom queries, you can do so here or in a config file.
+        # By default, queries listed here will override any specified in a config file.
+        # Prefix the list here with "+" to use these queries and those in the config file.
+
+        # For more details on CodeQL's query packs, refer to: https://docs.github.com/en/code-security/code-scanning/automatically-scanning-your-code-for-vulnerabilities-and-errors/configuring-code-scanning#using-queries-in-ql-packs
+        # queries: security-extended,security-and-quality
+
+    - name: Build
+      working-directory: src
+      run: make -j build ARCH=x86-64-modern
+
+    - name: Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v2
+      with:
+        category: "/language:${{matrix.language}}"
+
+  IWYU:
+    name: Check includes
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Pikafish/src
+        shell: bash
+    steps:
+      - name: Checkout Pikafish
+        uses: actions/checkout@v3
+        with:
+          path: Pikafish
+
+      - name: Checkout include-what-you-use
+        uses: actions/checkout@v3
+        with:
+          repository: include-what-you-use/include-what-you-use
+          ref: f25caa280dc3277c4086ec345ad279a2463fea0f
+          path: include-what-you-use
+
+      - name: Download required linux packages
+        run: |
+          sudo add-apt-repository 'deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-17 main'
+          wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
+          sudo apt update
+          sudo apt install -y libclang-17-dev clang-17 libc++-17-dev
+      - name: Set up include-what-you-use
+        run: |
+          mkdir build && cd build
+          cmake -G "Unix Makefiles" -DCMAKE_PREFIX_PATH="/usr/lib/llvm-17" ..
+          sudo make install
+        working-directory: include-what-you-use
+
+      - name: Check include-what-you-use
+        run: include-what-you-use --version
+
+      - name: Check includes
+        run: >
+          make analyze
+          COMP=clang
+          CXX=include-what-you-use
+          CXXFLAGS="-stdlib=libc++ -Xiwyu --comment_style=long -Xiwyu --mapping='${{ github.workspace }}/Pikafish/.github/workflows/libcxx17.imp' -Xiwyu --error"

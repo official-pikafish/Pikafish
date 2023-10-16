@@ -16,30 +16,30 @@
   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include "evaluate.h"
+
 #include <algorithm>
 #include <cassert>
 #include <cstdlib>
-#include <cstring>   // For std::memset
 #include <fstream>
 #include <iomanip>
-#include <sstream>
 #include <iostream>
-#include <streambuf>
+#include <sstream>
 #include <vector>
 
-#include "bitboard.h"
-#include "evaluate.h"
 #include "misc.h"
+#include "nnue/evaluate_nnue.h"
+#include "position.h"
 #include "thread.h"
+#include "types.h"
 #include "uci.h"
 
-using namespace std;
 
 namespace Stockfish {
 
 namespace Eval {
 
-  string currentEvalFileName = "None";
+  std::string currentEvalFileName = "None";
 
   /// NNUE::init() tries to load a NNUE network at startup time, or when the engine
   /// receives a UCI command "setoption name EvalFile value .*.nnue"
@@ -49,22 +49,22 @@ namespace Eval {
 
   void NNUE::init() {
 
-    string eval_file = string(Options["EvalFile"]);
+    std::string eval_file = std::string(Options["EvalFile"]);
     if (eval_file.empty())
         eval_file = EvalFileDefaultName;
 
 #ifdef __EMSCRIPTEN__
-    vector<string> dirs = { "/" };
+    std::vector<std::string> dirs = { "/" };
 #else
-    vector<string> dirs = { "" , CommandLine::binaryDirectory };
+    std::vector<std::string> dirs = { "" , CommandLine::binaryDirectory };
 #endif
 
-    for (const string& directory : dirs)
+    for (const std::string& directory : dirs)
         if (currentEvalFileName != eval_file)
         {
-            ifstream stream(directory + eval_file, ios::binary);
-            stringstream ss = read_zipped_nnue(directory + eval_file);
-            if (load_eval(eval_file, stream) || load_eval(eval_file, ss))
+            std::ifstream stream(directory + eval_file, std::ios::binary);
+            std::stringstream ss = read_zipped_nnue(directory + eval_file);
+            if (NNUE::load_eval(eval_file, stream) || NNUE::load_eval(eval_file, ss))
                 currentEvalFileName = eval_file;
         }
   }
@@ -76,22 +76,24 @@ namespace Eval {
     return;
   #endif
 
-    string eval_file = string(Options["EvalFile"]);
+    std::string eval_file = std::string(Options["EvalFile"]);
     if (eval_file.empty())
         eval_file = EvalFileDefaultName;
 
     if (currentEvalFileName != eval_file)
     {
 
-        string msg1 = "Network evaluation parameters compatible with the engine must be available.";
-        string msg2 = "The network file " + eval_file + " was not loaded successfully.";
-        string msg3 = "The UCI option EvalFile might need to specify the full path, including the directory name, to the network file.";
-        string msg4 = "The engine will be terminated now.";
+        std::string msg1 = "Network evaluation parameters compatible with the engine must be available.";
+        std::string msg2 = "The network file " + eval_file + " was not loaded successfully.";
+        std::string msg3 = "The UCI option EvalFile might need to specify the full path, including the directory name, to the network file.";
+        std::string msg4 = "The default net can be downloaded from: https://github.com/official-pikafish/Networks/releases/download/master-net/" + std::string(EvalFileDefaultName);
+        std::string msg5 = "The engine will be terminated now.";
 
         sync_cout << "info string ERROR: " << msg1 << sync_endl;
         sync_cout << "info string ERROR: " << msg2 << sync_endl;
         sync_cout << "info string ERROR: " << msg3 << sync_endl;
         sync_cout << "info string ERROR: " << msg4 << sync_endl;
+        sync_cout << "info string ERROR: " << msg5 << sync_endl;
 
         exit(EXIT_FAILURE);
     }
@@ -100,19 +102,27 @@ namespace Eval {
   }
 }
 
-namespace Trace {
 
-  enum Tracing { NO_TRACE, TRACE };
+/// simple_eval() returns a static, purely materialistic evaluation of
+/// the position from the point of view of the given color. It can be
+/// divided by PawnValue to get an approximation of the material advantage
+/// on the board in terms of pawns.
 
-  static double to_cp(Value v) { return double(v) / UCI::NormalizeToPawnValue; }
+Value Eval::simple_eval(const Position& pos, Color c) {
+   return pos.material(c) - pos.material(~c);
 }
-
-using namespace Trace;
 
 /// evaluate() is the evaluator for the outer world. It returns a static
 /// evaluation of the position from the point of view of the side to move.
 
-Value Eval::evaluate(const Position& pos, int* complexity) {
+Value Eval::evaluate(const Position& pos) {
+
+  assert(!pos.checkers());
+
+  Value v;
+  Color stm      = pos.side_to_move();
+  int shuffling  = pos.rule60_count();
+  int simpleEval = simple_eval(pos, stm);
 
 #ifdef SIMPLE_EVAL
   // For debugging without nnue file
@@ -122,22 +132,19 @@ Value Eval::evaluate(const Position& pos, int* complexity) {
 #endif
 
   int nnueComplexity;
-  Value     nnue = NNUE::evaluate(pos, true, &nnueComplexity);
-  Value material = pos.material_diff();
+  Value nnue = NNUE::evaluate(pos, true, &nnueComplexity);
 
-  // Blend nnue complexity with (semi)classical complexity
-  Value optimism = pos.this_thread()->optimism[pos.side_to_move()];
-  nnueComplexity = (477 * nnueComplexity + (401 + optimism) * abs(material - nnue)) / 1024;
-  if (complexity) // Return hybrid NNUE complexity to caller
-      *complexity = nnueComplexity;
+  int material = pos.material() / 42;
+  Value optimism = pos.this_thread()->optimism[stm];
 
-  // scale nnue score according to material and optimism
-  int scale = 668 + 106 * pos.material_sum() / 4096;
-  optimism = optimism * (281 + nnueComplexity) / 256;
-  Value v = (nnue * scale + optimism * (scale - 740)) / 1024;
+  // Blend optimism and eval with nnue complexity and material imbalance
+  optimism += optimism * (nnueComplexity + abs(simpleEval - nnue)) / 708;
+  nnue     -= nnue     * (nnueComplexity + abs(simpleEval - nnue)) / 35116;
+
+  v = (nnue * (625 + material) + optimism * (130 + material)) / 1225;
 
   // Damp down the evaluation linearly when shuffling
-  v = v * (205 - pos.rule60_count()) / 120;
+  v = v * (268 - shuffling) / 175;
 
   // Guarantee evaluation does not hit the mate range
   v = std::clamp(v, VALUE_MATED_IN_MAX_PLY + 1, VALUE_MATE_IN_MAX_PLY - 1);
@@ -171,11 +178,13 @@ std::string Eval::trace(Position& pos) {
 
   v = NNUE::evaluate(pos);
   v = pos.side_to_move() == WHITE ? v : -v;
-  ss << "NNUE evaluation        " << to_cp(v) << " (white side)\n";
+  ss << "NNUE evaluation        " << 0.01 * UCI::to_cp(v) << " (white side)\n";
 
   v = evaluate(pos);
   v = pos.side_to_move() == WHITE ? v : -v;
-  ss << "Final evaluation       " << to_cp(v) << " (white side) [with scaled NNUE, optimism, ...]\n";
+  ss << "Final evaluation       " << 0.01 * UCI::to_cp(v) << " (white side)";
+  ss << " [with scaled NNUE, ...]";
+  ss << "\n";
 
   return ss.str();
 }

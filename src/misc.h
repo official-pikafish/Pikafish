@@ -21,12 +21,13 @@
 
 #include <cassert>
 #include <chrono>
-#include <ostream>
-#include <string>
-#include <vector>
+#include <cstddef>
 #include <cstdint>
+#include <iosfwd>
+#include <string>
 
-#include "types.h"
+#define stringify2(x) #x
+#define stringify(x) stringify2(x)
 
 namespace Stockfish {
 
@@ -53,23 +54,6 @@ inline TimePoint now() {
         (std::chrono::steady_clock::now().time_since_epoch()).count();
 }
 
-template<class Entry, int Size>
-struct HashTable {
-  Entry* operator[](Key key) { return &table[(uint32_t)key & (Size - 1)]; }
-
-private:
-  std::vector<Entry> table = std::vector<Entry>(Size); // Allocate on the heap
-};
-
-struct BloomFilter {
-    constexpr static uint64_t FILTER_SIZE = 1 << 14;
-    uint8_t  operator[](Key key) const { return table[key & (FILTER_SIZE - 1)]; }
-    uint8_t& operator[](Key key)       { return table[key & (FILTER_SIZE - 1)]; }
-
-private:
-    uint8_t table[1 << 14];
-};
-
 enum SyncCout { IO_LOCK, IO_UNLOCK };
 std::ostream& operator<<(std::ostream&, SyncCout);
 
@@ -95,32 +79,6 @@ static inline const union { uint32_t i; char c[4]; } Le = { 0x01020304 };
 static inline const bool IsLittleEndian = (Le.c[0] == 4);
 
 
-// RunningAverage : a class to calculate a running average of a series of values.
-// For efficiency, all computations are done with integers.
-class RunningAverage {
-  public:
-
-      // Reset the running average to rational value p / q
-      void set(int64_t p, int64_t q)
-        { average = p * PERIOD * RESOLUTION / q; }
-
-      // Update average with value v
-      void update(int64_t v)
-        { average = RESOLUTION * v + (PERIOD - 1) * average / PERIOD; }
-
-      // Test if average is strictly greater than rational a / b
-      bool is_greater(int64_t a, int64_t b) const
-        { return b * average > a * (PERIOD * RESOLUTION); }
-
-      int64_t value() const
-        { return average / (PERIOD * RESOLUTION); }
-
-  private :
-      static constexpr int64_t PERIOD     = 4096;
-      static constexpr int64_t RESOLUTION = 1024;
-      int64_t average;
-};
-
 template <typename T, std::size_t MaxSize>
 class ValueList {
 
@@ -129,6 +87,7 @@ public:
   void push_back(const T& value) { values_[size_++] = value; }
   const T* begin() const { return values_; }
   const T* end() const { return values_ + size_; }
+  const T& operator[](int index) const { return values_[index]; }
 
 private:
   T values_[MaxSize];
@@ -175,13 +134,13 @@ public:
 inline uint64_t mul_hi64(uint64_t a, uint64_t b) {
 #if defined(__GNUC__) && defined(IS_64BIT)
     __extension__ using uint128 = unsigned __int128;
-    return ((uint128)a * (uint128)b) >> 64;
+    return (uint128(a) * uint128(b)) >> 64;
 #else
-    uint64_t aL = (uint32_t)a, aH = a >> 32;
-    uint64_t bL = (uint32_t)b, bH = b >> 32;
+    uint64_t aL = uint32_t(a), aH = a >> 32;
+    uint64_t bL = uint32_t(b), bH = b >> 32;
     uint64_t c1 = (aL * bL) >> 32;
     uint64_t c2 = aH * bL + c1;
-    uint64_t c3 = aL * bH + (uint32_t)c2;
+    uint64_t c3 = aL * bH + uint32_t(c2);
     return aH * bH + (c2 >> 32) + (c3 >> 32);
 #endif
 }

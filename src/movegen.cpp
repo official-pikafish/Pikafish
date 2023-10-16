@@ -16,9 +16,12 @@
   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include <cassert>
-
 #include "movegen.h"
+
+#include <cassert>
+#include <initializer_list>
+
+#include "bitboard.h"
 #include "position.h"
 
 namespace Stockfish {
@@ -120,7 +123,7 @@ namespace {
 template<GenType Type>
 ExtMove* generate(const Position& pos, ExtMove* moveList) {
 
-  static_assert(Type != LEGAL, "Unsupported type in generate()");
+  static_assert(Type != LEGAL && Type != EVASIONS, "Unsupported type in generate()");
 
   Color us = pos.side_to_move();
 
@@ -150,6 +153,8 @@ template ExtMove* generate<PSEUDO_LEGAL>(const Position&, ExtMove*);
 
 template<>
 ExtMove* generate<EVASIONS>(const Position& pos, ExtMove* moveList) {
+
+    assert(bool(pos.checkers()));
 
     // If there are more than one checker, use slow version
     if (more_than_one(pos.checkers()))
