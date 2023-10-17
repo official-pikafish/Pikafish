@@ -19,7 +19,6 @@
 #include "movegen.h"
 
 #include <cassert>
-#include <initializer_list>
 
 #include "bitboard.h"
 #include "position.h"

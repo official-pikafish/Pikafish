@@ -29,9 +29,7 @@
 #include <iostream>
 #include <sstream>
 #include <string>
-#include <utility>
 
-#include "bitboard.h"
 #include "evaluate.h"
 #include "misc.h"
 #include "movegen.h"
@@ -39,7 +37,6 @@
 #include "nnue/evaluate_nnue.h"
 #include "nnue/nnue_common.h"
 #include "position.h"
-#include "search.h"
 #include "thread.h"
 #include "timeman.h"
 #include "tt.h"
