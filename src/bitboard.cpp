@@ -22,9 +22,9 @@
 #include <bitset>
 #include <initializer_list>
 
-#include "misc.h"
-#include "magics.h"
 #include <set>
+#include <utility>
+#include "magics.h"
 
 namespace Stockfish {
 

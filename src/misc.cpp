@@ -55,7 +55,6 @@ using fun8_t = bool(*)(HANDLE, BOOL, PTOKEN_PRIVILEGES, DWORD, PTOKEN_PRIVILEGES
 #include <mutex>
 #include <sstream>
 #include <string_view>
-#include <vector>
 
 #include "types.h"
 #include "external/zip.h"
