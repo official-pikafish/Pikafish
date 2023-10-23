@@ -155,7 +155,7 @@ dotprod = no
 arm_version = 0
 STRIP = strip
 
-ifneq ($(shell command -v clang-format-17),)
+ifneq ($(shell which clang-format-17 2> /dev/null),)
 	CLANG-FORMAT = clang-format-17
 else
 	CLANG-FORMAT = clang-format
@@ -857,7 +857,8 @@ endif
 	config-sanity \
 	icx-profile-use icx-profile-make \
 	gcc-profile-use gcc-profile-make \
-	clang-profile-use clang-profile-make FORCE
+	clang-profile-use clang-profile-make FORCE \
+	format analyze
 
 analyze: net config-sanity objclean
 	$(MAKE) -k ARCH=$(ARCH) COMP=$(COMP) $(OBJS)
