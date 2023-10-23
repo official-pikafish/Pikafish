@@ -27,15 +27,15 @@ namespace Stockfish {
 
 namespace {
 
-  // HollowCannonDiscover is used to store the places where we can result in hollow cannon discovered check
-  // by inserting a piece in between the hollow cannon and the king.
-  // OpponentKingSquare is used to store opponent's king square to avoid multiple calls to pos.square<KING>(~Us)
-  // They have to be thread local to avoid multi-threading race conditions.
-  thread_local Bitboard HollowCannonDiscover;
-  thread_local Square OpponentKingSquare;
+// HollowCannonDiscover is used to store the places where we can result in hollow cannon discovered check
+// by inserting a piece in between the hollow cannon and the king.
+// OpponentKingSquare is used to store opponent's king square to avoid multiple calls to pos.square<KING>(~Us)
+// They have to be thread local to avoid multi-threading race conditions.
+thread_local Bitboard HollowCannonDiscover;
+thread_local Square   OpponentKingSquare;
 
-  template<Color Us, PieceType Pt, GenType Type>
-  ExtMove* generate_moves(const Position& pos, ExtMove* moveList, Bitboard target) {
+template<Color Us, PieceType Pt, GenType Type>
+ExtMove* generate_moves(const Position& pos, ExtMove* moveList, Bitboard target) {
 
     static_assert(Pt != KING, "Unsupported piece type in generate_moves()");
 
@@ -43,12 +43,13 @@ namespace {
 
     while (bb)
     {
-        Square from = pop_lsb(bb);
-        Bitboard b = 0;
+        Square   from = pop_lsb(bb);
+        Bitboard b    = 0;
         if constexpr (Pt != CANNON)
-            b = (Pt != PAWN ? attacks_bb<Pt>(from, pos.pieces())
-                            : pawn_attacks_bb(Us, from)) & target;
-        else {
+            b = (Pt != PAWN ? attacks_bb<Pt>(from, pos.pieces()) : pawn_attacks_bb(Us, from))
+              & target;
+        else
+        {
             // Generate cannon capture moves.
             if (Type != QUIETS && Type != QUIET_CHECKS)
                 b |= attacks_bb<CANNON>(from, pos.pieces()) & pos.pieces(~Us);
@@ -64,35 +65,37 @@ namespace {
 
         // To check, you either move freely a blocker or make a direct check.
         if constexpr (Type == QUIET_CHECKS)
-            b &= Pt == CANNON ? ~line_bb(from, OpponentKingSquare) & (pos.check_squares(Pt) | HollowCannonDiscover)
-                              : (pos.blockers_for_king(~Us) & from) ? ~line_bb(from, OpponentKingSquare)
-                              : (pos.check_squares(Pt) | HollowCannonDiscover);
+            b &= Pt == CANNON ? ~line_bb(from, OpponentKingSquare)
+                                  & (pos.check_squares(Pt) | HollowCannonDiscover)
+               : (pos.blockers_for_king(~Us) & from)
+                 ? ~line_bb(from, OpponentKingSquare)
+                 : (pos.check_squares(Pt) | HollowCannonDiscover);
 
         while (b)
             *moveList++ = make_move(from, pop_lsb(b));
     }
 
     return moveList;
-  }
+}
 
-  template<Color Us, GenType Type>
-  ExtMove* generate_moves(const Position& pos, ExtMove* moveList, Bitboard target) {
-      moveList = generate_moves<Us,    ROOK, Type>(pos, moveList, target);
-      moveList = generate_moves<Us, ADVISOR, Type>(pos, moveList, target);
-      moveList = generate_moves<Us,  CANNON, Type>(pos, moveList, target);
-      moveList = generate_moves<Us,    PAWN, Type>(pos, moveList, target);
-      moveList = generate_moves<Us,  KNIGHT, Type>(pos, moveList, target);
-      moveList = generate_moves<Us,  BISHOP, Type>(pos, moveList, target);
-      return moveList;
-  }
+template<Color Us, GenType Type>
+ExtMove* generate_moves(const Position& pos, ExtMove* moveList, Bitboard target) {
+    moveList = generate_moves<Us, ROOK, Type>(pos, moveList, target);
+    moveList = generate_moves<Us, ADVISOR, Type>(pos, moveList, target);
+    moveList = generate_moves<Us, CANNON, Type>(pos, moveList, target);
+    moveList = generate_moves<Us, PAWN, Type>(pos, moveList, target);
+    moveList = generate_moves<Us, KNIGHT, Type>(pos, moveList, target);
+    moveList = generate_moves<Us, BISHOP, Type>(pos, moveList, target);
+    return moveList;
+}
 
-  template<Color Us, GenType Type>
-  ExtMove* generate_all(const Position& pos, ExtMove* moveList) {
+template<Color Us, GenType Type>
+ExtMove* generate_all(const Position& pos, ExtMove* moveList) {
 
-    const Square ksq = pos.square<KING>(Us);
-    Bitboard target  = Type == PSEUDO_LEGAL ? ~pos.pieces( Us)
-                     : Type == CAPTURES     ?  pos.pieces(~Us)
-                                            : ~pos.pieces(   ); // QUIETS || QUIET_CHECKS
+    const Square ksq    = pos.square<KING>(Us);
+    Bitboard     target = Type == PSEUDO_LEGAL ? ~pos.pieces(Us)
+                        : Type == CAPTURES     ? pos.pieces(~Us)
+                                               : ~pos.pieces();  // QUIETS || QUIET_CHECKS
 
     moveList = generate_moves<Us, Type>(pos, moveList, target);
 
@@ -107,9 +110,9 @@ namespace {
     }
 
     return moveList;
-  }
+}
 
-} // namespace
+}  // namespace
 
 
 // <CAPTURES>     Generates all pseudo-legal captures
@@ -122,22 +125,22 @@ namespace {
 template<GenType Type>
 ExtMove* generate(const Position& pos, ExtMove* moveList) {
 
-  static_assert(Type != LEGAL && Type != EVASIONS, "Unsupported type in generate()");
+    static_assert(Type != LEGAL && Type != EVASIONS, "Unsupported type in generate()");
 
-  Color us = pos.side_to_move();
+    Color us = pos.side_to_move();
 
-  // Prepare hollow cannon discover bitboard when generate quite check moves
-  if constexpr (Type == QUIET_CHECKS)
-  {
-      OpponentKingSquare = pos.square<KING>(~us);
-      Bitboard hollowCannons = pos.check_squares(ROOK) & pos.pieces(us, CANNON);
-      HollowCannonDiscover = Bitboard(0);
-      while (hollowCannons)
-          HollowCannonDiscover |= between_bb(OpponentKingSquare, pop_lsb(hollowCannons));
-  }
+    // Prepare hollow cannon discover bitboard when generate quite check moves
+    if constexpr (Type == QUIET_CHECKS)
+    {
+        OpponentKingSquare     = pos.square<KING>(~us);
+        Bitboard hollowCannons = pos.check_squares(ROOK) & pos.pieces(us, CANNON);
+        HollowCannonDiscover   = Bitboard(0);
+        while (hollowCannons)
+            HollowCannonDiscover |= between_bb(OpponentKingSquare, pop_lsb(hollowCannons));
+    }
 
-  return us == WHITE ? generate_all<WHITE, Type>(pos, moveList)
-                     : generate_all<BLACK, Type>(pos, moveList);
+    return us == WHITE ? generate_all<WHITE, Type>(pos, moveList)
+                       : generate_all<BLACK, Type>(pos, moveList);
 }
 
 // Explicit template instantiations
@@ -159,10 +162,10 @@ ExtMove* generate<EVASIONS>(const Position& pos, ExtMove* moveList) {
     if (more_than_one(pos.checkers()))
         return generate<PSEUDO_LEGAL>(pos, moveList);
 
-    Color us = pos.side_to_move();
-    Square ksq = pos.square<KING>(us);
-    Square checksq = lsb(pos.checkers());
-    PieceType pt = type_of(pos.piece_on(checksq));
+    Color     us      = pos.side_to_move();
+    Square    ksq     = pos.square<KING>(us);
+    Square    checksq = lsb(pos.checkers());
+    PieceType pt      = type_of(pos.piece_on(checksq));
 
     // Generate evasions for king, capture and non capture moves
     Bitboard b = attacks_bb<KING>(ksq) & ~pos.pieces(us);
@@ -178,16 +181,19 @@ ExtMove* generate<EVASIONS>(const Position& pos, ExtMove* moveList) {
     if (pt == CANNON)
     {
         Bitboard hurdle = between_bb(ksq, checksq) & pos.pieces(us);
-        if (hurdle) {
+        if (hurdle)
+        {
             Square hurdleSq = pop_lsb(hurdle);
-            pt = type_of(pos.piece_on(hurdleSq));
+            pt              = type_of(pos.piece_on(hurdleSq));
             if (pt == PAWN)
                 b = pawn_attacks_bb(us, hurdleSq) & ~line_bb(checksq, hurdleSq) & ~pos.pieces(us);
             else if (pt == CANNON)
-                b =   (attacks_bb<  ROOK>(hurdleSq, pos.pieces()) & ~line_bb(checksq, hurdleSq) & ~pos.pieces())
-                    | (attacks_bb<CANNON>(hurdleSq, pos.pieces()) & pos.pieces(~us));
+                b = (attacks_bb<ROOK>(hurdleSq, pos.pieces()) & ~line_bb(checksq, hurdleSq)
+                     & ~pos.pieces())
+                  | (attacks_bb<CANNON>(hurdleSq, pos.pieces()) & pos.pieces(~us));
             else
-                b = attacks_bb(pt, hurdleSq, pos.pieces()) & ~line_bb(checksq, hurdleSq) & ~pos.pieces(us);
+                b = attacks_bb(pt, hurdleSq, pos.pieces()) & ~line_bb(checksq, hurdleSq)
+                  & ~pos.pieces(us);
             while (b)
                 *moveList++ = make_move(hurdleSq, pop_lsb(b));
         }
@@ -205,18 +211,18 @@ ExtMove* generate<EVASIONS>(const Position& pos, ExtMove* moveList) {
 template<>
 ExtMove* generate<LEGAL>(const Position& pos, ExtMove* moveList) {
 
-  ExtMove* cur = moveList;
+    ExtMove* cur = moveList;
 
-  moveList = pos.checkers() ? generate<EVASIONS>(pos, moveList)
-                            : generate<PSEUDO_LEGAL>(pos, moveList);
+    moveList =
+      pos.checkers() ? generate<EVASIONS>(pos, moveList) : generate<PSEUDO_LEGAL>(pos, moveList);
 
-  while (cur != moveList)
-      if (!pos.legal(*cur))
-          *cur = (--moveList)->move;
-      else
-          ++cur;
+    while (cur != moveList)
+        if (!pos.legal(*cur))
+            *cur = (--moveList)->move;
+        else
+            ++cur;
 
-  return moveList;
+    return moveList;
 }
 
-} // namespace Stockfish
+}  // namespace Stockfish
