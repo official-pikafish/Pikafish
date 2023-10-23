@@ -234,9 +234,9 @@ void MainThread::search() {
 
 void Thread::search() {
 
-  // Allocate stack with extra size to allow access from (ss-7) to (ss+2)
-  // (ss-7) is needed for update_continuation_histories(ss-1, ...) which accesses (ss-6)
-  // (ss+2) is needed for initialization of statScore and killers
+  // Allocate stack with extra size to allow access from (ss-7) to (ss+2):
+  // (ss-7) is needed for update_continuation_histories(ss-1) which accesses (ss-6),
+  // (ss+2) is needed for initialization of statScore and killers.
   Stack stack[MAX_PLY+10], *ss = stack+7;
   Move  pv[MAX_PLY+1];
   Value alpha, beta, delta;
@@ -421,8 +421,7 @@ void Thread::search() {
 
           double totalTime = Time.optimum() * fallingEval * reduction * bestMoveInstability;
 
-          // Cap used time in case of a single legal move for a better viewer experience in tournaments
-          // yielding correct scores and sufficiently fast moves.
+          // Cap used time in case of a single legal move for a better viewer experience
           if (rootMoves.size() == 1)
               totalTime = std::min(500.0, totalTime);
 
@@ -848,7 +847,8 @@ moves_loop: // When in check, search starts here
 
       Depth r = reduction(improving, depth, moveCount, delta, thisThread->rootDelta);
 
-      // Step 13. Pruning at shallow depth (~98 Elo). Depth conditions are important for mate finding.
+      // Step 13. Pruning at shallow depth (~98 Elo).
+      // Depth conditions are important for mate finding.
       if (  !rootNode
           && bestValue > VALUE_MATED_IN_MAX_PLY)
       {
@@ -920,7 +920,6 @@ moves_loop: // When in check, search starts here
               &&  depth >= 4 - (thisThread->completedDepth > 32) + 2 * (PvNode && tte->is_pv())
               &&  move == ttMove
               && !excludedMove // Avoid recursive singular search
-           /* &&  ttValue != VALUE_NONE Already implicit in the next condition */
               &&  abs(ttValue) < VALUE_MATE_IN_MAX_PLY
               && (tte->bound() & BOUND_LOWER)
               &&  tte->depth() >= depth - 3)
@@ -998,8 +997,7 @@ moves_loop: // When in check, search starts here
       // Step 15. Make the move
       pos.do_move(move, st, givesCheck);
 
-      // Decrease reduction if position is or has been on the PV and not likely to fail low. (~3 Elo)
-      // Decrease further on cutNodes. (~1 Elo)
+      // Decrease reduction if position is or has been on the PV (~4 Elo)
       if (   ss->ttPv
           && !likelyFailLow)
           r -= cutNode && tte->depth() >= depth ? 3 : 2;
@@ -1062,7 +1060,7 @@ moves_loop: // When in check, search starts here
           if (value > alpha && d < newDepth)
           {
               // Adjust full-depth search based on LMR results - if the result
-              // was good enough search deeper, if it was bad enough search shallower
+              // was good enough search deeper, if it was bad enough search shallower.
               const bool doDeeperSearch = value > (bestValue + 64 + 10 * (newDepth - d));
               const bool doEvenDeeperSearch = value > alpha + 664 && ss->doubleExtensions <= 5;
               const bool doShallowerSearch = value < bestValue + newDepth;
@@ -1082,13 +1080,14 @@ moves_loop: // When in check, search starts here
           }
       }
 
-      // Step 17. Full-depth search when LMR is skipped. If expected reduction is high, reduce its depth by 1.
+      // Step 17. Full-depth search when LMR is skipped.
       else if (!PvNode || moveCount > 1)
       {
           // Increase reduction for cut nodes and not ttMove (~1 Elo)
           if (!ttMove && cutNode)
               r += 2;
 
+          // Note that if expected reduction is high, we reduce search depth by 1 here
           value = -search<NonPV>(pos, ss+1, -(alpha+1), -alpha, newDepth - (r > 4), !cutNode);
       }
 
@@ -1192,8 +1191,8 @@ moves_loop: // When in check, search starts here
           }
       }
 
-
-      // If the move is worse than some previously searched move, remember it, to update its stats later
+      // If the move is worse than some previously searched move,
+      // remember it, to update its stats later.
       if (move != bestMove && moveCount <= 32)
       {
           if (capture)
@@ -1203,14 +1202,6 @@ moves_loop: // When in check, search starts here
               quietsSearched[quietCount++] = move;
       }
     }
-
-    // The following condition would detect a stop only after move loop has been
-    // completed. But in this case, bestValue is valid because we have fully
-    // searched our subtree, and we can anyhow save the result in TT.
-    /*
-       if (Threads.stop)
-        return VALUE_DRAW;
-    */
 
     // Step 20. Check for mate
     // All legal moves have been searched and if there are no legal moves,
@@ -1348,7 +1339,6 @@ moves_loop: // When in check, search starts here
         // Stand pat. Return immediately if static value is at least beta
         if (bestValue >= beta)
         {
-            // Save gathered info in transposition table
             if (!ss->ttHit)
                 tte->save(posKey, value_to_tt(bestValue, ss->ply), false, BOUND_LOWER,
                           DEPTH_NONE, MOVE_NONE, ss->staticEval);
@@ -1406,7 +1396,7 @@ moves_loop: // When in check, search starts here
               futilityValue = futilityBase + PieceValue[pos.piece_on(to_sq(move))];
 
               // If static eval + value of piece we are going to capture is much lower
-              // than alpha we can prune this move
+              // than alpha we can prune this move.
               if (futilityValue <= alpha)
               {
                 bestValue = std::max(bestValue, futilityValue);
@@ -1414,7 +1404,7 @@ moves_loop: // When in check, search starts here
               }
 
               // If static eval is much lower than alpha and move is not winning material
-              // we can prune this move
+              // we can prune this move.
               if (futilityBase <= alpha && !pos.see_ge(move, VALUE_ZERO + 1))
               {
                 bestValue = std::max(bestValue, futilityBase);
@@ -1422,7 +1412,7 @@ moves_loop: // When in check, search starts here
               }
 
               // If static exchange evaluation is much worse than what is needed to not
-              // fall below alpha we can prune this move
+              // fall below alpha we can prune this move.
               if (futilityBase > alpha && !pos.see_ge(move, (alpha - futilityBase) * 4))
               {
                 bestValue = alpha;
@@ -1521,9 +1511,9 @@ moves_loop: // When in check, search starts here
 
   // value_from_tt() is the inverse of value_to_tt(): it adjusts a mate from
   // the transposition table (which refers to the plies to mate/be mated from
-  // current position) to "plies to mate/be mated from the root".. However,
-  // for mate scores, to avoid potentially false mate scores related to the 60 moves rule
-  // and the graph history interaction, we return an optimal mate score instead.
+  // current position) to "plies to mate/be mated from the root"..
+  // However, to avoid potentially false mate scores related to the 60 moves rule
+  // and the graph history interaction problem, we return an optimal mate score instead.
 
   Value value_from_tt(Value v, int ply, int r60c) {
 
