@@ -114,8 +114,8 @@ namespace {
 
 /// <CAPTURES>     Generates all pseudo-legal captures
 /// <QUIETS>       Generates all pseudo-legal non-captures
-/// <QUIET_CHECKS> Generates all pseudo-legal non-captures giving check
 /// <PSEUDO_LEGAL> Generates all pseudo-legal captures and non-captures
+/// <QUIET_CHECKS> Generates all pseudo-legal non-captures giving check
 ///
 /// Returns a pointer to the end of the move list.
 
