@@ -52,6 +52,7 @@ namespace Stockfish::Eval::NNUE::Features {
       PS_NB             =  8 * SQUARE_NB
     };
 
+    // clang-format off
     static constexpr IndexType PieceSquareIndex[COLOR_NB][PIECE_NB] = {
       // convention: W - us, B - them
       // viewed from other side, W and B are reversed
@@ -60,6 +61,7 @@ namespace Stockfish::Eval::NNUE::Features {
       { PS_NONE, PS_B_ROOK, PS_AB_W_KP, PS_B_CANNON, PS_B_KP   , PS_B_KNIGHT, PS_AB_W_KP, PS_B_KP   ,
         PS_NONE, PS_W_ROOK, PS_AB_W_KP, PS_W_CANNON, PS_AB_W_KP, PS_W_KNIGHT, PS_AB_W_KP, PS_AB_W_KP, }
     };
+    // clang-format on
 
     // Index of a feature for a given king position and another piece on some square
     template<Color Perspective>
@@ -75,6 +77,7 @@ namespace Stockfish::Eval::NNUE::Features {
     // Number of feature dimensions
     static constexpr IndexType Dimensions = 6 * 3 * 3 * static_cast<IndexType>(PS_NB);
 
+    // clang-format off
 #define M(s) ((1 << 3) | s)
     // Stored as (mirror << 3 | bucket)
     static constexpr uint8_t KingBuckets[SQUARE_NB] = {
@@ -104,6 +107,7 @@ namespace Stockfish::Eval::NNUE::Features {
         0,  0,  0,  0, 25,  0,  0,  0,  0,
         0,  0, 26, 28,  0, 30, 32,  0,  0,
     };
+    // clang-format on
 
     // Square index mapping based on condition (Mirror, Rotate, ABMap)
     static constexpr std::array<std::array<std::array<std::array<std::uint8_t, SQUARE_NB>, 2>, 2>, 2>
