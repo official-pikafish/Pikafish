@@ -56,7 +56,7 @@ constexpr Piece Pieces[] = { W_ROOK, W_ADVISOR, W_CANNON, W_PAWN, W_KNIGHT, W_BI
 } // namespace
 
 
-/// operator<<(Position) returns an ASCII representation of the position
+// operator<<(Position) returns an ASCII representation of the position
 
 std::ostream& operator<<(std::ostream& os, const Position& pos) {
 
@@ -82,7 +82,7 @@ std::ostream& operator<<(std::ostream& os, const Position& pos) {
 }
 
 
-/// Position::init() initializes at startup the various arrays used to compute hash keys
+// Position::init() initializes at startup the various arrays used to compute hash keys
 
 void Position::init() {
 
@@ -96,9 +96,9 @@ void Position::init() {
 }
 
 
-/// Position::set() initializes the position object with the given FEN string.
-/// This function is not very robust - make sure that input FENs are correct,
-/// this is assumed to be the responsibility of the GUI.
+// Position::set() initializes the position object with the given FEN string.
+// This function is not very robust - make sure that input FENs are correct,
+// this is assumed to be the responsibility of the GUI.
 
 Position& Position::set(const string& fenStr, StateInfo* si, Thread* th) {
 /*
@@ -176,7 +176,7 @@ Position& Position::set(const string& fenStr, StateInfo* si, Thread* th) {
 }
 
 
-/// Position::set_check_info() sets king attacks to detect if a move gives check
+// Position::set_check_info() sets king attacks to detect if a move gives check
 
 void Position::set_check_info() const {
   
@@ -196,9 +196,9 @@ void Position::set_check_info() const {
 }
 
 
-/// Position::set_state() computes the hash keys of the position, and other
-/// data that once computed is updated incrementally as moves are made.
-/// The function is only used when a new position is set up
+// Position::set_state() computes the hash keys of the position, and other
+// data that once computed is updated incrementally as moves are made.
+// The function is only used when a new position is set up
 
 void Position::set_state() const {
 
@@ -224,7 +224,7 @@ void Position::set_state() const {
 }
 
 
-/// Position::fen() returns a FEN representation of the position.
+// Position::fen() returns a FEN representation of the position.
 
 string Position::fen() const {
 
@@ -259,11 +259,11 @@ string Position::fen() const {
 }
 
 
-/// Position::update_blockers() calculates
-/// into st->blockersForKing[c]:
-///        which pieces prevent king of color c from being in check
-/// into st->pinners[c]:
-///        which pieces of color c are pinning pieces of ~c to the king.
+// Position::update_blockers() calculates
+// into st->blockersForKing[c]:
+//        which pieces prevent king of color c from being in check
+// into st->pinners[c]:
+//        which pieces of color c are pinning pieces of ~c to the king.
 
 template <Color c>
 void Position::update_blockers() const {
@@ -293,8 +293,8 @@ void Position::update_blockers() const {
 }
 
 
-/// Position::attackers_to() computes a bitboard of all pieces which attack a
-/// given square. Slider attacks use the occupied bitboard to indicate occupancy.
+// Position::attackers_to() computes a bitboard of all pieces which attack a
+// given square. Slider attacks use the occupied bitboard to indicate occupancy.
 
 Bitboard Position::attackers_to(Square s, Bitboard occupied) const {
 
@@ -309,9 +309,9 @@ Bitboard Position::attackers_to(Square s, Bitboard occupied) const {
 }
 
 
-/// Position::checkers_to() computes a bitboard of all pieces of a given color
-/// which gives check to a given square. Slider attacks use the occupied bitboard
-/// to indicate occupancy.
+// Position::checkers_to() computes a bitboard of all pieces of a given color
+// which gives check to a given square. Slider attacks use the occupied bitboard
+// to indicate occupancy.
 
 Bitboard Position::checkers_to(Color c, Square s, Bitboard occupied) const {
 
@@ -322,7 +322,7 @@ Bitboard Position::checkers_to(Color c, Square s, Bitboard occupied) const {
 }
 
 
-/// Position::legal() tests whether a pseudo-legal move is legal
+// Position::legal() tests whether a pseudo-legal move is legal
 
 bool Position::legal(Move m) const {
 
@@ -351,9 +351,9 @@ bool Position::legal(Move m) const {
 }
 
 
-/// Position::pseudo_legal() takes a random move and tests whether the move is
-/// pseudo-legal. It is used to validate moves from TT that can be corrupted
-/// due to SMP concurrent access or hash position key aliasing.
+// Position::pseudo_legal() takes a random move and tests whether the move is
+// pseudo-legal. It is used to validate moves from TT that can be corrupted
+// due to SMP concurrent access or hash position key aliasing.
 
 bool Position::pseudo_legal(const Move m) const {
 
@@ -381,7 +381,7 @@ bool Position::pseudo_legal(const Move m) const {
 }
 
 
-/// Position::gives_check() tests whether a pseudo-legal move gives a check
+// Position::gives_check() tests whether a pseudo-legal move gives a check
 
 bool Position::gives_check(Move m) const {
 
@@ -411,9 +411,9 @@ bool Position::gives_check(Move m) const {
 }
 
 
-/// Position::do_move() makes a move, and saves all information necessary
-/// to a StateInfo object. The move is assumed to be legal. Pseudo-legal
-/// moves should be filtered out before this function is called.
+// Position::do_move() makes a move, and saves all information necessary
+// to a StateInfo object. The move is assumed to be legal. Pseudo-legal
+// moves should be filtered out before this function is called.
 
 void Position::do_move(Move m, StateInfo& newSt, bool givesCheck) {
 
@@ -513,8 +513,8 @@ void Position::do_move(Move m, StateInfo& newSt, bool givesCheck) {
 }
 
 
-/// Position::undo_move() unmakes a move. When it returns, the position should
-/// be restored to exactly the same state as before the move was made.
+// Position::undo_move() unmakes a move. When it returns, the position should
+// be restored to exactly the same state as before the move was made.
 
 void Position::undo_move(Move m) {
 
@@ -548,8 +548,8 @@ void Position::undo_move(Move m) {
 }
 
 
-/// Position::do_null_move() is used to do a "null move": it flips
-/// the side to move without executing any move on the board.
+// Position::do_null_move() is used to do a "null move": it flips
+// the side to move without executing any move on the board.
 
 void Position::do_null_move(StateInfo& newSt) {
 
@@ -584,7 +584,7 @@ void Position::do_null_move(StateInfo& newSt) {
 }
 
 
-/// Position::undo_null_move() must be used to undo a "null move"
+// Position::undo_null_move() must be used to undo a "null move"
 
 void Position::undo_null_move() {
 
@@ -598,8 +598,8 @@ void Position::undo_null_move() {
 }
 
 
-/// Position::key_after() computes the new hash key after the given move. Needed
-/// for speculative prefetch.
+// Position::key_after() computes the new hash key after the given move. Needed
+// for speculative prefetch.
 
 Key Position::key_after(Move m) const {
 
@@ -618,9 +618,9 @@ Key Position::key_after(Move m) const {
 }
 
 
-/// Position::see_ge (Static Exchange Evaluation Greater or Equal) tests if the
-/// SEE value of move is greater or equal to the given threshold. We'll use an
-/// algorithm similar to alpha-beta pruning with a null window.
+// Position::see_ge (Static Exchange Evaluation Greater or Equal) tests if the
+// SEE value of move is greater or equal to the given threshold. We'll use an
+// algorithm similar to alpha-beta pruning with a null window.
 
 bool Position::see_ge(Move m, Value threshold) const {
 
@@ -741,7 +741,7 @@ bool Position::see_ge(Move m, Value threshold) const {
 }
 
 
-/// light_do_move() just like do move, but a little lighter
+// light_do_move() just like do move, but a little lighter
 
 std::pair<Piece, int> Position::light_do_move(Move m) {
 
@@ -766,7 +766,7 @@ std::pair<Piece, int> Position::light_do_move(Move m) {
 }
 
 
-/// light_undo_move() just like undo move, but a little lighter
+// light_undo_move() just like undo move, but a little lighter
 
 void Position::light_undo_move(Move m, Piece captured, int id) {
 
@@ -790,7 +790,7 @@ void Position::light_undo_move(Move m, Piece captured, int id) {
 }
 
 
-/// Position::detect_chases() detects chases from state st - d to state st
+// Position::detect_chases() detects chases from state st - d to state st
 
 Value Position::detect_chases(int d, int ply) {
 
@@ -866,7 +866,7 @@ Value Position::detect_chases(int d, int ply) {
 }
 
 
-/// Position::chase_legal() tests whether a pseudo-legal move is chase legal
+// Position::chase_legal() tests whether a pseudo-legal move is chase legal
 
 bool Position::chase_legal(Move m) const {
 
@@ -890,7 +890,7 @@ bool Position::chase_legal(Move m) const {
 }
 
 
-/// Position::has_mate_threat() calculate mate threat less than certain moves.
+// Position::has_mate_threat() calculate mate threat less than certain moves.
 
 bool Position::has_mate_threat(Depth d) {
     bool mateThreat = false;
@@ -926,7 +926,7 @@ bool Position::has_mate_threat(Depth d) {
 }
 
 
-/// Position::chased() calculate the chase information for a given color.
+// Position::chased() calculate the chase information for a given color.
 
 uint16_t Position::chased(Color c) {
 
@@ -1013,8 +1013,8 @@ uint16_t Position::chased(Color c) {
 }
 
 
-/// Position::rule_judge() tests whether the position may end the game by draw repetition, rule 60,
-/// perpetual check repetition or perpetual chase repetition that allows a player to claim a game result.
+// Position::rule_judge() tests whether the position may end the game by draw repetition, rule 60,
+// perpetual check repetition or perpetual chase repetition that allows a player to claim a game result.
 
 bool Position::rule_judge(Value& result, int ply) const {
 
@@ -1074,8 +1074,8 @@ bool Position::rule_judge(Value& result, int ply) const {
 }
 
 
-/// Position::flip() flips position with the white and black sides reversed. This
-/// is only useful for debugging e.g. for finding evaluation symmetry bugs.
+// Position::flip() flips position with the white and black sides reversed. This
+// is only useful for debugging e.g. for finding evaluation symmetry bugs.
 
 void Position::flip() {
 
@@ -1109,9 +1109,9 @@ void Position::flip() {
 }
 
 
-/// Position::pos_is_ok() performs some consistency checks for the
-/// position object and raise an assert if something wrong is detected.
-/// This is meant to be helpful when debugging.
+// Position::pos_is_ok() performs some consistency checks for the
+// position object and raise an assert if something wrong is detected.
+// This is meant to be helpful when debugging.
 
 bool Position::pos_is_ok() const {
 

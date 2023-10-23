@@ -41,11 +41,11 @@ namespace Eval {
 
   std::string currentEvalFileName = "None";
 
-  /// NNUE::init() tries to load a NNUE network at startup time, or when the engine
-  /// receives a UCI command "setoption name EvalFile value .*.nnue"
-  /// The name of the NNUE network is always retrieved from the EvalFile option.
-  /// We search the given network in two locations: in the active working directory and
-  /// in the engine directory.
+  // NNUE::init() tries to load a NNUE network at startup time, or when the engine
+  // receives a UCI command "setoption name EvalFile value .*.nnue"
+  // The name of the NNUE network is always retrieved from the EvalFile option.
+  // We search the given network in two locations: in the active working directory and
+  // in the engine directory.
 
   void NNUE::init() {
 
@@ -65,7 +65,7 @@ namespace Eval {
         }
   }
 
-  /// NNUE::verify() verifies that the last net used was loaded successfully
+  // NNUE::verify() verifies that the last net used was loaded successfully
   void NNUE::verify() {
 
     std::string eval_file = std::string(Options["EvalFile"]);
@@ -95,17 +95,17 @@ namespace Eval {
 }
 
 
-/// simple_eval() returns a static, purely materialistic evaluation of
-/// the position from the point of view of the given color. It can be
-/// divided by PawnValue to get an approximation of the material advantage
-/// on the board in terms of pawns.
+// simple_eval() returns a static, purely materialistic evaluation of
+// the position from the point of view of the given color. It can be
+// divided by PawnValue to get an approximation of the material advantage
+// on the board in terms of pawns.
 
 Value Eval::simple_eval(const Position& pos, Color c) {
    return pos.material(c) - pos.material(~c);
 }
 
-/// evaluate() is the evaluator for the outer world. It returns a static
-/// evaluation of the position from the point of view of the side to move.
+// evaluate() is the evaluator for the outer world. It returns a static
+// evaluation of the position from the point of view of the side to move.
 
 Value Eval::evaluate(const Position& pos) {
 
@@ -137,10 +137,10 @@ Value Eval::evaluate(const Position& pos) {
   return v;
 }
 
-/// trace() is like evaluate(), but instead of returning a value, it returns
-/// a string (suitable for outputting to stdout) that contains the detailed
-/// descriptions and values of each evaluation term. Useful for debugging.
-/// Trace scores are from white's point of view
+// trace() is like evaluate(), but instead of returning a value, it returns
+// a string (suitable for outputting to stdout) that contains the detailed
+// descriptions and values of each evaluation term. Useful for debugging.
+// Trace scores are from white's point of view
 
 std::string Eval::trace(Position& pos) {
 

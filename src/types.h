@@ -19,22 +19,22 @@
 #ifndef TYPES_H_INCLUDED
 #define TYPES_H_INCLUDED
 
-/// When compiling with provided Makefile (e.g. for Linux and OSX), configuration
-/// is done automatically. To get started type 'make help'.
-///
-/// When Makefile is not used (e.g. with Microsoft Visual Studio) some switches
-/// need to be set manually:
-///
-/// -DNDEBUG      | Disable debugging mode. Always use this for release.
-///
-/// -DNO_PREFETCH | Disable use of prefetch asm-instruction. You may need this to
-///               | run on some very old machines.
-///
-/// -DUSE_POPCNT  | Add runtime support for use of popcnt asm-instruction. Works
-///               | only in 64-bit mode and requires hardware with popcnt support.
-///
-/// -DUSE_PEXT    | Add runtime support for use of pext asm-instruction. Works
-///               | only in 64-bit mode and requires hardware with pext support.
+// When compiling with provided Makefile (e.g. for Linux and OSX), configuration
+// is done automatically. To get started type 'make help'.
+//
+// When Makefile is not used (e.g. with Microsoft Visual Studio) some switches
+// need to be set manually:
+//
+// -DNDEBUG      | Disable debugging mode. Always use this for release.
+//
+// -DNO_PREFETCH | Disable use of prefetch asm-instruction. You may need this to
+//               | run on some very old machines.
+//
+// -DUSE_POPCNT  | Add runtime support for use of popcnt asm-instruction. Works
+//               | only in 64-bit mode and requires hardware with popcnt support.
+//
+// -DUSE_PEXT    | Add runtime support for use of pext asm-instruction. Works
+//               | only in 64-bit mode and requires hardware with pext support.
 
 #include <cassert>
 #include <cstdint>
@@ -46,14 +46,14 @@
 #pragma warning(disable: 4800) // Forcing value to bool 'true' or 'false'
 #endif
 
-/// Predefined macros hell:
-///
-/// __GNUC__                Compiler is GCC, Clang or ICX
-/// __clang__               Compiler is Clang or ICX
-/// __INTEL_LLVM_COMPILER   Compiler is ICX
-/// _MSC_VER                Compiler is MSVC
-/// _WIN32                  Building on Windows (any)
-/// _WIN64                  Building on Windows 64 bit
+// Predefined macros hell:
+//
+// __GNUC__                Compiler is GCC, Clang or ICX
+// __clang__               Compiler is Clang or ICX
+// __INTEL_LLVM_COMPILER   Compiler is ICX
+// _MSC_VER                Compiler is MSVC
+// _WIN32                  Building on Windows (any)
+// _WIN64                  Building on Windows 64 bit
 
 #if defined(__GNUC__ ) && (__GNUC__ < 9 || (__GNUC__ == 9 && __GNUC_MINOR__ <= 2)) && defined(_WIN32) && !defined(__clang__)
 #define ALIGNAS_ON_STACK_VARIABLES_BROKEN
@@ -116,14 +116,14 @@ using Bitboard = __uint128_t;
 constexpr int MAX_MOVES = 128;
 constexpr int MAX_PLY   = 246;
 
-/// A move needs 16 bits to be stored
-///
-/// bit  0- 6: destination square (from 0 to 89)
-/// bit  7-13: origin square (from 0 to 89)
-///
-/// Special cases are MOVE_NONE and MOVE_NULL. We can sneak these in because in
-/// any normal move destination square is always different from origin square
-/// while MOVE_NONE and MOVE_NULL have the same origin and destination square.
+// A move needs 16 bits to be stored
+//
+// bit  0- 6: destination square (from 0 to 89)
+// bit  7-13: origin square (from 0 to 89)
+//
+// Special cases are MOVE_NONE and MOVE_NULL. We can sneak these in because in
+// any normal move destination square is always different from origin square
+// while MOVE_NONE and MOVE_NULL have the same origin and destination square.
 
 enum Move : int {
   MOVE_NONE,
@@ -283,7 +283,7 @@ ENABLE_INCR_OPERATORS_ON(Rank)
 #undef ENABLE_INCR_OPERATORS_ON
 #undef ENABLE_BASE_OPERATORS_ON
 
-/// Additional operators to add a Direction to a Square
+// Additional operators to add a Direction to a Square
 constexpr Square operator+(Square s, Direction d) { return Square(int(s) + int(d)); }
 constexpr Square operator-(Square s, Direction d) { return Square(int(s) - int(d)); }
 inline Square& operator+=(Square& s, Direction d) { return s = s + d; }
@@ -364,7 +364,7 @@ constexpr Move make_move(Square from, Square to) {
   return Move((from << 7) + to);
 }
 
-/// Based on a congruential pseudo-random number generator
+// Based on a congruential pseudo-random number generator
 constexpr Key make_key(uint64_t seed) {
   return seed * 6364136223846793005ULL + 1442695040888963407ULL;
 }
