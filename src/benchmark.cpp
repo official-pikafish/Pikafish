@@ -27,6 +27,7 @@
 
 namespace {
 
+// clang-format off
 // Positions from https://www.chessprogramming.org/Chinese_Chess_Perft_Results
 const std::vector<std::string> Defaults = {
 
@@ -85,6 +86,7 @@ const std::vector<std::string> Defaults = {
     "1C2ka3/9/C1Nab1n2/p3p3p/6p2/9/P3P3P/3AB4/3p2c2/c1BAK4 w",
     "CnN1k1b2/c3a4/4ba3/9/2nr5/9/9/4C4/4A4/4KA3 w"
 };
+// clang-format on
 
 } // namespace
 
