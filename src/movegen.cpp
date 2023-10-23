@@ -112,12 +112,12 @@ namespace {
 } // namespace
 
 
-/// <CAPTURES>     Generates all pseudo-legal captures
-/// <QUIETS>       Generates all pseudo-legal non-captures
-/// <PSEUDO_LEGAL> Generates all pseudo-legal captures and non-captures
-/// <QUIET_CHECKS> Generates all pseudo-legal non-captures giving check
-///
-/// Returns a pointer to the end of the move list.
+// <CAPTURES>     Generates all pseudo-legal captures
+// <QUIETS>       Generates all pseudo-legal non-captures
+// <PSEUDO_LEGAL> Generates all pseudo-legal captures and non-captures
+// <QUIET_CHECKS> Generates all pseudo-legal non-captures giving check
+//
+// Returns a pointer to the end of the move list.
 
 template<GenType Type>
 ExtMove* generate(const Position& pos, ExtMove* moveList) {
@@ -147,8 +147,8 @@ template ExtMove* generate<QUIET_CHECKS>(const Position&, ExtMove*);
 template ExtMove* generate<PSEUDO_LEGAL>(const Position&, ExtMove*);
 
 
-/// generate<EVASIONS> generates all pseudo-legal check evasions when the side
-/// to move is in check. Returns a pointer to the end of the move list.
+// generate<EVASIONS> generates all pseudo-legal check evasions when the side
+// to move is in check. Returns a pointer to the end of the move list.
 
 template<>
 ExtMove* generate<EVASIONS>(const Position& pos, ExtMove* moveList) {
@@ -200,7 +200,7 @@ ExtMove* generate<EVASIONS>(const Position& pos, ExtMove* moveList) {
 }
 
 
-/// generate<LEGAL> generates all the legal moves in the given position
+// generate<LEGAL> generates all the legal moves in the given position
 
 template<>
 ExtMove* generate<LEGAL>(const Position& pos, ExtMove* moveList) {
