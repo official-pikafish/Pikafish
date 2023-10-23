@@ -686,11 +686,9 @@ namespace {
 
         pos.undo_null_move();
 
-        if (nullValue >= beta)
+        // Do not return unproven mate
+        if (nullValue >= beta && nullValue < VALUE_MATE_IN_MAX_PLY)
         {
-            // Do not return unproven mate
-            nullValue = std::min(nullValue, VALUE_MATE_IN_MAX_PLY - 1);
-
             if (thisThread->nmpMinPly || depth < 14)
                 return nullValue;
 
