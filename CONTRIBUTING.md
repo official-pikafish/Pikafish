@@ -57,7 +57,7 @@ discussion._
 
 ## Code Style
 
-Changes to Stockfish C++ code should respect our coding style defined by
+Changes to Pikafish C++ code should respect our coding style defined by
 [.clang-format](.clang-format). You can format your changes by running
 `make format`. This requires clang-format version 17 to be installed on your system.
 
