@@ -399,6 +399,6 @@ constexpr Bitboard KnightToMagicsInit[SQUARE_NB] = {
 // clang-format on
 
 #undef B
-} // namespace Stockfish
+}  // namespace Stockfish
 
-#endif // #ifndef MAGICS_H_INCLUDED
+#endif  // #ifndef MAGICS_H_INCLUDED

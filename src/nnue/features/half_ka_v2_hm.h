@@ -29,27 +29,29 @@
 #include "../nnue_common.h"
 
 namespace Stockfish {
-  struct StateInfo;
-  class Position;
+struct StateInfo;
+class Position;
 }
 
 namespace Stockfish::Eval::NNUE::Features {
 
-  // Feature HalfKAv2_hm: Combination of the position of own king and the position of pieces.
-  class HalfKAv2_hm {
+// Feature HalfKAv2_hm: Combination of the position of own king and the position of pieces.
+class HalfKAv2_hm {
 
     // unique number for each piece type on each square
     enum {
-      PS_NONE           =  0,
-      PS_W_ROOK         =  0,
-      PS_B_ROOK         =  1 * SQUARE_NB,
-      PS_W_CANNON       =  2 * SQUARE_NB,
-      PS_B_CANNON       =  3 * SQUARE_NB,
-      PS_W_KNIGHT       =  4 * SQUARE_NB,
-      PS_B_KNIGHT       =  5 * SQUARE_NB,
-      PS_AB_W_KP        =  6 * SQUARE_NB, // White King and Pawn are merged into one plane, also used for Advisor and Bishop
-      PS_B_KP           =  7 * SQUARE_NB, // Black King and Pawn are merged into one plane
-      PS_NB             =  8 * SQUARE_NB
+        PS_NONE     = 0,
+        PS_W_ROOK   = 0,
+        PS_B_ROOK   = 1 * SQUARE_NB,
+        PS_W_CANNON = 2 * SQUARE_NB,
+        PS_B_CANNON = 3 * SQUARE_NB,
+        PS_W_KNIGHT = 4 * SQUARE_NB,
+        PS_B_KNIGHT = 5 * SQUARE_NB,
+        PS_AB_W_KP =
+          6
+          * SQUARE_NB,  // White King and Pawn are merged into one plane, also used for Advisor and Bishop
+        PS_B_KP = 7 * SQUARE_NB,  // Black King and Pawn are merged into one plane
+        PS_NB   = 8 * SQUARE_NB
     };
 
     // clang-format off
@@ -110,41 +112,36 @@ namespace Stockfish::Eval::NNUE::Features {
     // clang-format on
 
     // Square index mapping based on condition (Mirror, Rotate, ABMap)
-    static constexpr std::array<std::array<std::array<std::array<std::uint8_t, SQUARE_NB>, 2>, 2>, 2>
-    IndexMap = []() {
-        std::array<std::array<std::array<std::array<std::uint8_t, SQUARE_NB>, 2>, 2>, 2> v{};
-        for (uint8_t m = 0; m < 2; ++m)
-          for (uint8_t r = 0; r < 2; ++r)
-            for (uint8_t ab = 0; ab < 2; ++ab)
-              for (uint8_t s = 0; s < SQUARE_NB; ++s) {
-                uint8_t ss = s;
-                ss =  m ? uint8_t(flip_file(Square(ss))) : ss;
-                ss =  r ? uint8_t(flip_rank(Square(ss))) : ss;
-                ss = ab ?                     ABMap[ss]  : ss;
-                v[m][r][ab][s] = ss;
-              }
-        return v;
-    }();
+    static constexpr std::array<std::array<std::array<std::array<std::uint8_t, SQUARE_NB>, 2>, 2>,
+                                2>
+      IndexMap = []() {
+          std::array<std::array<std::array<std::array<std::uint8_t, SQUARE_NB>, 2>, 2>, 2> v{};
+          for (uint8_t m = 0; m < 2; ++m)
+              for (uint8_t r = 0; r < 2; ++r)
+                  for (uint8_t ab = 0; ab < 2; ++ab)
+                      for (uint8_t s = 0; s < SQUARE_NB; ++s)
+                      {
+                          uint8_t ss     = s;
+                          ss             = m ? uint8_t(flip_file(Square(ss))) : ss;
+                          ss             = r ? uint8_t(flip_rank(Square(ss))) : ss;
+                          ss             = ab ? ABMap[ss] : ss;
+                          v[m][r][ab][s] = ss;
+                      }
+          return v;
+      }();
 
     // Maximum number of simultaneously active features.
     static constexpr IndexType MaxActiveDimensions = 32;
-    using IndexList = ValueList<IndexType, MaxActiveDimensions>;
+    using IndexList                                = ValueList<IndexType, MaxActiveDimensions>;
 
     // Get a list of indices for active features
     template<Color Perspective>
-    static void append_active_indices(
-      const Position& pos,
-      IndexList& active);
+    static void append_active_indices(const Position& pos, IndexList& active);
 
     // Get a list of indices for recently changed features
     template<Color Perspective>
     static void append_changed_indices(
-      Square ksq,
-      int ab,
-      const DirtyPiece& dp,
-      IndexList& removed,
-      IndexList& added
-    );
+      Square ksq, int ab, const DirtyPiece& dp, IndexList& removed, IndexList& added);
 
     // Returns the cost of updating one perspective, the most costly one.
     // Assumes no refresh needed.
@@ -154,8 +151,8 @@ namespace Stockfish::Eval::NNUE::Features {
     // Returns whether the change stored in this StateInfo means that
     // a full accumulator refresh is required.
     static bool requires_refresh(const StateInfo* st, Color perspective);
-  };
+};
 
 }  // namespace Stockfish::Eval::NNUE::Features
 
-#endif // #ifndef NNUE_FEATURES_HALF_KA_V2_HM_H_INCLUDED
+#endif  // #ifndef NNUE_FEATURES_HALF_KA_V2_HM_H_INCLUDED
