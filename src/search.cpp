@@ -328,8 +328,8 @@ void Thread::search() {
             int failedHighCnt = 0;
             while (true)
             {
-                // Adjust the effective depth searched, but ensure at least one effective increment for every
-                // four searchAgain steps (see issue #2717).
+                // Adjust the effective depth searched, but ensure at least one effective increment
+                // for every four searchAgain steps (see issue #2717).
                 Depth adjustedDepth =
                   std::max(1, rootDepth - failedHighCnt - 3 * (searchAgainCounter + 1) / 4);
                 bestValue = Stockfish::search<Root>(rootPos, ss, alpha, beta, adjustedDepth, false);
@@ -568,7 +568,8 @@ Value search(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth, boo
                 if (!ttCapture)
                     update_quiet_stats(pos, ss, ttMove, stat_bonus(depth));
 
-                // Extra penalty for early quiet moves of the previous ply (~0 Elo)
+                // Extra penalty for early quiet moves of
+                // the previous ply (~0 Elo on STC, ~2 Elo on LTC).
                 if (prevSq != SQ_NONE && (ss - 1)->moveCount <= 2 && !priorCapture)
                     update_continuation_histories(ss - 1, pos.piece_on(prevSq), prevSq,
                                                   -stat_bonus(depth + 1));
@@ -600,7 +601,8 @@ Value search(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth, boo
     }
     else if (excludedMove)
     {
-        // Providing the hint that this node's accumulator will be used often brings significant Elo gain (~13 Elo)
+        // Providing the hint that this node's accumulator will be used often
+        // brings significant Elo gain (~13 Elo).
         Eval::NNUE::hint_common_parent_position(pos);
         eval = ss->staticEval;
     }
@@ -700,9 +702,9 @@ Value search(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth, boo
         }
     }
 
-    // Step 9. If the position doesn't have a ttMove, decrease depth by 2
-    // (or by 4 if the TT entry for the current position was hit and the stored depth is greater than or equal to the current depth).
-    // Use qsearch if depth is equal or below zero (~9 Elo)
+    // Step 9. If the position doesn't have a ttMove, decrease depth by 2,
+    // or by 4 if the TT entry for the current position was hit and
+    // the stored depth is greater than or equal to the current depth.
     if (PvNode && !ttMove)
         depth -= 2 + 2 * (ss->ttHit && tte->depth() >= depth);
 
@@ -844,14 +846,16 @@ moves_loop:  // When in check, search starts here
 
             if (capture || givesCheck)
             {
-                // Futility pruning for captures (~0 Elo)
-                if (!givesCheck && lmrDepth < 11 && !ss->inCheck
-                    && ss->staticEval + 306 + 199 * lmrDepth + PieceValue[pos.piece_on(to_sq(move))]
-                           + captureHistory[movedPiece][to_sq(move)]
-                                           [type_of(pos.piece_on(to_sq(move)))]
-                               / 6
-                         < alpha)
-                    continue;
+                // Futility pruning for captures (~2 Elo)
+                if (!givesCheck && lmrDepth < 11 && !ss->inCheck)
+                {
+                    Piece capturedPiece = pos.piece_on(to_sq(move));
+                    int   futilityEval =
+                      ss->staticEval + 306 + 199 * lmrDepth + PieceValue[capturedPiece]
+                      + captureHistory[movedPiece][to_sq(move)][type_of(capturedPiece)] / 6;
+                    if (futilityEval < alpha)
+                        continue;
+                }
 
                 // SEE based pruning for captures and checks (~11 Elo)
                 if (!pos.see_ge(move, Value(-257) * depth))
@@ -896,9 +900,9 @@ moves_loop:  // When in check, search starts here
             // that depth margin and singularBeta margin are known for having non-linear
             // scaling. Their values are optimized to time controls of 180+1.8 and longer
             // so changing them requires tests at this type of time controls.
-            if (!rootNode
+            // Recursive singular search is avoided.
+            if (!rootNode && move == ttMove && !excludedMove
                 && depth >= 4 - (thisThread->completedDepth > 32) + 2 * (PvNode && tte->is_pv())
-                && move == ttMove && !excludedMove  // Avoid recursive singular search
                 && abs(ttValue) < VALUE_MATE_IN_MAX_PLY && (tte->bound() & BOUND_LOWER)
                 && tte->depth() >= depth - 3)
             {
@@ -931,7 +935,7 @@ moves_loop:  // When in check, search starts here
                 else if (singularBeta >= beta)
                     return singularBeta;
 
-                // If the eval of ttMove is greater than beta, we reduce it (negative extension)
+                // If the eval of ttMove is greater than beta, reduce it (negative extension) (~7 Elo)
                 else if (ttValue >= beta)
                     extension = -2 - !PvNode;
 
@@ -939,7 +943,7 @@ moves_loop:  // When in check, search starts here
                 else if (cutNode)
                     extension = depth < 14 ? -3 : -1;
 
-                // If the eval of ttMove is less than value, we reduce it (negative extension) (~1 Elo)
+                // If the eval of ttMove is less than value, reduce it (negative extension) (~1 Elo)
                 else if (ttValue <= value)
                     extension = -1;
             }
