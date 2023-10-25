@@ -27,12 +27,12 @@ namespace Stockfish {
 
 namespace {
 
-// HollowCannonDiscover is used to store the places where we can result in hollow cannon discovered check
+// Store the places where we can result in hollow cannon discovered check
 // by inserting a piece in between the hollow cannon and the king.
-// OpponentKingSquare is used to store opponent's king square to avoid multiple calls to pos.square<KING>(~Us)
-// They have to be thread local to avoid multi-threading race conditions.
 thread_local Bitboard HollowCannonDiscover;
-thread_local Square   OpponentKingSquare;
+// Store opponent's king square to avoid multiple calls to pos.square<KING>(~Us)
+// They have to be thread local to avoid multi-threading race conditions.
+thread_local Square OpponentKingSquare;
 
 template<Color Us, PieceType Pt, GenType Type>
 ExtMove* generate_moves(const Position& pos, ExtMove* moveList, Bitboard target) {
@@ -121,7 +121,6 @@ ExtMove* generate_all(const Position& pos, ExtMove* moveList) {
 // <QUIET_CHECKS> Generates all pseudo-legal non-captures giving check
 //
 // Returns a pointer to the end of the move list.
-
 template<GenType Type>
 ExtMove* generate(const Position& pos, ExtMove* moveList) {
 

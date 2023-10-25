@@ -231,7 +231,7 @@ static NnueEvalTrace trace_evaluate(const Position& pos) {
 constexpr std::string_view PieceToChar(" RACPNBK racpnbk");
 
 
-// format_cp_compact() converts a Value into (centi)pawns and writes it in a buffer.
+// Converts a Value into (centi)pawns and writes it in a buffer.
 // The buffer must have capacity for at least 5 chars.
 static void format_cp_compact(Value v, char* buffer) {
 
@@ -268,7 +268,7 @@ static void format_cp_compact(Value v, char* buffer) {
 }
 
 
-// format_cp_aligned_dot() converts a Value into pawns, always keeping two decimals
+// Converts a Value into pawns, always keeping two decimals
 static void format_cp_aligned_dot(Value v, std::stringstream& stream) {
 
     const double pawns = std::abs(0.01 * UCI::to_cp(v));
@@ -280,7 +280,7 @@ static void format_cp_aligned_dot(Value v, std::stringstream& stream) {
 }
 
 
-// trace() returns a string with the value of each piece on a board,
+// Returns a string with the value of each piece on a board,
 // and a table for (PSQT, Layers) values bucket by bucket.
 std::string trace(Position& pos) {
 
