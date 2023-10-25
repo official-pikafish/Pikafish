@@ -149,7 +149,7 @@ class Logger {
 }  // namespace
 
 
-// engine_info() returns the full name of the current Pikafish version.
+// Returns the full name of the current Pikafish version.
 // For local dev compiles we try to append the commit sha and commit date
 // from git if that fails only the local compilation date is set and "nogit" is specified:
 // Pikafish dev-YYYYMMDD-SHA
@@ -158,7 +158,6 @@ class Logger {
 //
 // For releases (non dev builds) we only include the version number:
 // Pikafish version
-
 std::string engine_info(bool to_uci) {
     std::stringstream ss;
     ss << "Pikafish " << version << std::setfill('0');
@@ -193,8 +192,7 @@ std::string engine_info(bool to_uci) {
 }
 
 
-// compiler_info() returns a string trying to describe the compiler we use
-
+// Returns a string trying to describe the compiler we use
 std::string compiler_info() {
 
 #define make_version_string(major, minor, patch) \
@@ -398,7 +396,6 @@ void dbg_print() {
 
 // Used to serialize access to std::cout to avoid multiple threads writing at
 // the same time.
-
 std::ostream& operator<<(std::ostream& os, SyncCout sc) {
 
     static std::mutex m;
@@ -417,9 +414,6 @@ std::ostream& operator<<(std::ostream& os, SyncCout sc) {
 void start_logger(const std::string& fname) { Logger::start(fname); }
 
 
-// prefetch() preloads the given address in L1/L2 cache. This is a non-blocking
-// function that doesn't stall the CPU waiting for data to be loaded from memory,
-// which can be quite slow.
 #ifdef NO_PREFETCH
 
 void prefetch(void*) {}
@@ -438,10 +432,9 @@ void prefetch(void* addr) {
 #endif
 
 
-// std_aligned_alloc() is our wrapper for systems where the c++17 implementation
+// Wrapper for systems where the c++17 implementation
 // does not guarantee the availability of aligned_alloc(). Memory allocated with
 // std_aligned_alloc() must be freed with std_aligned_free().
-
 void* std_aligned_alloc(size_t alignment, size_t size) {
 
 #if defined(POSIXALIGNEDALLOC)
@@ -608,10 +601,9 @@ void bindThisThread(size_t) {}
 
 #else
 
-// best_node() retrieves logical processor information using Windows specific
+// Retrieves logical processor information using Windows specific
 // API and returns the best node id for the thread with index idx. Original
 // code from Texel by Peter Österlund.
-
 static int best_node(size_t idx) {
 
     int   threads      = 0;
@@ -680,8 +672,7 @@ static int best_node(size_t idx) {
 }
 
 
-// bindThisThread() set the group affinity of the current thread
-
+// Sets the group affinity of the current thread
 void bindThisThread(size_t idx) {
 
     // Use only local variables to be thread-safe

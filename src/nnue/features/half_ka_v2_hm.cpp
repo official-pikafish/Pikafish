@@ -53,7 +53,7 @@ void HalfKAv2_hm::append_active_indices(const Position& pos, IndexList& active) 
 template void HalfKAv2_hm::append_active_indices<WHITE>(const Position& pos, IndexList& active);
 template void HalfKAv2_hm::append_active_indices<BLACK>(const Position& pos, IndexList& active);
 
-// append_changed_indices() : get a list of indices for recently changed features
+// Get a list of indices for recently changed features
 template<Color Perspective>
 void HalfKAv2_hm::append_changed_indices(
   Square ksq, int ab, const DirtyPiece& dp, IndexList& removed, IndexList& added) {

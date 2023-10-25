@@ -138,8 +138,7 @@ constexpr Bitboard file_bb(File f) { return FileABB << std::uint8_t(f); }
 constexpr Bitboard file_bb(Square s) { return file_bb(file_of(s)); }
 
 
-// shift() moves a bitboard one or two steps as specified by the direction D
-
+// Moves a bitboard one or two steps as specified by the direction D
 template<Direction D>
 constexpr Bitboard shift(Bitboard b) {
     return D == NORTH         ? (b & ~Rank9BB) << std::uint8_t(NORTH)
@@ -156,9 +155,8 @@ constexpr Bitboard shift(Bitboard b) {
 }
 
 
-// pawn_attacks_bb() returns the squares attacked by pawns of the given color
+// Returns the squares attacked by pawns of the given color
 // from the squares in the given bitboard.
-
 template<Color C>
 constexpr Bitboard pawn_attacks_bb(Square s) {
     Bitboard b      = square_bb(s);
@@ -175,9 +173,8 @@ inline Bitboard pawn_attacks_bb(Color c, Square s) {
 }
 
 
-// pawn_attacks_to_bb() returns the squares that if there is a pawn
+// Returns the squares that if there is a pawn
 // of the given color in there, it can attack the square s
-
 template<Color C>
 constexpr Bitboard pawn_attacks_to_bb(Square s) {
     Bitboard b      = square_bb(s);
@@ -194,11 +191,10 @@ inline Bitboard pawn_attacks_to_bb(Color c, Square s) {
 }
 
 
-// line_bb() returns a bitboard representing an entire line (from board edge
+// Returns a bitboard representing an entire line (from board edge
 // to board edge) that intersects the two given squares. If the given squares
 // are not on a same file/rank/diagonal, the function returns 0. For instance,
 // line_bb(SQ_C4, SQ_F7) will return a bitboard with the A2-G8 diagonal.
-
 inline Bitboard line_bb(Square s1, Square s2) {
 
     assert(is_ok(s1) && is_ok(s2));
@@ -207,14 +203,13 @@ inline Bitboard line_bb(Square s1, Square s2) {
 }
 
 
-// between_bb(s1, s2) returns a bitboard representing the squares in the semi-open
+// Returns a bitboard representing the squares in the semi-open
 // segment between the squares s1 and s2 (excluding s1 but including s2). If the
 // given squares are not on a same file/rank/diagonal, it returns s2. For instance,
 // between_bb(SQ_C4, SQ_F7) will return a bitboard with squares D5, E6 and F7, but
 // between_bb(SQ_E6, SQ_F8) will return a bitboard with the square F8. This trick
 // allows to generate non-king evasion moves faster: the defending piece must either
 // interpose itself to cover the check or capture the checking piece.
-
 inline Bitboard between_bb(Square s1, Square s2) {
 
     assert(is_ok(s1) && is_ok(s2));
@@ -223,9 +218,8 @@ inline Bitboard between_bb(Square s1, Square s2) {
 }
 
 
-// aligned() returns true if the squares s1, s2 and s3 are aligned either on a
+// Returns true if the squares s1, s2 and s3 are aligned either on a
 // straight or on a diagonal line.
-
 inline bool aligned(Square s1, Square s2, Square s3) { return bool(line_bb(s1, s2) & s3); }
 
 
@@ -234,14 +228,17 @@ inline bool aligned(Square s1, Square s2, Square s3) { return bool(line_bb(s1, s
 
 template<typename T1 = Square>
 inline int distance(Square x, Square y);
+
 template<>
 inline int distance<File>(Square x, Square y) {
     return std::abs(file_of(x) - file_of(y));
 }
+
 template<>
 inline int distance<Rank>(Square x, Square y) {
     return std::abs(rank_of(x) - rank_of(y));
 }
+
 template<>
 inline int distance<Square>(Square x, Square y) {
     return SquareDistance[x][y];
@@ -251,9 +248,8 @@ inline int edge_distance(File f) { return std::min(f, File(FILE_I - f)); }
 inline int edge_distance(Rank r) { return std::min(r, Rank(RANK_9 - r)); }
 
 
-// attacks_bb(Square) returns the pseudo attacks of the given piece type
+// Returns the pseudo attacks of the given piece type
 // assuming an empty board.
-
 template<PieceType Pt>
 inline Bitboard attacks_bb(Square s) {
 
@@ -263,10 +259,9 @@ inline Bitboard attacks_bb(Square s) {
 }
 
 
-// attacks_bb(Square, Bitboard) returns the attacks by the given piece
+// Returns the attacks by the given piece
 // assuming the board is occupied according to the passed Bitboard.
 // Sliding piece attacks do not continue passed an occupied square.
-
 template<PieceType Pt>
 inline Bitboard attacks_bb(Square s, Bitboard occupied) {
 
@@ -289,6 +284,9 @@ inline Bitboard attacks_bb(Square s, Bitboard occupied) {
     }
 }
 
+// Returns the attacks by the given piece
+// assuming the board is occupied according to the passed Bitboard.
+// Sliding piece attacks do not continue passed an occupied square.
 inline Bitboard attacks_bb(PieceType pt, Square s, Bitboard occupied) {
 
     assert((pt != PAWN) && (is_ok(s)));
@@ -309,7 +307,7 @@ inline Bitboard attacks_bb(PieceType pt, Square s, Bitboard occupied) {
 }
 
 
-// popcount() counts the number of non-zero bits in a bitboard
+// Counts the number of non-zero bits in a bitboard
 
 inline int popcount(Bitboard b) {
 
@@ -334,8 +332,7 @@ inline int popcount(Bitboard b) {
 }
 
 
-// lsb() return the least significant bit in a non-zero bitboard
-
+// Return the least significant bit in a non-zero bitboard
 inline Square lsb(Bitboard b) {
     assert(b);
 
@@ -362,16 +359,14 @@ inline Square lsb(Bitboard b) {
 #endif
 }
 
-// least_significant_square_bb() returns the bitboard of the least significant
+// Returns the bitboard of the least significant
 // square of a non-zero bitboard. It is equivalent to square_bb(lsb(bb)).
-
 inline Bitboard least_significant_square_bb(Bitboard b) {
     assert(b);
     return b & -b;
 }
 
-// pop_lsb() finds and clears the least significant bit in a non-zero bitboard
-
+// Finds and clears the least significant bit in a non-zero bitboard
 inline Square pop_lsb(Bitboard& b) {
     assert(b);
     const Square s = lsb(b);
