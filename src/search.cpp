@@ -408,15 +408,15 @@ void Thread::search() {
         // Do we have time for the next iteration? Can we stop searching now?
         if (Limits.use_time_management() && !Threads.stop && !mainThread->stopOnPonderhit)
         {
-            double fallingEval = (66 + 18 * (mainThread->bestPreviousAverageScore - bestValue)
+            double fallingEval = (67 + 18 * (mainThread->bestPreviousAverageScore - bestValue)
                                   + 5 * (mainThread->iterValue[iterIdx] - bestValue))
-                               / 779.58;
+                               / 759.86;
             fallingEval = std::clamp(fallingEval, 0.5, 1.5);
 
             // If the bestMove is stable over several iterations, reduce time accordingly
-            timeReduction    = lastBestMoveDepth + 10 < completedDepth ? 1.86 : 0.70;
-            double reduction = (1.62 + mainThread->previousTimeReduction) / (2.62 * timeReduction);
-            double bestMoveInstability = 1 + 1.96 * totBestMoveChanges / Threads.size();
+            timeReduction    = lastBestMoveDepth + 10 < completedDepth ? 1.88 : 0.68;
+            double reduction = (1.73 + mainThread->previousTimeReduction) / (2.40 * timeReduction);
+            double bestMoveInstability = 1.04 + 2.00 * totBestMoveChanges / Threads.size();
 
             double totalTime = Time.optimum() * fallingEval * reduction * bestMoveInstability;
 
