@@ -42,6 +42,7 @@ namespace Stockfish {
 struct StateInfo {
 
     // Copied when making a move
+    Key     pawnKey;
     Value   material[COLOR_NB];
     int16_t check10[COLOR_NB];
     int     rule60;
@@ -143,6 +144,7 @@ class Position {
     // Accessing hash keys
     Key key() const;
     Key key_after(Move m) const;
+    Key pawn_key() const;
 
     // Other properties of the position
     Color    side_to_move() const;
@@ -272,6 +274,8 @@ template<bool AfterMove>
 inline Key Position::adjust_key60(Key k) const {
     return st->rule60 < 14 - AfterMove ? k : k ^ make_key((st->rule60 - (14 - AfterMove)) / 8);
 }
+
+inline Key Position::pawn_key() const { return st->pawnKey; }
 
 inline Value Position::material(Color c) const { return st->material[c]; }
 

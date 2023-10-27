@@ -44,7 +44,7 @@ namespace Stockfish {
 namespace Zobrist {
 
 Key psq[PIECE_NB][SQUARE_NB];
-Key side;
+Key side, noPawns;
 }
 
 namespace {
@@ -89,7 +89,8 @@ void Position::init() {
         for (Square s = SQ_A0; s <= SQ_I9; ++s)
             Zobrist::psq[pc][s] = rng.rand<Key>();
 
-    Zobrist::side = rng.rand<Key>();
+    Zobrist::side    = rng.rand<Key>();
+    Zobrist::noPawns = rng.rand<Key>();
 }
 
 
@@ -201,6 +202,7 @@ void Position::set_check_info() const {
 void Position::set_state() const {
 
     st->key             = 0;
+    st->pawnKey         = Zobrist::noPawns;
     st->material[WHITE] = st->material[BLACK] = VALUE_ZERO;
     st->checkersBB                            = checkers_to(~sideToMove, square<KING>(sideToMove));
     st->move                                  = MOVE_NONE;
@@ -214,7 +216,11 @@ void Position::set_state() const {
         st->key ^= Zobrist::psq[pc][s];
 
         if (type_of(pc) != KING)
+        {
             st->material[color_of(pc)] += PieceValue[pc];
+            if (type_of(pc) == PAWN)
+                st->pawnKey ^= Zobrist::psq[pc][s];
+        }
     }
 
     if (sideToMove == BLACK)
@@ -470,6 +476,9 @@ void Position::do_move(Move m, StateInfo& newSt, bool givesCheck) {
 
         // Update hash key
         k ^= Zobrist::psq[captured][capsq];
+        // If the captured piece is a pawn, update pawn hash key.
+        if (type_of(captured) == PAWN)
+            st->pawnKey ^= Zobrist::psq[captured][capsq];
 
         // Reset rule 60 counter
         st->check10[WHITE] = st->check10[BLACK] = st->rule60 = 0;
@@ -477,6 +486,9 @@ void Position::do_move(Move m, StateInfo& newSt, bool givesCheck) {
 
     // Update hash key
     k ^= Zobrist::psq[pc][from] ^ Zobrist::psq[pc][to];
+    // If the moving piece is a pawn, update pawn hash key.
+    if (type_of(pc) == PAWN)
+        st->pawnKey ^= Zobrist::psq[pc][to];
 
     // Move the piece.
     dp.piece[0] = pc;
