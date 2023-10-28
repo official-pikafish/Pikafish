@@ -644,7 +644,18 @@ Value search(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth, boo
     {
         value = qsearch<NonPV>(pos, ss, alpha - 1, alpha);
         if (value < alpha)
+        {
+            if (!priorCapture && prevSq != SQ_NONE)
+            {
+                int bonus = (depth > 5) + (PvNode || cutNode) + (bestValue < alpha - 444)
+                          + ((ss - 1)->moveCount > 10);
+                update_continuation_histories(ss - 1, pos.piece_on(prevSq), prevSq,
+                                              stat_bonus(depth) * bonus);
+                thisThread->mainHistory[~us][from_to((ss - 1)->currentMove)]
+                  << stat_bonus(depth) * bonus * 50 / 100;
+            }
             return value;
+        }
     }
 
     // Step 7. Futility pruning: child node (~40 Elo)
@@ -1190,7 +1201,7 @@ moves_loop:  // When in check, search starts here
         update_continuation_histories(ss - 1, pos.piece_on(prevSq), prevSq,
                                       stat_bonus(depth) * bonus);
         thisThread->mainHistory[~us][from_to((ss - 1)->currentMove)]
-          << stat_bonus(depth) * bonus / 2;
+          << stat_bonus(depth) * bonus * 50 / 100;
     }
 
     if (PvNode)
