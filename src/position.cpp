@@ -201,26 +201,26 @@ void Position::set_check_info() const {
 // The function is only used when a new position is set up
 void Position::set_state() const {
 
-    st->key             = 0;
-    st->pawnKey         = Zobrist::noPawns;
-    st->material[WHITE] = st->material[BLACK] = VALUE_ZERO;
-    st->checkersBB                            = checkers_to(~sideToMove, square<KING>(sideToMove));
-    st->move                                  = MOVE_NONE;
+    st->key                  = 0;
+    st->pawnKey              = Zobrist::noPawns;
+    st->majorMaterial[WHITE] = st->majorMaterial[BLACK] = VALUE_ZERO;
+    st->checkersBB = checkers_to(~sideToMove, square<KING>(sideToMove));
+    st->move       = MOVE_NONE;
 
     set_check_info();
 
     for (Bitboard b = pieces(); b;)
     {
-        Square s  = pop_lsb(b);
-        Piece  pc = piece_on(s);
+        Square    s  = pop_lsb(b);
+        Piece     pc = piece_on(s);
+        PieceType pt = type_of(pc);
         st->key ^= Zobrist::psq[pc][s];
 
-        if (type_of(pc) != KING)
-        {
-            st->material[color_of(pc)] += PieceValue[pc];
-            if (type_of(pc) == PAWN)
-                st->pawnKey ^= Zobrist::psq[pc][s];
-        }
+        if (pt == PAWN)
+            st->pawnKey ^= Zobrist::psq[pc][s];
+
+        else if (pt & 1)
+            st->majorMaterial[color_of(pc)] += PieceValue[pc];
     }
 
     if (sideToMove == BLACK)
@@ -461,7 +461,12 @@ void Position::do_move(Move m, StateInfo& newSt, bool givesCheck) {
     {
         Square capsq = to;
 
-        st->material[them] -= PieceValue[captured];
+        // If the captured piece is a pawn, update pawn hash key, otherwise
+        // update major material.
+        if (type_of(captured) == PAWN)
+            st->pawnKey ^= Zobrist::psq[captured][capsq];
+        else if (type_of(captured) & 1)
+            st->majorMaterial[them] -= PieceValue[captured];
 
         dp.dirty_num = 2;  // 1 piece moved, 1 piece captured
         dp.piece[1]  = captured;
@@ -476,9 +481,6 @@ void Position::do_move(Move m, StateInfo& newSt, bool givesCheck) {
 
         // Update hash key
         k ^= Zobrist::psq[captured][capsq];
-        // If the captured piece is a pawn, update pawn hash key.
-        if (type_of(captured) == PAWN)
-            st->pawnKey ^= Zobrist::psq[captured][capsq];
 
         // Reset rule 60 counter
         st->check10[WHITE] = st->check10[BLACK] = st->rule60 = 0;
@@ -488,7 +490,7 @@ void Position::do_move(Move m, StateInfo& newSt, bool givesCheck) {
     k ^= Zobrist::psq[pc][from] ^ Zobrist::psq[pc][to];
     // If the moving piece is a pawn, update pawn hash key.
     if (type_of(pc) == PAWN)
-        st->pawnKey ^= Zobrist::psq[pc][to];
+        st->pawnKey ^= Zobrist::psq[pc][from] ^ Zobrist::psq[pc][to];
 
     // Move the piece.
     dp.piece[0] = pc;

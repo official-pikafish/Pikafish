@@ -671,7 +671,8 @@ Value search(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth, boo
     // Step 8. Null move search with verification search (~35 Elo)
     if (!PvNode && (ss - 1)->currentMove != MOVE_NULL && (ss - 1)->statScore < 12731 && eval >= beta
         && eval >= ss->staticEval && ss->staticEval >= beta - 14 * depth + 138 && !excludedMove
-        && ss->ply >= thisThread->nmpMinPly && beta > VALUE_MATED_IN_MAX_PLY)
+        && pos.major_material(us) && ss->ply >= thisThread->nmpMinPly
+        && beta > VALUE_MATED_IN_MAX_PLY)
     {
         assert(eval - beta >= 0);
 
@@ -840,9 +841,9 @@ moves_loop:  // When in check, search starts here
 
         Depth r = reduction(improving, depth, moveCount, delta, thisThread->rootDelta);
 
-        // Step 13. Pruning at shallow depth (~98 Elo).
+        // Step 13. Pruning at shallow depth (~120 Elo).
         // Depth conditions are important for mate finding.
-        if (!rootNode && bestValue > VALUE_MATED_IN_MAX_PLY)
+        if (!rootNode && pos.major_material(us) && bestValue > VALUE_MATED_IN_MAX_PLY)
         {
             // Skip quiet moves if movecount exceeds our FutilityMoveCount threshold (~8 Elo)
             if (!moveCountPruning)
@@ -1252,6 +1253,7 @@ Value qsearch(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth) {
     Value    bestValue, value, ttValue, futilityValue, futilityBase;
     bool     pvHit, givesCheck, capture;
     int      moveCount;
+    Color    us = pos.side_to_move();
 
     // Step 1. Initialize node
     if (PvNode)
@@ -1358,7 +1360,7 @@ Value qsearch(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth) {
         moveCount++;
 
         // Step 6. Pruning.
-        if (bestValue > VALUE_MATED_IN_MAX_PLY)
+        if (bestValue > VALUE_MATED_IN_MAX_PLY && pos.major_material(us))
         {
             // Futility pruning and moveCount pruning (~5 Elo)
             if (!givesCheck && to_sq(move) != prevSq && futilityBase > VALUE_MATED_IN_MAX_PLY)

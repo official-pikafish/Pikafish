@@ -102,7 +102,12 @@ void NNUE::verify() {
 // Returns a static, purely materialistic evaluation of the position from
 // the point of view of the given color. It can be divided by PawnValue to get
 // an approximation of the material advantage on the board in terms of pawns.
-Value Eval::simple_eval(const Position& pos, Color c) { return pos.material(c) - pos.material(~c); }
+Value Eval::simple_eval(const Position& pos, Color c) {
+    return PawnValue * (pos.count<PAWN>(c) - pos.count<PAWN>(~c))
+         + AdvisorValue * (pos.count<ADVISOR>(c) - pos.count<ADVISOR>(~c))
+         + BishopValue * (pos.count<BISHOP>(c) - pos.count<BISHOP>(~c))
+         + (pos.major_material(c) - pos.major_material(~c));
+}
 
 // Evaluate is the evaluator for the outer world. It returns a static
 // evaluation of the position from the point of view of the side to move.
@@ -118,14 +123,14 @@ Value Eval::evaluate(const Position& pos) {
     int   nnueComplexity;
     Value nnue = NNUE::evaluate(pos, true, &nnueComplexity);
 
-    int   material = pos.material() / 42;
     Value optimism = pos.this_thread()->optimism[stm];
 
     // Blend optimism and eval with nnue complexity and material imbalance
     optimism += optimism * (nnueComplexity + abs(simpleEval - nnue)) / 708;
     nnue -= nnue * (nnueComplexity + abs(simpleEval - nnue)) / 32858;
 
-    v = (nnue * (545 + material) + optimism * (128 + material)) / 1312;
+    int mm = pos.major_material() / 42;
+    v      = (nnue * (545 + mm) + optimism * (128 + mm)) / 1312;
 
     // Damp down the evaluation linearly when shuffling
     v = v * (263 - shuffling) / 192;

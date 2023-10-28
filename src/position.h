@@ -43,7 +43,7 @@ struct StateInfo {
 
     // Copied when making a move
     Key     pawnKey;
-    Value   material[COLOR_NB];
+    Value   majorMaterial[COLOR_NB];
     int16_t check10[COLOR_NB];
     int     rule60;
     int     pliesFromNull;
@@ -154,8 +154,8 @@ class Position {
     int      rule60_count() const;
     bool     has_mate_threat(Depth d = -1);
     uint16_t chased(Color c);
-    Value    material(Color c) const;
-    Value    material() const;
+    Value    major_material(Color c) const;
+    Value    major_material() const;
 
     // Position consistency check, for debugging
     bool pos_is_ok() const;
@@ -277,9 +277,11 @@ inline Key Position::adjust_key60(Key k) const {
 
 inline Key Position::pawn_key() const { return st->pawnKey; }
 
-inline Value Position::material(Color c) const { return st->material[c]; }
+inline Value Position::major_material(Color c) const { return st->majorMaterial[c]; }
 
-inline Value Position::material() const { return material(WHITE) + material(BLACK); }
+inline Value Position::major_material() const {
+    return major_material(WHITE) + major_material(BLACK);
+}
 
 inline int Position::game_ply() const { return gamePly; }
 
