@@ -1021,9 +1021,16 @@ Value Position::detect_chases(int d, int ply) {
 }
 
 
-// Tests whether the position may end the game by draw repetition, rule 60,
+// Tests whether the position may end the game by rule 60, insufficient material, draw repetition,
 // perpetual check repetition or perpetual chase repetition that allows a player to claim a game result.
 bool Position::rule_judge(Value& result, int ply) const {
+
+    // Draw by insufficient material
+    if (!major_material() && count<PAWN>() == 0)
+    {
+        result = VALUE_DRAW;
+        return true;
+    }
 
     // Restore rule 60 by adding back the checks
     int end = std::min(std::max(0, 2 * (st->check10[WHITE] - 10)) + st->rule60
