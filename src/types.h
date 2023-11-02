@@ -155,13 +155,13 @@ enum Value : int {
     VALUE_MATE_IN_MAX_PLY  = VALUE_MATE - MAX_PLY,
     VALUE_MATED_IN_MAX_PLY = -VALUE_MATE_IN_MAX_PLY,
 
-    RookValue    = 1203,
-    AdvisorValue = 245,
-    CannonValue  = 686,
-    PawnValue    = 127,
-    KnightValue  = 893,
-    BishopValue  = 204,
 };
+inline Value RookValue = Value(1203);
+inline Value AdvisorValue = Value(245);
+inline Value CannonValue = Value(686);
+inline Value PawnValue = Value(127);
+inline Value KnightValue = Value(893);
+inline Value BishopValue = Value(204);
 
 // clang-format off
 enum PieceType {
@@ -177,7 +177,7 @@ enum Piece {
     PIECE_NB
 };
 
-constexpr Value PieceValue[PIECE_NB] = {
+inline Value PieceValue[PIECE_NB] = {
   VALUE_ZERO, RookValue,   AdvisorValue, CannonValue, PawnValue,  KnightValue, BishopValue,  VALUE_ZERO,
   VALUE_ZERO, RookValue,   AdvisorValue, CannonValue, PawnValue,  KnightValue, BishopValue,  VALUE_ZERO};
 // clang-format on

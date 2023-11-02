@@ -36,6 +36,8 @@
 
 
 namespace Stockfish {
+int tune_128_0 = 708, tune_129_0 = 32858, tune_131_0 = 42, tune_132_0 = 545, tune_132_1 = 128, tune_132_2 = 1312, tune_135_0 = 263, tune_135_1 = 192;
+TUNE(tune_128_0, tune_129_0, tune_131_0, tune_132_0, tune_132_1, tune_132_2, tune_135_0, tune_135_1);
 
 namespace Eval {
 
@@ -126,14 +128,14 @@ Value Eval::evaluate(const Position& pos) {
     Value optimism = pos.this_thread()->optimism[stm];
 
     // Blend optimism and eval with nnue complexity and material imbalance
-    optimism += optimism * (nnueComplexity + abs(simpleEval - nnue)) / 708;
-    nnue -= nnue * (nnueComplexity + abs(simpleEval - nnue)) / 32858;
+    optimism += optimism * (nnueComplexity + abs(simpleEval - nnue)) / (tune_128_0);
+    nnue -= nnue * (nnueComplexity + abs(simpleEval - nnue)) / (tune_129_0);
 
-    int mm = pos.major_material() / 42;
-    v      = (nnue * (545 + mm) + optimism * (128 + mm)) / 1312;
+    int mm = pos.major_material() / (tune_131_0);
+    v      = (nnue * ((tune_132_0) + mm) + optimism * ((tune_132_1) + mm)) / (tune_132_2);
 
     // Damp down the evaluation linearly when shuffling
-    v = v * (263 - shuffling) / 192;
+    v = v * ((tune_135_0) - shuffling) / (tune_135_1);
 
     // Guarantee evaluation does not hit the mate range
     v = std::clamp(v, VALUE_MATED_IN_MAX_PLY + 1, VALUE_MATE_IN_MAX_PLY - 1);
