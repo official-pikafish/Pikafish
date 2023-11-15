@@ -126,6 +126,7 @@ void Tune::Entry<Tune::PostUpdate>::read_option() {
 
 namespace Stockfish {
 
-void Tune::read_results() { /* ...insert your values here... */ }
+void Tune::read_results() { /* ...insert your values here... */
+}
 
 }  // namespace Stockfish

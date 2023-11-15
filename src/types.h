@@ -103,13 +103,13 @@ constexpr bool HasPopCnt = false;
     #ifdef USE_PEXT
 constexpr bool HasPext = true;
     #else
-constexpr bool HasPext   = false;
+constexpr bool HasPext = false;
     #endif
 
     #ifdef IS_64BIT
 constexpr bool Is64Bit = true;
     #else
-constexpr bool Is64Bit   = false;
+constexpr bool Is64Bit = false;
     #endif
 
 using Key      = uint64_t;
