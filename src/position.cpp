@@ -434,7 +434,13 @@ void Position::do_move(Move m, StateInfo& newSt, bool givesCheck) {
     // Increment ply counters. Clamp to 10 checks for each side in rule 60
     // In particular, rule60 will be reset to zero later on in case of a capture.
     ++gamePly;
-    st->rule60 += givesCheck && ++st->check10[sideToMove] > 10 ? -1 : 1;
+    if (!givesCheck || ++st->check10[sideToMove] <= 10)
+    {
+        if (st->check10[~sideToMove] > 10 && st->previous->checkersBB)
+            ++st->check10[~sideToMove];
+        else
+            ++st->rule60;
+    }
     ++st->pliesFromNull;
 
     // Used by NNUE
@@ -1033,8 +1039,8 @@ bool Position::rule_judge(Value& result, int ply) const {
     }
 
     // Restore rule 60 by adding back the checks
-    int end = std::min(std::max(0, 2 * (st->check10[WHITE] - 10)) + st->rule60
-                         + std::max(0, 2 * (st->check10[BLACK] - 10)),
+    int end = std::min(st->rule60 + std::max(0, st->check10[WHITE] - 10)
+                         + std::max(0, st->check10[BLACK] - 10),
                        st->pliesFromNull);
 
     if (end >= 4 && filter[st->key] >= 1)
