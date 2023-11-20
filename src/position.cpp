@@ -294,8 +294,8 @@ void Position::update_blockers() const {
 }
 
 
-// Computes a bitboard of all pieces which attack a
-// given square. Slider attacks use the occupied bitboard to indicate occupancy.
+// Computes a bitboard of all pieces which attack a given square.
+// Slider attacks use the occupied bitboard to indicate occupancy.
 Bitboard Position::attackers_to(Square s, Bitboard occupied) const {
 
     return (pawn_attacks_to_bb(WHITE, s) & pieces(WHITE, PAWN))
@@ -1131,8 +1131,8 @@ void Position::flip() {
 }
 
 
-// Performs some consistency checks for the
-// position object and raise an assert if something wrong is detected.
+// Performs some consistency checks for the position object
+// and raise an assert if something wrong is detected.
 // This is meant to be helpful when debugging.
 bool Position::pos_is_ok() const {
 
