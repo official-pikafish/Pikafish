@@ -1496,17 +1496,21 @@ Value value_to_tt(Value v, int ply) {
 // the transposition table (which refers to the plies to mate/be mated from
 // current position) to "plies to mate/be mated from the root"..
 // However, to avoid potentially false mate scores related to the 60 moves rule
-// and the graph history interaction problem, we return an optimal mate score instead.
+// and the graph history interaction problem, we return highest non-mate score instead.
 Value value_from_tt(Value v, int ply, int r60c) {
 
     if (v == VALUE_NONE)
         return VALUE_NONE;
 
-    if (v >= VALUE_MATE_IN_MAX_PLY)  // win
-        return VALUE_MATE - v > 119 - r60c ? VALUE_MATE_IN_MAX_PLY - 1 : v - ply;
+    // Handle win
+    if (v >= VALUE_MATE_IN_MAX_PLY)
+        // Downgrade a potentially false mate score
+        return VALUE_MATE - v > 120 - r60c ? VALUE_MATE_IN_MAX_PLY - 1 : v - ply;
 
-    if (v <= VALUE_MATED_IN_MAX_PLY)  // loss
-        return VALUE_MATE + v > 119 - r60c ? VALUE_MATED_IN_MAX_PLY + 1 : v + ply;
+    // Handle loss
+    if (v <= VALUE_MATED_IN_MAX_PLY)
+        // Downgrade a potentially false mate score.
+        return VALUE_MATE + v > 120 - r60c ? VALUE_MATED_IN_MAX_PLY + 1 : v + ply;
 
     return v;
 }
