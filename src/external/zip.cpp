@@ -10,6 +10,8 @@
 #define __STDC_WANT_LIB_EXT1__ 1
 
 #include <errno.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <sys/stat.h>
 #include <time.h>
 

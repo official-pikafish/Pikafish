@@ -21,7 +21,6 @@
 #include <algorithm>
 #include <cassert>
 #include <cmath>
-#include <cstdint>
 #include <cstdlib>
 #include <deque>
 #include <iostream>
