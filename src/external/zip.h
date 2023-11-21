@@ -16,6 +16,10 @@
     #include <string.h>
     #include <sys/types.h>
 
+    #ifdef __linux__
+        #include <features.h>
+    #endif
+
     #ifndef ZIP_SHARED
         #define ZIP_EXPORT
     #else
