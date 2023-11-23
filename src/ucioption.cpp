@@ -52,7 +52,7 @@ static void on_hash_size(const Option& o) { TT.resize(size_t(o)); }
 static void on_logger(const Option& o) { start_logger(o); }
 static void on_threads(const Option& o) { Threads.set(size_t(o)); }
 static void on_mate_threat_depth(const Option& o) { MateThreatDepth = size_t(o); }
-static void on_repetition_rule(const Option& o) { ChineseRule = o == "ChineseRule"; }
+static void on_repetition_rule(const Option& o) { ChineseRule = o == "Chinese"; }
 static void on_eval_file(const Option&) { Eval::NNUE::init(); }
 
 // Our case insensitive less() function as required by UCI protocol
@@ -78,7 +78,7 @@ void init(OptionsMap& o) {
     o["Slow Mover"] << Option(100, 10, 1000);
     o["nodestime"] << Option(0, 0, 10000);
     o["Mate Threat Depth"] << Option(1, 0, 10, on_mate_threat_depth);
-    o["Repetition Rule"] << Option("AsianRule var AsianRule var ChineseRule", "AsianRule",
+    o["Repetition Rule"] << Option("Computer var Computer var Chinese", "Computer",
                                    on_repetition_rule);
     o["UCI_ShowWDL"] << Option(false);
     o["EvalFile"] << Option(EvalFileDefaultName, on_eval_file);
