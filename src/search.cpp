@@ -81,10 +81,10 @@ constexpr int futility_move_count(bool improving, Depth depth) {
 }
 
 // History and stats update bonus, based on depth
-int stat_bonus(Depth d) { return std::min(364 * d - 476, 2065); }
+int stat_bonus(Depth d) { return std::min(291 * d - 381, 1652); }
 
 // History and stats update malus, based on depth
-int stat_malus(Depth d) { return std::min(493 * d - 324, 1665); }
+int stat_malus(Depth d) { return std::min(394 * d - 259, 1332); }
 
 // Add a small random component to draw evaluations to avoid 3-fold blindness
 Value value_draw(const Thread* thisThread) {
@@ -626,7 +626,7 @@ Value search(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth, boo
     // Use static evaluation difference to improve quiet move ordering (~3 Elo)
     if (is_ok((ss - 1)->currentMove) && !(ss - 1)->inCheck && !priorCapture)
     {
-        int bonus = std::clamp(-15 * int((ss - 1)->staticEval + ss->staticEval), -1359, 2027);
+        int bonus = std::clamp(-12 * int((ss - 1)->staticEval + ss->staticEval), -1087, 1622);
         thisThread->mainHistory[~us][from_to((ss - 1)->currentMove)] << bonus;
         if (type_of(pos.piece_on(prevSq)) != PAWN)
             thisThread->pawnHistory[pawn_structure(pos)][pos.piece_on(prevSq)][prevSq] << bonus / 4;
