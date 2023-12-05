@@ -6,7 +6,7 @@ on:
 
 jobs:
   CodeQL:
-    name: CodeQL
+    name: Check security
     runs-on: ubuntu-latest
     permissions:
       actions: read
@@ -24,7 +24,7 @@ jobs:
 
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     # Initializes the CodeQL tools for scanning.
     - name: Initialize CodeQL
@@ -56,12 +56,12 @@ jobs:
         shell: bash
     steps:
       - name: Checkout Pikafish
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           path: Pikafish
 
       - name: Checkout include-what-you-use
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           repository: include-what-you-use/include-what-you-use
           ref: f25caa280dc3277c4086ec345ad279a2463fea0f
@@ -91,11 +91,11 @@ jobs:
           CXXFLAGS="-stdlib=libc++ -Xiwyu --comment_style=long -Xiwyu --mapping='${{ github.workspace }}/Pikafish/.github/workflows/libcxx17.imp' -Xiwyu --error"
 
   Clang-Format:
-    name: clang-format check
+    name: Check format
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Pikafish
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Run clang-format style check
         uses: jidicula/clang-format-action@f62da5e3d3a2d88ff364771d9d938773a618ab5e
