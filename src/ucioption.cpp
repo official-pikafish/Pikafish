@@ -75,7 +75,6 @@ void init(OptionsMap& o) {
     o["Ponder"] << Option(false);
     o["MultiPV"] << Option(1, 1, 500);
     o["Move Overhead"] << Option(10, 0, 5000);
-    o["Slow Mover"] << Option(100, 10, 1000);
     o["nodestime"] << Option(0, 0, 10000);
     o["Mate Threat Depth"] << Option(1, 0, 10, on_mate_threat_depth);
     o["Repetition Rule"] << Option("Computer var Computer var Chinese", "Computer",
