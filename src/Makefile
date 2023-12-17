@@ -97,6 +97,7 @@ VPATH = external:nnue:nnue/features
 # sse41 = yes/no      --- -msse4.1           --- Use Intel Streaming SIMD Extensions 4.1
 # avx2 = yes/no       --- -mavx2             --- Use Intel Advanced Vector Extensions 2
 # avxvnni = yes/no    --- -mavxvnni          --- Use Intel Vector Neural Network Instructions AVX
+# avx512f = yes/no    --- -mavx512f          --- Use Intel Advanced Vector Extensions 512 Foundation Only
 # avx512 = yes/no     --- -mavx512bw         --- Use Intel Advanced Vector Extensions 512
 # vnni256 = yes/no    --- -mavx256vnni       --- Use Intel Vector Neural Network Instructions 512 with 256bit operands
 # vnni512 = yes/no    --- -mavx512vnni       --- Use Intel Vector Neural Network Instructions 512
@@ -124,7 +125,7 @@ endif
 # explicitly check for the list of supported architectures (as listed with make help),
 # the user can override with `make ARCH=x86-32-vnni256 SUPPORTED_ARCH=true`
 ifeq ($(ARCH), $(filter $(ARCH), \
-                 x86-64-vnni512 x86-64-vnni256 x86-64-avx512 x86-64-avxvnni x86-64-bmi2 \
+                 x86-64-vnni512 x86-64-vnni256 x86-64-avx512 x86-64-avx512f x86-64-avxvnni x86-64-bmi2 \
                  x86-64-avx2 x86-64-sse41-popcnt x86-64-modern x86-64-ssse3 x86-64-sse3-popcnt \
                  x86-64 x86-32-sse41-popcnt x86-32-sse2 x86-32 ppc-64 ppc-32 e2k \
                  armv7 armv7-neon armv8 armv8-dotprod apple-silicon general-64 general-32 riscv64 loongarch64))
@@ -147,6 +148,7 @@ ssse3 = no
 sse41 = no
 avx2 = no
 avxvnni = no
+avx512f = no
 avx512 = no
 vnni256 = no
 vnni512 = no
@@ -248,7 +250,7 @@ ifeq ($(findstring -bmi2,$(ARCH)),-bmi2)
 	pext = yes
 endif
 
-ifeq ($(findstring -avx512,$(ARCH)),-avx512)
+ifeq ($(findstring -avx512f,$(ARCH)),-avx512f)
 	popcnt = yes
 	sse = yes
 	sse2 = yes
@@ -256,7 +258,18 @@ ifeq ($(findstring -avx512,$(ARCH)),-avx512)
 	sse41 = yes
 	avx2 = yes
 	pext = yes
-	avx512 = yes
+	avx512f = yes
+else
+	ifeq ($(findstring -avx512,$(ARCH)),-avx512)
+		popcnt = yes
+		sse = yes
+		sse2 = yes
+		ssse3 = yes
+		sse41 = yes
+		avx2 = yes
+		pext = yes
+		avx512 = yes
+	endif
 endif
 
 ifeq ($(findstring -vnni256,$(ARCH)),-vnni256)
@@ -656,10 +669,17 @@ ifeq ($(avxvnni),yes)
 	endif
 endif
 
-ifeq ($(avx512),yes)
-	CXXFLAGS += -DUSE_AVX512
+ifeq ($(avx512f),yes)
+	CXXFLAGS += -DUSE_AVX512F
 	ifeq ($(comp),$(filter $(comp),gcc clang mingw icx))
-		CXXFLAGS += -mavx512f -mavx512bw
+		CXXFLAGS += -mavx512f
+	endif
+else
+	ifeq ($(avx512),yes)
+		CXXFLAGS += -DUSE_AVX512
+		ifeq ($(comp),$(filter $(comp),gcc clang mingw icx))
+			CXXFLAGS += -mavx512f -mavx512bw
+		endif
 	endif
 endif
 
@@ -811,6 +831,7 @@ help:
 	@echo "x86-64-vnni512          > x86 64-bit with vnni 512bit support"
 	@echo "x86-64-vnni256          > x86 64-bit with vnni 512bit support, limit operands to 256bit wide"
 	@echo "x86-64-avx512           > x86 64-bit with avx512 support"
+	@echo "x86-64-avx512f          > x86 64-bit with avx512f only support"
 	@echo "x86-64-avxvnni          > x86 64-bit with vnni 256bit support"
 	@echo "x86-64-bmi2             > x86 64-bit with bmi2 support"
 	@echo "x86-64-avx2             > x86 64-bit with avx2 support"
@@ -949,6 +970,7 @@ config-sanity: net
 	@echo "sse41: '$(sse41)'"
 	@echo "avx2: '$(avx2)'"
 	@echo "avxvnni: '$(avxvnni)'"
+	@echo "avx512f: '$(avx512f)'"
 	@echo "avx512: '$(avx512)'"
 	@echo "vnni256: '$(vnni256)'"
 	@echo "vnni512: '$(vnni512)'"
@@ -980,6 +1002,7 @@ config-sanity: net
 	@test "$(ssse3)" = "yes" || test "$(ssse3)" = "no"
 	@test "$(sse41)" = "yes" || test "$(sse41)" = "no"
 	@test "$(avx2)" = "yes" || test "$(avx2)" = "no"
+	@test "$(avx512f)" = "yes" || test "$(avx512f)" = "no"
 	@test "$(avx512)" = "yes" || test "$(avx512)" = "no"
 	@test "$(vnni256)" = "yes" || test "$(vnni256)" = "no"
 	@test "$(vnni512)" = "yes" || test "$(vnni512)" = "no"

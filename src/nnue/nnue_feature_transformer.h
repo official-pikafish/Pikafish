@@ -49,7 +49,61 @@ using PSQTWeightType = std::int32_t;
 static_assert(PSQTBuckets % 8 == 0,
               "Per feature PSQT values cannot be processed at granularity lower than 8 at a time.");
 
-#ifdef USE_AVX512
+#ifdef USE_AVX512F
+using vec_t      = __m512i;
+using psqt_vec_t = __m256i;
+    #define vec_load(a) _mm512_load_si512(a)
+    #define vec_store(a, b) _mm512_store_si512(a, b)
+    #define vec_add_16(a, b) __builtin_shufflevector(                                                               \
+            _mm256_add_epi16(__builtin_shufflevector(a, a, 0, 1, 2, 3), __builtin_shufflevector(b, b, 0, 1, 2, 3)), \
+            _mm256_add_epi16(__builtin_shufflevector(a, a, 4, 5, 6, 7), __builtin_shufflevector(b, b, 4, 5, 6, 7)), \
+            0, 1, 2, 3, 4, 5, 6, 7                                                                                  \
+        )
+    #define vec_sub_16(a, b) __builtin_shufflevector(                                                               \
+            _mm256_sub_epi16(__builtin_shufflevector(a, a, 0, 1, 2, 3), __builtin_shufflevector(b, b, 0, 1, 2, 3)), \
+            _mm256_sub_epi16(__builtin_shufflevector(a, a, 4, 5, 6, 7), __builtin_shufflevector(b, b, 4, 5, 6, 7)), \
+            0, 1, 2, 3, 4, 5, 6, 7                                                                                  \
+        )
+    #define vec_mul_16(a, b) __builtin_shufflevector(                                                                 \
+            _mm256_mullo_epi16(__builtin_shufflevector(a, a, 0, 1, 2, 3), __builtin_shufflevector(b, b, 0, 1, 2, 3)), \
+            _mm256_mullo_epi16(__builtin_shufflevector(a, a, 4, 5, 6, 7), __builtin_shufflevector(b, b, 4, 5, 6, 7)), \
+            0, 1, 2, 3, 4, 5, 6, 7                                                                                    \
+        )
+    #define vec_zero() _mm512_setzero_epi32()
+    #define vec_set_16(a) _mm512_set1_epi16(a)
+    #define vec_max_16(a, b) __builtin_shufflevector(                                                               \
+            _mm256_max_epi16(__builtin_shufflevector(a, a, 0, 1, 2, 3), __builtin_shufflevector(b, b, 0, 1, 2, 3)), \
+            _mm256_max_epi16(__builtin_shufflevector(a, a, 4, 5, 6, 7), __builtin_shufflevector(b, b, 4, 5, 6, 7)), \
+            0, 1, 2, 3, 4, 5, 6, 7                                                                                  \
+        )
+    #define vec_min_16(a, b) __builtin_shufflevector(                                                               \
+            _mm256_min_epi16(__builtin_shufflevector(a, a, 0, 1, 2, 3), __builtin_shufflevector(b, b, 0, 1, 2, 3)), \
+            _mm256_min_epi16(__builtin_shufflevector(a, a, 4, 5, 6, 7), __builtin_shufflevector(b, b, 4, 5, 6, 7)), \
+            0, 1, 2, 3, 4, 5, 6, 7                                                                                  \
+        )
+inline vec_t vec_msb_pack_16(vec_t a, vec_t b) {
+    vec_t compacted = __builtin_shufflevector(
+        _mm256_packs_epi16(
+            _mm256_srli_epi16(__builtin_shufflevector(a, a, 0, 1, 2, 3), 7),
+            _mm256_srli_epi16(__builtin_shufflevector(b, b, 0, 1, 2, 3), 7)
+        ),
+        _mm256_packs_epi16(
+            _mm256_srli_epi16(__builtin_shufflevector(a, a, 4, 5, 6, 7), 7),
+            _mm256_srli_epi16(__builtin_shufflevector(b, b, 4, 5, 6, 7), 7)
+        ),
+        0, 1, 2, 3, 4, 5, 6, 7
+    );
+    return _mm512_permutexvar_epi64(_mm512_setr_epi64(0, 2, 4, 6, 1, 3, 5, 7), compacted);
+}
+    #define vec_load_psqt(a) _mm256_load_si256(a)
+    #define vec_store_psqt(a, b) _mm256_store_si256(a, b)
+    #define vec_add_psqt_32(a, b) _mm256_add_epi32(a, b)
+    #define vec_sub_psqt_32(a, b) _mm256_sub_epi32(a, b)
+    #define vec_zero_psqt() _mm256_setzero_si256()
+    #define NumRegistersSIMD 16
+    #define MaxChunkSize 64
+
+#elif USE_AVX512
 using vec_t      = __m512i;
 using psqt_vec_t = __m256i;
     #define vec_load(a) _mm512_load_si512(a)
