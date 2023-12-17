@@ -270,7 +270,9 @@ std::string compiler_info() {
 #if defined(USE_VNNI)
     compiler += " VNNI";
 #endif
-#if defined(USE_AVX512)
+#if defined(USE_AVX512F)
+    compiler += " AVX512F";
+#elif defined(USE_AVX512)
     compiler += " AVX512";
 #endif
     compiler += (HasPext ? " BMI2" : "");
