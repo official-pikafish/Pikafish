@@ -37,7 +37,7 @@
 
 namespace Stockfish::Simd {
 
-#if defined(USE_AVX512)
+#if defined(USE_AVX512) || defined(USE_AVX512F)
 
 [[maybe_unused]] static int m512_hadd(__m512i sum, int bias) {
     return _mm512_reduce_add_epi32(sum) + bias;
@@ -80,6 +80,27 @@ m512_hadd128x16_interleave(__m512i sum0, __m512i sum1, __m512i sum2, __m512i sum
 
     #if defined(USE_VNNI)
     acc = _mm512_dpbusd_epi32(acc, a, b);
+    #elif defined(USE_AVX512F)
+    acc = _mm512_add_epi32(
+        acc,
+        __builtin_shufflevector(
+            _mm256_madd_epi16(
+                _mm256_maddubs_epi16(
+                    __builtin_shufflevector(a, a, 0, 1, 2, 3),
+                    __builtin_shufflevector(b, b, 0, 1, 2, 3)
+                ),
+                _mm256_set1_epi16(1)
+            ),
+            _mm256_madd_epi16(
+                _mm256_maddubs_epi16(
+                    __builtin_shufflevector(a, a, 4, 5, 6, 7),
+                    __builtin_shufflevector(b, b, 4, 5, 6, 7)
+                ),
+                _mm256_set1_epi16(1)
+            ),
+            0, 1, 2, 3, 4, 5, 6, 7
+        )
+    );
     #else
     __m512i product0 = _mm512_maddubs_epi16(a, b);
     product0         = _mm512_madd_epi16(product0, _mm512_set1_epi16(1));
@@ -93,6 +114,46 @@ m512_add_dpbusd_epi32x2(__m512i& acc, __m512i a0, __m512i b0, __m512i a1, __m512
     #if defined(USE_VNNI)
     acc = _mm512_dpbusd_epi32(acc, a0, b0);
     acc = _mm512_dpbusd_epi32(acc, a1, b1);
+    #elif defined(USE_AVX512F)
+    acc = _mm512_add_epi32(
+        acc,
+        _mm512_add_epi32(
+            __builtin_shufflevector(
+                _mm256_madd_epi16(
+                    _mm256_maddubs_epi16(
+                        __builtin_shufflevector(a0, a0, 0, 1, 2, 3),
+                        __builtin_shufflevector(b0, b0, 0, 1, 2, 3)
+                    ),
+                    _mm256_set1_epi16(1)
+                ),
+                _mm256_madd_epi16(
+                    _mm256_maddubs_epi16(
+                        __builtin_shufflevector(a0, a0, 4, 5, 6, 7),
+                        __builtin_shufflevector(b0, b0, 4, 5, 6, 7)
+                    ),
+                    _mm256_set1_epi16(1)
+                ),
+                0, 1, 2, 3, 4, 5, 6, 7
+            ),
+            __builtin_shufflevector(
+                _mm256_madd_epi16(
+                    _mm256_maddubs_epi16(
+                        __builtin_shufflevector(a1, a1, 0, 1, 2, 3),
+                        __builtin_shufflevector(b1, b1, 0, 1, 2, 3)
+                    ),
+                    _mm256_set1_epi16(1)
+                ),
+                _mm256_madd_epi16(
+                    _mm256_maddubs_epi16(
+                        __builtin_shufflevector(a1, a1, 4, 5, 6, 7),
+                        __builtin_shufflevector(b1, b1, 4, 5, 6, 7)
+                    ),
+                    _mm256_set1_epi16(1)
+                ),
+                0, 1, 2, 3, 4, 5, 6, 7
+            )
+        )
+    );
     #else
     __m512i product0 = _mm512_maddubs_epi16(a0, b0);
     __m512i product1 = _mm512_maddubs_epi16(a1, b1);

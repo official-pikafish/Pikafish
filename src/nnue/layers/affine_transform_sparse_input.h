@@ -55,7 +55,7 @@ alignas(CacheLineSize) static inline const
 template<const IndexType InputDimensions>
 void find_nnz(const std::int32_t* input, std::uint16_t* out, IndexType& count_out) {
     #if defined(USE_SSSE3)
-        #if defined(USE_AVX512)
+        #if defined(USE_AVX512) || defined(USE_AVX512F)
     using vec_t = __m512i;
             #define vec_nnz(a) _mm512_cmpgt_epi32_mask(a, _mm512_setzero_si512())
         #elif defined(USE_AVX2)
@@ -201,7 +201,7 @@ class AffineTransformSparseInput {
     void propagate(const InputType* input, OutputType* output) const {
 
 #if (USE_SSSE3 | (USE_NEON >= 8))
-    #if defined(USE_AVX512)
+    #if defined(USE_AVX512) || defined(USE_AVX512F)
         using invec_t  = __m512i;
         using outvec_t = __m512i;
         #define vec_set_32 _mm512_set1_epi32
