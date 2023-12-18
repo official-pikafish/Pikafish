@@ -30,11 +30,13 @@ jobs:
             shell: msys2 {0}
             ext: .exe
             sde: /d/a/Pikafish/Pikafish/.output/sde-temp-files/sde-external-9.27.0-2023-09-13-win/sde.exe -future --
-        arch: ["-vnni512", "-avx512", "-avxvnni", "-bmi2", "-avx2", "-sse41-popcnt", "-ssse3"]
+        arch: ["-vnni512", "-avx512", "-avx512f", "-avxvnni", "-bmi2", "-avx2", "-sse41-popcnt", "-ssse3"]
         exclude:
           - arch: -avxvnni
             config: {os: ubuntu-20.04}
           - arch: -vnni512
+            config: {os: macos-latest}
+          - arch: -avx512f
             config: {os: macos-latest}
           - arch: -avx512
             config: {os: macos-latest}
