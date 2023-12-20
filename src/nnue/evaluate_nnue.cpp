@@ -179,7 +179,7 @@ Value evaluate(const Position& pos, bool adjusted, int* complexity) {
     const auto positional = network[bucket]->propagate(transformedFeatures);
 
     if (complexity)
-        *complexity = abs(psqt - positional) / OutputScale;
+        *complexity = std::abs(psqt - positional) / OutputScale;
 
     // Adjust psqt and positional ratio in evaluation when adjusted flag is set
     if (adjusted)

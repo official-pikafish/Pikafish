@@ -352,7 +352,7 @@ std::string UCI::value(Value v) {
 
     std::stringstream ss;
 
-    if (abs(v) < VALUE_MATE_IN_MAX_PLY)
+    if (std::abs(v) < VALUE_MATE_IN_MAX_PLY)
         ss << "cp " << UCI::to_cp(v);
     else
         ss << "mate " << (v > 0 ? VALUE_MATE - v + 1 : -VALUE_MATE - v) / 2;

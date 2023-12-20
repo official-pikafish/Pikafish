@@ -20,6 +20,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <cmath>
 #include <cstdlib>
 #include <fstream>
 #include <iomanip>
@@ -126,8 +127,8 @@ Value Eval::evaluate(const Position& pos) {
     Value optimism = pos.this_thread()->optimism[stm];
 
     // Blend optimism and eval with nnue complexity and material imbalance
-    optimism += optimism * (nnueComplexity + abs(simpleEval - nnue)) / 708;
-    nnue -= nnue * (nnueComplexity + abs(simpleEval - nnue)) / 32858;
+    optimism += optimism * (nnueComplexity + std::abs(simpleEval - nnue)) / 708;
+    nnue -= nnue * (nnueComplexity + std::abs(simpleEval - nnue)) / 32858;
 
     int mm = pos.major_material() / 42;
     v      = (nnue * (545 + mm) + optimism * (128 + mm)) / 1312;
