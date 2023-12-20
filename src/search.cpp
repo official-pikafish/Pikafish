@@ -724,7 +724,7 @@ Value search(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth, boo
     // much above beta, we can (almost) safely prune the previous move.
     if (
       !PvNode && depth > 4
-      && abs(beta) < VALUE_MATE_IN_MAX_PLY
+      && std::abs(beta) < VALUE_MATE_IN_MAX_PLY
       // If value from transposition table is lower than probCutBeta, don't attempt probCut
       // there and in further interactions with transposition table cutoff depth is set to depth - 3
       // because probCut search has depth set to depth - 4 but we also do a move before it
@@ -778,7 +778,7 @@ moves_loop:  // When in check, search starts here
     probCutBeta = beta + 451;
     if (ss->inCheck && !PvNode && ttCapture && (tte->bound() & BOUND_LOWER)
         && tte->depth() >= depth - 3 && ttValue >= probCutBeta
-        && abs(ttValue) < VALUE_MATE_IN_MAX_PLY && abs(beta) < VALUE_MATE_IN_MAX_PLY)
+        && std::abs(ttValue) < VALUE_MATE_IN_MAX_PLY && std::abs(beta) < VALUE_MATE_IN_MAX_PLY)
         return probCutBeta;
 
     const PieceToHistory* contHist[] = {(ss - 1)->continuationHistory,
@@ -914,7 +914,7 @@ moves_loop:  // When in check, search starts here
             // Recursive singular search is avoided.
             if (!rootNode && move == ttMove && !excludedMove
                 && depth >= 4 - (thisThread->completedDepth > 29) + 2 * (PvNode && tte->is_pv())
-                && abs(ttValue) < VALUE_MATE_IN_MAX_PLY && (tte->bound() & BOUND_LOWER)
+                && std::abs(ttValue) < VALUE_MATE_IN_MAX_PLY && (tte->bound() & BOUND_LOWER)
                 && tte->depth() >= depth - 3)
             {
                 Value singularBeta  = ttValue - (65 + 71 * (ss->ttPv && !PvNode)) * depth / 73;
@@ -1474,7 +1474,7 @@ Value qsearch(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth) {
         return mated_in(ss->ply);  // Plies to mate from the root
     }
 
-    if (abs(bestValue) < VALUE_MATE_IN_MAX_PLY)
+    if (std::abs(bestValue) < VALUE_MATE_IN_MAX_PLY)
         bestValue = bestValue >= beta ? (3 * bestValue + beta) / 4 : bestValue;
 
     // Save gathered info in transposition table
