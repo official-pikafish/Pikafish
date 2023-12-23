@@ -731,7 +731,7 @@ Value search(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth, boo
       // So effective depth is equal to depth - 3
       && !(tte->depth() >= depth - 3 && ttValue != VALUE_NONE && ttValue < probCutBeta))
     {
-        assert(probCutBeta < VALUE_INFINITE);
+        assert(probCutBeta < VALUE_INFINITE && probCutBeta > beta);
 
         MovePicker mp(pos, ttMove, probCutBeta - ss->staticEval, &captureHistory);
 
@@ -765,7 +765,8 @@ Value search(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth, boo
                     // Save ProbCut data into transposition table
                     tte->save(posKey, value_to_tt(value, ss->ply), ss->ttPv, BOUND_LOWER, depth - 3,
                               move, ss->staticEval);
-                    return value - (probCutBeta - beta);
+                    return std::abs(value) < VALUE_MATE_IN_MAX_PLY ? value - (probCutBeta - beta)
+                                                                   : value;
                 }
             }
 
@@ -1213,8 +1214,8 @@ moves_loop:  // When in check, search starts here
     else if (!priorCapture && prevSq != SQ_NONE)
     {
         // Extra bonuses for PV/Cut nodes or bad fail lows
-        int bonus =
-          (depth > 4) + (PvNode || cutNode) + ((ss - 1)->statScore < -18782) + ((ss - 1)->moveCount > 9);
+        int bonus = (depth > 4) + (PvNode || cutNode) + ((ss - 1)->statScore < -18782)
+                  + ((ss - 1)->moveCount > 9);
         update_continuation_histories(ss - 1, pos.piece_on(prevSq), prevSq,
                                       stat_bonus(depth) * bonus);
         thisThread->mainHistory[~us][from_to((ss - 1)->currentMove)]
