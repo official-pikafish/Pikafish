@@ -1214,7 +1214,7 @@ moves_loop:  // When in check, search starts here
     {
         // Extra bonuses for PV/Cut nodes or bad fail lows
         int bonus =
-          (depth > 4) + (PvNode || cutNode) + (bestValue < alpha - 422) + ((ss - 1)->moveCount > 9);
+          (depth > 4) + (PvNode || cutNode) + ((ss - 1)->statScore < -18782) + ((ss - 1)->moveCount > 9);
         update_continuation_histories(ss - 1, pos.piece_on(prevSq), prevSq,
                                       stat_bonus(depth) * bonus);
         thisThread->mainHistory[~us][from_to((ss - 1)->currentMove)]
