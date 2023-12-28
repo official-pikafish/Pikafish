@@ -583,7 +583,9 @@ Value search(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth, boo
         // Partial workaround for the graph history interaction problem
         // For high rule60 counts don't produce transposition table cutoffs.
         if (pos.rule60_count() < 110)
-            return ttValue;
+            return ttValue >= beta && std::abs(ttValue) < VALUE_MATE_IN_MAX_PLY
+                   ? (ttValue * 3 + beta) / 4
+                   : ttValue;
     }
 
     CapturePieceToHistory& captureHistory = thisThread->captureHistory;
