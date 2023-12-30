@@ -92,6 +92,8 @@ jobs:
           cd ../Wiki
           rm -rf .git
 
+      # Artifacts automatically get zipped.
+      # To avoid double-zipping, we use the unzipped directory
       - uses: actions/upload-artifact@v3
         with:	
           name: Pikafish
@@ -152,6 +154,8 @@ jobs:
           mkdir Android
           cp src/$EXE Android
 
+      # Artifacts automatically get zipped.
+      # To avoid double-zipping, we use the unzipped directory
       - uses: actions/upload-artifact@v3
         with:	
           name: Pikafish	
