@@ -41,8 +41,6 @@ using std::string;
 namespace Stockfish {
 
 UCI::OptionsMap Options;  // Global object
-uint8_t         MateThreatDepth = 1;
-bool            ChineseRule     = false;
 
 namespace UCI {
 
@@ -51,8 +49,6 @@ static void on_clear_hash(const Option&) { Search::clear(); }
 static void on_hash_size(const Option& o) { TT.resize(size_t(o)); }
 static void on_logger(const Option& o) { start_logger(o); }
 static void on_threads(const Option& o) { Threads.set(size_t(o)); }
-static void on_mate_threat_depth(const Option& o) { MateThreatDepth = size_t(o); }
-static void on_repetition_rule(const Option& o) { ChineseRule = o == "Chinese"; }
 static void on_eval_file(const Option&) { Eval::NNUE::init(); }
 
 // Our case insensitive less() function as required by UCI protocol
@@ -76,9 +72,6 @@ void init(OptionsMap& o) {
     o["MultiPV"] << Option(1, 1, 500);
     o["Move Overhead"] << Option(10, 0, 5000);
     o["nodestime"] << Option(0, 0, 10000);
-    o["Mate Threat Depth"] << Option(1, 0, 10, on_mate_threat_depth);
-    o["Repetition Rule"] << Option("Computer var Computer var Chinese", "Computer",
-                                   on_repetition_rule);
     o["UCI_ShowWDL"] << Option(false);
     o["EvalFile"] << Option(EvalFileDefaultName, on_eval_file);
 }
