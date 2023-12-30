@@ -847,9 +847,6 @@ uint16_t Position::chased(Color c) {
         Bitboard candidates = 0;
         if (attackerType == KNIGHT || attackerType == CANNON)
             candidates = attacks & pieces(~sideToMove, ROOK);
-        // In Chinese Rule, also take cares of Advisor and Bishop attacks against protected stronger pieces
-        if (ChineseRule && (attackerType == ADVISOR || attackerType == BISHOP))
-            candidates |= attacks & pieces(~sideToMove, ROOK, KNIGHT, CANNON);
         attacks ^= candidates;
         while (candidates)
         {
@@ -904,47 +901,6 @@ uint16_t Position::chased(Color c) {
 }
 
 
-// Calculates mate threat less than certain moves.
-bool Position::has_mate_threat(Depth d) {
-    bool mateThreat = false;
-    if (d == -1)
-    {
-        // Use null move to detect mate threats
-        StateInfo nullSt;
-        do_null_move(nullSt);
-        mateThreat = has_mate_threat(0);
-        undo_null_move();
-    }
-    else if (d < MateThreatDepth)
-    {
-        StateInfo tempSt[2];
-        // Try all check moves and see if we can continuously check to get a mate
-        for (const auto& check : MoveList<LEGAL>(*this))
-        {
-            if (gives_check(check))
-            {
-                do_move(check, tempSt[0]);
-                bool solvable = false;
-                for (const auto& evasion : MoveList<LEGAL>(*this))
-                {
-                    do_move(evasion, tempSt[1]);
-                    solvable = !has_mate_threat(d + 1);
-                    undo_move(evasion);
-                    // If there exists any evasions, the check is solvable
-                    if (solvable)
-                        break;
-                }
-                undo_move(check);
-                // If there exists any checks that are not solvable, there exists a mate threat
-                if (!solvable)
-                    return true;
-            }
-        }
-    }
-    return mateThreat;
-}
-
-
 // Detects chases from state st - d to state st
 Value Position::detect_chases(int d, int ply) {
 
@@ -973,11 +929,9 @@ Value Position::detect_chases(int d, int ply) {
         }
         else
         {
-            if (st->checkersBB || (ChineseRule && (MateThreatDepth && has_mate_threat())))
+            if (st->checkersBB)
             {
-                // Redirect *check* and *mate threat* to *chase all pieces simultaneously* in Chinese Rule
-                chase[~sideToMove] &= ChineseRule ? 0xFFFF : 0;
-                rooks[~sideToMove] = 0;
+                chase[~sideToMove] = rooks[~sideToMove] = 0;
                 light_undo_move(st->move, st->capturedPiece);
                 st = st->previous;
             }
@@ -986,7 +940,7 @@ Value Position::detect_chases(int d, int ply) {
                 uint16_t oldChase = chased(~sideToMove);
                 // Calculate rooks pinned by knight
                 uint16_t flag = 0;
-                if (!ChineseRule && rooks[~sideToMove]
+                if (rooks[~sideToMove]
                     && (blockers_for_king(sideToMove) & pieces(sideToMove, ROOK)))
                 {
                     Bitboard knights = pinners(~sideToMove) & pieces(KNIGHT);
@@ -1004,13 +958,10 @@ Value Position::detect_chases(int d, int ply) {
                 // Take the exact diff to detect the chase
                 uint16_t chases      = oldChase & ~newChase[sideToMove];
                 newChase[sideToMove] = chased(sideToMove);
-                if (ChineseRule)
-                    chases = oldChase & ~newChase[sideToMove];
-                else if (i == d - 2)
+                if (i == d - 2)
                     chases &= ~newChase[sideToMove];
                 rooks[sideToMove] &= chases & flag;
-                // Redirect *chase* to *chase all pieces simultaneously* in Chinese Rule
-                chase[sideToMove] &= ChineseRule && chases ? 0xFFFF : chases;
+                chase[sideToMove] &= chases;
             }
         }
     }

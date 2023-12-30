@@ -152,7 +152,6 @@ class Position {
     Thread*  this_thread() const;
     bool     rule_judge(Value& result, int ply = 0) const;
     int      rule60_count() const;
-    bool     has_mate_threat(Depth d = -1);
     uint16_t chased(Color c);
     Value    major_material(Color c) const;
     Value    major_material() const;

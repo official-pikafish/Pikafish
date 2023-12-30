@@ -90,8 +90,6 @@ Move        to_move(const Position& pos, std::string& str);
 }  // namespace UCI
 
 extern UCI::OptionsMap Options;
-extern uint8_t         MateThreatDepth;
-extern bool            ChineseRule;
 
 }  // namespace Stockfish
 
