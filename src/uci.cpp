@@ -74,7 +74,7 @@ void position(Position& pos, std::istringstream& is, StateListPtr& states) {
     pos.set(fen, &states->back(), Threads.main());
 
     // Parse the move list, if any
-    while (is >> token && (m = UCI::to_move(pos, token)) != MOVE_NONE)
+    while (is >> token && (m = UCI::to_move(pos, token)) != Move::none())
     {
         states->emplace_back();
         pos.do_move(m, states->back());
@@ -386,14 +386,14 @@ std::string UCI::square(Square s) {
 // Converts a Move to a string in coordinate notation (g1f3, a7a8).
 std::string UCI::move(Move m) {
 
-    if (m == MOVE_NONE)
+    if (m == Move::none())
         return "(none)";
 
-    if (m == MOVE_NULL)
+    if (m == Move::null())
         return "0000";
 
-    Square from = from_sq(m);
-    Square to   = to_sq(m);
+    Square from = m.from_sq();
+    Square to   = m.to_sq();
 
     std::string move = UCI::square(from) + UCI::square(to);
 
@@ -409,7 +409,7 @@ Move UCI::to_move(const Position& pos, std::string& str) {
         if (str == UCI::move(m))
             return m;
 
-    return MOVE_NONE;
+    return Move::none();
 }
 
 }  // namespace Stockfish
