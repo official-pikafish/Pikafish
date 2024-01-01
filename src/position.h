@@ -208,7 +208,7 @@ inline Piece Position::piece_on(Square s) const {
 
 inline bool Position::empty(Square s) const { return piece_on(s) == NO_PIECE; }
 
-inline Piece Position::moved_piece(Move m) const { return piece_on(from_sq(m)); }
+inline Piece Position::moved_piece(Move m) const { return piece_on(m.from_sq()); }
 
 inline Bitboard Position::pieces(PieceType pt) const { return byTypeBB[pt]; }
 
@@ -288,7 +288,7 @@ inline int Position::rule60_count() const { return st->rule60; }
 
 inline bool Position::capture(Move m) const {
     assert(is_ok(m));
-    return !empty(to_sq(m));
+    return !empty(m.to_sq());
 }
 
 inline Piece Position::captured_piece() const { return st->capturedPiece; }

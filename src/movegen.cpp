@@ -72,7 +72,7 @@ ExtMove* generate_moves(const Position& pos, ExtMove* moveList, Bitboard target)
                  : (pos.check_squares(Pt) | HollowCannonDiscover);
 
         while (b)
-            *moveList++ = make_move(from, pop_lsb(b));
+            *moveList++ = Move(from, pop_lsb(b));
     }
 
     return moveList;
@@ -106,7 +106,7 @@ ExtMove* generate_all(const Position& pos, ExtMove* moveList) {
             b &= ~attacks_bb<ROOK>(OpponentKingSquare);
 
         while (b)
-            *moveList++ = make_move(ksq, pop_lsb(b));
+            *moveList++ = Move(ksq, pop_lsb(b));
     }
 
     return moveList;
@@ -174,7 +174,7 @@ ExtMove* generate<EVASIONS>(const Position& pos, ExtMove* moveList) {
     if (pt == ROOK || pt == CANNON)
         b &= ~line_bb(checksq, ksq) | pos.pieces(~us);
     while (b)
-        *moveList++ = make_move(ksq, pop_lsb(b));
+        *moveList++ = Move(ksq, pop_lsb(b));
 
     // Generate move away hurdle piece evasions for cannon
     if (pt == CANNON)
@@ -194,7 +194,7 @@ ExtMove* generate<EVASIONS>(const Position& pos, ExtMove* moveList) {
                 b = attacks_bb(pt, hurdleSq, pos.pieces()) & ~line_bb(checksq, hurdleSq)
                   & ~pos.pieces(us);
             while (b)
-                *moveList++ = make_move(hurdleSq, pop_lsb(b));
+                *moveList++ = Move(hurdleSq, pop_lsb(b));
         }
     }
 
@@ -217,7 +217,7 @@ ExtMove* generate<LEGAL>(const Position& pos, ExtMove* moveList) {
 
     while (cur != moveList)
         if (!pos.legal(*cur))
-            *cur = (--moveList)->move;
+            *cur = *(--moveList);
         else
             ++cur;
 
