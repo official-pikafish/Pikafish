@@ -131,23 +131,26 @@ enum Bound {
     BOUND_EXACT = BOUND_UPPER | BOUND_LOWER
 };
 
-enum Value : int {
-    VALUE_ZERO     = 0,
-    VALUE_DRAW     = 0,
-    VALUE_MATE     = 32000,
-    VALUE_INFINITE = 32001,
-    VALUE_NONE     = 32002,
+// Value is used as an alias for int16_t, this is done to differentiate between
+// a search value and any other integer value. The values used in search are always
+// supposed to be in the range (-VALUE_NONE, VALUE_NONE] and should not exceed this range.
+using Value = int;
 
-    VALUE_MATE_IN_MAX_PLY  = VALUE_MATE - MAX_PLY,
-    VALUE_MATED_IN_MAX_PLY = -VALUE_MATE_IN_MAX_PLY,
+constexpr Value VALUE_ZERO     = 0;
+constexpr Value VALUE_DRAW     = 0;
+constexpr Value VALUE_NONE     = 32002;
+constexpr Value VALUE_INFINITE = 32001;
 
-    RookValue    = 1203,
-    AdvisorValue = 245,
-    CannonValue  = 686,
-    PawnValue    = 127,
-    KnightValue  = 893,
-    BishopValue  = 204,
-};
+constexpr Value VALUE_MATE             = 32000;
+constexpr Value VALUE_MATE_IN_MAX_PLY  = VALUE_MATE - MAX_PLY;
+constexpr Value VALUE_MATED_IN_MAX_PLY = -VALUE_MATE_IN_MAX_PLY;
+
+constexpr Value RookValue    = 1203;
+constexpr Value AdvisorValue = 245;
+constexpr Value CannonValue  = 686;
+constexpr Value PawnValue    = 127;
+constexpr Value KnightValue  = 893;
+constexpr Value BishopValue  = 204;
 
 // clang-format off
 enum PieceType {
@@ -284,7 +287,6 @@ struct DirtyPiece {
         inline T&     operator*=(T& d, int i) { return d = T(int(d) * i); } \
         inline T&     operator/=(T& d, int i) { return d = T(int(d) / i); }
 
-ENABLE_FULL_OPERATORS_ON(Value)
 ENABLE_FULL_OPERATORS_ON(Direction)
 
 ENABLE_INCR_OPERATORS_ON(PieceType)
