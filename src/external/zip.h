@@ -365,7 +365,7 @@ extern ZIP_EXPORT int zip_entry_fread(struct zip_t* zip, const char* filename);
 extern ZIP_EXPORT int
 zip_entry_extract(struct zip_t* zip,
                   size_t (*on_extract)(void* arg, uint64_t offset, const void* data, size_t size),
-                  void*  arg);
+                  void* arg);
 
 /**
  * Returns the number of all entries (files and directories) in the zip archive.
@@ -407,8 +407,8 @@ extern ZIP_EXPORT ssize_t zip_entries_delete(struct zip_t* zip, char* const entr
 extern ZIP_EXPORT int zip_stream_extract(const char* stream,
                                          size_t      size,
                                          const char* dir,
-                                         int         (*on_extract)(const char* filename, void* arg),
-                                         void*       arg);
+                                         int (*on_extract)(const char* filename, void* arg),
+                                         void* arg);
 
 /**
  * Opens zip archive stream into memory.
@@ -493,8 +493,8 @@ extern ZIP_EXPORT int zip_create(const char* zipname, const char* filenames[], s
  */
 extern ZIP_EXPORT int zip_extract(const char* zipname,
                                   const char* dir,
-                                  int         (*on_extract_entry)(const char* filename, void* arg),
-                                  void*       arg);
+                                  int (*on_extract_entry)(const char* filename, void* arg),
+                                  void* arg);
     /** @} */
     #ifdef __cplusplus
 }
