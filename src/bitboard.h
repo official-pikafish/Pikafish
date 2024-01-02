@@ -102,7 +102,7 @@ extern Magic BishopMagics[SQUARE_NB];
 extern Magic KnightMagics[SQUARE_NB];
 extern Magic KnightToMagics[SQUARE_NB];
 
-inline Bitboard square_bb(Square s) {
+constexpr Bitboard square_bb(Square s) {
     assert(is_ok(s));
     return SquareBB[s];
 }
