@@ -323,8 +323,8 @@ static int zip_archive_truncate(mz_zip_archive* pzip) {
 
 static int zip_archive_extract(mz_zip_archive* zip_archive,
                                const char*     dir,
-                               int             (*on_extract)(const char* filename, void* arg),
-                               void*           arg) {
+                               int (*on_extract)(const char* filename, void* arg),
+                               void* arg) {
     int                      err = 0;
     mz_uint                  i, n;
     char                     path[MZ_ZIP_MAX_ARCHIVE_FILENAME_SIZE + 1];
@@ -1696,8 +1696,8 @@ int zip_entry_fread(struct zip_t* zip, const char* filename) {
 
 int zip_entry_extract(
   struct zip_t* zip,
-  size_t        (*on_extract)(void* arg, uint64_t offset, const void* buf, size_t bufsize),
-  void*         arg) {
+  size_t (*on_extract)(void* arg, uint64_t offset, const void* buf, size_t bufsize),
+  void* arg) {
     mz_zip_archive* pzip = NULL;
     mz_uint         idx;
 
@@ -1768,8 +1768,8 @@ ssize_t zip_entries_delete(struct zip_t* zip, char* const entries[], size_t len)
 int zip_stream_extract(const char* stream,
                        size_t      size,
                        const char* dir,
-                       int         (*on_extract)(const char* filename, void* arg),
-                       void*       arg) {
+                       int (*on_extract)(const char* filename, void* arg),
+                       void* arg) {
     mz_zip_archive zip_archive;
     if (!stream || !dir)
     {
@@ -1970,8 +1970,8 @@ int zip_create(const char* zipname, const char* filenames[], size_t len) {
 
 int zip_extract(const char* zipname,
                 const char* dir,
-                int         (*on_extract)(const char* filename, void* arg),
-                void*       arg) {
+                int (*on_extract)(const char* filename, void* arg),
+                void* arg) {
     mz_zip_archive zip_archive;
 
     if (!zipname || !dir)

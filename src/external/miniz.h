@@ -268,7 +268,7 @@ enum {
 Note that mz_alloc_func parameter types purposely differ from zlib's: items/size
 is size_t, not unsigned long. */
 typedef void* (*mz_alloc_func)(void* opaque, size_t items, size_t size);
-typedef void  (*mz_free_func)(void* opaque, void* address);
+typedef void (*mz_free_func)(void* opaque, void* address);
 typedef void* (*mz_realloc_func)(void* opaque, void* address, size_t items, size_t size);
 
 /* Compression levels: 0-9 are the standard zlib-style levels, 10 is best
@@ -966,7 +966,7 @@ MINIZ_EXPORT size_t tinfl_decompress_mem_to_mem(
  * internal 32KB buffer, and a user provided callback function will be called to
  * flush the buffer. */
 /* Returns 1 on success or 0 on failure. */
-typedef int      (*tinfl_put_buf_func_ptr)(const void* pBuf, int len, void* pUser);
+typedef int (*tinfl_put_buf_func_ptr)(const void* pBuf, int len, void* pUser);
 MINIZ_EXPORT int tinfl_decompress_mem_to_callback(const void*            pIn_buf,
                                                   size_t*                pIn_buf_size,
                                                   tinfl_put_buf_func_ptr pPut_buf_func,
