@@ -39,6 +39,7 @@ namespace Stockfish::Eval::NNUE::Features {
 // position of pieces. Position mirrored such that king is always on d..e files.
 class HalfKAv2_hm {
 
+    // clang-format off
     // Unique number for each piece type on each square
     enum {
         PS_NONE     = 0,
@@ -48,14 +49,11 @@ class HalfKAv2_hm {
         PS_B_CANNON = 3 * SQUARE_NB,
         PS_W_KNIGHT = 4 * SQUARE_NB,
         PS_B_KNIGHT = 5 * SQUARE_NB,
-        PS_AB_W_KP =
-          6
-          * SQUARE_NB,  // White King and Pawn are merged into one plane, also used for Advisor and Bishop
-        PS_B_KP = 7 * SQUARE_NB,  // Black King and Pawn are merged into one plane
-        PS_NB   = 8 * SQUARE_NB
+        PS_AB_W_KP  = 6 * SQUARE_NB,  // White King and Pawn are merged into one plane, also used for Advisor and Bishop
+        PS_B_KP     = 7 * SQUARE_NB,  // Black King and Pawn are merged into one plane
+        PS_NB       = 8 * SQUARE_NB
     };
 
-    // clang-format off
     static constexpr IndexType PieceSquareIndex[COLOR_NB][PIECE_NB] = {
       // Convention: W - us, B - them
       // Viewed from other side, W and B are reversed

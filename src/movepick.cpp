@@ -31,6 +31,7 @@ namespace Stockfish {
 namespace {
 
 enum Stages {
+    // generate main search moves
     MAIN_TT,
     CAPTURE_INIT,
     GOOD_CAPTURE,
@@ -38,12 +39,18 @@ enum Stages {
     QUIET_INIT,
     QUIET,
     BAD_CAPTURE,
+
+    // generate evasion moves
     EVASION_TT,
     EVASION_INIT,
     EVASION,
+
+    // generate probcut moves
     PROBCUT_TT,
     PROBCUT_INIT,
     PROBCUT,
+
+    // generate qsearch moves
     QSEARCH_TT,
     QCAPTURE_INIT,
     QCAPTURE,
