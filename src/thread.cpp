@@ -20,8 +20,6 @@
 
 #include <algorithm>
 #include <cassert>
-#include <cmath>
-#include <cstdlib>
 #include <deque>
 #include <memory>
 #include <unordered_map>
@@ -166,8 +164,8 @@ void ThreadPool::start_thinking(Position&          pos,
 
     main_thread()->wait_for_search_finished();
 
-    main_manager()->stopOnPonderhit = stop = false;
-    main_manager()->ponder                 = ponderMode;
+    main_manager()->stopOnPonderhit = stop = abortedSearch = false;
+    main_manager()->ponder                                 = ponderMode;
 
     increaseDepth = true;
 
@@ -222,13 +220,23 @@ Thread* ThreadPool::get_best_thread() const {
         votes[th->worker->rootMoves[0].pv[0]] += thread_value(th);
 
     for (Thread* th : threads)
-        if (std::abs(bestThread->worker->rootMoves[0].score) >= VALUE_MATE_IN_MAX_PLY)
+        if (bestThread->worker->rootMoves[0].score >= VALUE_MATE_IN_MAX_PLY)
         {
-            // Make sure we pick the shortest mate or stave off mate the longest
+            // Make sure we pick the shortest mate
             if (th->worker->rootMoves[0].score > bestThread->worker->rootMoves[0].score)
                 bestThread = th;
         }
+        else if (bestThread->worker->rootMoves[0].score != -VALUE_INFINITE
+                 && bestThread->worker->rootMoves[0].score <= VALUE_MATED_IN_MAX_PLY)
+        {
+            // Make sure we pick the shortest mated
+            if (th->worker->rootMoves[0].score != -VALUE_INFINITE
+                && th->worker->rootMoves[0].score < bestThread->worker->rootMoves[0].score)
+                bestThread = th;
+        }
         else if (th->worker->rootMoves[0].score >= VALUE_MATE_IN_MAX_PLY
+                 || (th->worker->rootMoves[0].score != -VALUE_INFINITE
+                     && th->worker->rootMoves[0].score <= VALUE_MATED_IN_MAX_PLY)
                  || (th->worker->rootMoves[0].score > VALUE_MATED_IN_MAX_PLY
                      && (votes[th->worker->rootMoves[0].pv[0]]
                            > votes[bestThread->worker->rootMoves[0].pv[0]]
