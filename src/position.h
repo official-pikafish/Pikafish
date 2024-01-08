@@ -35,6 +35,8 @@
 
 namespace Stockfish {
 
+class TranspositionTable;
+
 // StateInfo struct stores information needed to restore a Position object to
 // its previous state when we retract a move. Whenever a move is made on the
 // board (by calling Position::do_move), a StateInfo object must be passed.
@@ -76,8 +78,6 @@ using StateListPtr = std::unique_ptr<std::deque<StateInfo>>;
 // pieces, side to move, hash keys, etc. Important methods are
 // do_move() and undo_move(), used by the search to update node info when
 // traversing the search tree.
-class Thread;
-
 class Position {
    public:
     static void init();
@@ -87,8 +87,8 @@ class Position {
     Position& operator=(const Position&) = delete;
 
     // FEN string input/output
-    Position&   set(const std::string& fenStr, StateInfo* si, Thread* th);
-    Position&   set(const Position& pos, StateInfo* si, Thread* th);
+    Position&   set(const std::string& fenStr, StateInfo* si);
+    Position&   set(const Position& pos, StateInfo* si);
     std::string fen() const;
 
     // Position representation
@@ -135,7 +135,7 @@ class Position {
     void do_move(Move m, StateInfo& newSt);
     void do_move(Move m, StateInfo& newSt, bool givesCheck);
     void undo_move(Move m);
-    void do_null_move(StateInfo& newSt);
+    void do_null_move(StateInfo& newSt, TranspositionTable& tt);
     void undo_null_move();
 
     // Static Exchange Evaluation
@@ -149,7 +149,6 @@ class Position {
     // Other properties of the position
     Color    side_to_move() const;
     int      game_ply() const;
-    Thread*  this_thread() const;
     bool     rule_judge(Value& result, int ply = 0) const;
     int      rule60_count() const;
     uint16_t chased(Color c);
@@ -185,7 +184,6 @@ class Position {
     Bitboard   byTypeBB[PIECE_TYPE_NB];
     Bitboard   byColorBB[COLOR_NB];
     int        pieceCount[PIECE_NB];
-    Thread*    thisThread;
     StateInfo* st;
     int        gamePly;
     Color      sideToMove;
@@ -293,8 +291,6 @@ inline bool Position::capture(Move m) const {
 
 inline Piece Position::captured_piece() const { return st->capturedPiece; }
 
-inline Thread* Position::this_thread() const { return thisThread; }
-
 inline void Position::put_piece(Piece pc, Square s) {
 
     board[s] = pc;
@@ -330,9 +326,9 @@ inline void Position::do_move(Move m, StateInfo& newSt) { do_move(m, newSt, give
 
 inline StateInfo* Position::state() const { return st; }
 
-inline Position& Position::set(const Position& pos, StateInfo* si, Thread* th) {
+inline Position& Position::set(const Position& pos, StateInfo* si) {
 
-    set(pos.fen(), si, th);
+    set(pos.fen(), si);
 
     // Special cares for bloom filter
     std::memcpy(&filter, &pos.filter, sizeof(BloomFilter));

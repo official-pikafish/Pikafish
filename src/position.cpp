@@ -19,7 +19,6 @@
 #include "position.h"
 
 #include <algorithm>
-#include <atomic>
 #include <cassert>
 #include <cctype>
 #include <cstddef>
@@ -33,7 +32,6 @@
 #include "bitboard.h"
 #include "misc.h"
 #include "movegen.h"
-#include "thread.h"
 #include "tt.h"
 #include "uci.h"
 
@@ -97,7 +95,7 @@ void Position::init() {
 // Initializes the position object with the given FEN string.
 // This function is not very robust - make sure that input FENs are correct,
 // this is assumed to be the responsibility of the GUI.
-Position& Position::set(const string& fenStr, StateInfo* si, Thread* th) {
+Position& Position::set(const string& fenStr, StateInfo* si) {
     /*
    A FEN string defines a particular position using only the ASCII character set.
 
@@ -167,7 +165,6 @@ Position& Position::set(const string& fenStr, StateInfo* si, Thread* th) {
     // handle also common incorrect FEN with fullmove = 0.
     gamePly = std::max(2 * (gamePly - 1), 0) + (sideToMove == BLACK);
 
-    thisThread = th;
     set_state();
 
     assert(pos_is_ok());
@@ -420,7 +417,6 @@ void Position::do_move(Move m, StateInfo& newSt, bool givesCheck) {
     // Update the bloom filter
     ++filter[st->key];
 
-    thisThread->nodes.fetch_add(1, std::memory_order_relaxed);
     Key k = st->key ^ Zobrist::side;
 
     // Copy some fields of the old state to our new StateInfo object except the
@@ -560,7 +556,7 @@ void Position::undo_move(Move m) {
 
 // Used to do a "null move": it flips
 // the side to move without executing any move on the board.
-void Position::do_null_move(StateInfo& newSt) {
+void Position::do_null_move(StateInfo& newSt, TranspositionTable& tt) {
 
     assert(!checkers());
     assert(&newSt != st);
@@ -581,7 +577,7 @@ void Position::do_null_move(StateInfo& newSt) {
 
     st->key ^= Zobrist::side;
     ++st->rule60;
-    prefetch(TT.first_entry(key()));
+    prefetch(tt.first_entry(key()));
 
     st->pliesFromNull = 0;
 
@@ -1076,7 +1072,7 @@ void Position::flip() {
     std::getline(ss, token);  // Half and full moves
     f += token;
 
-    set(f, st, this_thread());
+    set(f, st);
 
     assert(pos_is_ok());
 }

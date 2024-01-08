@@ -26,8 +26,10 @@
 #include <fstream>
 #include <iomanip>
 #include <iostream>
+#include <optional>
 #include <sstream>
 #include <string_view>
+#include <type_traits>
 
 #include "../evaluate.h"
 #include "../misc.h"
@@ -44,10 +46,6 @@ LargePagePtr<FeatureTransformer> featureTransformer;
 
 // Evaluation function
 AlignedPtr<Network> network[LayerStacks];
-
-// Evaluation function file name
-std::string fileName;
-std::string netDescription;
 
 namespace Detail {
 
@@ -122,7 +120,7 @@ static bool write_header(std::ostream& stream, std::uint32_t hashValue, const st
 }
 
 // Read network parameters
-static bool read_parameters(std::istream& stream) {
+static bool read_parameters(std::istream& stream, std::string& netDescription) {
 
     std::uint32_t hashValue;
     if (!read_header(stream, &hashValue, &netDescription))
@@ -138,7 +136,7 @@ static bool read_parameters(std::istream& stream) {
 }
 
 // Write network parameters
-static bool write_parameters(std::ostream& stream) {
+static bool write_parameters(std::ostream& stream, const std::string& netDescription) {
 
     if (!write_header(stream, HashValue, netDescription))
         return false;
@@ -377,24 +375,24 @@ std::string trace(Position& pos) {
 
 
 // Load eval, from a file stream or a memory stream
-bool load_eval(std::string name, std::istream& stream) {
+std::optional<std::string> load_eval(std::istream& stream) {
 
     initialize();
-    fileName = name;
-    return read_parameters(stream);
+    std::string netDescription;
+    return read_parameters(stream, netDescription) ? std::make_optional(netDescription)
+                                                   : std::nullopt;
 }
 
 // Save eval, to a file stream or a memory stream
-bool save_eval(std::ostream& stream) {
+bool save_eval(std::ostream& stream, const std::string& name, const std::string& netDescription) {
 
-    if (fileName.empty())
+    if (name.empty() || name == "None")
         return false;
 
-    return write_parameters(stream);
+    return write_parameters(stream, netDescription);
 }
-
 // Save eval, to a file given by its name
-bool save_eval(const std::optional<std::string>& filename) {
+bool save_eval(const std::optional<std::string>& filename, const Eval::EvalFile& evalFile) {
 
     std::string actualFilename;
     std::string msg;
@@ -403,7 +401,7 @@ bool save_eval(const std::optional<std::string>& filename) {
         actualFilename = filename.value();
     else
     {
-        if (currentEvalFileName != EvalFileDefaultName)
+        if (evalFile.current != EvalFileDefaultName)
         {
             msg = "Failed to export a net. "
                   "A net can only be saved if the filename is specified";
@@ -415,7 +413,7 @@ bool save_eval(const std::optional<std::string>& filename) {
     }
 
     std::ofstream stream(actualFilename, std::ios_base::binary);
-    bool          saved = save_eval(stream);
+    bool          saved = save_eval(stream, evalFile.current, evalFile.netDescription);
 
     msg = saved ? "Network saved successfully to " + actualFilename : "Failed to export a net";
 
