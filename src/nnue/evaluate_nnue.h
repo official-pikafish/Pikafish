@@ -28,12 +28,17 @@
 #include <string>
 
 #include "../misc.h"
+#include "../types.h"
 #include "nnue_architecture.h"
 #include "nnue_feature_transformer.h"
-#include "../types.h"
 
 namespace Stockfish {
 class Position;
+
+namespace Eval {
+struct EvalFile;
+}
+
 }
 
 namespace Stockfish::Eval::NNUE {
@@ -70,9 +75,9 @@ std::string trace(Position& pos);
 Value       evaluate(const Position& pos, bool adjusted = false, int* complexity = nullptr);
 void        hint_common_parent_position(const Position& pos);
 
-bool load_eval(std::string name, std::istream& stream);
-bool save_eval(std::ostream& stream);
-bool save_eval(const std::optional<std::string>& filename);
+std::optional<std::string> load_eval(std::istream& stream);
+bool save_eval(std::ostream& stream, const std::string& name, const std::string& netDescription);
+bool save_eval(const std::optional<std::string>& filename, const Eval::EvalFile&);
 
 }  // namespace Stockfish::Eval::NNUE
 
