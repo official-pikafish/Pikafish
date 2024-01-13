@@ -259,7 +259,7 @@ void UCI::trace_eval(Position& pos) {
 
     Eval::NNUE::verify(options, evalFile);
 
-    sync_cout << "\n" << Eval::trace(p, *threads.main_thread()->worker.get()) << sync_endl;
+    sync_cout << "\n" << Eval::trace(p) << sync_endl;
 }
 
 void UCI::search_clear() {
