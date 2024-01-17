@@ -452,8 +452,8 @@ void Position::do_move(Move m, StateInfo& newSt, bool givesCheck) {
     Piece  pc       = piece_on(from);
     Piece  captured = piece_on(to);
 
-    dp.requires_refresh[WHITE] = pc == W_KING;
-    dp.requires_refresh[BLACK] = pc == B_KING;
+    dp.requires_refresh[us]   = pc == make_piece(us, KING);
+    dp.requires_refresh[them] = false;
 
     assert(color_of(pc) == us);
     assert(captured == NO_PIECE || color_of(captured) == them);
@@ -469,6 +469,8 @@ void Position::do_move(Move m, StateInfo& newSt, bool givesCheck) {
             st->pawnKey ^= Zobrist::psq[captured][capsq];
         else if (type_of(captured) & 1)
             st->majorMaterial[them] -= PieceValue[captured];
+        else
+            dp.requires_refresh[them] = true;
 
         dp.dirty_num = 2;  // 1 piece moved, 1 piece captured
         dp.piece[1]  = captured;
@@ -477,9 +479,6 @@ void Position::do_move(Move m, StateInfo& newSt, bool givesCheck) {
 
         // Update board and piece lists
         remove_piece(capsq);
-
-        dp.requires_refresh[WHITE] |= captured == W_ADVISOR || captured == W_BISHOP;
-        dp.requires_refresh[BLACK] |= captured == B_ADVISOR || captured == B_BISHOP;
 
         // Update hash key
         k ^= Zobrist::psq[captured][capsq];
