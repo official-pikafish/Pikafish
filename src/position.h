@@ -285,7 +285,7 @@ inline int Position::game_ply() const { return gamePly; }
 inline int Position::rule60_count() const { return st->rule60; }
 
 inline bool Position::capture(Move m) const {
-    assert(is_ok(m));
+    assert(m.is_ok());
     return !empty(m.to_sq());
 }
 
