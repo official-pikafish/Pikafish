@@ -41,7 +41,7 @@
 namespace Stockfish {
 
 constexpr auto StartFEN = "rnbakabnr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C5C1/9/RNBAKABNR w";
-constexpr int  NormalizeToPawnValue = 368;
+constexpr int  NormalizeToPawnValue = 345;
 constexpr int  MaxHashMB            = Is64Bit ? 33554432 : 2048;
 
 UCI::UCI(int argc, char** argv) :
@@ -391,26 +391,23 @@ namespace {
 // eval and a game ply. It fits the LTC fishtest statistics rather accurately.
 int win_rate_model(Value v, int ply) {
 
-    // The model only captures up to 240 plies, so limit the input and then rescale
-    double m = std::min(240, ply) / 64.0;
+    // The fitted model only uses data for moves in [8, 120], and is anchored at move 32.
+    double m = std::clamp(ply / 2 + 1, 8, 120) / 32.0;
 
     // The coefficients of a third-order polynomial fit is based on the fishtest data
     // for two parameters that need to transform eval to the argument of a logistic
     // function.
-    constexpr double as[] = {7.42211754, -26.5119614, 46.99271939, 340.67524114};
-    constexpr double bs[] = {-0.50136481, 4.9383151, -11.86324223, 89.56581513};
+    constexpr double as[] = {-2.00568292, 10.45906746, 1.67438883, 334.45864705};
+    constexpr double bs[] = {-4.97134419, 36.15096345, -82.25513499, 117.35186805};
 
-    // Enforce that NormalizeToPawnValue corresponds to a 50% win rate at ply 64
-    static_assert(NormalizeToPawnValue == int(as[0] + as[1] + as[2] + as[3]));
+    // Enforce that NormalizeToPawnValue corresponds to a 50% win rate at move 32.
+    static_assert(NormalizeToPawnValue == int(0.5 + as[0] + as[1] + as[2] + as[3]));
 
     double a = (((as[0] * m + as[1]) * m + as[2]) * m) + as[3];
     double b = (((bs[0] * m + bs[1]) * m + bs[2]) * m) + bs[3];
 
-    // Transform the eval to centipawns with limited range
-    double x = std::clamp(double(v), -4000.0, 4000.0);
-
-    // Return the win rate in per mille units, rounded to the nearest integer
-    return int(0.5 + 1000 / (1 + std::exp((a - x) / b)));
+    // Return the win rate in per mille units, rounded to the nearest integer.
+    return int(0.5 + 1000 / (1 + std::exp((a - double(v)) / b)));
 }
 }
 
