@@ -229,7 +229,7 @@ class Worker {
     size_t thread_idx;
 
     // Reductions lookup table initialized at startup
-    int reductions[MAX_MOVES];  // [depth or moveNumber]
+    int reductions[MAX_PLY + 10];  // [depth or moveNumber]
 
     // The main thread has a SearchManager, the others have a NullSearchManager
     std::unique_ptr<ISearchManager> manager;

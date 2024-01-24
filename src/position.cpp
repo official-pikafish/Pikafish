@@ -321,7 +321,7 @@ Bitboard Position::checkers_to(Color c, Square s, Bitboard occupied) const {
 // Tests whether a pseudo-legal move is legal
 bool Position::legal(Move m) const {
 
-    assert(is_ok(m));
+    assert(m.is_ok());
 
     Color    us       = sideToMove;
     Square   from     = m.from_sq();
@@ -378,7 +378,7 @@ bool Position::pseudo_legal(const Move m) const {
 // Tests whether a pseudo-legal move gives a check
 bool Position::gives_check(Move m) const {
 
-    assert(is_ok(m));
+    assert(m.is_ok());
     assert(color_of(moved_piece(m)) == sideToMove);
 
     Square from = m.from_sq();
@@ -411,7 +411,7 @@ bool Position::gives_check(Move m) const {
 // moves should be filtered out before this function is called.
 void Position::do_move(Move m, StateInfo& newSt, bool givesCheck) {
 
-    assert(is_ok(m));
+    assert(m.is_ok());
     assert(&newSt != st);
 
     // Update the bloom filter
@@ -523,7 +523,7 @@ void Position::do_move(Move m, StateInfo& newSt, bool givesCheck) {
 // be restored to exactly the same state as before the move was made.
 void Position::undo_move(Move m) {
 
-    assert(is_ok(m));
+    assert(m.is_ok());
 
     sideToMove = ~sideToMove;
 
@@ -625,7 +625,7 @@ Key Position::key_after(Move m) const {
 // algorithm similar to alpha-beta pruning with a null window.
 bool Position::see_ge(Move m, int threshold) const {
 
-    assert(is_ok(m));
+    assert(m.is_ok());
 
     Square from = m.from_sq(), to = m.to_sq();
 
@@ -792,7 +792,7 @@ void Position::light_undo_move(Move m, Piece captured, int id) {
 // Tests whether a pseudo-legal move is chase legal
 bool Position::chase_legal(Move m) const {
 
-    assert(is_ok(m));
+    assert(m.is_ok());
 
     Color    us       = sideToMove;
     Square   from     = m.from_sq();
