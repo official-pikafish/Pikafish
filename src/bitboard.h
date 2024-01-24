@@ -289,7 +289,7 @@ inline Bitboard attacks_bb(Square s, Bitboard occupied) {
 // Sliding piece attacks do not continue passed an occupied square.
 inline Bitboard attacks_bb(PieceType pt, Square s, Bitboard occupied) {
 
-    assert((pt != PAWN) && (is_ok(s)));
+    assert((pt != PAWN) && (pt != KNIGHT_TO) && (is_ok(s)));
 
     switch (pt)
     {
