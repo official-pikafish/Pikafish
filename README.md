@@ -20,6 +20,7 @@
 
   [![Build][build-badge]][build-link]
   [![License][license-badge]][license-link]
+  [![RuleBook][rulebook-badge]][rulebook-link]
   <br>
   [![Release][release-badge]][release-link]
   [![Commits][commits-badge]][commits-link]
@@ -145,6 +146,8 @@ also be made available under GPL v3.
 [readme-link]:			https://github.com/official-pikafish/Pikafish/blob/master/README.md
 [release-badge]:			https://img.shields.io/github/v/release/official-pikafish/Pikafish?style=for-the-badge&label=official%20release
 [release-link]:			https://github.com/official-pikafish/Pikafish/releases/latest
+[rulebook-badge]:		https://img.shields.io/badge/computer%20rule-20B2AA?style=for-the-badge&logo=mdbook
+[rulebook-link]:			https://pikafish.org/中国象棋程序竞赛规则.pdf
 [src-link]:				https://github.com/official-pikafish/Pikafish/tree/master/src
 [stockfish-link]:			https://github.com/official-stockfish/Stockfish
 [uci-link]:				https://backscattering.de/chess/uci/
