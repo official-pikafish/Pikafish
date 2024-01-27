@@ -23,14 +23,14 @@ jobs:
             shell: bash
             sde: /home/runner/work/Pikafish/Pikafish/.output/sde-temp-files/sde-external-9.27.0-2023-09-13-lin/sde -future --
           - name: MacOS
-            os: macos-latest
+            os: macos-14
             shell: bash
           - name: Windows
             os: windows-latest
             shell: msys2 {0}
             ext: .exe
             sde: /d/a/Pikafish/Pikafish/.output/sde-temp-files/sde-external-9.27.0-2023-09-13-win/sde.exe -future --
-        arch: ["-vnni512", "-avx512", "-avx512f", "-avxvnni", "-bmi2", "-avx2", "-sse41-popcnt", "-ssse3"]
+        arch: ["-vnni512", "-avx512", "-avx512f", "-avxvnni", "-bmi2", "-avx2", "-sse41-popcnt", "-ssse3", "apple-silicon"]
         exclude:
           - arch: -avxvnni
             config: {os: ubuntu-20.04}
