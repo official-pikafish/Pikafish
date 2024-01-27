@@ -37,6 +37,7 @@
 #include "search.h"
 #include "types.h"
 #include "ucioption.h"
+#include "perft.h"
 
 namespace Stockfish {
 
@@ -199,6 +200,12 @@ void UCI::go(Position& pos, std::istringstream& is, StateListPtr& states) {
             ponderMode = true;
 
     Eval::NNUE::verify(options, evalFile);
+
+    if (limits.perft)
+    {
+        perft(pos.fen(), limits.perft);
+        return;
+    }
 
     threads.start_thinking(pos, states, limits, ponderMode);
 }
