@@ -94,7 +94,7 @@ jobs:
 
       # Artifacts automatically get zipped.
       # To avoid double-zipping, we use the unzipped directory
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:	
           name: Pikafish
           path: |
@@ -156,7 +156,7 @@ jobs:
 
       # Artifacts automatically get zipped.
       # To avoid double-zipping, we use the unzipped directory
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:	
           name: Pikafish	
           path: |
