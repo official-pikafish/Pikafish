@@ -1305,11 +1305,11 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta,
         // 2 fold result is mate for us, the only chance for the opponent is to get a draw
         // We can guarantee to get at least a draw score during searching for that line
         if (result > VALUE_DRAW)
-            alpha = std::max(alpha, VALUE_DRAW - 1);
+            alpha = std::max(alpha, VALUE_DRAW);
         // 2 fold result is mated for us, the only chance for us is to get a draw
         // We can guarantee to get no more than a draw score during searching for that line
         else
-            beta = std::min(beta, VALUE_DRAW + 1);
+            beta = std::min(beta, VALUE_DRAW);
 
         if (alpha >= beta)
             return alpha;
