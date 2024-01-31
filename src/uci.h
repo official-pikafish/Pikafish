@@ -19,7 +19,6 @@
 #ifndef UCI_H_INCLUDED
 #define UCI_H_INCLUDED
 
-#include <cstdint>
 #include <iostream>
 #include <string>
 
@@ -33,10 +32,6 @@
 namespace Stockfish {
 
 class Position;
-
-namespace Search {
-class Worker;
-}
 
 class Move;
 enum Square : int;
@@ -52,8 +47,6 @@ class UCI {
     static std::string value(Value v);
     static std::string square(Square s);
     static std::string move(Move m);
-    static std::string
-    pv(const Search::Worker& workerThread, TimePoint elapsed, uint64_t nodesSearched, int hashfull);
     static std::string wdl(Value v, int ply);
     static Move        to_move(const Position& pos, std::string& str);
 

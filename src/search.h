@@ -25,6 +25,7 @@
 #include <cstdint>
 #include <memory>
 #include <vector>
+#include <string>
 
 #include "misc.h"
 #include "movepick.h"
@@ -144,6 +145,11 @@ class ISearchManager {
 class SearchManager: public ISearchManager {
    public:
     void check_time(Search::Worker& worker) override;
+
+    std::string pv(const Search::Worker&     worker,
+                   const ThreadPool&         threads,
+                   const TranspositionTable& tt,
+                   Depth                     depth) const;
 
     Stockfish::TimeManagement tm;
     int                       callsCnt;

@@ -28,6 +28,7 @@
 #include <optional>
 #include <sstream>
 #include <vector>
+#include <cstdint>
 
 #include "benchmark.h"
 #include "evaluate.h"
@@ -341,56 +342,6 @@ std::string UCI::move(Move m) {
     std::string move = square(from) + square(to);
 
     return move;
-}
-
-std::string UCI::pv(const Search::Worker& workerThread,
-                    TimePoint             elapsed,
-                    uint64_t              nodesSearched,
-                    int                   hashfull) {
-    std::stringstream ss;
-    TimePoint         time      = elapsed + 1;
-    const auto&       rootMoves = workerThread.rootMoves;
-    const auto&       depth     = workerThread.completedDepth;
-    const auto&       pos       = workerThread.rootPos;
-    size_t            pvIdx     = workerThread.pvIdx;
-    size_t            multiPV = std::min(size_t(workerThread.options["MultiPV"]), rootMoves.size());
-
-    for (size_t i = 0; i < multiPV; ++i)
-    {
-        bool updated = rootMoves[i].score != -VALUE_INFINITE;
-
-        if (depth == 1 && !updated && i > 0)
-            continue;
-
-        Depth d = updated ? depth : std::max(1, depth - 1);
-        Value v = updated ? rootMoves[i].uciScore : rootMoves[i].previousScore;
-
-        if (v == -VALUE_INFINITE)
-            v = VALUE_ZERO;
-
-        if (ss.rdbuf()->in_avail())  // Not at first line
-            ss << "\n";
-
-        ss << "info"
-           << " depth " << d << " seldepth " << rootMoves[i].selDepth << " multipv " << i + 1
-           << " score " << value(v);
-
-        if (workerThread.options["UCI_ShowWDL"])
-            ss << wdl(v, pos.game_ply());
-
-        if (i == pvIdx && updated)  // previous-scores are exact
-            ss << (rootMoves[i].scoreLowerbound
-                     ? " lowerbound"
-                     : (rootMoves[i].scoreUpperbound ? " upperbound" : ""));
-
-        ss << " nodes " << nodesSearched << " nps " << nodesSearched * 1000 / time << " hashfull "
-           << hashfull << " tbhits " << 0 << " time " << time << " pv";
-
-        for (Move m : rootMoves[i].pv)
-            ss << " " << move(m);
-    }
-
-    return ss.str();
 }
 
 namespace {
