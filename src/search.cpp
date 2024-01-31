@@ -485,9 +485,22 @@ Value Search::Worker::search(
     if (!rootNode)
     {
         // Step 2. Check for aborted search and repetition
-        Value result;
+        Value result = VALUE_NONE;
         if (pos.rule_judge(result, ss->ply))
             return result == VALUE_DRAW ? value_draw(thisThread->nodes) : result;
+        if (result != VALUE_NONE)
+        {
+            assert(result != VALUE_DRAW);
+
+            // 2 fold result is mate for us, the only chance for the opponent is to get a draw
+            // We can guarantee to get at least a draw score during searching for that line
+            if (result > VALUE_DRAW)
+                alpha = std::max(alpha, VALUE_DRAW - 1);
+            // 2 fold result is mated for us, the only chance for us is to get a draw
+            // We can guarantee to get no more than a draw score during searching for that line
+            else
+                beta = std::min(beta, VALUE_DRAW + 1);
+        }
 
         if (threads.stop.load(std::memory_order_relaxed) || ss->ply >= MAX_PLY)
             return (ss->ply >= MAX_PLY && !ss->inCheck) ? evaluate(pos, thisThread->optimism[us])
@@ -1286,9 +1299,25 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta,
         thisThread->selDepth = ss->ply + 1;
 
     // Step 2. Check for repetition or maximum ply reached
-    Value result;
+    Value result = VALUE_NONE;
     if (pos.rule_judge(result, ss->ply))
         return result;
+    if (result != VALUE_NONE)
+    {
+        assert(result != VALUE_DRAW);
+
+        // 2 fold result is mate for us, the only chance for the opponent is to get a draw
+        // We can guarantee to get at least a draw score during searching for that line
+        if (result > VALUE_DRAW)
+            alpha = std::max(alpha, VALUE_DRAW - 1);
+        // 2 fold result is mated for us, the only chance for us is to get a draw
+        // We can guarantee to get no more than a draw score during searching for that line
+        else
+            beta = std::min(beta, VALUE_DRAW + 1);
+
+        if (alpha >= beta)
+            return alpha;
+    }
 
     if (ss->ply >= MAX_PLY)
         return !ss->inCheck ? evaluate(pos, thisThread->optimism[us]) : VALUE_DRAW;
