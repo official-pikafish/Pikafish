@@ -839,15 +839,16 @@ uint16_t Position::chased(Color c) {
             continue;
 
         // Knight and Cannon attacks against protected rooks
-        Bitboard candidates = 0;
         if (attackerType == KNIGHT || attackerType == CANNON)
-            candidates = attacks & pieces(~sideToMove, ROOK);
-        attacks ^= candidates;
-        while (candidates)
         {
-            Square to = pop_lsb(candidates);
-            if (chase_legal(Move(from, to)))
-                chase |= (1 << idBoard[to]);
+            Bitboard candidates = attacks & pieces(~sideToMove, ROOK);
+            attacks ^= candidates;
+            while (candidates)
+            {
+                Square to = pop_lsb(candidates);
+                if (chase_legal(Move(from, to)))
+                    chase |= (1 << idBoard[to]);
+            }
         }
 
         // Attacks against potentially unprotected pieces
