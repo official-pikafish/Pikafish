@@ -834,24 +834,6 @@ uint16_t Position::chased(Color c) {
             attacks &= (pieces(~sideToMove) ^ pieces(~sideToMove, KING, PAWN))
                      | (pieces(~sideToMove, PAWN) & HalfBB[sideToMove]);
 
-        // Skip if no attacks
-        if (!attacks)
-            continue;
-
-        // Knight and Cannon attacks against protected rooks
-        if (attackerType == KNIGHT || attackerType == CANNON)
-        {
-            Bitboard candidates = attacks & pieces(~sideToMove, ROOK);
-            attacks ^= candidates;
-            while (candidates)
-            {
-                Square to = pop_lsb(candidates);
-                if (chase_legal(Move(from, to)))
-                    chase |= (1 << idBoard[to]);
-            }
-        }
-
-        // Attacks against potentially unprotected pieces
         while (attacks)
         {
             Square to = pop_lsb(attacks);
@@ -859,33 +841,41 @@ uint16_t Position::chased(Color c) {
 
             if (chase_legal(m))
             {
-                bool trueChase             = true;
-                const auto& [captured, id] = light_do_move(m);
-                Bitboard recaptures        = attackers_to(to) & pieces(sideToMove);
-                while (recaptures)
+                // Knight and Cannon attacks against protected rooks
+                if ((attackerType == KNIGHT || attackerType == CANNON)
+                    && type_of(piece_on(to)) == ROOK)
+                    chase |= (1 << idBoard[to]);
+                // Attacks against potentially unprotected pieces
+                else
                 {
-                    Square s = pop_lsb(recaptures);
-                    if (chase_legal(Move(s, to)))
+                    bool trueChase             = true;
+                    const auto& [captured, id] = light_do_move(m);
+                    Bitboard recaptures        = attackers_to(to) & pieces(sideToMove);
+                    while (recaptures)
                     {
-                        trueChase = false;
-                        break;
+                        Square s = pop_lsb(recaptures);
+                        if (chase_legal(Move(s, to)))
+                        {
+                            trueChase = false;
+                            break;
+                        }
                     }
-                }
-                light_undo_move(m, captured, id);
+                    light_undo_move(m, captured, id);
 
-                if (trueChase)
-                {
-                    // Exclude mutual/symmetric attacks except pins
-                    if (attackerType == type_of(piece_on(to)))
+                    if (trueChase)
                     {
-                        sideToMove = ~sideToMove;
-                        if ((attackerType == KNIGHT && ((between_bb(from, to) ^ to) & pieces()))
-                            || !chase_legal(Move(to, from)))
+                        // Exclude mutual/symmetric attacks except pins
+                        if (attackerType == type_of(piece_on(to)))
+                        {
+                            sideToMove = ~sideToMove;
+                            if ((attackerType == KNIGHT && ((between_bb(from, to) ^ to) & pieces()))
+                                || !chase_legal(Move(to, from)))
+                                chase |= (1 << idBoard[to]);
+                            sideToMove = ~sideToMove;
+                        }
+                        else
                             chase |= (1 << idBoard[to]);
-                        sideToMove = ~sideToMove;
                     }
-                    else
-                        chase |= (1 << idBoard[to]);
                 }
             }
         }
