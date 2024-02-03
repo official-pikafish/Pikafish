@@ -969,7 +969,10 @@ Value Position::detect_chases(int d, int ply) {
 bool Position::rule_judge(Value& result, int ply) const {
 
     // Draw by insufficient material
-    if (!major_material() && count<PAWN>() == 0)
+    if (count<PAWN>() == 0
+        && (!major_material() || (count<ADVISOR>() == 0 && major_material() == CannonValue)
+            || (count<ALL_PIECES>() == 4 && count<CANNON>(WHITE) == 1
+                && count<CANNON>(BLACK) == 1)))
     {
         result = VALUE_DRAW;
         return true;
