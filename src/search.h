@@ -66,7 +66,7 @@ struct Stack {
     bool            inCheck;
     bool            ttPv;
     bool            ttHit;
-    int             doubleExtensions;
+    int             multipleExtensions;
     int             cutoffCnt;
 };
 
@@ -132,9 +132,8 @@ struct SharedState {
 
 class Worker;
 
-// Null Object Pattern, implement a common interface
-// for the SearchManagers. A Null Object will be given to
-// non-mainthread workers.
+// Null Object Pattern, implement a common interface for the SearchManagers.
+// A Null Object will be given to non-mainthread workers.
 class ISearchManager {
    public:
     virtual ~ISearchManager() {}
@@ -181,8 +180,8 @@ class Worker {
     // Reset histories, usually before a new game
     void clear();
 
-    // Called when the program receives the UCI 'go'
-    // command. It searches from the root position and outputs the "bestmove".
+    // Called when the program receives the UCI 'go' command.
+    // It searches from the root position and outputs the "bestmove".
     void start_searching();
 
     bool is_mainthread() const { return thread_idx == 0; }
