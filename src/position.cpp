@@ -968,16 +968,6 @@ Value Position::detect_chases(int d, int ply) {
 // perpetual check repetition or perpetual chase repetition that allows a player to claim a game result.
 bool Position::rule_judge(Value& result, int ply) const {
 
-    // Draw by insufficient material
-    if (count<PAWN>() == 0
-        && (!major_material() || (count<ADVISOR>() == 0 && major_material() == CannonValue)
-            || (count<ALL_PIECES>() == 4 && count<CANNON>(WHITE) == 1
-                && count<CANNON>(BLACK) == 1)))
-    {
-        result = VALUE_DRAW;
-        return true;
-    }
-
     // Restore rule 60 by adding back the checks
     int end = std::min(st->rule60 + std::max(0, st->check10[WHITE] - 10)
                          + std::max(0, st->check10[BLACK] - 10),
@@ -1024,6 +1014,43 @@ bool Position::rule_judge(Value& result, int ply) const {
             if (i + 1 <= end)
                 checkUs &= bool(stp->previous->checkersBB);
         }
+    }
+
+    // Draw by insufficient material
+    if ([&] {
+            if (count<PAWN>() == 0)
+            {
+                // No attacking pieces left
+                if (!major_material())
+                    return true;
+
+                // Only one cannon left on the board
+                if (major_material() == CannonValue)
+                {
+                    // No advisors left on the board
+                    if (count<ADVISOR>() == 0)
+                        return true;
+
+                    // The side not holding the cannon can possess one advisor
+                    // The side holding the cannon should only have cannon
+                    if ((count<ALL_PIECES>(WHITE) == 2 && count<CANNON>(WHITE) == 1
+                         && count<ADVISOR>(BLACK) == 1)
+                        || (count<ALL_PIECES>(BLACK) == 2 && count<CANNON>(BLACK) == 1
+                            && count<ADVISOR>(WHITE) == 1))
+                        return true;
+                }
+
+                // Two cannons left on the board, one for each side, but no other pieces left on the board
+                if (count<ALL_PIECES>() == 4 && count<CANNON>(WHITE) == 1
+                    && count<CANNON>(BLACK) == 1)
+                    return true;
+            }
+
+            return false;
+        }())
+    {
+        result = VALUE_DRAW;
+        return true;
     }
 
     // 60 move rule
