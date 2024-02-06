@@ -94,9 +94,9 @@ jobs:
 
       # Artifacts automatically get zipped.
       # To avoid double-zipping, we use the unzipped directory
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:	
-          name: Pikafish
+          name: Pikafish-${{ matrix.config.name }}${{ matrix.arch }}
           path: |
             ${{ matrix.config.name }}/*
             Wiki
@@ -156,9 +156,9 @@ jobs:
 
       # Artifacts automatically get zipped.
       # To avoid double-zipping, we use the unzipped directory
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:	
-          name: Pikafish	
+          name: Pikafish-Android-${{ matrix.arch }}
           path: |
             Android/*
             AUTHORS
