@@ -79,12 +79,7 @@ jobs:
           wget -q https://github.com/official-pikafish/Networks/releases/download/master-net/pikafish.nnue
           make -j profile-build EXE=$EXE WINE_PATH="$SDE"
           make strip EXE=$EXE
-
-      - name: Copy binary to folder
-        run: |
-          cd ..
-          mkdir ${{ matrix.config.name }}
-          cp src/$EXE ${{ matrix.config.name }}
+          cp $EXE ../
 
       - name: Download wiki
         run: |
@@ -94,11 +89,54 @@ jobs:
 
       # Artifacts automatically get zipped.
       # To avoid double-zipping, we use the unzipped directory
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:	
-          name: Pikafish
+          name: Pikafish-${{ matrix.config.name }}${{ matrix.arch }}
           path: |
-            ${{ matrix.config.name }}/*
+            ${{ env.EXE }}
+            Wiki
+            AUTHORS
+            CONTRIBUTING.md
+            Copying.txt
+            README.md
+            Top CPU Contributors.txt
+
+  Pikafish-MacOS-M1:
+    name: MacOS-apple-silicon
+    runs-on: macos-14
+    env:
+      ARCH: apple-silicon
+      COMPILER: clang++
+      COMP: clang
+      EXE: pikafish-apple-silicon
+    defaults:
+      run:
+        working-directory: src
+        shell: bash
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compile apple-silicon build
+        run: |
+          wget -q https://github.com/official-pikafish/Networks/releases/download/master-net/pikafish.nnue
+          make -j profile-build EXE=$EXE
+          make strip EXE=$EXE
+          cp $EXE ../
+
+      - name: Download wiki
+        run: |
+          git clone https://github.com/official-pikafish/Pikafish.wiki.git ../Wiki
+          cd ../Wiki
+          rm -rf .git
+
+      # Artifacts automatically get zipped.
+      # To avoid double-zipping, we use the unzipped directory
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Pikafish-MacOS-M1-apple-silicon
+          path: |
+            ${{ env.EXE }}
             Wiki
             AUTHORS
             CONTRIBUTING.md
@@ -147,18 +185,17 @@ jobs:
           wget -q https://github.com/official-pikafish/Networks/releases/download/master-net/pikafish.nnue
           make -j profile-build EXE=$EXE WINE_PATH=$EMU
           make strip EXE=$EXE
-
-      - name: Copy binary to folder
-        run: |
-          cd ..
-          mkdir Android
-          cp src/$EXE Android
+          cp $EXE ../
 
       # Artifacts automatically get zipped.
       # To avoid double-zipping, we use the unzipped directory
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:	
-          name: Pikafish	
+          name: Pikafish-Android-${{ matrix.arch }}
           path: |
-            Android/*
+            ${{ env.EXE }}
             AUTHORS
+            CONTRIBUTING.md
+            Copying.txt
+            README.md
+            Top CPU Contributors.txt
