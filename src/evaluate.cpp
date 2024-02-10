@@ -150,7 +150,7 @@ Value Eval::evaluate(const Position& pos, int optimism) {
     v = v * (263 - shuffling) / 192;
 
     // Guarantee evaluation does not hit the mate range
-    v = std::clamp(int(v), VALUE_MATED_IN_MAX_PLY + 1, VALUE_MATE_IN_MAX_PLY - 1);
+    v = std::clamp(v, VALUE_MATED_IN_MAX_PLY + 1, VALUE_MATE_IN_MAX_PLY - 1);
 
     return v;
 }
