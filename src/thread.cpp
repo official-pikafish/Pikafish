@@ -24,6 +24,7 @@
 #include <memory>
 #include <unordered_map>
 #include <utility>
+#include <array>
 
 #include "misc.h"
 #include "movegen.h"
@@ -196,6 +197,7 @@ void ThreadPool::start_thinking(Position&          pos,
         th->worker->rootMoves                              = rootMoves;
         th->worker->rootPos.set(pos, &th->worker->rootState);
         th->worker->rootState = setupStates->back();
+        th->worker->effort    = {};
     }
 
     main_thread()->start_searching();
