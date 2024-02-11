@@ -960,11 +960,6 @@ moves_loop:  // When in check, search starts here
                     extension = -1;
             }
 
-            // Quiet ttMove extensions (~1 Elo)
-            else if (PvNode && move == ttMove && move == ss->killers[0]
-                     && (*contHist[0])[movedPiece][move.to_sq()] >= 7061)
-                extension = 1;
-
             // Recapture extensions (~1 Elo)
             else if (PvNode && move == ttMove && move.to_sq() == prevSq
                      && thisThread->captureHistory[movedPiece][move.to_sq()]
