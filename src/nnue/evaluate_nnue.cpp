@@ -181,7 +181,7 @@ Value evaluate(const Position& pos, bool adjusted, int* complexity) {
 
     // Adjust psqt and positional ratio in evaluation when adjusted flag is set
     if (adjusted)
-        return static_cast<Value>((1414 * psqt + 1448 * positional) / (860 * OutputScale));
+        return static_cast<Value>((1740 * psqt + 1798 * positional) / (953 * OutputScale));
     else
         return static_cast<Value>((psqt + positional) / OutputScale);
 }
