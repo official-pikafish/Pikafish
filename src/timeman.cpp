@@ -90,21 +90,21 @@ void TimeManagement::init(Search::LimitsType& limits,
                                                   - moveOverhead * (2 + mtg));
 
     // Use extra time with larger increments
-    double optExtra = std::clamp(1.0 + 12.7 * limits.inc[us] / limits.time[us], 1.0, 1.12);
+    double optExtra = std::clamp(0.9 + 14.2 * limits.inc[us] / limits.time[us], 1.0, 1.00);
 
     // Calculate time constants based on current time left.
-    double optConstant = std::min(0.00352 + 0.0002 * std::log10(limits.time[us] / 1000.0), 0.0048);
-    double maxConstant = std::max(3.6 + 2.9 * std::log10(limits.time[us] / 1000.0), 2.6);
+    double optConstant = std::min(0.00344 + 0.0002 * std::log10(limits.time[us] / 1000.0), 0.0045);
+    double maxConstant = std::max(3.9 + 3.1 * std::log10(limits.time[us] / 1000.0), 2.5);
 
     // x basetime (+ z increment)
     // If there is a healthy increment, timeLeft can exceed actual available
     // game time for the current move, so also cap to 20% of available game time.
     if (limits.movestogo == 0)
     {
-        optScale = std::min(0.0124 + std::pow(ply + 3.2, 0.45) * optConstant,
+        optScale = std::min(0.0155 + std::pow(ply + 3.0, 0.45) * optConstant,
                             0.2 * limits.time[us] / double(timeLeft))
                  * optExtra;
-        maxScale = std::min(7.0, maxConstant + ply / 12.3);
+        maxScale = std::min(6.5, maxConstant + ply / 13.6);
     }
 
     // x moves in y seconds (+ z increment)
@@ -117,7 +117,7 @@ void TimeManagement::init(Search::LimitsType& limits,
     // Limit the maximum possible time for this move
     optimumTime = TimePoint(optScale * timeLeft);
     maximumTime =
-      TimePoint(std::min(0.85 * limits.time[us] - moveOverhead, maxScale * optimumTime)) - 10;
+      TimePoint(std::min(0.81 * limits.time[us] - moveOverhead, maxScale * optimumTime)) - 10;
 
     if (options["Ponder"])
         optimumTime += optimumTime / 4;

@@ -140,14 +140,14 @@ Value Eval::evaluate(const Position& pos, int optimism) {
     Value nnue = NNUE::evaluate(pos, true, &nnueComplexity);
 
     // Blend optimism and eval with nnue complexity and material imbalance
-    optimism += optimism * (nnueComplexity + std::abs(simpleEval - nnue)) / 708;
-    nnue -= nnue * (nnueComplexity + std::abs(simpleEval - nnue)) / 32858;
+    optimism += optimism * (nnueComplexity + std::abs(simpleEval - nnue)) / 781;
+    nnue -= nnue * (nnueComplexity + std::abs(simpleEval - nnue)) / 30087;
 
-    int mm = pos.major_material() / 42;
-    v      = (nnue * (545 + mm) + optimism * (128 + mm)) / 1312;
+    int mm = pos.major_material() / 41;
+    v      = (nnue * (568 + mm) + optimism * (138 + mm)) / 1434;
 
     // Damp down the evaluation linearly when shuffling
-    v = v * (263 - shuffling) / 192;
+    v = v * (293 - shuffling) / 194;
 
     // Guarantee evaluation does not hit the mate range
     v = std::clamp(v, VALUE_MATED_IN_MAX_PLY + 1, VALUE_MATE_IN_MAX_PLY - 1);

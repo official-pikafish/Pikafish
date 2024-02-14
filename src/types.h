@@ -145,12 +145,12 @@ constexpr Value VALUE_MATE             = 32000;
 constexpr Value VALUE_MATE_IN_MAX_PLY  = VALUE_MATE - MAX_PLY;
 constexpr Value VALUE_MATED_IN_MAX_PLY = -VALUE_MATE_IN_MAX_PLY;
 
-constexpr Value RookValue    = 1203;
-constexpr Value AdvisorValue = 245;
-constexpr Value CannonValue  = 686;
-constexpr Value PawnValue    = 127;
-constexpr Value KnightValue  = 893;
-constexpr Value BishopValue  = 204;
+constexpr Value RookValue    = 1213;
+constexpr Value AdvisorValue = 216;
+constexpr Value CannonValue  = 746;
+constexpr Value PawnValue    = 140;
+constexpr Value KnightValue  = 964;
+constexpr Value BishopValue  = 191;
 
 // clang-format off
 enum PieceType {
