@@ -48,21 +48,22 @@ static void affine_transform_non_ssse3(std::int32_t* output,
                                        const std::int32_t* biases, 
                                        const std::uint8_t* input)
 {
-# if defined(USE_WASM_SIMD)
+    #if defined(USE_WASM_SIMD)
     {
-      // Simplify variable names (y = Ax + b)
-      constexpr int n = InputDimensions;
-      constexpr int m = OutputDimensions;
-      constexpr int n_stride = PaddedInputDimensions;
-      auto A = *reinterpret_cast<const int8_t(*)[m][n_stride]>(weights);
-      auto x = *reinterpret_cast<const uint8_t(*)[n]>(input);
-      auto b = *reinterpret_cast<const int32_t(*)[m]>(biases);
-      auto y = *reinterpret_cast<int32_t(*)[m]>(output);
-      emscripten_wasm_simd::affine<n, m, n_stride>(A, x, b, y);
-      return;
+        // Simplify variable names (y = Ax + b)
+        constexpr int n = InputDimensions;
+        constexpr int m = OutputDimensions;
+        constexpr int n_stride = PaddedInputDimensions;
+        auto A = *reinterpret_cast<const int8_t(*)[m][n_stride]>(weights);
+        auto x = *reinterpret_cast<const uint8_t(*)[n]>(input);
+        auto b = *reinterpret_cast<const int32_t(*)[m]>(biases);
+        auto y = *reinterpret_cast<int32_t(*)[m]>(output);
+        emscripten_wasm_simd::affine<n, m, n_stride>(A, x, b, y);
+        return;
     }
-# endif
+    #endif
 
+    #if defined(USE_SSE2) || defined(USE_NEON_DOTPROD) || defined(USE_NEON)
         # if defined(USE_SSE2)
     // At least a multiple of 16, with SSE2.
     constexpr IndexType NumChunks   = ceil_to_multiple<IndexType>(InputDimensions, 16) / 16;

@@ -43,8 +43,11 @@ Thread::Thread(Search::SharedState&                    sharedState,
                size_t                                  n) :
     worker(std::make_unique<Search::Worker>(sharedState, std::move(sm), n)),
     idx(n),
-    nthreads(sharedState.options["Threads"]),
-    stdThread(&Thread::idle_loop, this) {
+    nthreads(sharedState.options["Threads"])
+#ifndef SINGLE_THREAD
+    , stdThread(&Thread::idle_loop, this) 
+#endif
+{
 
     wait_for_search_finished();
 }
@@ -71,7 +74,7 @@ void Thread::start_searching() {
     mutex.unlock();   // Unlock before notifying saves a few CPU-cycles
     cv.notify_one();  // Wake up the thread in idle_loop()
 #else
-    search();
+    worker->start_searching();
 #endif
 }
 
@@ -86,12 +89,10 @@ void Thread::wait_for_search_finished() {
 #endif
 }
 
-#ifndef SINGLE_THREAD
-
 // Thread gets parked here, blocked on the
 // condition variable, when it has no work to do.
 void Thread::idle_loop() {
-
+#ifndef SINGLE_THREAD
     // If OS already scheduled us on a different group than 0 then don't overwrite
     // the choice, eventually we are one of many one-threaded processes running on
     // some Windows NUMA hardware, for instance in fishtest. To make it simple,
@@ -114,6 +115,7 @@ void Thread::idle_loop() {
 
         worker->start_searching();
     }
+#endif
 }
 
 // Creates/destroys threads to match the requested number.

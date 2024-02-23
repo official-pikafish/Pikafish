@@ -40,6 +40,12 @@
 #include "ucioption.h"
 #include "perft.h"
 
+#if defined(__EMSCRIPTEN__)
+    #define EM_STATIC static
+#else
+    #define EM_STATIC 
+#endif
+
 namespace Stockfish {
 
 constexpr auto StartFEN = "rnbakabnr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C5C1/9/RNBAKABNR w";
@@ -78,17 +84,10 @@ UCI::UCI(int argc, char** argv) :
 }
 
 void UCI::loop() {
-
-#if defined(__EMSCRIPTEN__)
-    #define EM_STATIC static
-#else
-    #define EM_STATIC 
-#endif
-
-    std::string  token, cmd;
+    std::string            token, cmd;
     EM_STATIC Position     pos;
     EM_STATIC StateListPtr states(new std::deque<StateInfo>(1));
-    EM_STATIC auto __init_once = [&]() {
+    [[maybe_unused]] EM_STATIC auto __init_once = [&]() {
         pos.set(StartFEN, &states->back());
         return 0;
     }();
@@ -402,19 +401,23 @@ Move UCI::to_move(const Position& pos, std::string& str) {
 
 // Execute UCI::loop() only once.
 extern "C" void wasm_uci_execute() {
-  string input;
-  std::getline(std::cin, input);
-  char *argv[2] = {input.data(), input.data()};
+    using namespace Stockfish;
 
-  EM_STATIC UCI uci = [&]() {
-    Bitboards::init();
-    Position::init();
-    UCI uci(2, argv);
-    Tune::init(uci.options);
-    uci.evalFile = Eval::NNUE::load_networks(uci.workingDirectory(), uci.options, uci.evalFile);
-    return uci;
-  }();
+    std::string input;
+    std::getline(std::cin, input);
+    char *argv[2] = {input.data(), input.data()};
+    CommandLine cli(2, argv);
 
-  uci.cli = {2, argv};
-  uci.loop();
+    std::unique_ptr<UCI> uci;
+    [[maybe_unused]] EM_STATIC auto __init_once = [&]() {
+        Bitboards::init();
+        Position::init();
+        uci = std::make_unique<UCI>(2, argv);
+        Tune::init(uci->options);
+        uci->evalFile = Eval::NNUE::load_networks(uci->workingDirectory(), uci->options, uci->evalFile);
+        return 0;
+    }();
+
+    uci->set_cli(cli);
+    uci->loop();
 }

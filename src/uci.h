@@ -42,6 +42,7 @@ class UCI {
     UCI(int argc, char** argv);
 
     void loop();
+    void set_cli(const CommandLine& cli) { this->cli = cli; }
 
     static int         to_cp(Value v);
     static std::string value(Value v);

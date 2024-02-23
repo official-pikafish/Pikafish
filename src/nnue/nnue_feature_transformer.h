@@ -199,32 +199,30 @@ inline vec_t vec_msb_pack_16(vec_t a, vec_t b) {
     #define NumRegistersSIMD 16
     #define MaxChunkSize 16
 
-#else
-    #undef VECTOR
-
 #elif USE_WASM_SIMD
-  typedef __i16x8 vec_t;
-  typedef __i32x4 psqt_vec_t;
-  #define vec_load(a) wasm_v128_load(a)
-  #define vec_store(a,b) wasm_v128_store(a, b)
-  #define vec_add_16(a,b) wasm_i16x8_add(a,b)
-  #define vec_sub_16(a,b) wasm_i16x8_sub(a,b)
-  #define vec_mul_16(a,b) wasm_i16x8_mul(a,b)
-  #define vec_zero() wasm_i16x8_splat(0)
-  #define vec_set_16(a) wasm_i16x8_splat(a)
-  #define vec_max_16(a,b) wasm_i16x8_max(a,b)
-  #define vec_min_16(a,b) wasm_i16x8_min(a,b)
-  #define vec_msb_pack_16(a,b) wasm_i8x16_narrow_i16x8(wasm_u16x8_shr(a, 7), wasm_u16x8_shr(b, 7))
-  #define vec_load_psqt(a) wasm_v128_load(a)
-  #define vec_store_psqt(a,b) wasm_v128_store(a, b)
-  #define vec_add_psqt_32(a,b) wasm_i32x4_add(a,b)
-  #define vec_sub_psqt_32(a,b) wasm_i32x4_sub(a,b)
-  #define vec_zero_psqt() wasm_i32x4_splat(0)
-  #define NumRegistersSIMD 16 // TODO: investigate how this affects performance
-  #define MaxChunkSize 16
+using vec_t      = __i16x8;
+using psqt_vec_t = __i32x4;
+    #define vec_load(a) wasm_v128_load(a)
+    #define vec_store(a,b) wasm_v128_store(a, b)
+    #define vec_add_16(a,b) wasm_i16x8_add(a,b)
+    #define vec_sub_16(a,b) wasm_i16x8_sub(a,b)
+    #define vec_mul_16(a,b) wasm_i16x8_mul(a,b)
+    #define vec_zero() wasm_i16x8_splat(0)
+    #define vec_set_16(a) wasm_i16x8_splat(a)
+    #define vec_max_16(a,b) wasm_i16x8_max(a,b)
+    #define vec_min_16(a,b) wasm_i16x8_min(a,b)
+    #define vec_msb_pack_16(a,b) wasm_i8x16_narrow_i16x8(wasm_u16x8_shr(a, 7), wasm_u16x8_shr(b, 7))
+    #define vec_load_psqt(a) wasm_v128_load(a)
+    #define vec_store_psqt(a,b) wasm_v128_store(a, b)
+    #define vec_add_psqt_32(a,b) wasm_i32x4_add(a,b)
+    #define vec_sub_psqt_32(a,b) wasm_i32x4_sub(a,b)
+    #define vec_zero_psqt() wasm_i32x4_splat(0)
+    #define NumRegistersSIMD 16 // TODO: investigate how this affects performance
+    #define MaxChunkSize 16
 
 #else
   #undef VECTOR
+#endif
 
 
 #ifdef VECTOR

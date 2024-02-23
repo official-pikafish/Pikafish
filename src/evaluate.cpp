@@ -57,9 +57,9 @@ EvalFile NNUE::load_networks(const std::string& rootDirectory,
         user_eval_file = evalFile.defaultName;
 
 #ifdef __EMSCRIPTEN__
-    vector<string> dirs = { "/" };
+    std::vector<std::string> dirs = { "/" };
 #else
-    vector<string> dirs = { "" , rootDirectory };
+    std::vector<std::string> dirs = { "" , rootDirectory };
 #endif
 
     for (const std::string& directory : dirs)
