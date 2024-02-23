@@ -1,6 +1,6 @@
 /*
   Stockfish, a UCI chess playing engine derived from Glaurung 2.1
-  Copyright (C) 2004-2023 The Stockfish developers (see AUTHORS file)
+  Copyright (C) 2004-2024 The Stockfish developers (see AUTHORS file)
 
   Stockfish is free software: you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -16,168 +16,177 @@
   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include "evaluate.h"
+
 #include <algorithm>
 #include <cassert>
+#include <cmath>
 #include <cstdlib>
-#include <cstring>   // For std::memset
 #include <fstream>
 #include <iomanip>
-#include <sstream>
 #include <iostream>
-#include <streambuf>
+#include <optional>
+#include <sstream>
 #include <vector>
 
-#include "bitboard.h"
-#include "evaluate.h"
 #include "misc.h"
-#include "thread.h"
+#include "nnue/evaluate_nnue.h"
+#include "position.h"
+#include "types.h"
 #include "uci.h"
-
-using namespace std;
+#include "ucioption.h"
 
 namespace Stockfish {
 
 namespace Eval {
 
-  string currentEvalFileName = "None";
+std::string currentEvalFileName = "None";
 
-  /// NNUE::init() tries to load a NNUE network at startup time, or when the engine
-  /// receives a UCI command "setoption name EvalFile value .*.nnue"
-  /// The name of the NNUE network is always retrieved from the EvalFile option.
-  /// We search the given network in two locations: in the active working directory and
-  /// in the engine directory.
+// Tries to load a NNUE network at startup time, or when the engine
+// receives a UCI command "setoption name EvalFile value .*.nnue"
+// The name of the NNUE network is always retrieved from the EvalFile option.
+// We search the given network in two locations: in the active working directory and
+// in the engine directory.
+EvalFile NNUE::load_networks(const std::string& rootDirectory,
+                             const OptionsMap&  options,
+                             EvalFile           evalFile) {
 
-  void NNUE::init() {
+    std::string user_eval_file = options[evalFile.optionName];
 
-    string eval_file = string(Options["EvalFile"]);
-    if (eval_file.empty())
-        eval_file = EvalFileDefaultName;
+    if (user_eval_file.empty())
+        user_eval_file = evalFile.defaultName;
 
 #ifdef __EMSCRIPTEN__
     vector<string> dirs = { "/" };
 #else
-    vector<string> dirs = { "" , CommandLine::binaryDirectory };
+    vector<string> dirs = { "" , rootDirectory };
 #endif
 
-    for (const string& directory : dirs)
-        if (currentEvalFileName != eval_file)
+    for (const std::string& directory : dirs)
+        if (evalFile.current != user_eval_file)
         {
-            ifstream stream(directory + eval_file, ios::binary);
-            stringstream ss = read_zipped_nnue(directory + eval_file);
-            if (load_eval(eval_file, stream) || load_eval(eval_file, ss))
-                currentEvalFileName = eval_file;
+            std::stringstream ss          = read_zipped_nnue(directory + user_eval_file);
+            auto              description = NNUE::load_eval(ss);
+            if (!description.has_value())
+            {
+                std::ifstream stream(directory + user_eval_file, std::ios::binary);
+                description = NNUE::load_eval(stream);
+            }
+
+            if (description.has_value())
+            {
+                evalFile.current        = user_eval_file;
+                evalFile.netDescription = description.value();
+            }
         }
-  }
 
-  /// NNUE::verify() verifies that the last net used was loaded successfully
-  void NNUE::verify() {
+    return evalFile;
+}
 
-  #ifdef SIMPLE_EVAL
-    return;
-  #endif
+// Verifies that the last net used was loaded successfully
+void NNUE::verify(const OptionsMap& options, const EvalFile& evalFile) {
 
-    string eval_file = string(Options["EvalFile"]);
-    if (eval_file.empty())
-        eval_file = EvalFileDefaultName;
+    std::string user_eval_file = options[evalFile.optionName];
 
-    if (currentEvalFileName != eval_file)
+    if (user_eval_file.empty())
+        user_eval_file = evalFile.defaultName;
+
+    if (evalFile.current != user_eval_file)
     {
 
-        string msg1 = "Network evaluation parameters compatible with the engine must be available.";
-        string msg2 = "The network file " + eval_file + " was not loaded successfully.";
-        string msg3 = "The UCI option EvalFile might need to specify the full path, including the directory name, to the network file.";
-        string msg4 = "The engine will be terminated now.";
+        std::string msg1 =
+          "Network evaluation parameters compatible with the engine must be available.";
+        std::string msg2 = "The network file " + user_eval_file + " was not loaded successfully.";
+        std::string msg3 = "The UCI option EvalFile might need to specify the full path, "
+                           "including the directory name, to the network file.";
+        std::string msg4 =
+          "The default net can be downloaded from: "
+          "https://github.com/official-pikafish/Networks/releases/download/master-net/"
+          + evalFile.defaultName;
+        std::string msg5 = "The engine will be terminated now.";
 
         sync_cout << "info string ERROR: " << msg1 << sync_endl;
         sync_cout << "info string ERROR: " << msg2 << sync_endl;
         sync_cout << "info string ERROR: " << msg3 << sync_endl;
         sync_cout << "info string ERROR: " << msg4 << sync_endl;
+        sync_cout << "info string ERROR: " << msg5 << sync_endl;
 
         exit(EXIT_FAILURE);
     }
 
-    sync_cout << "info string NNUE evaluation using " << eval_file << " enabled" << sync_endl;
-  }
+    sync_cout << "info string NNUE evaluation using " << user_eval_file << " enabled" << sync_endl;
+}
 }
 
-namespace Trace {
 
-  enum Tracing { NO_TRACE, TRACE };
-
-  static double to_cp(Value v) { return double(v) / UCI::NormalizeToPawnValue; }
+// Returns a static, purely materialistic evaluation of the position from
+// the point of view of the given color. It can be divided by PawnValue to get
+// an approximation of the material advantage on the board in terms of pawns.
+int Eval::simple_eval(const Position& pos, Color c) {
+    return PawnValue * (pos.count<PAWN>(c) - pos.count<PAWN>(~c))
+         + AdvisorValue * (pos.count<ADVISOR>(c) - pos.count<ADVISOR>(~c))
+         + BishopValue * (pos.count<BISHOP>(c) - pos.count<BISHOP>(~c))
+         + (pos.major_material(c) - pos.major_material(~c));
 }
 
-using namespace Trace;
+// Evaluate is the evaluator for the outer world. It returns a static evaluation
+// of the position from the point of view of the side to move.
+Value Eval::evaluate(const Position& pos, int optimism) {
 
-/// evaluate() is the evaluator for the outer world. It returns a static
-/// evaluation of the position from the point of view of the side to move.
+    assert(!pos.checkers());
 
-Value Eval::evaluate(const Position& pos, int* complexity) {
+    int   v;
+    Color stm        = pos.side_to_move();
+    int   shuffling  = pos.rule60_count();
+    int   simpleEval = simple_eval(pos, stm);
 
-#ifdef SIMPLE_EVAL
-  // For debugging without nnue file
-  if (complexity)
-    *complexity = 0;
-  return pos.material_diff();
-#endif
+    int   nnueComplexity;
+    Value nnue = NNUE::evaluate(pos, true, &nnueComplexity);
 
-  int nnueComplexity;
-  Value     nnue = NNUE::evaluate(pos, true, &nnueComplexity);
-  Value material = pos.material_diff();
+    // Blend optimism and eval with nnue complexity and material imbalance
+    optimism += optimism * (nnueComplexity + std::abs(simpleEval - nnue)) / 781;
+    nnue -= nnue * (nnueComplexity + std::abs(simpleEval - nnue)) / 30087;
 
-  // Blend nnue complexity with (semi)classical complexity
-  Value optimism = pos.this_thread()->optimism[pos.side_to_move()];
-  nnueComplexity = (477 * nnueComplexity + (401 + optimism) * abs(material - nnue)) / 1024;
-  if (complexity) // Return hybrid NNUE complexity to caller
-      *complexity = nnueComplexity;
+    int mm = pos.major_material() / 41;
+    v      = (nnue * (568 + mm) + optimism * (138 + mm)) / 1434;
 
-  // scale nnue score according to material and optimism
-  int scale = 668 + 106 * pos.material_sum() / 4096;
-  optimism = optimism * (281 + nnueComplexity) / 256;
-  Value v = (nnue * scale + optimism * (scale - 740)) / 1024;
+    // Damp down the evaluation linearly when shuffling
+    v = v * (293 - shuffling) / 194;
 
-  // Damp down the evaluation linearly when shuffling
-  v = v * (205 - pos.rule60_count()) / 120;
+    // Guarantee evaluation does not hit the mate range
+    v = std::clamp(v, VALUE_MATED_IN_MAX_PLY + 1, VALUE_MATE_IN_MAX_PLY - 1);
 
-  // Guarantee evaluation does not hit the mate range
-  v = std::clamp(v, VALUE_MATED_IN_MAX_PLY + 1, VALUE_MATE_IN_MAX_PLY - 1);
-
-  return v;
+    return v;
 }
 
-/// trace() is like evaluate(), but instead of returning a value, it returns
-/// a string (suitable for outputting to stdout) that contains the detailed
-/// descriptions and values of each evaluation term. Useful for debugging.
-/// Trace scores are from white's point of view
-
+// Like evaluate(), but instead of returning a value, it returns
+// a string (suitable for outputting to stdout) that contains the detailed
+// descriptions and values of each evaluation term. Useful for debugging.
+// Trace scores are from white's point of view
 std::string Eval::trace(Position& pos) {
 
-  if (pos.checkers())
-      return "Final evaluation: none (in check)";
+    if (pos.checkers())
+        return "Final evaluation: none (in check)";
 
-  std::stringstream ss;
-  ss << std::showpoint << std::noshowpos << std::fixed << std::setprecision(2);
+    std::stringstream ss;
+    ss << std::showpoint << std::noshowpos << std::fixed << std::setprecision(2);
 
-  Value v;
+    ss << '\n' << NNUE::trace(pos) << '\n';
 
-  // Reset any global variable used in eval
-  pos.this_thread()->bestValue       = VALUE_ZERO;
-  pos.this_thread()->optimism[WHITE] = VALUE_ZERO;
-  pos.this_thread()->optimism[BLACK] = VALUE_ZERO;
+    ss << std::showpoint << std::showpos << std::fixed << std::setprecision(2) << std::setw(15);
 
-  ss << '\n' << NNUE::trace(pos) << '\n';
+    Value v;
+    v = NNUE::evaluate(pos);
+    v = pos.side_to_move() == WHITE ? v : -v;
+    ss << "NNUE evaluation        " << 0.01 * UCI::to_cp(v) << " (white side)\n";
 
-  ss << std::showpoint << std::showpos << std::fixed << std::setprecision(2) << std::setw(15);
+    v = evaluate(pos, VALUE_ZERO);
+    v = pos.side_to_move() == WHITE ? v : -v;
+    ss << "Final evaluation       " << 0.01 * UCI::to_cp(v) << " (white side)";
+    ss << " [with scaled NNUE, ...]";
+    ss << "\n";
 
-  v = NNUE::evaluate(pos);
-  v = pos.side_to_move() == WHITE ? v : -v;
-  ss << "NNUE evaluation        " << to_cp(v) << " (white side)\n";
-
-  v = evaluate(pos);
-  v = pos.side_to_move() == WHITE ? v : -v;
-  ss << "Final evaluation       " << to_cp(v) << " (white side) [with scaled NNUE, optimism, ...]\n";
-
-  return ss.str();
+    return ss.str();
 }
 
-} // namespace Stockfish
+}  // namespace Stockfish

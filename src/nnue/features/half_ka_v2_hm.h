@@ -1,6 +1,6 @@
 /*
   Stockfish, a UCI chess playing engine derived from Glaurung 2.1
-  Copyright (C) 2004-2023 The Stockfish developers (see AUTHORS file)
+  Copyright (C) 2004-2024 The Stockfish developers (see AUTHORS file)
 
   Stockfish is free software: you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -21,42 +21,48 @@
 #ifndef NNUE_FEATURES_HALF_KA_V2_HM_H_INCLUDED
 #define NNUE_FEATURES_HALF_KA_V2_HM_H_INCLUDED
 
+#include <array>
+#include <cstdint>
+
+#include "../../misc.h"
+#include "../../types.h"
 #include "../nnue_common.h"
 
-#include "../../evaluate.h"
-#include "../../misc.h"
-
 namespace Stockfish {
-  struct StateInfo;
+struct StateInfo;
+class Position;
 }
 
 namespace Stockfish::Eval::NNUE::Features {
 
-  // Feature HalfKAv2_hm: Combination of the position of own king and the position of pieces.
-  class HalfKAv2_hm {
+// Feature HalfKAv2_hm: Combination of the position of own king and the
+// position of pieces. Position mirrored such that king is always on d..e files.
+class HalfKAv2_hm {
 
-    // unique number for each piece type on each square
+    // clang-format off
+    // Unique number for each piece type on each square
     enum {
-      PS_NONE           =  0,
-      PS_W_ROOK         =  0,
-      PS_B_ROOK         =  1 * SQUARE_NB,
-      PS_W_CANNON       =  2 * SQUARE_NB,
-      PS_B_CANNON       =  3 * SQUARE_NB,
-      PS_W_KNIGHT       =  4 * SQUARE_NB,
-      PS_B_KNIGHT       =  5 * SQUARE_NB,
-      PS_AB_W_KP        =  6 * SQUARE_NB, // White King and Pawn are merged into one plane, also used for Advisor and Bishop
-      PS_B_KP           =  7 * SQUARE_NB, // Black King and Pawn are merged into one plane
-      PS_NB             =  8 * SQUARE_NB
+        PS_NONE     = 0,
+        PS_W_ROOK   = 0,
+        PS_B_ROOK   = 1 * SQUARE_NB,
+        PS_W_CANNON = 2 * SQUARE_NB,
+        PS_B_CANNON = 3 * SQUARE_NB,
+        PS_W_KNIGHT = 4 * SQUARE_NB,
+        PS_B_KNIGHT = 5 * SQUARE_NB,
+        PS_AB_W_KP  = 6 * SQUARE_NB,  // White King and Pawn are merged into one plane, also used for Advisor and Bishop
+        PS_B_KP     = 7 * SQUARE_NB,  // Black King and Pawn are merged into one plane
+        PS_NB       = 8 * SQUARE_NB
     };
 
     static constexpr IndexType PieceSquareIndex[COLOR_NB][PIECE_NB] = {
-      // convention: W - us, B - them
-      // viewed from other side, W and B are reversed
+      // Convention: W - us, B - them
+      // Viewed from other side, W and B are reversed
       { PS_NONE, PS_W_ROOK, PS_AB_W_KP, PS_W_CANNON, PS_AB_W_KP, PS_W_KNIGHT, PS_AB_W_KP, PS_AB_W_KP,
         PS_NONE, PS_B_ROOK, PS_AB_W_KP, PS_B_CANNON, PS_B_KP   , PS_B_KNIGHT, PS_AB_W_KP, PS_B_KP   , },
       { PS_NONE, PS_B_ROOK, PS_AB_W_KP, PS_B_CANNON, PS_B_KP   , PS_B_KNIGHT, PS_AB_W_KP, PS_B_KP   ,
         PS_NONE, PS_W_ROOK, PS_AB_W_KP, PS_W_CANNON, PS_AB_W_KP, PS_W_KNIGHT, PS_AB_W_KP, PS_AB_W_KP, }
     };
+    // clang-format on
 
     // Index of a feature for a given king position and another piece on some square
     template<Color Perspective>
@@ -70,8 +76,9 @@ namespace Stockfish::Eval::NNUE::Features {
     static constexpr std::uint32_t HashValue = 0xd17b100;
 
     // Number of feature dimensions
-    static constexpr IndexType Dimensions = 6 * 2 * 2 * static_cast<IndexType>(PS_NB);
+    static constexpr IndexType Dimensions = 6 * 3 * 3 * static_cast<IndexType>(PS_NB);
 
+    // clang-format off
 #define M(s) ((1 << 3) | s)
     // Stored as (mirror << 3 | bucket)
     static constexpr uint8_t KingBuckets[SQUARE_NB] = {
@@ -88,19 +95,8 @@ namespace Stockfish::Eval::NNUE::Features {
     };
 #undef M
 
-    // (Mirror, Rotate, ABMap)
-    static constexpr uint8_t IndexMap[2 * 2 * 2 * SQUARE_NB] = {
-        0,  1,  2,  3,  4,  5,  6,  7,  8,
-        9, 10, 11, 12, 13, 14, 15, 16, 17,
-       18, 19, 20, 21, 22, 23, 24, 25, 26,
-       27, 28, 29, 30, 31, 32, 33, 34, 35,
-       36, 37, 38, 39, 40, 41, 42, 43, 44,
-       45, 46, 47, 48, 49, 50, 51, 52, 53,
-       54, 55, 56, 57, 58, 59, 60, 61, 62,
-       63, 64, 65, 66, 67, 68, 69, 70, 71,
-       72, 73, 74, 75, 76, 77, 78, 79, 80,
-       81, 82, 83, 84, 85, 86, 87, 88, 89,
-
+    // Map advisor and bishop location into White King plane
+    static constexpr uint8_t ABMap[SQUARE_NB] = {
         0,  0,  0,  1,  0,  2,  5,  0,  0,
         0,  0,  0,  0,  6,  0,  0,  0,  0,
         7,  0,  0,  8,  9, 10,  0,  0, 11,
@@ -111,104 +107,51 @@ namespace Stockfish::Eval::NNUE::Features {
        18,  0,  0, 19, 20, 23,  0,  0, 24,
         0,  0,  0,  0, 25,  0,  0,  0,  0,
         0,  0, 26, 28,  0, 30, 32,  0,  0,
-
-       81, 82, 83, 84, 85, 86, 87, 88, 89,
-       72, 73, 74, 75, 76, 77, 78, 79, 80,
-       63, 64, 65, 66, 67, 68, 69, 70, 71,
-       54, 55, 56, 57, 58, 59, 60, 61, 62,
-       45, 46, 47, 48, 49, 50, 51, 52, 53,
-       36, 37, 38, 39, 40, 41, 42, 43, 44,
-       27, 28, 29, 30, 31, 32, 33, 34, 35,
-       18, 19, 20, 21, 22, 23, 24, 25, 26,
-        9, 10, 11, 12, 13, 14, 15, 16, 17,
-        0,  1,  2,  3,  4,  5,  6,  7,  8,
-
-        0,  0, 26, 28,  0, 30, 32,  0,  0,
-        0,  0,  0,  0, 25,  0,  0,  0,  0,
-       18,  0,  0, 19, 20, 23,  0,  0, 24,
-        0,  0,  0,  0,  0,  0,  0,  0,  0,
-        0,  0, 16,  0,  0,  0, 17,  0,  0,
-        0,  0, 14,  0,  0,  0, 15,  0,  0,
-        0,  0,  0,  0,  0,  0,  0,  0,  0,
-        7,  0,  0,  8,  9, 10,  0,  0, 11,
-        0,  0,  0,  0,  6,  0,  0,  0,  0,
-        0,  0,  0,  1,  0,  2,  5,  0,  0,
-
-        8,  7,  6,  5,  4,  3,  2,  1,  0,
-       17, 16, 15, 14, 13, 12, 11, 10,  9,
-       26, 25, 24, 23, 22, 21, 20, 19, 18,
-       35, 34, 33, 32, 31, 30, 29, 28, 27,
-       44, 43, 42, 41, 40, 39, 38, 37, 36,
-       53, 52, 51, 50, 49, 48, 47, 46, 45,
-       62, 61, 60, 59, 58, 57, 56, 55, 54,
-       71, 70, 69, 68, 67, 66, 65, 64, 63,
-       80, 79, 78, 77, 76, 75, 74, 73, 72,
-       89, 88, 87, 86, 85, 84, 83, 82, 81,
-
-        0,  0,  5,  2,  0,  1,  0,  0,  0,
-        0,  0,  0,  0,  6,  0,  0,  0,  0,
-       11,  0,  0, 10,  9,  8,  0,  0,  7,
-        0,  0,  0,  0,  0,  0,  0,  0,  0,
-        0,  0, 15,  0,  0,  0, 14,  0,  0,
-        0,  0, 17,  0,  0,  0, 16,  0,  0,
-        0,  0,  0,  0,  0,  0,  0,  0,  0,
-       24,  0,  0, 23, 20, 19,  0,  0, 18,
-        0,  0,  0,  0, 25,  0,  0,  0,  0,
-        0,  0, 32, 30,  0, 28, 26,  0,  0,
-
-       89, 88, 87, 86, 85, 84, 83, 82, 81,
-       80, 79, 78, 77, 76, 75, 74, 73, 72,
-       71, 70, 69, 68, 67, 66, 65, 64, 63,
-       62, 61, 60, 59, 58, 57, 56, 55, 54,
-       53, 52, 51, 50, 49, 48, 47, 46, 45,
-       44, 43, 42, 41, 40, 39, 38, 37, 36,
-       35, 34, 33, 32, 31, 30, 29, 28, 27,
-       26, 25, 24, 23, 22, 21, 20, 19, 18,
-       17, 16, 15, 14, 13, 12, 11, 10,  9,
-        8,  7,  6,  5,  4,  3,  2,  1,  0,
-
-        0,  0, 32, 30,  0, 28, 26,  0,  0,
-        0,  0,  0,  0, 25,  0,  0,  0,  0,
-       24,  0,  0, 23, 20, 19,  0,  0, 18,
-        0,  0,  0,  0,  0,  0,  0,  0,  0,
-        0,  0, 17,  0,  0,  0, 16,  0,  0,
-        0,  0, 15,  0,  0,  0, 14,  0,  0,
-        0,  0,  0,  0,  0,  0,  0,  0,  0,
-       11,  0,  0, 10,  9,  8,  0,  0,  7,
-        0,  0,  0,  0,  6,  0,  0,  0,  0,
-        0,  0,  5,  2,  0,  1,  0,  0,  0,
     };
+    // clang-format on
+
+    // Square index mapping based on condition (Mirror, Rotate, ABMap)
+    static constexpr std::array<std::array<std::array<std::array<std::uint8_t, SQUARE_NB>, 2>, 2>,
+                                2>
+      IndexMap = []() {
+          std::array<std::array<std::array<std::array<std::uint8_t, SQUARE_NB>, 2>, 2>, 2> v{};
+          for (uint8_t m = 0; m < 2; ++m)
+              for (uint8_t r = 0; r < 2; ++r)
+                  for (uint8_t ab = 0; ab < 2; ++ab)
+                      for (uint8_t s = 0; s < SQUARE_NB; ++s)
+                      {
+                          uint8_t ss     = s;
+                          ss             = m ? uint8_t(flip_file(Square(ss))) : ss;
+                          ss             = r ? uint8_t(flip_rank(Square(ss))) : ss;
+                          ss             = ab ? ABMap[ss] : ss;
+                          v[m][r][ab][s] = ss;
+                      }
+          return v;
+      }();
 
     // Maximum number of simultaneously active features.
     static constexpr IndexType MaxActiveDimensions = 32;
-    using IndexList = ValueList<IndexType, MaxActiveDimensions>;
+    using IndexList                                = ValueList<IndexType, MaxActiveDimensions>;
 
     // Get a list of indices for active features
     template<Color Perspective>
-    static void append_active_indices(
-      const Position& pos,
-      IndexList& active);
+    static void append_active_indices(const Position& pos, IndexList& active);
 
     // Get a list of indices for recently changed features
     template<Color Perspective>
     static void append_changed_indices(
-      Square ksq,
-      int ab,
-      const DirtyPiece& dp,
-      IndexList& removed,
-      IndexList& added
-    );
+      Square ksq, int ab, const DirtyPiece& dp, IndexList& removed, IndexList& added);
 
     // Returns the cost of updating one perspective, the most costly one.
     // Assumes no refresh needed.
     static int update_cost(const StateInfo* st);
     static int refresh_cost(const Position& pos);
 
-    // Returns whether the change stored in this StateInfo means that
-    // a full accumulator refresh is required.
+    // Returns whether the change stored in this StateInfo means
+    // that a full accumulator refresh is required.
     static bool requires_refresh(const StateInfo* st, Color perspective);
-  };
+};
 
 }  // namespace Stockfish::Eval::NNUE::Features
 
-#endif // #ifndef NNUE_FEATURES_HALF_KA_V2_HM_H_INCLUDED
+#endif  // #ifndef NNUE_FEATURES_HALF_KA_V2_HM_H_INCLUDED

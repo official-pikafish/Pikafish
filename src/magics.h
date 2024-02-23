@@ -22,6 +22,7 @@ namespace Stockfish {
 
 #define B(h, l) (Bitboard(h) << 64) ^ Bitboard(l)
 
+// clang-format off
 // Use precomputed magics if pext is not available,
 // since the magics generation is very slow.
 constexpr Bitboard RookMagicsInit[SQUARE_NB] = {
@@ -395,8 +396,9 @@ constexpr Bitboard KnightToMagicsInit[SQUARE_NB] = {
     B(0x0000102200440200, 0x00C65940000C4000),
     B(0x1000002048040400, 0x00015F8040A04004)
 };
+// clang-format on
 
 #undef B
-} // namespace Stockfish
+}  // namespace Stockfish
 
-#endif // #ifndef MAGICS_H_INCLUDED
+#endif  // #ifndef MAGICS_H_INCLUDED

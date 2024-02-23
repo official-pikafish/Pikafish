@@ -20,6 +20,7 @@
 
   [![Build][build-badge]][build-link]
   [![License][license-badge]][license-link]
+  [![RuleBook][rulebook-badge]][rulebook-link]
   <br>
   [![Release][release-badge]][release-link]
   [![Commits][commits-badge]][commits-link]
@@ -33,7 +34,7 @@
 ## Overview
 
 [Pikafish][website-link] is a **free and strong UCI xiangqi engine** derived from
-Stockfish that analyzes xiangqi positions and computes the optimal moves.
+[Stockfish][stockfish-link] that analyzes xiangqi positions and computes the optimal moves.
 
 Pikafish **does not include a graphical user interface** (GUI) that is required
 to display a chessboard and to make it easy to input moves. These GUIs are
@@ -60,38 +61,9 @@ This distribution of Pikafish consists of the following files:
   * a file with the .nnue extension, storing the neural network for the NNUE
     evaluation.
 
-## The UCI protocol
-
-The [Universal Chess Interface][uci-link] (UCI) is a standard text-based protocol
-used to communicate with a chess engine and is the recommended way to do so for
-typical graphical user interfaces (GUI) or chess tools. Pikafish implements the
-majority of its options.
-
-Developers can see the default values for the UCI options available in Pikafish
-by typing `./pikafish uci` in a terminal, but most users should typically use a
-xiangqi GUI to interact with Pikafish.
-
-For more information on UCI or debug commands, see our [documentation][wiki-commands-link].
-
-## Compiling Pikafish
-
-Pikafish has support for 32 or 64-bit CPUs, certain hardware instructions,
-big-endian machines such as Power PC, and other platforms.
-
-On Unix-like systems, it should be easy to compile Pikafish directly from the
-source code with the included Makefile in the folder `src`. In general, it is
-recommended to run `make help` to see a list of make targets with corresponding
-descriptions.
-
-```
-cd src
-make -j build ARCH=x86-64-modern
-```
-
-Detailed compilation instructions for all platforms can be found in our
-[documentation][wiki-compile-link].
-
 ## Contributing
+
+__See [Contributing Guide](./CONTRIBUTING.md).__
 
 ### Donating hardware
 
@@ -115,6 +87,26 @@ Discussions about Pikafish take place these days mainly in the Pikafish
 [Discord server][discord-link]. This is also the best place to ask questions
 about the codebase and how to improve it.
 
+
+## Compiling Pikafish
+
+Pikafish has support for 32 or 64-bit CPUs, certain hardware instructions,
+big-endian machines such as Power PC, and other platforms.
+
+On Unix-like systems, it should be easy to compile Pikafish directly from the
+source code with the included Makefile in the folder `src`. In general, it is
+recommended to run `make help` to see a list of make targets with corresponding
+descriptions.
+
+```
+cd src
+make -j build ARCH=x86-64-modern
+```
+
+Detailed compilation instructions for all platforms can be found in our
+[documentation][wiki-compile-link].
+the [UCI commands][wiki-uci-link] supported by Pikafish.
+
 ## Terms of use
 
 ### GNU General Public License version 3
@@ -133,27 +125,6 @@ where the source code can be found) to generate the exact binary you are
 distributing. If you make any changes to the source code, these changes must
 also be made available under GPL v3.
 
-### NNUE-License
-
-Any usage of the Pikafish weights constitutes agreement to this License.
-
-The weight file (pikafish.nnue) released with the pikafish and the weight file further derived from the weight are:
-1. Only for legal use, any consequences caused by any use beyond the legal scope (e.g. online cheating) shall be borne by the user.
-2. No commercial use without permission.
-
-The use of the nnue weights file for commercial purposes by the following individuals and organizations is permitted, in appreciation of their support:
-1. [![Just Xiangqi][justxq-logo]][justxq-link]
-
-The following individuals and organizations are prohibited from using the nnue weights file
-derived from this program due to their unfriendly actions, activities, and license violations:
-1. 鹏飞象棋
-2. 国圣象棋
-3. 飞风追云
-4. 枯叶
-5. 静香
-6. 老步
-7. 刀霸刘涛
-
 [authors-link]:			https://github.com/official-pikafish/Pikafish/blob/master/AUTHORS
 [build-badge]:			https://img.shields.io/github/actions/workflow/status/official-pikafish/Pikafish/pikafish.yml?branch=master&style=for-the-badge&label=pikafish&logo=github
 [build-link]:				https://github.com/official-pikafish/Pikafish/actions/workflows/pikafish.yml
@@ -166,8 +137,6 @@ derived from this program due to their unfriendly actions, activities, and licen
 [fishtest-link]:			https://test.pikafish.org
 [guideline-link]:			https://github.com/glinscott/fishtest/wiki/Creating-my-first-test
 [issue-link]:         https://github.com/official-pikafish/Pikafish/issues/new?assignees=&labels=&template=BUG-REPORT.yml
-[justxq-link]:			https://store.steampowered.com/app/2248180/_/
-[justxq-logo]:      https://user-images.githubusercontent.com/73384062/217706511-55497939-4a95-4614-98ef-d153083d8a83.png
 [license-badge]:			https://img.shields.io/github/license/official-pikafish/Pikafish?style=for-the-badge&label=license&color=success
 [license-link]:			https://github.com/official-pikafish/Pikafish/blob/master/Copying.txt
 [pikafish-logo]:			https://pikafish.org/assets/logo_256.png
@@ -177,13 +146,16 @@ derived from this program due to their unfriendly actions, activities, and licen
 [readme-link]:			https://github.com/official-pikafish/Pikafish/blob/master/README.md
 [release-badge]:			https://img.shields.io/github/v/release/official-pikafish/Pikafish?style=for-the-badge&label=official%20release
 [release-link]:			https://github.com/official-pikafish/Pikafish/releases/latest
+[rulebook-badge]:		https://img.shields.io/badge/computer%20rule-20B2AA?style=for-the-badge&logo=mdbook
+[rulebook-link]:			https://pikafish.org/中国象棋程序竞赛规则.pdf
 [src-link]:				https://github.com/official-pikafish/Pikafish/tree/master/src
+[stockfish-link]:			https://github.com/official-stockfish/Stockfish
 [uci-link]:				https://backscattering.de/chess/uci/
 [website-badge]:		https://img.shields.io/website?style=for-the-badge&down_color=red&down_message=Offline&label=website&up_color=success&up_message=Online&url=https://pikafish.org
 [website-link]:			https://pikafish.org
 [website-blog-link]:  https://pikafish.org/
 [wiki-link]:          https://github.com/official-pikafish/Pikafish/wiki
-[wiki-usage-link]:    https://github.com/official-pikafish/Pikafish/wiki/Download-and-usage
 [wiki-compile-link]:  https://github.com/official-pikafish/Pikafish/wiki/Compiling-from-source
-[wiki-commands-link]: https://github.com/official-pikafish/Pikafish/wiki/Commands
+[wiki-commands-link]: https://github.com/official-pikafish/Pikafish/wiki/UCI-&-Commands
+[wiki-usage-link]:    https://github.com/official-pikafish/Pikafish/wiki/Download-and-usage
 [worker-link]:			https://github.com/xyztnecniV/yolo

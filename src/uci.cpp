@@ -1,6 +1,6 @@
 /*
   Stockfish, a UCI chess playing engine derived from Glaurung 2.1
-  Copyright (C) 2004-2023 The Stockfish developers (see AUTHORS file)
+  Copyright (C) 2004-2024 The Stockfish developers (see AUTHORS file)
 
   Stockfish is free software: you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -16,51 +16,291 @@
   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include "uci.h"
+
+#include <stdint.h>
+#include <algorithm>
 #include <cassert>
 #include <cmath>
-#include <iostream>
+#include <cstdlib>
+#include <deque>
+#include <memory>
+#include <optional>
 #include <sstream>
-#include <string>
+#include <vector>
+#include <cstdint>
 
 #include "benchmark.h"
 #include "evaluate.h"
 #include "movegen.h"
+#include "nnue/evaluate_nnue.h"
 #include "position.h"
 #include "search.h"
-#include "thread.h"
-#include "timeman.h"
-#include "tt.h"
-#include "uci.h"
-
-#define TOML_EXCEPTIONS 0
-#include "external/toml.hpp"
-
-using namespace std;
+#include "types.h"
+#include "ucioption.h"
+#include "perft.h"
 
 namespace Stockfish {
 
-namespace {
+constexpr auto StartFEN = "rnbakabnr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C5C1/9/RNBAKABNR w";
+constexpr int  NormalizeToPawnValue = 345;
+constexpr int  MaxHashMB            = Is64Bit ? 33554432 : 2048;
 
-  // FEN string for the initial position in standard xiangqi
-  const char* StartFEN = "rnbakabnr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C5C1/9/RNBAKABNR w";
+UCI::UCI(int argc, char** argv) :
+    cli(argc, argv) {
+
+    evalFile = {"EvalFile", EvalFileDefaultName, "None", ""};
+
+    options["Debug Log File"] << Option("", [](const Option& o) { start_logger(o); });
+
+    options["Threads"] << Option(1, 1, 1024, [this](const Option&) {
+        threads.set({options, threads, tt});
+    });
+
+    options["Hash"] << Option(16, 1, MaxHashMB, [this](const Option& o) {
+        threads.main_thread()->wait_for_search_finished();
+        tt.resize(o, options["Threads"]);
+    });
+
+    options["Clear Hash"] << Option([this](const Option&) { search_clear(); });
+    options["Ponder"] << Option(false);
+    options["MultiPV"] << Option(1, 1, MAX_MOVES);
+    options["Move Overhead"] << Option(10, 0, 5000);
+    options["nodestime"] << Option(0, 0, 10000);
+    options["UCI_ShowWDL"] << Option(false);
+    options["EvalFile"] << Option(EvalFileDefaultName, [this](const Option&) {
+        evalFile = Eval::NNUE::load_networks(cli.binaryDirectory, options, evalFile);
+    });
+
+    threads.set({options, threads, tt});
+
+    search_clear();  // After threads are up
+}
+
+void UCI::loop() {
+
+#if defined(__EMSCRIPTEN__)
+    #define EM_STATIC static
+#else
+    #define EM_STATIC 
+#endif
+
+    std::string  token, cmd;
+    EM_STATIC Position     pos;
+    EM_STATIC StateListPtr states(new std::deque<StateInfo>(1));
+    EM_STATIC auto __init_once = [&]() {
+        pos.set(StartFEN, &states->back());
+        return 0;
+    }();
+
+    for (int i = 1; i < cli.argc; ++i)
+        cmd += std::string(cli.argv[i]) + " ";
+
+    do
+    {
+        if (cli.argc == 1
+            && !getline(std::cin, cmd))  // Wait for an input or an end-of-file (EOF) indication
+            cmd = "quit";
 
 
-  // position() is called when the engine receives the "position" UCI command.
-  // It sets up the position that is described in the given FEN string ("fen") or
-  // the initial position ("startpos") and then makes the moves given in the following
-  // move list ("moves").
+        std::istringstream is(cmd);
 
-  void position(Position& pos, istringstream& is, StateListPtr& states) {
+        token.clear();  // Avoid a stale if getline() returns nothing or a blank line
+        is >> std::skipws >> token;
 
-    Move m;
-    string token, fen;
+        if (token == "quit" || token == "stop")
+            threads.stop = true;
+
+        // The GUI sends 'ponderhit' to tell that the user has played the expected move.
+        // So, 'ponderhit' is sent if pondering was done on the same move that the user
+        // has played. The search should continue, but should also switch from pondering
+        // to the normal search.
+        else if (token == "ponderhit")
+            threads.main_manager()->ponder = false;  // Switch to the normal search
+
+        else if (token == "uci")
+            sync_cout << "id name " << engine_info(true) << "\n"
+                      << options << "\nuciok" << sync_endl;
+
+        else if (token == "setoption")
+            setoption(is);
+        else if (token == "go")
+            go(pos, is, states);
+        else if (token == "position")
+            position(pos, is, states);
+        else if (token == "fen" || token == "startpos")
+            is.seekg(0), position(pos, is, states);
+        else if (token == "ucinewgame")
+            search_clear();
+        else if (token == "isready")
+            sync_cout << "readyok" << sync_endl;
+
+        // Add custom non-UCI commands, mainly for debugging purposes.
+        // These commands must not be used during a search!
+        else if (token == "flip")
+            pos.flip();
+        else if (token == "bench")
+            bench(pos, is, states);
+        else if (token == "d")
+            sync_cout << pos << sync_endl;
+        else if (token == "eval")
+            trace_eval(pos);
+        else if (token == "compiler")
+            sync_cout << compiler_info() << sync_endl;
+        else if (token == "export_net")
+        {
+            std::optional<std::string> filename;
+            std::string                f;
+            if (is >> std::skipws >> f)
+                filename = f;
+            Eval::NNUE::save_eval(filename, evalFile);
+        }
+        else if (token == "--help" || token == "help" || token == "--license" || token == "license")
+            sync_cout
+              << "\nPikafish is a powerful xiangqi engine for playing and analyzing."
+                 "\nIt is released as free software licensed under the GNU GPLv3 License."
+                 "\nPikafish is normally used with a graphical user interface (GUI) and implements"
+                 "\nthe Universal Chess Interface (UCI) protocol to communicate with a GUI, an API, etc."
+                 "\nFor any further information, visit https://github.com/official-pikafish/Pikafish#readme"
+                 "\nor read the corresponding README.md and Copying.txt files distributed along with this program.\n"
+              << sync_endl;
+        else if (!token.empty() && token[0] != '#')
+            sync_cout << "Unknown command: '" << cmd << "'. Type help for more information."
+                      << sync_endl;
+
+    } while (token != "quit" && cli.argc == 1);  // The command-line arguments are one-shot
+}
+
+void UCI::go(Position& pos, std::istringstream& is, StateListPtr& states) {
+
+    Search::LimitsType limits;
+    std::string        token;
+    bool               ponderMode = false;
+
+    limits.startTime = now();  // The search starts as early as possible
+
+    while (is >> token)
+        if (token == "searchmoves")  // Needs to be the last command on the line
+            while (is >> token)
+                limits.searchmoves.push_back(to_move(pos, token));
+
+        else if (token == "wtime")
+            is >> limits.time[WHITE];
+        else if (token == "btime")
+            is >> limits.time[BLACK];
+        else if (token == "winc")
+            is >> limits.inc[WHITE];
+        else if (token == "binc")
+            is >> limits.inc[BLACK];
+        else if (token == "movestogo")
+            is >> limits.movestogo;
+        else if (token == "depth")
+            is >> limits.depth;
+        else if (token == "nodes")
+            is >> limits.nodes;
+        else if (token == "movetime")
+            is >> limits.movetime;
+        else if (token == "mate")
+            is >> limits.mate;
+        else if (token == "perft")
+            is >> limits.perft;
+        else if (token == "infinite")
+            limits.infinite = 1;
+        else if (token == "ponder")
+            ponderMode = true;
+
+    Eval::NNUE::verify(options, evalFile);
+
+    if (limits.perft)
+    {
+        perft(pos.fen(), limits.perft);
+        return;
+    }
+
+    threads.start_thinking(pos, states, limits, ponderMode);
+}
+
+void UCI::bench(Position& pos, std::istream& args, StateListPtr& states) {
+    std::string token;
+    uint64_t    num, nodes = 0, cnt = 1;
+
+    std::vector<std::string> list = setup_bench(pos, args);
+
+    num = count_if(list.begin(), list.end(),
+                   [](const std::string& s) { return s.find("go ") == 0 || s.find("eval") == 0; });
+
+    TimePoint elapsed = now();
+
+    for (const auto& cmd : list)
+    {
+        std::istringstream is(cmd);
+        is >> std::skipws >> token;
+
+        if (token == "go" || token == "eval")
+        {
+            std::cerr << "\nPosition: " << cnt++ << '/' << num << " (" << pos.fen() << ")"
+                      << std::endl;
+            if (token == "go")
+            {
+                go(pos, is, states);
+                threads.main_thread()->wait_for_search_finished();
+                nodes += threads.nodes_searched();
+            }
+            else
+                trace_eval(pos);
+        }
+        else if (token == "setoption")
+            setoption(is);
+        else if (token == "position")
+            position(pos, is, states);
+        else if (token == "ucinewgame")
+        {
+            search_clear();  // Search::clear() may take a while
+            elapsed = now();
+        }
+    }
+
+    elapsed = now() - elapsed + 1;  // Ensure positivity to avoid a 'divide by zero'
+
+    dbg_print();
+
+    std::cerr << "\n==========================="
+              << "\nTotal time (ms) : " << elapsed << "\nNodes searched  : " << nodes
+              << "\nNodes/second    : " << 1000 * nodes / elapsed << std::endl;
+}
+
+void UCI::trace_eval(Position& pos) {
+    StateListPtr states(new std::deque<StateInfo>(1));
+    Position     p;
+    p.set(pos.fen(), &states->back());
+
+    Eval::NNUE::verify(options, evalFile);
+
+    sync_cout << "\n" << Eval::trace(p) << sync_endl;
+}
+
+void UCI::search_clear() {
+    threads.main_thread()->wait_for_search_finished();
+
+    tt.clear(options["Threads"]);
+    threads.clear();
+}
+
+void UCI::setoption(std::istringstream& is) {
+    threads.main_thread()->wait_for_search_finished();
+    options.setoption(is);
+}
+
+void UCI::position(Position& pos, std::istringstream& is, StateListPtr& states) {
+    Move        m;
+    std::string token, fen;
 
     is >> token;
 
     if (token == "startpos")
     {
         fen = StartFEN;
-        is >> token; // Consume the "moves" token, if any
+        is >> token;  // Consume the "moves" token, if any
     }
     else if (token == "fen")
         while (is >> token && token != "moves")
@@ -68,377 +308,113 @@ namespace {
     else
         return;
 
-    states = StateListPtr(new std::deque<StateInfo>(1)); // Drop the old state and create a new one
-    pos.set(fen, &states->back(), Threads.main());
+    states = StateListPtr(new std::deque<StateInfo>(1));  // Drop the old state and create a new one
+    pos.set(fen, &states->back());
 
     // Parse the move list, if any
-    while (is >> token && (m = UCI::to_move(pos, token)) != MOVE_NONE)
+    while (is >> token && (m = to_move(pos, token)) != Move::none())
     {
         states->emplace_back();
         pos.do_move(m, states->back());
     }
-  }
+}
 
-  // trace_eval() prints the evaluation of the current position, consistent with
-  // the UCI options set so far.
+int UCI::to_cp(Value v) { return 100 * v / NormalizeToPawnValue; }
 
-  void trace_eval(Position& pos) {
+std::string UCI::value(Value v) {
+    assert(-VALUE_INFINITE < v && v < VALUE_INFINITE);
 
-    StateListPtr states(new std::deque<StateInfo>(1));
-    Position p;
-    p.set(pos.fen(), &states->back(), Threads.main());
+    std::stringstream ss;
 
-    Eval::NNUE::verify();
-
-    sync_cout << "\n" << Eval::trace(p) << sync_endl;
-  }
-
-
-  // setoption() is called when the engine receives the "setoption" UCI command.
-  // The function updates the UCI option ("name") to the given value ("value").
-
-  void setoption(istringstream& is) {
-
-    string token, name, value;
-
-    is >> token; // Consume the "name" token
-
-    // Read the option name (can contain spaces)
-    while (is >> token && token != "value")
-        name += (name.empty() ? "" : " ") + token;
-
-    // Read the option value (can contain spaces)
-    while (is >> token)
-        value += (value.empty() ? "" : " ") + token;
-
-    if (Options.count(name))
-        Options[name] = value;
+    if (std::abs(v) < VALUE_MATE_IN_MAX_PLY)
+        ss << "cp " << to_cp(v);
     else
-        sync_cout << "No such option: " << name << sync_endl;
-  }
+        ss << "mate " << (v > 0 ? VALUE_MATE - v + 1 : -VALUE_MATE - v) / 2;
 
-
-  // go() is called when the engine receives the "go" UCI command. The function
-  // sets the thinking time and other parameters from the input string, then starts
-  // with a search.
-
-  void go(Position& pos, istringstream& is, StateListPtr& states) {
-
-    Search::LimitsType limits;
-    string token;
-    bool ponderMode = false;
-
-    limits.startTime = now(); // The search starts as early as possible
-
-    while (is >> token)
-        if (token == "searchmoves") // Needs to be the last command on the line
-            while (is >> token)
-                limits.searchmoves.push_back(UCI::to_move(pos, token));
-
-        else if (token == "wtime")     is >> limits.time[WHITE];
-        else if (token == "btime")     is >> limits.time[BLACK];
-        else if (token == "winc")      is >> limits.inc[WHITE];
-        else if (token == "binc")      is >> limits.inc[BLACK];
-        else if (token == "movestogo") is >> limits.movestogo;
-        else if (token == "depth")     is >> limits.depth;
-        else if (token == "nodes")     is >> limits.nodes;
-        else if (token == "movetime")  is >> limits.movetime;
-        else if (token == "mate")      is >> limits.mate;
-        else if (token == "perft")     is >> limits.perft;
-        else if (token == "infinite")  limits.infinite = 1;
-        else if (token == "ponder")    ponderMode = true;
-
-    Threads.start_thinking(pos, states, limits, ponderMode);
-  }
-
-
-  // bench() is called when the engine receives the "bench" command.
-  // Firstly, a list of UCI commands is set up according to the bench
-  // parameters, then it is run one by one, printing a summary at the end.
-
-  void bench(Position& pos, istream& args, StateListPtr& states) {
-
-    string token;
-    uint64_t num, nodes = 0, cnt = 1;
-
-    vector<string> list = setup_bench(pos, args);
-    num = count_if(list.begin(), list.end(), [](const string& s) { return s.find("go ") == 0 || s.find("eval") == 0; });
-
-    TimePoint elapsed = now();
-
-    for (const auto& cmd : list)
-    {
-        istringstream is(cmd);
-        is >> skipws >> token;
-
-        if (token == "go" || token == "eval")
-        {
-            cerr << "\nPosition: " << cnt++ << '/' << num << " (" << pos.fen() << ")" << endl;
-            if (token == "go")
-            {
-               go(pos, is, states);
-               Threads.main()->wait_for_search_finished();
-               nodes += Threads.nodes_searched();
-            }
-            else
-               trace_eval(pos);
-        }
-        else if (token == "setoption")  setoption(is);
-        else if (token == "position")   position(pos, is, states);
-        else if (token == "ucinewgame") { Search::clear(); elapsed = now(); } // Search::clear() may take a while
-    }
-
-    elapsed = now() - elapsed + 1; // Ensure positivity to avoid a 'divide by zero'
-
-    dbg_print();
-
-    cerr << "\n==========================="
-         << "\nTotal time (ms) : " << elapsed
-         << "\nNodes searched  : " << nodes
-         << "\nNodes/second    : " << 1000 * nodes / elapsed << endl;
-  }
-
-  // The win rate model returns the probability of winning given an eval
-  // and a game ply. It fits the LTC fishtest statistics rather accurately.
-  long double win_rate_model_double(Value v, int ply) {
-
-     // The model only captures up to 240 plies, so limit the input and then rescale
-     long double m = std::min(240, ply) / 64.0;
-
-     // The coefficients of a third-order polynomial fit is based on the fishtest data
-     // for two parameters that need to transform eval to the argument of a logistic
-     // function.
-     constexpr long double as[] = {  7.42211754, -26.5119614,   46.99271939, 340.67524114 };
-     constexpr long double bs[] = { -0.50136481,   4.9383151,  -11.86324223,  89.56581513 };
-
-     // Enforce that NormalizeToPawnValue corresponds to a 50% win rate at ply 64
-     static_assert(UCI::NormalizeToPawnValue == int(as[0] + as[1] + as[2] + as[3]));
-
-     long double a = (((as[0] * m + as[1]) * m + as[2]) * m) + as[3];
-     long double b = (((bs[0] * m + bs[1]) * m + bs[2]) * m) + bs[3];
-
-     // Return the win rate
-     return 1 / (1 + std::exp((a - v) / b));
-  }
-
-  // Return the win rate in per mille units rounded to the nearest value
-  int win_rate_model(Value v, int ply) {
-      return int(0.5 + 1000 * win_rate_model_double(v, ply));
-  }
-
-} // namespace
-
-
-/// UCI::loop() waits for a command from the stdin, parses it and then calls the appropriate
-/// function. It also intercepts an end-of-file (EOF) indication from the stdin to ensure a
-/// graceful exit if the GUI dies unexpectedly. When called with some command-line arguments, 
-/// like running 'bench', the function returns immediately after the command is executed.
-/// In addition to the UCI ones, some additional debug commands are also supported.
-
-void UCI::loop(int argc, char* argv[]) {
-
-#if defined(__EMSCRIPTEN__)
-  #define EM_STATIC static
-#else
-  #define EM_STATIC 
-#endif
-
-  string token, cmd;
-  EM_STATIC Position pos;
-  EM_STATIC StateListPtr states(new std::deque<StateInfo>(1));
-
-  EM_STATIC auto __init_once = [&]() {
-    CommandLine::init(argc, argv);
-    UCI::init(Options);
-    Tune::init();
-    Bitboards::init();
-    Position::init();
-    Threads.set(size_t(Options["Threads"]));
-    Search::clear(); // After threads are up
-    Eval::NNUE::init();
-    pos.set(StartFEN, &states->back(), Threads.main());
-    return 0;
-  }();
-
-  // Load options from config file
-  if (ifstream("pikafish.toml").good()) {
-      const auto& configs = toml::parse_file("pikafish.toml");
-      if (configs.failed())
-          sync_cout << configs.error() << sync_endl;
-      for (const auto& [key, value] : configs)
-          if (value.is_string()) {
-              istringstream is("name "s + key.data() + " value " + value.as_string()->get());
-              setoption(is);
-          } else
-              sync_cout << "Error while parsing key-value pair: encountered non-string value" << sync_endl
-                        << "\t(error occurred at " << value.source() << ")" << sync_endl;
-  }
-
-  for (int i = 1; i < argc; ++i)
-      cmd += std::string(argv[i]) + " ";
-
-  do {
-      if (argc == 1 && !getline(cin, cmd)) // Wait for an input or an end-of-file (EOF) indication
-          cmd = "quit";
-
-      istringstream is(cmd);
-
-      token.clear(); // Avoid a stale if getline() returns nothing or a blank line
-      is >> skipws >> token;
-
-      if (    token == "quit"
-          ||  token == "stop")
-          Threads.stop = true;
-
-      // The GUI sends 'ponderhit' to tell that the user has played the expected move.
-      // So, 'ponderhit' is sent if pondering was done on the same move that the user
-      // has played. The search should continue, but should also switch from pondering
-      // to the normal search.
-      else if (token == "ponderhit")
-          Threads.main()->ponder = false; // Switch to the normal search
-
-      else if (token == "uci")
-          sync_cout << "id name " << engine_info(true)
-                    << "\n"       << Options
-                    << "\nuciok"  << sync_endl;
-
-      else if (token == "setoption")  setoption(is);
-      else if (token == "go")         go(pos, is, states);
-      else if (token == "position")   position(pos, is, states);
-      else if (token == "fen" || token == "startpos") is.seekg(0), position(pos, is, states);
-      else if (token == "ucinewgame") Search::clear();
-      else if (token == "isready")    sync_cout << "readyok" << sync_endl;
-
-      // Add custom non-UCI commands, mainly for debugging purposes.
-      // These commands must not be used during a search!
-      else if (token == "flip")     pos.flip();
-      else if (token == "bench")    bench(pos, is, states);
-      else if (token == "d")        sync_cout << pos << sync_endl;
-      else if (token == "eval")     trace_eval(pos);
-      else if (token == "compiler") sync_cout << compiler_info() << sync_endl;
-      else if (token == "export_net")
-      {
-          std::optional<std::string> filename;
-          std::string f;
-          if (is >> skipws >> f)
-              filename = f;
-          Eval::NNUE::save_eval(filename);
-      }
-      else if (token == "--help" || token == "help" || token == "--license" || token == "license")
-          sync_cout << "\nPikafish is a powerful xiangqi engine for playing and analyzing."
-                       "\nIt is released as free software licensed under the GNU GPLv3 License."
-                       "\nPikafish is normally used with a graphical user interface (GUI) and implements"
-                       "\nthe Universal Chess Interface (UCI) protocol to communicate with a GUI, an API, etc."
-                       "\nFor any further information, visit https://github.com/official-pikafish/Pikafish#readme"
-                       "\nor read the corresponding README.md and Copying.txt files distributed along with this program.\n" << sync_endl;
-      else if (!token.empty() && token[0] != '#')
-          sync_cout << "Unknown command: '" << cmd << "'. Type help for more information." << sync_endl;
-
-  } while (token != "quit" && argc == 1); // The command-line arguments are one-shot
+    return ss.str();
 }
-
-
-/// UCI::pawn_eval() uses the win_rate_model to convert
-/// internal score and ply to an objective pawn evaluation.
-
-int UCI::pawn_eval(Value v, int ply) {
-
-  if (Options["UCI_WDLCentipawn"]) {
-      long double wdl_w = win_rate_model_double( v, ply);
-      long double wdl_l = win_rate_model_double(-v, ply);
-      long double win_loss_rate = wdl_w - wdl_l;
-      constexpr long double mate = double(VALUE_MATE_IN_MAX_PLY - 1) / 400;
-
-      return 400 * std::clamp(std::log10((1 + win_loss_rate) / (1 - win_loss_rate)), -mate, mate) + 0.5;
-  } else
-      return v * 100 / NormalizeToPawnValue;
-}
-
-
-/// UCI::value() converts a Value to a string by adhering to the UCI protocol specification:
-///
-/// cp <x>    The score from the engine's point of view in centipawns.
-/// mate <y>  Mate in 'y' moves (not plies). If the engine is getting mated,
-///           uses negative values for 'y'.
-
-string UCI::value(Value v, int ply) {
-
-  assert(-VALUE_INFINITE < v && v < VALUE_INFINITE);
-
-  stringstream ss;
-
-  if (abs(v) < VALUE_MATE_IN_MAX_PLY)
-      ss << "cp " << UCI::pawn_eval(v, ply);
-  else
-      ss << "mate " << (v > 0 ? VALUE_MATE - v + 1 : -VALUE_MATE - v) / 2;
-
-  return ss.str();
-}
-
-
-/// UCI::wdl() reports the win-draw-loss (WDL) statistics given an evaluation
-/// and a game ply based on the data gathered for fishtest LTC games.
-
-string UCI::wdl(Value v, int ply) {
-
-  stringstream ss;
-
-  int wdl_w = win_rate_model( v, ply);
-  int wdl_l = win_rate_model(-v, ply);
-  int wdl_d = 1000 - wdl_w - wdl_l;
-  ss << " wdl " << wdl_w << " " << wdl_d << " " << wdl_l;
-
-  return ss.str();
-}
-
-
-/// UCI::square() converts a Square to a string in algebraic notation (g1, a7, etc.)
 
 std::string UCI::square(Square s) {
-  return std::string{ char('a' + file_of(s)), char('0' + rank_of(s)) };
+    return std::string{char('a' + file_of(s)), char('0' + rank_of(s))};
 }
 
+std::string UCI::move(Move m) {
+    if (m == Move::none())
+        return "(none)";
 
-/// UCI::move() converts a Move to a string in coordinate notation (g1f3, a7a8q).
-/// The only special case is castling where the e1g1 notation is printed in
-/// standard chess mode.
-/// Internally, all castling moves are always encoded as 'king captures rook'.
+    if (m == Move::null())
+        return "0000";
 
-string UCI::move(Move m) {
+    Square from = m.from_sq();
+    Square to   = m.to_sq();
 
-  Square from = from_sq(m);
-  Square to = to_sq(m);
+    std::string move = square(from) + square(to);
 
-  if (m == MOVE_NONE)
-      return "(none)";
-
-  if (m == MOVE_NULL)
-      return "0000";
-
-  string move = UCI::square(from) + UCI::square(to);
-
-  return move;
+    return move;
 }
 
+namespace {
+// The win rate model returns the probability of winning (in per mille units) given an
+// eval and a game ply. It fits the LTC fishtest statistics rather accurately.
+int win_rate_model(Value v, int ply) {
 
-/// UCI::to_move() converts a string representing a move in coordinate notation
-/// (g1f3, a7a8) to the corresponding legal Move, if any.
+    // The fitted model only uses data for moves in [8, 120], and is anchored at move 32.
+    double m = std::clamp(ply / 2 + 1, 8, 120) / 32.0;
 
-Move UCI::to_move(const Position& pos, string& str) {
+    // The coefficients of a third-order polynomial fit is based on the fishtest data
+    // for two parameters that need to transform eval to the argument of a logistic
+    // function.
+    constexpr double as[] = {-2.00568292, 10.45906746, 1.67438883, 334.45864705};
+    constexpr double bs[] = {-4.97134419, 36.15096345, -82.25513499, 117.35186805};
 
-  for (const auto& m : MoveList<LEGAL>(pos))
-      if (str == UCI::move(m))
-          return m;
+    // Enforce that NormalizeToPawnValue corresponds to a 50% win rate at move 32.
+    static_assert(NormalizeToPawnValue == int(0.5 + as[0] + as[1] + as[2] + as[3]));
 
-  return MOVE_NONE;
+    double a = (((as[0] * m + as[1]) * m + as[2]) * m) + as[3];
+    double b = (((bs[0] * m + bs[1]) * m + bs[2]) * m) + bs[3];
+
+    // Return the win rate in per mille units, rounded to the nearest integer.
+    return int(0.5 + 1000 / (1 + std::exp((a - double(v)) / b)));
+}
 }
 
-} // namespace Stockfish
+std::string UCI::wdl(Value v, int ply) {
+    std::stringstream ss;
+
+    int wdl_w = win_rate_model(v, ply);
+    int wdl_l = win_rate_model(-v, ply);
+    int wdl_d = 1000 - wdl_w - wdl_l;
+    ss << " wdl " << wdl_w << " " << wdl_d << " " << wdl_l;
+
+    return ss.str();
+}
+
+Move UCI::to_move(const Position& pos, std::string& str) {
+
+    for (const auto& m : MoveList<LEGAL>(pos))
+        if (str == move(m))
+            return m;
+
+    return Move::none();
+}
+
+}  // namespace Stockfish
 
 // Execute UCI::loop() only once.
 extern "C" void wasm_uci_execute() {
   string input;
   std::getline(std::cin, input);
   char *argv[2] = {input.data(), input.data()};
-  Stockfish::UCI::loop(2, argv);
+
+  EM_STATIC UCI uci = [&]() {
+    Bitboards::init();
+    Position::init();
+    UCI uci(2, argv);
+    Tune::init(uci.options);
+    uci.evalFile = Eval::NNUE::load_networks(uci.workingDirectory(), uci.options, uci.evalFile);
+    return uci;
+  }();
+
+  uci.cli = {2, argv};
+  uci.loop();
 }

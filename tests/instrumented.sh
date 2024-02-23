@@ -1,5 +1,5 @@
 #!/bin/bash
-# check for errors under valgrind or sanitizers.
+# check for errors under Valgrind or sanitizers.
 
 error()
 {
@@ -104,7 +104,7 @@ cat << EOF > game.exp
  send "quit\n"
  expect eof
 
- # return error code of the spawned program, useful for valgrind
+ # return error code of the spawned program, useful for Valgrind
  lassign [wait] pid spawnid os_error_flag value
  exit \$value
 EOF
@@ -125,7 +125,7 @@ cat << EOF > syzygy.exp
  send "quit\n"
  expect eof
 
- # return error code of the spawned program, useful for valgrind
+ # return error code of the spawned program, useful for Valgrind
  lassign [wait] pid spawnid os_error_flag value
  exit \$value
 EOF

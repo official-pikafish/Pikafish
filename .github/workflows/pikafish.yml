@@ -14,27 +14,51 @@ jobs:
       COMPILER: clang++
       COMP: clang
       EXE: pikafish${{ matrix.arch }}${{ matrix.config.ext }}
+      SDE: ${{ matrix.config.sde }}
     strategy:
       matrix:
         config:
           - name: Linux
             os: ubuntu-20.04 
-            shell: bash {0}
+            shell: bash
+            sde: /home/runner/work/Pikafish/Pikafish/.output/sde-temp-files/sde-external-9.27.0-2023-09-13-lin/sde -future --
           - name: MacOS
             os: macos-latest
-            shell: bash {0}
+            shell: bash
           - name: Windows
             os: windows-latest
             shell: msys2 {0}
             ext: .exe
-        arch: ["-vnni512", "-avx512", "-bmi2", "-avx2", "-modern", ""]
+            sde: /d/a/Pikafish/Pikafish/.output/sde-temp-files/sde-external-9.27.0-2023-09-13-win/sde.exe -future --
+        arch: ["-vnni512", "-avx512", "-avx512f", "-avxvnni", "-bmi2", "-avx2", "-sse41-popcnt", "-ssse3"]
+        exclude:
+          - arch: -avxvnni
+            config: {os: ubuntu-20.04}
+          - arch: -vnni512
+            config: {os: macos-latest}
+          - arch: -avx512f
+            config: {os: macos-latest}
+          - arch: -avx512
+            config: {os: macos-latest}
+          - arch: -avxvnni
+            config: {os: macos-latest}
+          - arch: -bmi2
+            config: {os: macos-latest}
+          - arch: -avx2
+            config: {os: macos-latest}
     defaults:
       run:
         working-directory: src
         shell: ${{ matrix.config.shell }}
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
+
+      - name: Install LLVM and Clang
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt update
+          sudo apt install clang llvm
 
       - name: Setup msys and install required packages
         if: runner.os == 'Windows'
@@ -43,31 +67,79 @@ jobs:
           msystem: clang64
           install: mingw-w64-clang-x86_64-clang make git expect
 
+      - name: Download SDE package
+        if: runner.os == 'Linux' || runner.os == 'Windows'
+        uses: petarpetrovt/setup-sde@91a1a03434384e064706634125a15f7446d2aafb  # @v2.3
+        with:
+          environmentVariableName: SDE_DIR
+          sdeVersion: 9.27.0
+
       - name: Compile ${{ matrix.arch }} build
         run: |
-          make clean
-          make -j build EXE=$EXE
+          wget -q https://github.com/official-pikafish/Networks/releases/download/master-net/pikafish.nnue
+          make -j profile-build EXE=$EXE WINE_PATH="$SDE"
           make strip EXE=$EXE
-
-      - name: Copy binary to folder
-        run: |
-          cd ..
-          mkdir ${{ matrix.config.name }}
-          cp src/$EXE ${{ matrix.config.name }}
+          cp $EXE ../
 
       - name: Download wiki
         run: |
-          git clone https://github.com/official-pikafish/Pikafish.wiki.git ../wiki
-          cd ../wiki
+          git clone https://github.com/official-pikafish/Pikafish.wiki.git ../Wiki
+          cd ../Wiki
           rm -rf .git
 
-      - uses: actions/upload-artifact@v3
+      # Artifacts automatically get zipped.
+      # To avoid double-zipping, we use the unzipped directory
+      - uses: actions/upload-artifact@v4
         with:	
-          name: Pikafish
+          name: Pikafish-${{ matrix.config.name }}${{ matrix.arch }}
           path: |
-            ${{ matrix.config.name }}/*
-            wiki
+            ${{ env.EXE }}
+            Wiki
             AUTHORS
+            CONTRIBUTING.md
+            Copying.txt
+            README.md
+            Top CPU Contributors.txt
+
+  Pikafish-MacOS-M1:
+    name: MacOS-apple-silicon
+    runs-on: macos-14
+    env:
+      ARCH: apple-silicon
+      COMPILER: clang++
+      COMP: clang
+      EXE: pikafish-apple-silicon
+    defaults:
+      run:
+        working-directory: src
+        shell: bash
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compile apple-silicon build
+        run: |
+          wget -q https://github.com/official-pikafish/Networks/releases/download/master-net/pikafish.nnue
+          make -j profile-build EXE=$EXE
+          make strip EXE=$EXE
+          cp $EXE ../
+
+      - name: Download wiki
+        run: |
+          git clone https://github.com/official-pikafish/Pikafish.wiki.git ../Wiki
+          cd ../Wiki
+          rm -rf .git
+
+      # Artifacts automatically get zipped.
+      # To avoid double-zipping, we use the unzipped directory
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Pikafish-MacOS-M1-apple-silicon
+          path: |
+            ${{ env.EXE }}
+            Wiki
+            AUTHORS
+            CONTRIBUTING.md
             Copying.txt
             README.md
             Top CPU Contributors.txt
@@ -89,7 +161,12 @@ jobs:
         working-directory: src
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
+
+      - name: Download required linux packages
+        run: |
+          sudo apt update
+          sudo apt install qemu-user
 
       - name: Install NDK
         run: |
@@ -105,19 +182,20 @@ jobs:
       - name: Compile ${{ matrix.arch }} build
         run: |
           export PATH=${{ env.ANDROID_NDK_BIN }}:$PATH
-          make clean
-          make -j build EXE=$EXE
+          wget -q https://github.com/official-pikafish/Networks/releases/download/master-net/pikafish.nnue
+          make -j profile-build EXE=$EXE WINE_PATH=$EMU
           make strip EXE=$EXE
+          cp $EXE ../
 
-      - name: Copy binary to folder
-        run: |
-          cd ..
-          mkdir Android
-          cp src/$EXE Android
-
-      - uses: actions/upload-artifact@v3
+      # Artifacts automatically get zipped.
+      # To avoid double-zipping, we use the unzipped directory
+      - uses: actions/upload-artifact@v4
         with:	
-          name: Pikafish	
+          name: Pikafish-Android-${{ matrix.arch }}
           path: |
-            Android/*
+            ${{ env.EXE }}
             AUTHORS
+            CONTRIBUTING.md
+            Copying.txt
+            README.md
+            Top CPU Contributors.txt
