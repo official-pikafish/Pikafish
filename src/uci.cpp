@@ -408,7 +408,7 @@ extern "C" void wasm_uci_execute() {
     char *argv[2] = {input.data(), input.data()};
     CommandLine cli(2, argv);
 
-    std::unique_ptr<UCI> uci;
+    EM_STATIC std::unique_ptr<UCI> uci;
     [[maybe_unused]] EM_STATIC auto __init_once = [&]() {
         Bitboards::init();
         Position::init();
