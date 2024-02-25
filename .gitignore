@@ -7,10 +7,12 @@ src/.depend
 *.pro
 *.pro.user
 
+# Files from CLion
+.idea/*
+
 # Built binary
 src/pikafish*
 src/-lstdc++.res
 
 # Neural network for the NNUE evaluation
 **/*.nnue
-
