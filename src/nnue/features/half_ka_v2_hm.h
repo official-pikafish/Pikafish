@@ -66,7 +66,7 @@ class HalfKAv2_hm {
 
     // Index of a feature for a given king position and another piece on some square
     template<Color Perspective>
-    static IndexType make_index(Square s, Piece pc, Square ksq, int ab);
+    static IndexType make_index(Square s, Piece pc, Square ksq);
 
    public:
     // Feature name
@@ -76,7 +76,7 @@ class HalfKAv2_hm {
     static constexpr std::uint32_t HashValue = 0xd17b100;
 
     // Number of feature dimensions
-    static constexpr IndexType Dimensions = 6 * 3 * 3 * static_cast<IndexType>(PS_NB);
+    static constexpr IndexType Dimensions = 6 * static_cast<IndexType>(PS_NB);
 
     // clang-format off
 #define M(s) ((1 << 3) | s)
@@ -140,7 +140,7 @@ class HalfKAv2_hm {
     // Get a list of indices for recently changed features
     template<Color Perspective>
     static void append_changed_indices(
-      Square ksq, int ab, const DirtyPiece& dp, IndexList& removed, IndexList& added);
+      Square ksq, const DirtyPiece& dp, IndexList& removed, IndexList& added);
 
     // Returns the cost of updating one perspective, the most costly one.
     // Assumes no refresh needed.
