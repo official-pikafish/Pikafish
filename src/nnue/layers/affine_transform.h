@@ -61,9 +61,7 @@ static void affine_transform_non_ssse3(std::int32_t* output,
         emscripten_wasm_simd::affine<n, m, n_stride>(A, x, b, y);
         return;
     }
-    #endif
-
-    #if defined(USE_SSE2) || defined(USE_NEON_DOTPROD) || defined(USE_NEON)
+    #elif defined(USE_SSE2) || defined(USE_NEON_DOTPROD) || defined(USE_NEON)
         # if defined(USE_SSE2)
     // At least a multiple of 16, with SSE2.
     constexpr IndexType NumChunks   = ceil_to_multiple<IndexType>(InputDimensions, 16) / 16;
@@ -213,22 +211,20 @@ class AffineTransform {
 
     #if defined(USE_AVX512) || defined(USE_AVX512F)
             using vec_t = __m512i;
-        #define vec_setzero _mm512_setzero_si512
         #define vec_set_32 _mm512_set1_epi32
         #define vec_add_dpbusd_32 Simd::m512_add_dpbusd_epi32
-        #define vec_hadd Simd::m512_hadd
     #elif defined(USE_AVX2)
             using vec_t = __m256i;
-        #define vec_setzero _mm256_setzero_si256
         #define vec_set_32 _mm256_set1_epi32
         #define vec_add_dpbusd_32 Simd::m256_add_dpbusd_epi32
-        #define vec_hadd Simd::m256_hadd
     #elif defined(USE_SSSE3)
             using vec_t = __m128i;
-        #define vec_setzero _mm_setzero_si128
         #define vec_set_32 _mm_set1_epi32
         #define vec_add_dpbusd_32 Simd::m128_add_dpbusd_epi32
-        #define vec_hadd Simd::m128_hadd
+    #elif defined(USE_WASM_SIMD)
+            using vec_t = v128_t;
+        #define vec_set_32 wasm_i32x4_splat
+        #define vec_add_dpbusd_32 Simd::wasm_i32x4_add_dpbusd_epi32
     #endif
 
             static constexpr IndexType OutputSimdWidth = sizeof(vec_t) / sizeof(OutputType);
@@ -258,10 +254,8 @@ class AffineTransform {
             for (IndexType k = 0; k < NumRegs; ++k)
                 outptr[k] = acc[k];
 
-    #undef vec_setzero
     #undef vec_set_32
     #undef vec_add_dpbusd_32
-    #undef vec_hadd
         }
         else if constexpr (OutputDimensions == 1)
         {
@@ -270,16 +264,19 @@ class AffineTransform {
     // and the buffer is not padded to 64 elements.
     #if defined(USE_AVX2)
             using vec_t = __m256i;
-        #define vec_setzero _mm256_setzero_si256
-        #define vec_set_32 _mm256_set1_epi32
+        #define vec_zero _mm256_setzero_si256()
         #define vec_add_dpbusd_32 Simd::m256_add_dpbusd_epi32
         #define vec_hadd Simd::m256_hadd
     #elif defined(USE_SSSE3)
             using vec_t = __m128i;
-        #define vec_setzero _mm_setzero_si128
-        #define vec_set_32 _mm_set1_epi32
+        #define vec_zero _mm_setzero_si128()
         #define vec_add_dpbusd_32 Simd::m128_add_dpbusd_epi32
         #define vec_hadd Simd::m128_hadd
+    #elif defined(USE_WASM_SIMD)
+            using vec_t = v128_t;
+        #define vec_zero wasm_i16x8_const_splat(0)
+        #define vec_add_dpbusd_32 Simd::wasm_i32x4_add_dpbusd_epi32
+        #define vec_hadd Simd::wasm_i32x4_hadd
     #endif
 
             const auto inputVector = reinterpret_cast<const vec_t*>(input);
@@ -289,7 +286,7 @@ class AffineTransform {
             static_assert(PaddedInputDimensions % InputSimdWidth == 0);
 
             constexpr IndexType NumChunks = PaddedInputDimensions / InputSimdWidth;
-            vec_t               sum0      = vec_setzero();
+            vec_t               sum0      = vec_zero;
             const auto          row0      = reinterpret_cast<const vec_t*>(&weights[0]);
 
             for (int j = 0; j < int(NumChunks); ++j)
@@ -299,8 +296,7 @@ class AffineTransform {
             }
             output[0] = vec_hadd(sum0, biases[0]);
 
-    #undef vec_setzero
-    #undef vec_set_32
+    #undef vec_zero
     #undef vec_add_dpbusd_32
     #undef vec_hadd
         }

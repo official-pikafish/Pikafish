@@ -37,7 +37,7 @@
 
 namespace Stockfish::Eval::NNUE::Layers {
 
-#if (USE_SSSE3 | (USE_NEON >= 8))
+#if (USE_SSSE3 | (USE_NEON >= 8) | defined(USE_WASM_SIMD))
 alignas(CacheLineSize) static inline const
   std::array<std::array<std::uint16_t, 8>, 256> lookup_indices = []() {
       std::array<std::array<std::uint16_t, 8>, 256> v{};
@@ -88,6 +88,15 @@ void find_nnz(const std::int32_t* input, std::uint16_t* out, IndexType& count_ou
         #define vec128_load(a) vld1q_u16(reinterpret_cast<const std::uint16_t*>(a))
         #define vec128_storeu(a, b) vst1q_u16(reinterpret_cast<std::uint16_t*>(a), b)
         #define vec128_add(a, b) vaddq_u16(a, b)
+    #elif defined(USE_WASM_SIMD)
+    using vec_t    = __i32x4;
+    using vec128_t = __i16x8;
+        #define vec_nnz(a) wasm_i32x4_bitmask(wasm_i32x4_gt(a, wasm_i32x4_splat(0)))
+        #define vec128_zero wasm_i16x8_const_splat(0)
+        #define vec128_set_16(a) wasm_i16x8_splat(a)
+        #define vec128_load(a) wasm_v128_load(a)
+        #define vec128_storeu(a, b) wasm_v128_store(a, b)
+        #define vec128_add(a, b) wasm_i16x8_add(a, b)
     #endif
     constexpr IndexType InputSimdWidth = sizeof(vec_t) / sizeof(std::int32_t);
     // Inputs are processed InputSimdWidth at a time and outputs are processed 8 at a time so we process in chunks of max(InputSimdWidth, 8)
@@ -149,7 +158,7 @@ class AffineTransformSparseInput {
     static constexpr IndexType PaddedOutputDimensions =
       ceil_to_multiple<IndexType>(OutputDimensions, MaxSimdWidth);
 
-#if (USE_SSSE3 | (USE_NEON >= 8))
+#if (USE_SSSE3 | (USE_NEON >= 8) | defined(USE_WASM_SIMD))
     static constexpr IndexType ChunkSize = 4;
 #else
     static constexpr IndexType ChunkSize = 1;
@@ -172,7 +181,7 @@ class AffineTransformSparseInput {
     }
 
     static constexpr IndexType get_weight_index(IndexType i) {
-#if (USE_SSSE3 | (USE_NEON >= 8))
+#if (USE_SSSE3 | (USE_NEON >= 8) | defined(USE_WASM_SIMD))
         return get_weight_index_scrambled(i);
 #else
         return i;
@@ -200,7 +209,7 @@ class AffineTransformSparseInput {
     // Forward propagation
     void propagate(const InputType* input, OutputType* output) const {
 
-#if (USE_SSSE3 | (USE_NEON >= 8))
+#if (USE_SSSE3 | (USE_NEON >= 8) | defined(USE_WASM_SIMD))
     #if defined(USE_AVX512) || defined(USE_AVX512F)
         using invec_t  = __m512i;
         using outvec_t = __m512i;
@@ -226,6 +235,11 @@ class AffineTransformSparseInput {
         using outvec_t = int32x4_t;
         #define vec_set_32(a) vreinterpretq_s8_u32(vdupq_n_u32(a))
         #define vec_add_dpbusd_32 Simd::neon_m128_add_dpbusd_epi32
+    #elif defined(USE_WASM_SIMD)
+        using invec_t  = __i8x16;
+        using outvec_t = __i32x4;
+        #define vec_set_32(a) wasm_i32x4_splat(a)
+        #define vec_add_dpbusd_32 Simd::wasm_i32x4_add_dpbusd_epi32
     #endif
         static constexpr IndexType OutputSimdWidth = sizeof(outvec_t) / sizeof(OutputType);
 
