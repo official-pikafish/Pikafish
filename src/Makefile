@@ -629,7 +629,7 @@ ifeq ($(COMP),emscripten)
 	endif
 
 	ifeq ($(wasm_simd),yes)
-		CXXFLAGS += -DUSE_WASM_SIMD -msimd128
+		CXXFLAGS += -DUSE_WASM_SIMD -msimd128 -mrelaxed-simd
 	endif
 
 	ifeq ($(debug),yes)
