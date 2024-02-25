@@ -19,8 +19,8 @@ auto dot_i8x16(__i8x16 a, __i8x16 b) -> __i32x4 {
 };
 
 auto dot_i8x16_add(__i32x4 sum, __i8x16 a, __i8x16 b) -> __i32x4 {
-#ifdef __wasm_relaxed_simd__
-  return __builtin_wasm_relaxed_dot_i8x16_i7x16_add_s_i32x4(a, b, sum);
+#if defined(__wasm_relaxed_simd__) && defined(USE_WASM_SIMD_RELAXED)
+  return __builtin_wasm_dot_i8x16_i7x16_add_s_i32x4(a, b, sum);
 #else
   return wasm_i32x4_add(sum, dot_i8x16(a, b));
 #endif

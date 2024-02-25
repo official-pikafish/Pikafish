@@ -133,7 +133,7 @@ ifeq ($(ARCH), $(filter $(ARCH), \
                  x86-64-avx2 x86-64-sse41-popcnt x86-64-modern x86-64-ssse3 x86-64-sse3-popcnt \
                  x86-64 x86-32-sse41-popcnt x86-32-sse2 x86-32 ppc-64 ppc-32 e2k \
                  armv7 armv7-neon armv8 armv8-dotprod apple-silicon general-64 general-32 riscv64 loongarch64 \
-                 wasm-single wasm-multi wasm-single-simd128 wasm-multi-simd128))
+                 wasm-single wasm-multi wasm-single-simd128 wasm-multi-simd128 wasm-multi-simd128-relaxed))
    SUPPORTED_ARCH=true
 else
    SUPPORTED_ARCH=false
@@ -427,6 +427,15 @@ ifeq ($(ARCH),wasm-multi-simd128)
 	assertion = no
 endif
 
+ifeq ($(ARCH),wasm-multi-simd128-relaxed)
+	arch = wasm
+	bits = 64
+	wasm_simd = yes
+	wasm_simd_relaxed = yes
+	wasm_multithread = yes
+	assertion = no
+endif
+
 endif
 
 ### ==========================================================================
@@ -629,7 +638,10 @@ ifeq ($(COMP),emscripten)
 	endif
 
 	ifeq ($(wasm_simd),yes)
-		CXXFLAGS += -DUSE_WASM_SIMD -msimd128 -mrelaxed-simd
+		CXXFLAGS += -DUSE_WASM_SIMD -msimd128
+		ifeq ($(wasm_simd_relaxed),yes)
+			CXXFLAGS += -DUSE_WASM_SIMD_RELAXED -mrelaxed-simd
+		endif
 	endif
 
 	ifeq ($(debug),yes)
@@ -966,6 +978,7 @@ help:
 	@echo "wasm-multi              > wasm multiple thread"
 	@echo "wasm-single-simd128     > wasm single thread SIMD 128"
 	@echo "wasm-multi-simd128      > wasm multi thread SIMD 128"
+	@echo "wasm-multi-simd128-relaxed > wasm multi thread SIMD 128 with relaxed instructions"
 	@echo "loongarch64             > LoongArch 64-bit"
 	@echo ""
 	@echo "Supported compilers:"

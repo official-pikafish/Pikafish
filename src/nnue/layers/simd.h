@@ -188,6 +188,9 @@ dotprod_m128_add_dpbusd_epi32(int32x4_t& acc, int8x16_t a, int8x16_t b) {
 }
 
 [[maybe_unused]] static void wasm_i32x4_add_dpbusd_epi32(__i32x4& acc, __i8x16 a, __i8x16 b) {
+#if defined(__wasm_relaxed_simd__) && defined(USE_WASM_SIMD_RELAXED)
+    acc = __builtin_wasm_dot_i8x16_i7x16_add_s_i32x4(b, a, acc);
+#else
     a = wasm_i8x16_shuffle(a, a, 0, 1, 4, 5, 8, 9, 12, 13, 2, 3, 6, 7, 10, 11, 14, 15);
     b = wasm_i8x16_shuffle(b, b, 0, 1, 4, 5, 8, 9, 12, 13, 2, 3, 6, 7, 10, 11, 14, 15);
     __i16x8 a_lo     = wasm_i16x8_extend_low_i8x16(a);
@@ -197,6 +200,7 @@ dotprod_m128_add_dpbusd_epi32(int32x4_t& acc, int8x16_t a, int8x16_t b) {
     __i32x4 product0 = wasm_i32x4_dot_i16x8(a_lo, b_lo);
     __i32x4 product1 = wasm_i32x4_dot_i16x8(a_hi, b_hi);
     acc              = wasm_i32x4_add(acc, wasm_i32x4_add(product0, product1));
+#endif
 }
 
 #endif
