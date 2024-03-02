@@ -966,7 +966,7 @@ Value Position::detect_chases(int d, int ply) {
 
 // Tests whether the position may end the game by rule 60, insufficient material, draw repetition,
 // perpetual check repetition or perpetual chase repetition that allows a player to claim a game result.
-bool Position::rule_judge(Value& result, int ply) const {
+bool Position::rule_judge(Value& result, int ply) {
 
     // Restore rule 60 by adding back the checks
     int end = std::min(st->rule60 + std::max(0, st->check10[WHITE] - 10)
@@ -1016,48 +1016,79 @@ bool Position::rule_judge(Value& result, int ply) const {
         }
     }
 
-    // Draw by insufficient material
-    if ([&] {
-            if (count<PAWN>() == 0)
-            {
-                // No attacking pieces left
-                if (!major_material())
-                    return true;
-
-                // Only one cannon left on the board
-                if (major_material() == CannonValue)
-                {
-                    // No advisors left on the board
-                    if (count<ADVISOR>() == 0)
-                        return true;
-
-                    // The side not holding the cannon can possess one advisor
-                    // The side holding the cannon should only have cannon
-                    if ((count<ALL_PIECES>(WHITE) == 2 && count<CANNON>(WHITE) == 1
-                         && count<ADVISOR>(BLACK) == 1)
-                        || (count<ALL_PIECES>(BLACK) == 2 && count<CANNON>(BLACK) == 1
-                            && count<ADVISOR>(WHITE) == 1))
-                        return true;
-                }
-
-                // Two cannons left on the board, one for each side, but no other pieces left on the board
-                if (count<ALL_PIECES>() == 4 && count<CANNON>(WHITE) == 1
-                    && count<CANNON>(BLACK) == 1)
-                    return true;
-            }
-
-            return false;
-        }())
-    {
-        result = VALUE_DRAW;
-        return true;
-    }
-
     // 60 move rule
     if (st->rule60 >= 120)
     {
         result = MoveList<LEGAL>(*this).size() ? VALUE_DRAW : mated_in(ply);
         return true;
+    }
+
+    // Draw by insufficient material
+    if (count<PAWN>() == 0)
+    {
+        enum DrawLevel : int {
+            NO_DRAW,      // There is no drawing situation exists
+            DIRECT_DRAW,  // A draw can be directly yielded without any checks
+            MATE_DRAW     // We need to check for mate before yielding a draw
+        };
+
+        int level = [&]() {
+            // No cannons left on the board
+            if (!major_material())
+                return DIRECT_DRAW;
+
+            // One cannon left on the board
+            if (major_material() == CannonValue)
+            {
+                // See which side is holding this cannon, and this side must not possess any advisors
+                Color cannonSide = major_material(WHITE) == CannonValue ? WHITE : BLACK;
+                if (count<ADVISOR>(cannonSide) == 0)
+                {
+                    // No advisors left on the board
+                    if (count<ADVISOR>(~cannonSide) == 0)
+                        return DIRECT_DRAW;
+
+                    // One advisor left on the board
+                    if (count<ADVISOR>(~cannonSide) == 1)
+                        return count<BISHOP>(cannonSide) == 0 ? DIRECT_DRAW : MATE_DRAW;
+
+                    // Two advisors left on the board
+                    if (count<BISHOP>(cannonSide) == 0)
+                        return MATE_DRAW;
+                }
+            }
+
+            // Two cannons left on the board, one for each side, and no advisors left on the board
+            if (major_material() == CannonValue * 2 && count<ADVISOR>() == 0
+                && count<CANNON>(WHITE) == 1 && count<CANNON>(BLACK) == 1)
+                return count<BISHOP>() == 0 ? DIRECT_DRAW : MATE_DRAW;
+
+            return NO_DRAW;
+        }();
+
+        if (level != NO_DRAW)
+        {
+            if (level == MATE_DRAW)
+            {
+                MoveList<LEGAL> moves(*this);
+                if (moves.size() == 0)
+                {
+                    result = mated_in(ply);
+                    return true;
+                }
+                for (const auto& move : moves)
+                {
+                    StateInfo tempSt;
+                    do_move(move, tempSt);
+                    bool mate = MoveList<LEGAL>(*this).size() == 0;
+                    undo_move(move);
+                    if (mate)
+                        return false;
+                }
+            }
+            result = VALUE_DRAW;
+            return true;
+        }
     }
 
     return false;

@@ -149,7 +149,7 @@ class Position {
     // Other properties of the position
     Color    side_to_move() const;
     int      game_ply() const;
-    bool     rule_judge(Value& result, int ply = 0) const;
+    bool     rule_judge(Value& result, int ply = 0);
     int      rule60_count() const;
     uint16_t chased(Color c);
     Value    major_material(Color c) const;
