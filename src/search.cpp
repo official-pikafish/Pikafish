@@ -391,7 +391,7 @@ void Search::Worker::iterative_deepening() {
                 totalTime = std::min(500.0, totalTime);
 
             if (completedDepth >= 9 && nodesEffort >= 94
-                && mainThread->tm.elapsed(threads.nodes_searched()) > totalTime * 3 / 4
+                && mainThread->tm.elapsed(threads.nodes_searched()) > totalTime * 0.75
                 && !mainThread->ponder)
             {
                 threads.stop = true;

@@ -94,7 +94,7 @@ void TimeManagement::init(Search::LimitsType& limits,
     if (limits.movestogo == 0)
     {
         // Use extra time with larger increments
-        double optExtra = std::clamp(0.9 + 14.2 * limits.inc[us] / limits.time[us], 1.0, 1.00);
+        double optExtra = limits.inc[us] < 500 ? 1.0 : 1.10;
 
         // Calculate time constants based on current time left.
         double optConstant =
