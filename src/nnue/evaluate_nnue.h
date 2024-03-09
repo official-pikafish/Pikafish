@@ -27,6 +27,7 @@
 #include <optional>
 #include <string>
 
+#include "../evaluate.h"
 #include "../misc.h"
 #include "../types.h"
 #include "nnue_architecture.h"
@@ -34,11 +35,6 @@
 
 namespace Stockfish {
 class Position;
-
-namespace Eval {
-struct EvalFile;
-}
-
 }
 
 namespace Stockfish::Eval::NNUE {
@@ -77,7 +73,7 @@ void        hint_common_parent_position(const Position& pos);
 
 std::optional<std::string> load_eval(std::istream& stream);
 bool save_eval(std::ostream& stream, const std::string& name, const std::string& netDescription);
-bool save_eval(const std::optional<std::string>& filename, const Eval::EvalFile&);
+bool save_eval(const std::optional<std::string>& filename, const EvalFile&);
 
 }  // namespace Stockfish::Eval::NNUE
 
