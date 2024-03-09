@@ -392,7 +392,7 @@ bool save_eval(std::ostream& stream, const std::string& name, const std::string&
     return write_parameters(stream, netDescription);
 }
 // Save eval, to a file given by its name
-bool save_eval(const std::optional<std::string>& filename, const Eval::EvalFile& evalFile) {
+bool save_eval(const std::optional<std::string>& filename, const EvalFile& evalFile) {
 
     std::string actualFilename;
     std::string msg;

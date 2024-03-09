@@ -79,7 +79,7 @@ class ThreadPool {
         }
     }
 
-    void start_thinking(Position&, StateListPtr&, Search::LimitsType, bool = false);
+    void start_thinking(Position&, StateListPtr&, Search::LimitsType);
     void clear();
     void set(Search::SharedState);
 
