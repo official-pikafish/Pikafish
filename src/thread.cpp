@@ -19,7 +19,6 @@
 #include "thread.h"
 
 #include <algorithm>
-#include <array>
 #include <cassert>
 #include <deque>
 #include <memory>
@@ -201,7 +200,6 @@ void ThreadPool::start_thinking(Position& pos, StateListPtr& states, Search::Lim
         th->worker->rootMoves                              = rootMoves;
         th->worker->rootPos.set(pos, &th->worker->rootState);
         th->worker->rootState = setupStates->back();
-        th->worker->effort    = {};
     }
 
     main_thread()->start_searching();
