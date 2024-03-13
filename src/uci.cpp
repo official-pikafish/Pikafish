@@ -22,23 +22,24 @@
 #include <algorithm>
 #include <cassert>
 #include <cmath>
+#include <cstdint>
 #include <cstdlib>
 #include <deque>
 #include <memory>
 #include <optional>
 #include <sstream>
 #include <vector>
-#include <cstdint>
 
 #include "benchmark.h"
 #include "evaluate.h"
 #include "movegen.h"
-#include "nnue/evaluate_nnue.h"
+#include "nnue/network.h"
+#include "nnue/nnue_common.h"
+#include "perft.h"
 #include "position.h"
 #include "search.h"
 #include "types.h"
 #include "ucioption.h"
-#include "perft.h"
 
 namespace Stockfish {
 
@@ -46,15 +47,16 @@ constexpr auto StartFEN = "rnbakabnr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C5C1/9/RNB
 constexpr int  NormalizeToPawnValue = 345;
 constexpr int  MaxHashMB            = Is64Bit ? 33554432 : 2048;
 
-UCI::UCI(int argc, char** argv) :
-    cli(argc, argv) {
+namespace NN = Eval::NNUE;
 
-    evalFile = {"EvalFile", EvalFileDefaultName, "None", ""};
+UCI::UCI(int argc, char** argv) :
+    network(NN::Network({EvalFileDefaultName, "None", ""})),
+    cli(argc, argv) {
 
     options["Debug Log File"] << Option("", [](const Option& o) { start_logger(o); });
 
     options["Threads"] << Option(1, 1, 1024, [this](const Option&) {
-        threads.set({options, threads, tt});
+        threads.set({options, threads, tt, network});
     });
 
     options["Hash"] << Option(16, 1, MaxHashMB, [this](const Option& o) {
@@ -68,11 +70,12 @@ UCI::UCI(int argc, char** argv) :
     options["Move Overhead"] << Option(10, 0, 5000);
     options["nodestime"] << Option(0, 0, 10000);
     options["UCI_ShowWDL"] << Option(false);
-    options["EvalFile"] << Option(EvalFileDefaultName, [this](const Option&) {
-        evalFile = Eval::NNUE::load_networks(cli.binaryDirectory, options, evalFile);
-    });
+    options["EvalFile"] << Option(
+      EvalFileDefaultName, [this](const Option& o) { network.load(cli.binaryDirectory, o); });
 
-    threads.set({options, threads, tt});
+    network.load(cli.binaryDirectory, options["EvalFile"]);
+
+    threads.set({options, threads, tt, network});
 
     search_clear();  // After threads are up
 }
@@ -144,7 +147,7 @@ void UCI::loop() {
             std::string                f;
             if (is >> std::skipws >> f)
                 filename = f;
-            Eval::NNUE::save_eval(filename, evalFile);
+            network.save(filename);
         }
         else if (token == "--help" || token == "help" || token == "--license" || token == "license")
             sync_cout
@@ -205,7 +208,7 @@ void UCI::go(Position& pos, std::istringstream& is, StateListPtr& states) {
 
     Search::LimitsType limits = parse_limits(pos, is);
 
-    Eval::NNUE::verify(options, evalFile);
+    network.verify(options["EvalFile"]);
 
     if (limits.perft)
     {
@@ -270,9 +273,9 @@ void UCI::trace_eval(Position& pos) {
     Position     p;
     p.set(pos.fen(), &states->back());
 
-    Eval::NNUE::verify(options, evalFile);
+    network.verify(options["EvalFile"]);
 
-    sync_cout << "\n" << Eval::trace(p) << sync_endl;
+    sync_cout << "\n" << Eval::trace(p, network) << sync_endl;
 }
 
 void UCI::search_clear() {

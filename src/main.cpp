@@ -16,7 +16,6 @@
 #include <iostream>
 
 #include "bitboard.h"
-#include "evaluate.h"
 #include "misc.h"
 #include "position.h"
 #include "tune.h"
@@ -35,8 +34,6 @@ int main(int argc, char* argv[]) {
     UCI uci(argc, argv);
 
     Tune::init(uci.options);
-
-    uci.evalFile = Eval::NNUE::load_networks(uci.working_directory(), uci.options, uci.evalFile);
 
     uci.loop();
 

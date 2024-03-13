@@ -42,7 +42,7 @@ constexpr IndexType TransformedFeatureDimensions = 1024;
 constexpr IndexType PSQTBuckets                  = 8;
 constexpr IndexType LayerStacks                  = 8;
 
-struct Network {
+struct NetworkArchitecture {
     static constexpr int FC_0_OUTPUTS = 15;
     static constexpr int FC_1_OUTPUTS = 32;
 
