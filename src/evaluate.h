@@ -26,37 +26,23 @@
 namespace Stockfish {
 
 class Position;
-class OptionsMap;
 
 namespace Eval {
 
-std::string trace(Position& pos);
-
-int   simple_eval(const Position& pos, Color c);
-Value evaluate(const Position& pos, int optimism);
-
 // The default net name MUST follow the format nn-[SHA256 first 12 digits].nnue
 // for the build process (profile-build and fishtest) to work. Do not change the
-// name of the macro, as it is used in the Makefile.
+// name of the macro or the location where this macro is defined, as it is used
+// in the Makefile/Fishtest.
 #define EvalFileDefaultName "pikafish.nnue"
 
-struct EvalFile {
-    // UCI option name
-    std::string optionName;
-    // Default net name, will use one of the macros above
-    std::string defaultName;
-    // Selected net name, either via uci option or default
-    std::string current;
-    // Net description extracted from the net file
-    std::string netDescription;
-};
-
 namespace NNUE {
+class Network;
+}
 
-EvalFile load_networks(const std::string&, const OptionsMap&, EvalFile);
-void     verify(const OptionsMap&, const EvalFile&);
+std::string trace(Position& pos, const Eval::NNUE::Network& network);
 
-}  // namespace NNUE
+int   simple_eval(const Position& pos, Color c);
+Value evaluate(const NNUE::Network& network, const Position& pos, int optimism);
 
 }  // namespace Eval
 

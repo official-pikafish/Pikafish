@@ -22,13 +22,13 @@
 #include <iostream>
 #include <string>
 
-#include "evaluate.h"
 #include "misc.h"
+#include "nnue/network.h"
 #include "position.h"
+#include "search.h"
 #include "thread.h"
 #include "tt.h"
 #include "ucioption.h"
-#include "search.h"
 
 namespace Stockfish {
 
@@ -53,8 +53,8 @@ class UCI {
 
     const std::string& working_directory() const { return cli.workingDirectory; }
 
-    OptionsMap     options;
-    Eval::EvalFile evalFile;
+    OptionsMap          options;
+    Eval::NNUE::Network network;
 
    private:
     TranspositionTable tt;
