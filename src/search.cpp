@@ -183,7 +183,7 @@ void Search::Worker::start_searching() {
 // consumed, the user stops the search, or the maximum search depth is reached.
 void Search::Worker::iterative_deepening() {
 
-    SearchManager* mainThread = (thread_idx == 0 ? main_manager() : nullptr);
+    SearchManager* mainThread = (is_mainthread() ? main_manager() : nullptr);
 
     Move pv[MAX_PLY + 1];
 
@@ -377,9 +377,7 @@ void Search::Worker::iterative_deepening() {
         // Do we have time for the next iteration? Can we stop searching now?
         if (limits.use_time_management() && !threads.stop && !mainThread->stopOnPonderhit)
         {
-            auto bestmove    = rootMoves[0].pv[0];
-            int  nodesEffort = effort[bestmove.from_sq()][bestmove.to_sq()] * 104
-                            / std::max(size_t(1), size_t(nodes));
+            int nodesEffort = rootMoves[0].effort * 104 / std::max(size_t(1), size_t(nodes));
 
             double fallingEval = (73 + 19 * (mainThread->bestPreviousAverageScore - bestValue)
                                   + 5 * (mainThread->iterValue[iterIdx] - bestValue))
@@ -397,9 +395,7 @@ void Search::Worker::iterative_deepening() {
             if (completedDepth >= 9 && nodesEffort >= 94
                 && mainThread->tm.elapsed(threads.nodes_searched()) > totalTime * 0.75
                 && !mainThread->ponder)
-            {
                 threads.stop = true;
-            }
 
             // Stop the search if we have exceeded the totalTime
             if (mainThread->tm.elapsed(threads.nodes_searched()) > totalTime)
@@ -1085,9 +1081,6 @@ moves_loop:  // When in check, search starts here
         // Step 18. Undo move
         pos.undo_move(move);
 
-        if (rootNode)
-            effort[move.from_sq()][move.to_sq()] += nodes - nodeCount;
-
         assert(value > -VALUE_INFINITE && value < VALUE_INFINITE);
 
         // Step 19. Check for a new best move
@@ -1101,6 +1094,8 @@ moves_loop:  // When in check, search starts here
         {
             RootMove& rm =
               *std::find(thisThread->rootMoves.begin(), thisThread->rootMoves.end(), move);
+
+            rm.effort += nodes - nodeCount;
 
             rm.averageScore =
               rm.averageScore != -VALUE_INFINITE ? (2 * value + rm.averageScore) / 3 : value;
