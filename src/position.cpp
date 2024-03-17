@@ -72,7 +72,7 @@ std::ostream& operator<<(std::ostream& os, const Position& pos) {
        << std::setw(16) << pos.key() << std::setfill(' ') << std::dec << "\nCheckers: ";
 
     for (Bitboard b = pos.checkers(); b;)
-        os << UCI::square(pop_lsb(b)) << " ";
+        os << UCIEngine::square(pop_lsb(b)) << " ";
 
     return os;
 }

@@ -92,11 +92,11 @@ std::string Eval::trace(Position& pos, const Eval::NNUE::Network& network) {
 
     Value v = network.evaluate(pos);
     v       = pos.side_to_move() == WHITE ? v : -v;
-    ss << "NNUE evaluation        " << 0.01 * UCI::to_cp(v, pos) << " (white side)\n";
+    ss << "NNUE evaluation        " << 0.01 * UCIEngine::to_cp(v, pos) << " (white side)\n";
 
     v = evaluate(network, pos, VALUE_ZERO);
     v = pos.side_to_move() == WHITE ? v : -v;
-    ss << "Final evaluation       " << 0.01 * UCI::to_cp(v, pos) << " (white side)";
+    ss << "Final evaluation       " << 0.01 * UCIEngine::to_cp(v, pos) << " (white side)";
     ss << " [with scaled NNUE, ...]";
     ss << "\n";
 

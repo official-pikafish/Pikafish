@@ -55,7 +55,7 @@ PGOBENCH = $(WINE_PATH) ./$(EXE) bench
 SRCS = benchmark.cpp bitboard.cpp evaluate.cpp main.cpp \
 	misc.cpp movegen.cpp movepick.cpp position.cpp \
 	search.cpp thread.cpp timeman.cpp tt.cpp uci.cpp ucioption.cpp tune.cpp \
-	nnue/nnue_misc.cpp nnue/features/half_ka_v2_hm.cpp nnue/network.cpp \
+	nnue/nnue_misc.cpp nnue/features/half_ka_v2_hm.cpp nnue/network.cpp  engine.cpp \
 	external/zip.cpp
 
 HEADERS = benchmark.h bitboard.h evaluate.h misc.h movegen.h movepick.h magics.h \
@@ -64,7 +64,7 @@ HEADERS = benchmark.h bitboard.h evaluate.h misc.h movegen.h movepick.h magics.h
            nnue/layers/sqr_clipped_relu.h nnue/nnue_accumulator.h nnue/nnue_architecture.h \
            nnue/nnue_common.h nnue/nnue_feature_transformer.h position.h \
            search.h thread.h thread_win32_osx.h timeman.h \
-           tt.h tune.h types.h uci.h ucioption.h perft.h nnue/network.h \
+           tt.h tune.h types.h uci.h ucioption.h perft.h nnue/network.h  engine.h \
            external/zip.h external/miniz.h
 
 OBJS = $(notdir $(SRCS:.cpp=.o))

@@ -30,6 +30,7 @@
 #include <vector>
 
 #include "benchmark.h"
+#include "engine.h"
 #include "evaluate.h"
 #include "movegen.h"
 #include "nnue/network.h"
@@ -45,39 +46,34 @@ namespace Stockfish {
 constexpr auto StartFEN  = "rnbakabnr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C5C1/9/RNBAKABNR w";
 constexpr int  MaxHashMB = Is64Bit ? 33554432 : 2048;
 
-namespace NN = Eval::NNUE;
 
-UCI::UCI(int argc, char** argv) :
-    network(NN::Network({EvalFileDefaultName, "None", ""})),
+UCIEngine::UCIEngine(int argc, char** argv) :
+    engine(argv[0]),
     cli(argc, argv) {
+
+    auto& options = engine.get_options();
 
     options["Debug Log File"] << Option("", [](const Option& o) { start_logger(o); });
 
-    options["Threads"] << Option(
-      1, 1, 1024, [this](const Option&) { threads.set({options, threads, tt, network}); });
+    options["Threads"] << Option(1, 1, 1024, [this](const Option&) { engine.resize_threads(); });
 
-    options["Hash"] << Option(16, 1, MaxHashMB, [this](const Option& o) {
-        threads.main_thread()->wait_for_search_finished();
-        tt.resize(o, options["Threads"]);
-    });
+    options["Hash"] << Option(16, 1, MaxHashMB, [this](const Option& o) { engine.set_tt_size(o); });
 
-    options["Clear Hash"] << Option([this](const Option&) { search_clear(); });
+    options["Clear Hash"] << Option([this](const Option&) { engine.search_clear(); });
     options["Ponder"] << Option(false);
     options["MultiPV"] << Option(1, 1, MAX_MOVES);
     options["Move Overhead"] << Option(10, 0, 5000);
     options["nodestime"] << Option(0, 0, 10000);
     options["UCI_ShowWDL"] << Option(false);
-    options["EvalFile"] << Option(
-      EvalFileDefaultName, [this](const Option& o) { network.load(cli.binaryDirectory, o); });
+    options["EvalFile"] << Option(EvalFileDefaultName,
+                                  [this](const Option& o) { engine.load_network(); });
 
-    network.load(cli.binaryDirectory, options["EvalFile"]);
-
-    threads.set({options, threads, tt, network});
-
-    search_clear();  // After threads are up
+    engine.load_network();
+    engine.resize_threads();
+    engine.search_clear();  // After threads are up
 }
 
-void UCI::loop() {
+void UCIEngine::loop() {
 
     Position     pos;
     std::string  token, cmd;
@@ -100,29 +96,29 @@ void UCI::loop() {
         is >> std::skipws >> token;
 
         if (token == "quit" || token == "stop")
-            threads.stop = true;
+            engine.stop();
 
         // The GUI sends 'ponderhit' to tell that the user has played the expected move.
         // So, 'ponderhit' is sent if pondering was done on the same move that the user
         // has played. The search should continue, but should also switch from pondering
         // to the normal search.
         else if (token == "ponderhit")
-            threads.main_manager()->ponder = false;  // Switch to the normal search
+            engine.set_ponderhit(false);
 
         else if (token == "uci")
             sync_cout << "id name " << engine_info(true) << "\n"
-                      << options << "\nuciok" << sync_endl;
+                      << engine.get_options() << "\nuciok" << sync_endl;
 
         else if (token == "setoption")
             setoption(is);
         else if (token == "go")
-            go(pos, is, states);
+            go(pos, is);
         else if (token == "position")
-            position(pos, is, states);
+            position(is);
         else if (token == "fen" || token == "startpos")
-            is.seekg(0), position(pos, is, states);
+            is.seekg(0), position(is);
         else if (token == "ucinewgame")
-            search_clear();
+            engine.search_clear();
         else if (token == "isready")
             sync_cout << "readyok" << sync_endl;
 
@@ -131,20 +127,20 @@ void UCI::loop() {
         else if (token == "flip")
             pos.flip();
         else if (token == "bench")
-            bench(pos, is, states);
+            bench(pos, is);
         else if (token == "d")
             sync_cout << pos << sync_endl;
         else if (token == "eval")
-            trace_eval(pos);
+            engine.trace_eval();
         else if (token == "compiler")
             sync_cout << compiler_info() << sync_endl;
         else if (token == "export_net")
         {
-            std::optional<std::string> filename;
+            std::optional<std::string> file;
             std::string                f;
             if (is >> std::skipws >> f)
-                filename = f;
-            network.save(filename);
+                file = f;
+            engine.save_network(file);
         }
         else if (token == "--help" || token == "help" || token == "--license" || token == "license")
             sync_cout
@@ -162,7 +158,7 @@ void UCI::loop() {
     } while (token != "quit" && cli.argc == 1);  // The command-line arguments are one-shot
 }
 
-Search::LimitsType UCI::parse_limits(const Position& pos, std::istream& is) {
+Search::LimitsType UCIEngine::parse_limits(const Position& pos, std::istream& is) {
     Search::LimitsType limits;
     std::string        token;
 
@@ -201,22 +197,13 @@ Search::LimitsType UCI::parse_limits(const Position& pos, std::istream& is) {
     return limits;
 }
 
-void UCI::go(Position& pos, std::istringstream& is, StateListPtr& states) {
+void UCIEngine::go(Position& pos, std::istringstream& is) {
 
     Search::LimitsType limits = parse_limits(pos, is);
-
-    network.verify(options["EvalFile"]);
-
-    if (limits.perft)
-    {
-        perft(pos.fen(), limits.perft);
-        return;
-    }
-
-    threads.start_thinking(pos, states, limits);
+    engine.go(limits);
 }
 
-void UCI::bench(Position& pos, std::istream& args, StateListPtr& states) {
+void UCIEngine::bench(Position& pos, std::istream& args) {
     std::string token;
     uint64_t    num, nodes = 0, cnt = 1;
 
@@ -238,20 +225,20 @@ void UCI::bench(Position& pos, std::istream& args, StateListPtr& states) {
                       << std::endl;
             if (token == "go")
             {
-                go(pos, is, states);
-                threads.main_thread()->wait_for_search_finished();
-                nodes += threads.nodes_searched();
+                go(pos, is);
+                engine.wait_for_search_finished();
+                nodes += engine.nodes_searched();
             }
             else
-                trace_eval(pos);
+                engine.trace_eval();
         }
         else if (token == "setoption")
             setoption(is);
         else if (token == "position")
-            position(pos, is, states);
+            position(is);
         else if (token == "ucinewgame")
         {
-            search_clear();  // Search::clear() may take a while
+            engine.search_clear();  // search_clear may take a while
             elapsed = now();
         }
     }
@@ -260,35 +247,18 @@ void UCI::bench(Position& pos, std::istream& args, StateListPtr& states) {
 
     dbg_print();
 
-    std::cerr << "\n===========================" << "\nTotal time (ms) : " << elapsed
-              << "\nNodes searched  : " << nodes << "\nNodes/second    : " << 1000 * nodes / elapsed
-              << std::endl;
+    std::cerr << "\n==========================="
+              << "\nTotal time (ms) : " << elapsed << "\nNodes searched  : " << nodes
+              << "\nNodes/second    : " << 1000 * nodes / elapsed << std::endl;
 }
 
-void UCI::trace_eval(Position& pos) {
-    StateListPtr states(new std::deque<StateInfo>(1));
-    Position     p;
-    p.set(pos.fen(), &states->back());
 
-    network.verify(options["EvalFile"]);
-
-    sync_cout << "\n" << Eval::trace(p, network) << sync_endl;
+void UCIEngine::setoption(std::istringstream& is) {
+    engine.wait_for_search_finished();
+    engine.get_options().setoption(is);
 }
 
-void UCI::search_clear() {
-    threads.main_thread()->wait_for_search_finished();
-
-    tt.clear(options["Threads"]);
-    threads.clear();
-}
-
-void UCI::setoption(std::istringstream& is) {
-    threads.main_thread()->wait_for_search_finished();
-    options.setoption(is);
-}
-
-void UCI::position(Position& pos, std::istringstream& is, StateListPtr& states) {
-    Move        m;
+void UCIEngine::position(std::istringstream& is) {
     std::string token, fen;
 
     is >> token;
@@ -304,15 +274,14 @@ void UCI::position(Position& pos, std::istringstream& is, StateListPtr& states) 
     else
         return;
 
-    states = StateListPtr(new std::deque<StateInfo>(1));  // Drop the old state and create a new one
-    pos.set(fen, &states->back());
+    std::vector<std::string> moves;
 
-    // Parse the move list, if any
-    while (is >> token && (m = to_move(pos, token)) != Move::none())
+    while (is >> token)
     {
-        states->emplace_back();
-        pos.do_move(m, states->back());
+        moves.push_back(token);
     }
+
+    engine.set_position(fen, moves);
 }
 
 namespace {
@@ -351,7 +320,7 @@ int win_rate_model(Value v, const Position& pos) {
 }
 }
 
-std::string UCI::to_score(Value v, const Position& pos) {
+std::string UCIEngine::to_score(Value v, const Position& pos) {
     assert(-VALUE_INFINITE < v && v < VALUE_INFINITE);
 
     std::stringstream ss;
@@ -366,7 +335,7 @@ std::string UCI::to_score(Value v, const Position& pos) {
 
 // Turns a Value to an integer centipawn number,
 // without treatment of mate and similar special scores.
-int UCI::to_cp(Value v, const Position& pos) {
+int UCIEngine::to_cp(Value v, const Position& pos) {
 
     // In general, the score can be defined via the the WDL as
     // (log(1/L - 1) - log(1/W - 1)) / ((log(1/L - 1) + log(1/W - 1))
@@ -377,7 +346,7 @@ int UCI::to_cp(Value v, const Position& pos) {
     return std::round(100 * int(v) / a);
 }
 
-std::string UCI::wdl(Value v, const Position& pos) {
+std::string UCIEngine::wdl(Value v, const Position& pos) {
     std::stringstream ss;
 
     int wdl_w = win_rate_model(v, pos);
@@ -388,11 +357,11 @@ std::string UCI::wdl(Value v, const Position& pos) {
     return ss.str();
 }
 
-std::string UCI::square(Square s) {
+std::string UCIEngine::square(Square s) {
     return std::string{char('a' + file_of(s)), char('0' + rank_of(s))};
 }
 
-std::string UCI::move(Move m) {
+std::string UCIEngine::move(Move m) {
     if (m == Move::none())
         return "(none)";
 
@@ -407,7 +376,7 @@ std::string UCI::move(Move m) {
     return move;
 }
 
-Move UCI::to_move(const Position& pos, std::string& str) {
+Move UCIEngine::to_move(const Position& pos, std::string str) {
 
     for (const auto& m : MoveList<LEGAL>(pos))
         if (str == move(m))
