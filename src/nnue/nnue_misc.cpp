@@ -44,10 +44,10 @@ void hint_common_parent_position(const Position& pos, const Network& network) {
     network.hint_common_access(pos);
 }
 
-
+namespace {
 // Converts a Value into (centi)pawns and writes it in a buffer.
 // The buffer must have capacity for at least 5 chars.
-static void format_cp_compact(Value v, char* buffer) {
+void format_cp_compact(Value v, char* buffer) {
 
     buffer[0] = (v < 0 ? '-' : v > 0 ? '+' : ' ');
 
@@ -83,7 +83,7 @@ static void format_cp_compact(Value v, char* buffer) {
 
 
 // Converts a Value into pawns, always keeping two decimals
-static void format_cp_aligned_dot(Value v, std::stringstream& stream) {
+void format_cp_aligned_dot(Value v, std::stringstream& stream) {
 
     const double pawns = std::abs(0.01 * UCI::to_cp(v));
 
@@ -91,6 +91,7 @@ static void format_cp_aligned_dot(Value v, std::stringstream& stream) {
                : v > 0 ? '+'
                        : ' ')
            << std::setiosflags(std::ios::fixed) << std::setw(6) << std::setprecision(2) << pawns;
+}
 }
 
 
