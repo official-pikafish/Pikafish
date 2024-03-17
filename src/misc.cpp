@@ -599,14 +599,15 @@ namespace WinProcGroup {
 
 #ifndef _WIN32
 
-void bindThisThread(size_t) {}
+void bind_this_thread(size_t) {}
 
 #else
 
+namespace {
 // Retrieves logical processor information using Windows-specific
 // API and returns the best node id for the thread with index idx. Original
 // code from Texel by Peter Österlund.
-static int best_node(size_t idx) {
+int best_node(size_t idx) {
 
     int   threads      = 0;
     int   nodes        = 0;
@@ -671,10 +672,11 @@ static int best_node(size_t idx) {
     // then return -1 and let the OS to decide what to do.
     return idx < groups.size() ? groups[idx] : -1;
 }
+}
 
 
 // Sets the group affinity of the current thread
-void bindThisThread(size_t idx) {
+void bind_this_thread(size_t idx) {
 
     // Use only local variables to be thread-safe
     int node = best_node(idx);
