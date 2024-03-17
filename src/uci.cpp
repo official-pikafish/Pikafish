@@ -28,6 +28,7 @@
 #include <memory>
 #include <optional>
 #include <sstream>
+#include <utility>
 #include <vector>
 
 #include "benchmark.h"
@@ -43,9 +44,8 @@
 
 namespace Stockfish {
 
-constexpr auto StartFEN = "rnbakabnr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C5C1/9/RNBAKABNR w";
-constexpr int  NormalizeToPawnValue = 345;
-constexpr int  MaxHashMB            = Is64Bit ? 33554432 : 2048;
+constexpr auto StartFEN  = "rnbakabnr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C5C1/9/RNBAKABNR w";
+constexpr int  MaxHashMB = Is64Bit ? 33554432 : 2048;
 
 namespace NN = Eval::NNUE;
 
@@ -318,17 +318,69 @@ void UCI::position(Position& pos, std::istringstream& is, StateListPtr& states) 
     }
 }
 
-int UCI::to_cp(Value v) { return 100 * v / NormalizeToPawnValue; }
+namespace {
+std::pair<double, double> win_rate_params(const Position& pos) {
 
-std::string UCI::value(Value v) {
+    int material = 10 * pos.count<ROOK>() + 5 * pos.count<KNIGHT>() + 5 * pos.count<CANNON>()
+                 + 3 * pos.count<BISHOP>() + 2 * pos.count<ADVISOR>() + pos.count<PAWN>();
+
+    // The fitted model only uses data for material counts in [10, 110], and is anchored at count 53.
+    double m = std::clamp(material, 10, 110) / 53.0;
+
+    // Return a = p_a(material) and b = p_b(material), see github.com/official-stockfish/WDL_model
+    constexpr double as[] = {229.68413041, -836.53336539, 1004.77236193, 18.19226434};
+    constexpr double bs[] = {114.18428891, -392.54680852, 475.32622987, -123.49708474};
+
+    double a = (((as[0] * m + as[1]) * m + as[2]) * m) + as[3];
+    double b = (((bs[0] * m + bs[1]) * m + bs[2]) * m) + bs[3];
+
+    return {a, b};
+}
+
+// The win rate model is 1 / (1 + exp((a - eval) / b)), where a = p_a(material) and b = p_b(material).
+// It fits the LTC fishtest statistics rather accurately.
+int win_rate_model(Value v, const Position& pos) {
+
+    auto [a, b] = win_rate_params(pos);
+
+    // Return the win rate in per mille units, rounded to the nearest integer.
+    return int(0.5 + 1000 / (1 + std::exp((a - double(v)) / b)));
+}
+}
+
+std::string UCI::to_score(Value v, const Position& pos) {
     assert(-VALUE_INFINITE < v && v < VALUE_INFINITE);
 
     std::stringstream ss;
 
     if (std::abs(v) < VALUE_MATE_IN_MAX_PLY)
-        ss << "cp " << to_cp(v);
+        ss << "cp " << to_cp(v, pos);
     else
         ss << "mate " << (v > 0 ? VALUE_MATE - v + 1 : -VALUE_MATE - v) / 2;
+
+    return ss.str();
+}
+
+// Turns a Value to an integer centipawn number,
+// without treatment of mate and similar special scores.
+int UCI::to_cp(Value v, const Position& pos) {
+
+    // In general, the score can be defined via the the WDL as
+    // (log(1/L - 1) - log(1/W - 1)) / ((log(1/L - 1) + log(1/W - 1))
+    // Based on our win_rate_model, this simply yields v / a.
+
+    auto [a, b] = win_rate_params(pos);
+
+    return std::round(100 * int(v) / a);
+}
+
+std::string UCI::wdl(Value v, const Position& pos) {
+    std::stringstream ss;
+
+    int wdl_w = win_rate_model(v, pos);
+    int wdl_l = win_rate_model(-v, pos);
+    int wdl_d = 1000 - wdl_w - wdl_l;
+    ss << " wdl " << wdl_w << " " << wdl_d << " " << wdl_l;
 
     return ss.str();
 }
@@ -350,42 +402,6 @@ std::string UCI::move(Move m) {
     std::string move = square(from) + square(to);
 
     return move;
-}
-
-namespace {
-// The win rate model returns the probability of winning (in per mille units) given an
-// eval and a game ply. It fits the LTC fishtest statistics rather accurately.
-int win_rate_model(Value v, int ply) {
-
-    // The fitted model only uses data for moves in [8, 120], and is anchored at move 32.
-    double m = std::clamp(ply / 2 + 1, 8, 120) / 32.0;
-
-    // The coefficients of a third-order polynomial fit is based on the fishtest data
-    // for two parameters that need to transform eval to the argument of a logistic
-    // function.
-    constexpr double as[] = {-2.00568292, 10.45906746, 1.67438883, 334.45864705};
-    constexpr double bs[] = {-4.97134419, 36.15096345, -82.25513499, 117.35186805};
-
-    // Enforce that NormalizeToPawnValue corresponds to a 50% win rate at move 32.
-    static_assert(NormalizeToPawnValue == int(0.5 + as[0] + as[1] + as[2] + as[3]));
-
-    double a = (((as[0] * m + as[1]) * m + as[2]) * m) + as[3];
-    double b = (((bs[0] * m + bs[1]) * m + bs[2]) * m) + bs[3];
-
-    // Return the win rate in per mille units, rounded to the nearest integer.
-    return int(0.5 + 1000 / (1 + std::exp((a - double(v)) / b)));
-}
-}
-
-std::string UCI::wdl(Value v, int ply) {
-    std::stringstream ss;
-
-    int wdl_w = win_rate_model(v, ply);
-    int wdl_l = win_rate_model(-v, ply);
-    int wdl_d = 1000 - wdl_w - wdl_l;
-    ss << " wdl " << wdl_w << " " << wdl_d << " " << wdl_l;
-
-    return ss.str();
 }
 
 Move UCI::to_move(const Position& pos, std::string& str) {

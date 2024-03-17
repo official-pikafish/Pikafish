@@ -126,7 +126,7 @@ void Search::Worker::start_searching() {
     if (rootMoves.empty())
     {
         rootMoves.emplace_back(Move::none());
-        sync_cout << "info depth 0 score " << UCI::value(-VALUE_MATE) << sync_endl;
+        sync_cout << "info depth 0 score " << UCI::to_score(-VALUE_MATE, rootPos) << sync_endl;
     }
     else
     {
@@ -1738,10 +1738,10 @@ std::string SearchManager::pv(const Search::Worker&     worker,
 
         ss << "info"
            << " depth " << d << " seldepth " << rootMoves[i].selDepth << " multipv " << i + 1
-           << " score " << UCI::value(v);
+           << " score " << UCI::to_score(v, pos);
 
         if (worker.options["UCI_ShowWDL"])
-            ss << UCI::wdl(v, pos.game_ply());
+            ss << UCI::wdl(v, pos);
 
         if (i == pvIdx && updated)  // previous-scores are exact
             ss << (rootMoves[i].scoreLowerbound
