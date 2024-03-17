@@ -48,7 +48,7 @@ uint64_t perft(Position& pos, Depth depth) {
             pos.undo_move(m);
         }
         if (Root)
-            sync_cout << UCI::move(m) << ": " << cnt << sync_endl;
+            sync_cout << UCIEngine::move(m) << ": " << cnt << sync_endl;
     }
     return nodes;
 }

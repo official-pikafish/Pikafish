@@ -130,7 +130,8 @@ void Search::Worker::start_searching() {
     if (rootMoves.empty())
     {
         rootMoves.emplace_back(Move::none());
-        sync_cout << "info depth 0 score " << UCI::to_score(-VALUE_MATE, rootPos) << sync_endl;
+        sync_cout << "info depth 0 score " << UCIEngine::to_score(-VALUE_MATE, rootPos)
+                  << sync_endl;
     }
     else
     {
@@ -173,11 +174,11 @@ void Search::Worker::start_searching() {
         sync_cout << main_manager()->pv(*bestThread, threads, tt, bestThread->completedDepth)
                   << sync_endl;
 
-    sync_cout << "bestmove " << UCI::move(bestThread->rootMoves[0].pv[0]);
+    sync_cout << "bestmove " << UCIEngine::move(bestThread->rootMoves[0].pv[0]);
 
     if (bestThread->rootMoves[0].pv.size() > 1
         || bestThread->rootMoves[0].extract_ponder_from_tt(tt, rootPos))
-        std::cout << " ponder " << UCI::move(bestThread->rootMoves[0].pv[1]);
+        std::cout << " ponder " << UCIEngine::move(bestThread->rootMoves[0].pv[1]);
 
     std::cout << sync_endl;
 }
@@ -1746,11 +1747,12 @@ std::string SearchManager::pv(const Search::Worker&     worker,
         if (ss.rdbuf()->in_avail())  // Not at first line
             ss << "\n";
 
-        ss << "info" << " depth " << d << " seldepth " << rootMoves[i].selDepth << " multipv "
-           << i + 1 << " score " << UCI::to_score(v, pos);
+        ss << "info"
+           << " depth " << d << " seldepth " << rootMoves[i].selDepth << " multipv " << i + 1
+           << " score " << UCIEngine::to_score(v, pos);
 
         if (worker.options["UCI_ShowWDL"])
-            ss << UCI::wdl(v, pos);
+            ss << UCIEngine::wdl(v, pos);
 
         if (i == pvIdx && updated)  // previous-scores are exact
             ss << (rootMoves[i].scoreLowerbound
@@ -1761,7 +1763,7 @@ std::string SearchManager::pv(const Search::Worker&     worker,
            << " tbhits " << 0 << " time " << time << " pv";
 
         for (Move m : rootMoves[i].pv)
-            ss << " " << UCI::move(m);
+            ss << " " << UCIEngine::move(m);
     }
 
     return ss.str();
