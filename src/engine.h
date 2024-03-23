@@ -19,7 +19,14 @@
 #ifndef ENGINE_H_INCLUDED
 #define ENGINE_H_INCLUDED
 
-#include "misc.h"
+#include <cstddef>
+#include <functional>
+#include <optional>
+#include <string>
+#include <string_view>
+#include <utility>
+#include <vector>
+
 #include "nnue/network.h"
 #include "position.h"
 #include "search.h"
@@ -31,6 +38,10 @@ namespace Stockfish {
 
 class Engine {
    public:
+    using InfoShort = Search::InfoShort;
+    using InfoFull  = Search::InfoFull;
+    using InfoIter  = Search::InfoIteration;
+
     Engine(std::string path = "");
     ~Engine() { wait_for_search_finished(); }
 
@@ -51,17 +62,20 @@ class Engine {
     void set_ponderhit(bool);
     void search_clear();
 
+    void set_on_update_no_moves(std::function<void(const InfoShort&)>&&);
+    void set_on_update_full(std::function<void(const InfoFull&)>&&);
+    void set_on_iter(std::function<void(const InfoIter&)>&&);
+    void set_on_bestmove(std::function<void(std::string_view, std::string_view)>&&);
+
     // network related
 
-    void verify_network();
+    void verify_network() const;
     void load_network();
     void save_network(const std::optional<std::string>& file);
 
     // utility functions
 
-    void trace_eval();
-    // nodes since last search clear
-    uint64_t    nodes_searched() const;
+    void        trace_eval() const;
     OptionsMap& get_options();
 
    private:
@@ -74,6 +88,8 @@ class Engine {
     ThreadPool          threads;
     TranspositionTable  tt;
     Eval::NNUE::Network network;
+
+    Search::SearchManager::UpdateContext updateContext;
 };
 
 }  // namespace Stockfish

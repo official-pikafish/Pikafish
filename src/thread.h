@@ -80,7 +80,7 @@ class ThreadPool {
 
     void start_thinking(Position&, StateListPtr&, Search::LimitsType);
     void clear();
-    void set(Search::SharedState);
+    void set(Search::SharedState, const Search::SearchManager::UpdateContext&);
 
     Search::SearchManager* main_manager();
     Thread*                main_thread() const { return threads.front(); }
