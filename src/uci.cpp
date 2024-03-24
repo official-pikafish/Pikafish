@@ -55,9 +55,8 @@ UCI::UCI(int argc, char** argv) :
 
     options["Debug Log File"] << Option("", [](const Option& o) { start_logger(o); });
 
-    options["Threads"] << Option(1, 1, 1024, [this](const Option&) {
-        threads.set({options, threads, tt, network});
-    });
+    options["Threads"] << Option(
+      1, 1, 1024, [this](const Option&) { threads.set({options, threads, tt, network}); });
 
     options["Hash"] << Option(16, 1, MaxHashMB, [this](const Option& o) {
         threads.main_thread()->wait_for_search_finished();
@@ -263,9 +262,9 @@ void UCI::bench(Position& pos, std::istream& args, StateListPtr& states) {
 
     dbg_print();
 
-    std::cerr << "\n==========================="
-              << "\nTotal time (ms) : " << elapsed << "\nNodes searched  : " << nodes
-              << "\nNodes/second    : " << 1000 * nodes / elapsed << std::endl;
+    std::cerr << "\n===========================" << "\nTotal time (ms) : " << elapsed
+              << "\nNodes searched  : " << nodes << "\nNodes/second    : " << 1000 * nodes / elapsed
+              << std::endl;
 }
 
 void UCI::trace_eval(Position& pos) {
