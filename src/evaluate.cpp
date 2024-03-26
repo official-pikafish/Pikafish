@@ -46,17 +46,17 @@ int Eval::simple_eval(const Position& pos, Color c) {
 
 // Evaluate is the evaluator for the outer world. It returns a static evaluation
 // of the position from the point of view of the side to move.
-Value Eval::evaluate(const Eval::NNUE::Network& network, const Position& pos, int optimism) {
+Value Eval::evaluate(const Eval::NNUE::Networks& networks, const Position& pos, int optimism) {
 
     assert(!pos.checkers());
 
-    int   v;
-    Color stm        = pos.side_to_move();
-    int   shuffling  = pos.rule60_count();
-    int   simpleEval = simple_eval(pos, stm);
+    int  simpleEval = simple_eval(pos, pos.side_to_move());
+    bool smallNet   = std::abs(simpleEval) > SmallNetThreshold;
+    int  v;
 
     int   nnueComplexity;
-    Value nnue = network.evaluate(pos, true, &nnueComplexity);
+    Value nnue = smallNet ? networks.small.evaluate(pos, true, &nnueComplexity)
+                          : networks.big.evaluate(pos, true, &nnueComplexity);
 
     // Blend optimism and eval with nnue complexity and material imbalance
     optimism += optimism * (nnueComplexity + std::abs(simpleEval - nnue)) / 729;
@@ -66,7 +66,8 @@ Value Eval::evaluate(const Eval::NNUE::Network& network, const Position& pos, in
     v      = (nnue * (537 + mm) + optimism * (128 + mm)) / 1433;
 
     // Damp down the evaluation linearly when shuffling
-    v = v * (279 - shuffling) / 174;
+    int shuffling = pos.rule60_count();
+    v             = v * (279 - shuffling) / 174;
 
     // Guarantee evaluation does not hit the mate range
     v = std::clamp(v, VALUE_MATED_IN_MAX_PLY + 1, VALUE_MATE_IN_MAX_PLY - 1);
@@ -78,7 +79,7 @@ Value Eval::evaluate(const Eval::NNUE::Network& network, const Position& pos, in
 // a string (suitable for outputting to stdout) that contains the detailed
 // descriptions and values of each evaluation term. Useful for debugging.
 // Trace scores are from white's point of view
-std::string Eval::trace(Position& pos, const Eval::NNUE::Network& network) {
+std::string Eval::trace(Position& pos, const Eval::NNUE::Networks& networks) {
 
     if (pos.checkers())
         return "Final evaluation: none (in check)";
@@ -86,15 +87,15 @@ std::string Eval::trace(Position& pos, const Eval::NNUE::Network& network) {
     std::stringstream ss;
     ss << std::showpoint << std::noshowpos << std::fixed << std::setprecision(2);
 
-    ss << '\n' << NNUE::trace(pos, network) << '\n';
+    ss << '\n' << NNUE::trace(pos, networks) << '\n';
 
     ss << std::showpoint << std::showpos << std::fixed << std::setprecision(2) << std::setw(15);
 
-    Value v = network.evaluate(pos);
+    Value v = networks.big.evaluate(pos);
     v       = pos.side_to_move() == WHITE ? v : -v;
     ss << "NNUE evaluation        " << 0.01 * UCI::to_cp(v, pos) << " (white side)\n";
 
-    v = evaluate(network, pos, VALUE_ZERO);
+    v = evaluate(networks, pos, VALUE_ZERO);
     v = pos.side_to_move() == WHITE ? v : -v;
     ss << "Final evaluation       " << 0.01 * UCI::to_cp(v, pos) << " (white side)";
     ss << " [with scaled NNUE, ...]";

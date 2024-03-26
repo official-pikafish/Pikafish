@@ -50,7 +50,7 @@ void* aligned_large_pages_alloc(size_t size);
 // nop if mem == nullptr
 void aligned_large_pages_free(void* mem);
 
-std::stringstream read_zipped_nnue(const std::string& fpath);
+std::stringstream read_zipped_nnue(const std::string& fpath, int index);
 
 // Deleter for automating release of memory area
 template<typename T>

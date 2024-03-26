@@ -37,7 +37,7 @@
 namespace Stockfish {
 
 namespace Eval::NNUE {
-class Network;
+struct Networks;
 }
 
 // Different node types, used as a template parameter
@@ -126,19 +126,19 @@ struct LimitsType {
 // The UCI stores the uci options, thread pool, and transposition table.
 // This struct is used to easily forward data to the Search::Worker class.
 struct SharedState {
-    SharedState(const OptionsMap&          optionsMap,
-                ThreadPool&                threadPool,
-                TranspositionTable&        transpositionTable,
-                const Eval::NNUE::Network& net) :
+    SharedState(const OptionsMap&           optionsMap,
+                ThreadPool&                 threadPool,
+                TranspositionTable&         transpositionTable,
+                const Eval::NNUE::Networks& nets) :
         options(optionsMap),
         threads(threadPool),
         tt(transpositionTable),
-        network(net) {}
+        networks(nets) {}
 
-    const OptionsMap&          options;
-    ThreadPool&                threads;
-    TranspositionTable&        tt;
-    const Eval::NNUE::Network& network;
+    const OptionsMap&           options;
+    ThreadPool&                 threads;
+    TranspositionTable&         tt;
+    const Eval::NNUE::Networks& networks;
 };
 
 class Worker;
@@ -248,10 +248,10 @@ class Worker {
     // The main thread has a SearchManager, the others have a NullSearchManager
     std::unique_ptr<ISearchManager> manager;
 
-    const OptionsMap&          options;
-    ThreadPool&                threads;
-    TranspositionTable&        tt;
-    const Eval::NNUE::Network& network;
+    const OptionsMap&           options;
+    ThreadPool&                 threads;
+    TranspositionTable&         tt;
+    const Eval::NNUE::Networks& networks;
 
     friend class Stockfish::ThreadPool;
     friend class SearchManager;

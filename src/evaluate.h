@@ -29,6 +29,8 @@ class Position;
 
 namespace Eval {
 
+constexpr inline int SmallNetThreshold = 0;
+
 // The default net name MUST follow the format nn-[SHA256 first 12 digits].nnue
 // for the build process (profile-build and fishtest) to work. Do not change the
 // name of the macro or the location where this macro is defined, as it is used
@@ -36,13 +38,13 @@ namespace Eval {
 #define EvalFileDefaultName "pikafish.nnue"
 
 namespace NNUE {
-class Network;
+struct Networks;
 }
 
-std::string trace(Position& pos, const Eval::NNUE::Network& network);
+std::string trace(Position& pos, const Eval::NNUE::Networks& networks);
 
 int   simple_eval(const Position& pos, Color c);
-Value evaluate(const NNUE::Network& network, const Position& pos, int optimism);
+Value evaluate(const NNUE::Networks& networks, const Position& pos, int optimism);
 
 }  // namespace Eval
 

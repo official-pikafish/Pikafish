@@ -39,9 +39,13 @@ namespace Stockfish::Eval::NNUE {
 constexpr std::string_view PieceToChar(" RACPNBK racpnbk");
 
 
-void hint_common_parent_position(const Position& pos, const Network& network) {
+void hint_common_parent_position(const Position& pos, const Networks& networks) {
 
-    network.hint_common_access(pos);
+    int simpleEvalAbs = std::abs(simple_eval(pos, pos.side_to_move()));
+    if (simpleEvalAbs > Eval::SmallNetThreshold)
+        networks.small.hint_common_access(pos);
+    else
+        networks.big.hint_common_access(pos);
 }
 
 namespace {
@@ -97,7 +101,7 @@ void format_cp_aligned_dot(Value v, std::stringstream& stream, const Position& p
 
 // Returns a string with the value of each piece on a board,
 // and a table for (PSQT, Layers) values bucket by bucket.
-std::string trace(Position& pos, const Eval::NNUE::Network& network) {
+std::string trace(Position& pos, const Eval::NNUE::Networks& networks) {
 
     std::stringstream ss;
 
@@ -123,7 +127,7 @@ std::string trace(Position& pos, const Eval::NNUE::Network& network) {
 
     // We estimate the value of each piece by doing a differential evaluation from
     // the current base eval, simulating the removal of the piece from its square.
-    Value base = network.evaluate(pos);
+    Value base = networks.big.evaluate(pos);
     base       = pos.side_to_move() == WHITE ? base : -base;
 
     for (File f = FILE_A; f <= FILE_I; ++f)
@@ -138,16 +142,14 @@ std::string trace(Position& pos, const Eval::NNUE::Network& network) {
                 auto st = pos.state();
 
                 pos.remove_piece(sq);
-                st->accumulator.computed[WHITE] = false;
-                st->accumulator.computed[BLACK] = false;
+                st->accumulatorBig.computed[WHITE] = st->accumulatorBig.computed[BLACK] = false;
 
-                Value eval = network.evaluate(pos);
+                Value eval = networks.big.evaluate(pos);
                 eval       = pos.side_to_move() == WHITE ? eval : -eval;
                 v          = base - eval;
 
                 pos.put_piece(pc, sq);
-                st->accumulator.computed[WHITE] = false;
-                st->accumulator.computed[BLACK] = false;
+                st->accumulatorBig.computed[WHITE] = st->accumulatorBig.computed[BLACK] = false;
             }
 
             writeSquare(f, r, pc, v);
@@ -158,7 +160,7 @@ std::string trace(Position& pos, const Eval::NNUE::Network& network) {
         ss << board[row] << '\n';
     ss << '\n';
 
-    auto t = network.trace_evaluate(pos);
+    auto t = networks.big.trace_evaluate(pos);
 
     ss << " NNUE network contributions "
        << (pos.side_to_move() == WHITE ? "(White to move)" : "(Black to move)") << std::endl
@@ -172,11 +174,14 @@ std::string trace(Position& pos, const Eval::NNUE::Network& network) {
         ss << "|  " << bucket << "        ";
         ss << " |  ";
         format_cp_aligned_dot(t.psqt[bucket], ss, pos);
-        ss << "  " << " |  ";
+        ss << "  "
+           << " |  ";
         format_cp_aligned_dot(t.positional[bucket], ss, pos);
-        ss << "  " << " |  ";
+        ss << "  "
+           << " |  ";
         format_cp_aligned_dot(t.psqt[bucket] + t.positional[bucket], ss, pos);
-        ss << "  " << " |";
+        ss << "  "
+           << " |";
         if (bucket == t.correctBucket)
             ss << " <-- this bucket is used";
         ss << '\n';

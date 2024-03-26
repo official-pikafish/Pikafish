@@ -53,8 +53,8 @@ class UCI {
 
     const std::string& working_directory() const { return cli.workingDirectory; }
 
-    OptionsMap          options;
-    Eval::NNUE::Network network;
+    OptionsMap           options;
+    Eval::NNUE::Networks networks;
 
    private:
     TranspositionTable tt;

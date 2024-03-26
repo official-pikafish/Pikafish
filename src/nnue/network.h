@@ -31,10 +31,12 @@
 
 namespace Stockfish::Eval::NNUE {
 
+template<typename Arch, typename Transformer>
 class Network {
    public:
-    Network(EvalFile file) :
-        evalFile(file) {}
+    Network(EvalFile file, int index) :
+        evalFile(file),
+        index(index) {}
 
     void load(const std::string& rootDirectory, std::string evalfilePath);
     bool save(const std::optional<std::string>& filename) const;
@@ -63,17 +65,61 @@ class Network {
     bool write_parameters(std::ostream&, const std::string&) const;
 
     // Input feature converter
-    LargePagePtr<FeatureTransformer> featureTransformer;
+    LargePagePtr<Transformer> featureTransformer;
 
     // Evaluation function
-    AlignedPtr<NetworkArchitecture> network[LayerStacks];
+    AlignedPtr<Arch> network[LayerStacks];
 
     EvalFile evalFile;
+    int      index;
 
     // Hash value of evaluation function structure
-    static constexpr std::uint32_t hash =
-      FeatureTransformer::get_hash_value() ^ NetworkArchitecture::get_hash_value();
+    static constexpr std::uint32_t hash = Transformer::get_hash_value() ^ Arch::get_hash_value();
 };
+
+// Definitions of the network types
+using SmallFeatureTransformer =
+  FeatureTransformer<TransformedFeatureDimensionsSmall, &StateInfo::accumulatorSmall>;
+using SmallNetworkArchitecture =
+  NetworkArchitecture<TransformedFeatureDimensionsSmall, L2Small, L3Small>;
+
+using BigFeatureTransformer =
+  FeatureTransformer<TransformedFeatureDimensionsBig, &StateInfo::accumulatorBig>;
+using BigNetworkArchitecture = NetworkArchitecture<TransformedFeatureDimensionsBig, L2Big, L3Big>;
+
+using NetworkBig   = Network<BigNetworkArchitecture, BigFeatureTransformer>;
+using NetworkSmall = Network<SmallNetworkArchitecture, SmallFeatureTransformer>;
+
+
+struct Networks {
+    Networks(EvalFile file) :
+        big(file, 0),
+        small(file, 1) {}
+
+    void load(const std::string& rootDirectory, std::string evalfilePath);
+    bool save(const std::optional<std::string>& filename) const;
+    void verify(std::string evalfilePath) const;
+
+    NetworkBig   big;
+    NetworkSmall small;
+};
+
+inline void Networks::load(const std::string& rootDirectory, std::string evalfilePath) {
+    big.load(rootDirectory, evalfilePath);
+    small.load(rootDirectory, evalfilePath);
+}
+
+inline bool Networks::save(const std::optional<std::string>& filename) const {
+    if (filename.value_or("big").find("big"))
+        return big.save(filename);
+    else
+        return small.save(filename);
+}
+
+inline void Networks::verify(std::string evalfilePath) const {
+    big.verify(evalfilePath);
+    small.verify(evalfilePath);
+}
 
 }  // namespace Stockfish
 

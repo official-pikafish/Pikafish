@@ -767,14 +767,14 @@ CommandLine::CommandLine(int _argc, char** _argv) :
         binaryDirectory.replace(0, 1, workingDirectory);
 }
 
-std::stringstream read_zipped_nnue(const std::string& fpath) {
+std::stringstream read_zipped_nnue(const std::string& fpath, int index) {
     void*  buf     = NULL;
     size_t bufsize = 0;
 
     struct zip_t* zip = zip_open(fpath.c_str(), 0, 'r');
-    if (zip_entries_total(zip) == 1)
+    if (zip_entries_total(zip) == 2)
     {
-        zip_entry_openbyindex(zip, 0);
+        zip_entry_openbyindex(zip, index);
         { zip_entry_read(zip, &buf, &bufsize); }
         zip_entry_close(zip);
     }

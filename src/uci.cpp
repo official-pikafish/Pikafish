@@ -50,13 +50,14 @@ constexpr int  MaxHashMB = Is64Bit ? 33554432 : 2048;
 namespace NN = Eval::NNUE;
 
 UCI::UCI(int argc, char** argv) :
-    network(NN::Network({EvalFileDefaultName, "None", ""})),
+    networks({EvalFileDefaultName, "None", ""}),
     cli(argc, argv) {
 
     options["Debug Log File"] << Option("", [](const Option& o) { start_logger(o); });
 
-    options["Threads"] << Option(
-      1, 1, 1024, [this](const Option&) { threads.set({options, threads, tt, network}); });
+    options["Threads"] << Option(1, 1, 1024, [this](const Option&) {
+        threads.set({options, threads, tt, networks});
+    });
 
     options["Hash"] << Option(16, 1, MaxHashMB, [this](const Option& o) {
         threads.main_thread()->wait_for_search_finished();
@@ -70,11 +71,11 @@ UCI::UCI(int argc, char** argv) :
     options["nodestime"] << Option(0, 0, 10000);
     options["UCI_ShowWDL"] << Option(false);
     options["EvalFile"] << Option(
-      EvalFileDefaultName, [this](const Option& o) { network.load(cli.binaryDirectory, o); });
+      EvalFileDefaultName, [this](const Option& o) { networks.load(cli.binaryDirectory, o); });
 
-    network.load(cli.binaryDirectory, options["EvalFile"]);
+    networks.load(cli.binaryDirectory, options["EvalFile"]);
 
-    threads.set({options, threads, tt, network});
+    threads.set({options, threads, tt, networks});
 
     search_clear();  // After threads are up
 }
@@ -146,7 +147,7 @@ void UCI::loop() {
             std::string                f;
             if (is >> std::skipws >> f)
                 filename = f;
-            network.save(filename);
+            networks.save(filename);
         }
         else if (token == "--help" || token == "help" || token == "--license" || token == "license")
             sync_cout
@@ -207,7 +208,7 @@ void UCI::go(Position& pos, std::istringstream& is, StateListPtr& states) {
 
     Search::LimitsType limits = parse_limits(pos, is);
 
-    network.verify(options["EvalFile"]);
+    networks.verify(options["EvalFile"]);
 
     if (limits.perft)
     {
@@ -262,9 +263,9 @@ void UCI::bench(Position& pos, std::istream& args, StateListPtr& states) {
 
     dbg_print();
 
-    std::cerr << "\n===========================" << "\nTotal time (ms) : " << elapsed
-              << "\nNodes searched  : " << nodes << "\nNodes/second    : " << 1000 * nodes / elapsed
-              << std::endl;
+    std::cerr << "\n==========================="
+              << "\nTotal time (ms) : " << elapsed << "\nNodes searched  : " << nodes
+              << "\nNodes/second    : " << 1000 * nodes / elapsed << std::endl;
 }
 
 void UCI::trace_eval(Position& pos) {
@@ -272,9 +273,9 @@ void UCI::trace_eval(Position& pos) {
     Position     p;
     p.set(pos.fen(), &states->back());
 
-    network.verify(options["EvalFile"]);
+    networks.verify(options["EvalFile"]);
 
-    sync_cout << "\n" << Eval::trace(p, network) << sync_endl;
+    sync_cout << "\n" << Eval::trace(p, networks) << sync_endl;
 }
 
 void UCI::search_clear() {
