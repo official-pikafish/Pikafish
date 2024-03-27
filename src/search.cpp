@@ -70,10 +70,10 @@ Value to_corrected_static_eval(Value v, const Worker& w, const Position& pos) {
 }
 
 // History and stats update bonus, based on depth
-int stat_bonus(Depth d) { return std::min(279 * d - 291, 1460); }
+int stat_bonus(Depth d) { return std::clamp(279 * d - 291, 0, 1460); }
 
 // History and stats update malus, based on depth
-int stat_malus(Depth d) { return std::min(612 * d - 254, 1405); }
+int stat_malus(Depth d) { return (d < 4 ? 612 * d - 254 : 1405); }
 
 // Add a small random component to draw evaluations to avoid 3-fold blindness
 Value value_draw(size_t nodes) { return VALUE_DRAW - 1 + Value(nodes & 0x2); }
@@ -1736,8 +1736,9 @@ std::string SearchManager::pv(const Search::Worker&     worker,
         if (ss.rdbuf()->in_avail())  // Not at first line
             ss << "\n";
 
-        ss << "info" << " depth " << d << " seldepth " << rootMoves[i].selDepth << " multipv "
-           << i + 1 << " score " << UCI::to_score(v, pos);
+        ss << "info"
+           << " depth " << d << " seldepth " << rootMoves[i].selDepth << " multipv " << i + 1
+           << " score " << UCI::to_score(v, pos);
 
         if (worker.options["UCI_ShowWDL"])
             ss << UCI::wdl(v, pos);
