@@ -60,7 +60,7 @@ Value Eval::evaluate(const Eval::NNUE::Network& network, const Position& pos, in
 
     // Blend optimism and eval with nnue complexity and material imbalance
     optimism += optimism * (nnueComplexity + std::abs(simpleEval - nnue)) / 729;
-    nnue -= nnue * (nnueComplexity + std::abs(simpleEval - nnue)) / 28920;
+    nnue -= nnue * (nnueComplexity * 5 / 3) / 28920;
 
     int mm = pos.major_material() / 36;
     v      = (nnue * (537 + mm) + optimism * (128 + mm)) / 1433;
