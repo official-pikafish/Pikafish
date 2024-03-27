@@ -76,7 +76,7 @@ jobs:
 
       - name: Compile ${{ matrix.arch }} build
         run: |
-          wget -q https://github.com/official-pikafish/Networks/releases/download/master-net/pikafish.nnue
+          make net
           make -j profile-build EXE=$EXE WINE_PATH="$SDE"
           make strip EXE=$EXE
           cp $EXE ../
@@ -119,7 +119,7 @@ jobs:
 
       - name: Compile apple-silicon build
         run: |
-          wget -q https://github.com/official-pikafish/Networks/releases/download/master-net/pikafish.nnue
+          make net
           make -j profile-build EXE=$EXE
           make strip EXE=$EXE
           cp $EXE ../
@@ -182,7 +182,7 @@ jobs:
       - name: Compile ${{ matrix.arch }} build
         run: |
           export PATH=${{ env.ANDROID_NDK_BIN }}:$PATH
-          wget -q https://github.com/official-pikafish/Networks/releases/download/master-net/pikafish.nnue
+          make net
           make -j profile-build EXE=$EXE WINE_PATH=$EMU
           make strip EXE=$EXE
           cp $EXE ../

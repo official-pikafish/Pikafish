@@ -829,6 +829,7 @@ help:
 	@echo "help                    > Display architecture details"
 	@echo "profile-build           > standard build with profile-guided optimization"
 	@echo "build                   > skip profile-guided optimization"
+	@echo "net                     > Download the default nnue nets"
 	@echo "strip                   > Strip executable"
 	@echo "install                 > Install executable"
 	@echo "clean                   > Clean up"
@@ -945,6 +946,39 @@ profileclean:
 	@rm -f pikafish.*lt*
 	@rm -f pikafish.res
 	@rm -f ./-lstdc++.res
+
+define fetch_network
+	@echo "Default net: $(nnuenet)"
+	@if [ "x$(curl_or_wget)" = "x" ]; then \
+		echo "Neither curl nor wget is installed. Install one of these tools unless the net has been downloaded manually"; \
+	fi; \
+
+	@if test -f "$(nnuenet)"; then \
+		echo "$(nnuenet) available : OK"; \
+	else \
+		if [ "x$(curl_or_wget)" != "x" ]; then \
+			echo "Downloading $(nnuedownloadurl)"; $(curl_or_wget) $(nnuedownloadurl) > $(nnuenet);\
+		else \
+			echo "No net found and download not possible"; exit 1;\
+		fi; \
+	fi; \
+
+	@if ! test -f "$(nnuenet)"; then \
+		echo "Failed to download $(nnuenet)."; \
+	fi;
+endef
+
+# set up shell variables for the net stuff
+define netvariables
+$(eval nnuenet := pikafish.nnue)
+$(eval nnuedownloadurl := https://github.com/official-pikafish/Networks/releases/download/master-net/$(nnuenet))
+$(eval curl_or_wget := $(shell if hash curl 2>/dev/null; then echo "curl -skL"; elif hash wget 2>/dev/null; then echo "wget -qO-"; fi))
+endef
+
+# evaluation network (nnue)
+net:
+	$(call netvariables)
+	$(call fetch_network)
 
 format:
 	$(CLANG-FORMAT) -i $(SRCS) $(HEADERS) -style=file
