@@ -101,4 +101,4 @@ jobs:
         uses: jidicula/clang-format-action@f62da5e3d3a2d88ff364771d9d938773a618ab5e
         id: clang-format
         with:
-          clang-format-version: '17'
+          clang-format-version: '18'

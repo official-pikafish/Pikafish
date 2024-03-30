@@ -33,8 +33,6 @@
 
 namespace Stockfish {
 
-
-class OptionsMap;
 using Value = int;
 
 // Abstraction of a thread. It contains a pointer to the worker and a native thread.

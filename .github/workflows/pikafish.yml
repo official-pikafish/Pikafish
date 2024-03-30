@@ -76,7 +76,6 @@ jobs:
 
       - name: Compile ${{ matrix.arch }} build
         run: |
-          make net
           make -j profile-build EXE=$EXE WINE_PATH="$SDE"
           make strip EXE=$EXE
           cp $EXE ../
@@ -119,7 +118,6 @@ jobs:
 
       - name: Compile apple-silicon build
         run: |
-          make net
           make -j profile-build EXE=$EXE
           make strip EXE=$EXE
           cp $EXE ../
@@ -182,7 +180,6 @@ jobs:
       - name: Compile ${{ matrix.arch }} build
         run: |
           export PATH=${{ env.ANDROID_NDK_BIN }}:$PATH
-          make net
           make -j profile-build EXE=$EXE WINE_PATH=$EMU
           make strip EXE=$EXE
           cp $EXE ../

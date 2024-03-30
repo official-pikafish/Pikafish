@@ -20,16 +20,18 @@
 #include <iostream>
 #include <optional>
 #include <string>
-#include <utility>
 
 #include "../misc.h"
-#include "../position.h"
 #include "../types.h"
 #include "nnue_architecture.h"
 #include "nnue_feature_transformer.h"
 #include "nnue_misc.h"
 
-namespace Stockfish::Eval::NNUE {
+namespace Stockfish {
+
+class Position;
+
+namespace Eval::NNUE {
 
 class Network {
    public:
@@ -75,6 +77,7 @@ class Network {
       FeatureTransformer::get_hash_value() ^ NetworkArchitecture::get_hash_value();
 };
 
+}  // namespace Stockfish::Eval::NNUE
 }  // namespace Stockfish
 
 #endif
