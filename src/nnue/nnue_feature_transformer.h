@@ -417,7 +417,6 @@ class FeatureTransformer {
 
         // Gather all features to be updated.
         const Square ksq = pos.square<KING>(Perspective);
-        const int    ab  = pos.count<ADVISOR>(Perspective) * 3 + pos.count<BISHOP>(Perspective);
 
         // The size must be enough to contain the largest possible update.
         // That might depend on the feature set and generally relies on the
@@ -441,7 +440,7 @@ class FeatureTransformer {
                 const StateInfo* end_state = i == 0 ? computed_st : states_to_update[i - 1];
 
                 for (; st2 != end_state; st2 = st2->previous)
-                    FeatureSet::append_changed_indices<Perspective>(ksq, ab, st2->dirtyPiece,
+                    FeatureSet::append_changed_indices<Perspective>(ksq, st2->dirtyPiece,
                                                                     removed[i], added[i]);
             }
         }

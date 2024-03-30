@@ -263,8 +263,6 @@ struct DirtyPiece {
     // From and to squares, which may be SQ_NONE
     Square from[2];
     Square to[2];
-
-    bool requires_refresh[2];
 };
 
     #define ENABLE_INCR_OPERATORS_ON(T) \
