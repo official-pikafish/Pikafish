@@ -317,7 +317,13 @@ void UCI::position(Position& pos, std::istringstream& is, StateListPtr& states) 
 }
 
 namespace {
-std::pair<double, double> win_rate_params(const Position& pos) {
+
+struct WinRateParams {
+    double a;
+    double b;
+};
+
+WinRateParams win_rate_params(const Position& pos) {
 
     int material = 10 * pos.count<ROOK>() + 5 * pos.count<KNIGHT>() + 5 * pos.count<CANNON>()
                  + 3 * pos.count<BISHOP>() + 2 * pos.count<ADVISOR>() + pos.count<PAWN>();
