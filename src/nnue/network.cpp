@@ -25,7 +25,6 @@
 #include <type_traits>
 #include <vector>
 
-#include "../evaluate.h"
 #include "../misc.h"
 #include "../position.h"
 #include "../types.h"

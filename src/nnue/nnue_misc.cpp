@@ -26,7 +26,6 @@
 #include <sstream>
 #include <string_view>
 
-#include "../evaluate.h"
 #include "../position.h"
 #include "../types.h"
 #include "../uci.h"
