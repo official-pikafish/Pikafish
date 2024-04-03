@@ -4,8 +4,8 @@
 src/.depend
 
 # Files from Qt
-*.pro
-*.pro.user
+CMakeLists.txt
+CMakeLists.txt.user
 
 # Built binary
 src/pikafish*
