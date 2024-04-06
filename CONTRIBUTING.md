@@ -32,9 +32,9 @@ If you find a bug, please open an issue on the
 like your operating system, build environment, and a detailed description of the
 problem.
 
-_Please note that Pikafish's development is not focused on adding new features
-and only comply with Computer Rule. Thus any issue regarding missing features
-or not complying with other rules will potentially be closed without further discussion.
+_Please note that Pikafish's development is not focused on adding new features.
+Thus any issue regarding missing features will potentially be closed without
+further discussion._
 
 ### Submitting Pull Requests
 
@@ -65,7 +65,7 @@ Changes to Pikafish C++ code should respect our coding style defined by
 
 - Join the [Pikafish discord][discord-link] to discuss ideas, issues, and
   development.
-- Participate in the [Stockfish GitHub discussions][discussions-link] for
+- Participate in the [Pikafish GitHub discussions][discussions-link] for
   broader conversations.
 
 ## License

@@ -104,7 +104,7 @@ make -j build ARCH=x86-64-modern
 ```
 
 Detailed compilation instructions for all platforms can be found in our
-[documentation][wiki-compile-link].
+[documentation][wiki-compile-link]. Our wiki also has information about
 the [UCI commands][wiki-uci-link] supported by Pikafish.
 
 ## Terms of use
@@ -156,6 +156,6 @@ also be made available under GPL v3.
 [website-blog-link]:  https://pikafish.org/
 [wiki-link]:          https://github.com/official-pikafish/Pikafish/wiki
 [wiki-compile-link]:  https://github.com/official-pikafish/Pikafish/wiki/Compiling-from-source
-[wiki-commands-link]: https://github.com/official-pikafish/Pikafish/wiki/UCI-&-Commands
+[wiki-uci-link]:      https://github.com/official-pikafish/Pikafish/wiki/UCI-&-Commands
 [wiki-usage-link]:    https://github.com/official-pikafish/Pikafish/wiki/Download-and-usage
 [worker-link]:			https://github.com/xyztnecniV/yolo
