@@ -841,7 +841,7 @@ uint16_t Position::chased(Color c) {
 
             if (chase_legal(m))
             {
-                // Knight and Cannon attacks against stronger pieces
+                // Attacks against stronger pieces
                 if ((attackerType == KNIGHT || attackerType == CANNON)
                     && type_of(piece_on(to)) == ROOK)
                     chase |= (1 << idBoard[to]);
