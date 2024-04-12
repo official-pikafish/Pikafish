@@ -346,7 +346,7 @@ int win_rate_model(Value v, const Position& pos) {
 
 std::string UCIEngine::format_score(const Score& s) {
     const auto format = overload{[](Score::Mate mate) -> std::string {
-                                     auto m = (mate.plies > 0 ? (mate.plies + 1) : -mate.plies) / 2;
+                                     auto m = (mate.plies > 0 ? (mate.plies + 1) : mate.plies) / 2;
                                      return std::string("mate ") + std::to_string(m);
                                  },
                                  [](Score::InternalUnits units) -> std::string {
