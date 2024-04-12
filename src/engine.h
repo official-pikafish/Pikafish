@@ -70,13 +70,16 @@ class Engine {
     // network related
 
     void verify_network() const;
-    void load_network();
+    void load_network(const std::string& file);
     void save_network(const std::optional<std::string>& file);
 
     // utility functions
 
     void        trace_eval() const;
     OptionsMap& get_options();
+    std::string fen() const;
+    void        flip();
+    std::string visualize() const;
 
    private:
     const std::string binaryDirectory;

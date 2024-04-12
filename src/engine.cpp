@@ -24,6 +24,8 @@
 #include <string_view>
 #include <utility>
 #include <vector>
+#include <sstream>
+#include <iosfwd>
 
 #include "evaluate.h"
 #include "misc.h"
@@ -119,13 +121,11 @@ void Engine::set_ponderhit(bool b) { threads.main_manager()->ponder = b; }
 
 void Engine::verify_network() const { network.verify(options["EvalFile"]); }
 
-void Engine::load_network() { network.load(binaryDirectory, options["EvalFile"]); }
+void Engine::load_network(const std::string& file) { network.load(binaryDirectory, file); }
 
 void Engine::save_network(const std::optional<std::string>& file) { network.save(file); }
 
 // utility functions
-
-OptionsMap& Engine::get_options() { return options; }
 
 void Engine::trace_eval() const {
     StateListPtr trace_states(new std::deque<StateInfo>(1));
@@ -135,6 +135,18 @@ void Engine::trace_eval() const {
     verify_network();
 
     sync_cout << "\n" << Eval::trace(p, network) << sync_endl;
+}
+
+OptionsMap& Engine::get_options() { return options; }
+
+std::string Engine::fen() const { return pos.fen(); }
+
+void Engine::flip() { pos.flip(); }
+
+std::string Engine::visualize() const {
+    std::stringstream ss;
+    ss << pos;
+    return ss.str();
 }
 
 }

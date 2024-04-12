@@ -48,7 +48,7 @@ class UCIEngine {
     static std::string wdl(Value v, const Position& pos);
     static Move        to_move(const Position& pos, std::string str);
 
-    static Search::LimitsType parse_limits(const Position& pos, std::istream& is);
+    static Search::LimitsType parse_limits(std::istream& is);
 
     auto& engine_options() { return engine.get_options(); }
 
@@ -56,8 +56,8 @@ class UCIEngine {
     Engine      engine;
     CommandLine cli;
 
-    void go(Position& pos, std::istringstream& is);
-    void bench(Position& pos, std::istream& args);
+    void go(std::istringstream& is);
+    void bench(std::istream& args);
     void position(std::istringstream& is);
     void setoption(std::istringstream& is);
 
