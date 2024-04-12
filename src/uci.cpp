@@ -23,8 +23,6 @@
 #include <cctype>
 #include <cmath>
 #include <cstdint>
-#include <deque>
-#include <memory>
 #include <optional>
 #include <sstream>
 #include <string_view>
@@ -73,7 +71,7 @@ UCIEngine::UCIEngine(int argc, char** argv) :
     options["nodestime"] << Option(0, 0, 10000);
     options["UCI_ShowWDL"] << Option(false);
     options["EvalFile"] << Option(EvalFileDefaultName,
-                                  [this](const Option& o) { engine.load_network(); });
+                                  [this](const Option& o) { engine.load_network(o); });
 
 
     engine.set_on_iter([](const auto& i) { on_iter(i); });
@@ -81,17 +79,14 @@ UCIEngine::UCIEngine(int argc, char** argv) :
     engine.set_on_update_full([&](const auto& i) { on_update_full(i, options["UCI_ShowWDL"]); });
     engine.set_on_bestmove([](const auto& bm, const auto& p) { on_bestmove(bm, p); });
 
-    engine.load_network();
+    engine.load_network(options["EvalFile"]);
     engine.resize_threads();
     engine.search_clear();  // After threads are up
 }
 
 void UCIEngine::loop() {
 
-    Position     pos;
-    std::string  token, cmd;
-    StateListPtr states(new std::deque<StateInfo>(1));
-    pos.set(StartFEN, &states->back());
+    std::string token, cmd;
 
     for (int i = 1; i < cli.argc; ++i)
         cmd += std::string(cli.argv[i]) + " ";
@@ -125,7 +120,7 @@ void UCIEngine::loop() {
         else if (token == "setoption")
             setoption(is);
         else if (token == "go")
-            go(pos, is);
+            go(is);
         else if (token == "position")
             position(is);
         else if (token == "fen" || token == "startpos")
@@ -138,11 +133,11 @@ void UCIEngine::loop() {
         // Add custom non-UCI commands, mainly for debugging purposes.
         // These commands must not be used during a search!
         else if (token == "flip")
-            pos.flip();
+            engine.flip();
         else if (token == "bench")
-            bench(pos, is);
+            bench(is);
         else if (token == "d")
-            sync_cout << pos << sync_endl;
+            sync_cout << engine.visualize() << sync_endl;
         else if (token == "eval")
             engine.trace_eval();
         else if (token == "compiler")
@@ -171,7 +166,7 @@ void UCIEngine::loop() {
     } while (token != "quit" && cli.argc == 1);  // The command-line arguments are one-shot
 }
 
-Search::LimitsType UCIEngine::parse_limits(const Position& pos, std::istream& is) {
+Search::LimitsType UCIEngine::parse_limits(std::istream& is) {
     Search::LimitsType limits;
     std::string        token;
 
@@ -180,7 +175,7 @@ Search::LimitsType UCIEngine::parse_limits(const Position& pos, std::istream& is
     while (is >> token)
         if (token == "searchmoves")  // Needs to be the last command on the line
             while (is >> token)
-                limits.searchmoves.push_back(to_move(pos, token));
+                limits.searchmoves.push_back(token);
 
         else if (token == "wtime")
             is >> limits.time[WHITE];
@@ -210,13 +205,13 @@ Search::LimitsType UCIEngine::parse_limits(const Position& pos, std::istream& is
     return limits;
 }
 
-void UCIEngine::go(Position& pos, std::istringstream& is) {
+void UCIEngine::go(std::istringstream& is) {
 
-    Search::LimitsType limits = parse_limits(pos, is);
+    Search::LimitsType limits = parse_limits(is);
     engine.go(limits);
 }
 
-void UCIEngine::bench(Position& pos, std::istream& args) {
+void UCIEngine::bench(std::istream& args) {
     std::string token;
     uint64_t    num, nodes = 0, cnt = 1;
     uint64_t    nodesSearched = 0;
@@ -227,7 +222,7 @@ void UCIEngine::bench(Position& pos, std::istream& args) {
         on_update_full(i, options["UCI_ShowWDL"]);
     });
 
-    std::vector<std::string> list = setup_bench(pos, args);
+    std::vector<std::string> list = setup_bench(engine.fen(), args);
 
     num = count_if(list.begin(), list.end(),
                    [](const std::string& s) { return s.find("go ") == 0 || s.find("eval") == 0; });
@@ -241,11 +236,11 @@ void UCIEngine::bench(Position& pos, std::istream& args) {
 
         if (token == "go" || token == "eval")
         {
-            std::cerr << "\nPosition: " << cnt++ << '/' << num << " (" << pos.fen() << ")"
+            std::cerr << "\nPosition: " << cnt++ << '/' << num << " (" << engine.fen() << ")"
                       << std::endl;
             if (token == "go")
             {
-                go(pos, is);
+                go(is);
                 engine.wait_for_search_finished();
                 nodes += nodesSearched;
                 nodesSearched = 0;
@@ -400,7 +395,6 @@ std::string UCIEngine::move(Move m) {
 }
 
 Move UCIEngine::to_move(const Position& pos, std::string str) {
-
     for (const auto& m : MoveList<LEGAL>(pos))
         if (str == move(m))
             return m;
@@ -409,7 +403,7 @@ Move UCIEngine::to_move(const Position& pos, std::string str) {
 }
 
 void UCIEngine::on_update_no_moves(const Engine::InfoShort& info) {
-    sync_cout << "info depth" << info.depth << " score " << format_score(info.score) << sync_endl;
+    sync_cout << "info depth " << info.depth << " score " << format_score(info.score) << sync_endl;
 }
 
 void UCIEngine::on_update_full(const Engine::InfoFull& info, bool showWDL) {
