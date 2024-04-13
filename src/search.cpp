@@ -823,6 +823,13 @@ moves_loop:  // When in check, search starts here
 
         ss->moveCount = ++moveCount;
 
+        if (rootNode && is_mainthread()
+            && main_manager()->tm.elapsed(threads.nodes_searched()) > 3000)
+        {
+            main_manager()->updates.onIter(
+              {depth, UCIEngine::move(move), moveCount + thisThread->pvIdx});
+        }
+
         if (PvNode)
             (ss + 1)->pv = nullptr;
 
