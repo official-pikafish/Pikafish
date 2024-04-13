@@ -85,15 +85,14 @@ using psqt_vec_t = __m256i;
                                 _mm256_min_epi16(__builtin_shufflevector(a, a, 4, 5, 6, 7), \
                                                  __builtin_shufflevector(b, b, 4, 5, 6, 7)), \
                                 0, 1, 2, 3, 4, 5, 6, 7)
-inline vec_t vec_msb_pack_16(vec_t a, vec_t b) {
-    vec_t compacted = __builtin_shufflevector(
-      _mm256_packs_epi16(_mm256_srli_epi16(__builtin_shufflevector(a, a, 0, 1, 2, 3), 7),
-                         _mm256_srli_epi16(__builtin_shufflevector(b, b, 0, 1, 2, 3), 7)),
-      _mm256_packs_epi16(_mm256_srli_epi16(__builtin_shufflevector(a, a, 4, 5, 6, 7), 7),
-                         _mm256_srli_epi16(__builtin_shufflevector(b, b, 4, 5, 6, 7), 7)),
-      0, 1, 2, 3, 4, 5, 6, 7);
-    return _mm512_permutexvar_epi64(_mm512_setr_epi64(0, 2, 4, 6, 1, 3, 5, 7), compacted);
-}
+    // Inverse permuted at load time
+    #define vec_msb_pack_16(a, b) \
+        __builtin_shufflevector( \
+          _mm256_packs_epi16(_mm256_srli_epi16(__builtin_shufflevector(a, a, 0, 1, 2, 3), 7), \
+                             _mm256_srli_epi16(__builtin_shufflevector(b, b, 0, 1, 2, 3), 7)), \
+          _mm256_packs_epi16(_mm256_srli_epi16(__builtin_shufflevector(a, a, 4, 5, 6, 7), 7), \
+                             _mm256_srli_epi16(__builtin_shufflevector(b, b, 4, 5, 6, 7), 7)), \
+          0, 1, 2, 3, 4, 5, 6, 7)
     #define vec_load_psqt(a) _mm256_load_si256(a)
     #define vec_store_psqt(a, b) _mm256_store_si256(a, b)
     #define vec_add_psqt_32(a, b) _mm256_add_epi32(a, b)

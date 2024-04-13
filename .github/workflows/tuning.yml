@@ -8,7 +8,7 @@ on:
 jobs:
   linux:
     env:
-      COMPILER: clang++
+      COMPCXX: clang++
       COMP: clang
       ARCH: x86-64-bmi2
     defaults:
