@@ -841,9 +841,12 @@ uint16_t Position::chased(Color c) {
 
             if (chase_legal(m))
             {
-                // Knight and Cannon attacks against protected rooks
+                // Knight and Cannon attacks against stronger pieces
                 if ((attackerType == KNIGHT || attackerType == CANNON)
                     && type_of(piece_on(to)) == ROOK)
+                    chase |= (1 << idBoard[to]);
+                if ((attackerType == ADVISOR || attackerType == BISHOP)
+                    && type_of(piece_on(to)) & 1)
                     chase |= (1 << idBoard[to]);
                 // Attacks against potentially unprotected pieces
                 else
@@ -900,13 +903,12 @@ Value Position::detect_chases(int d, int ply) {
     Color us = sideToMove, them = ~us;
 
     // Rollback until we reached st - d
-    uint16_t rooks[COLOR_NB] = {0xFFFF, 0xFFFF};
     uint16_t chase[COLOR_NB] = {0xFFFF, 0xFFFF};
-    uint16_t newChase[COLOR_NB]{};
-    newChase[us] = chased(us);
     for (int i = 0; i < d; ++i)
     {
-        if (!chase[~sideToMove])
+        if (st->checkersBB)
+            return VALUE_DRAW;
+        else if (!chase[~sideToMove])
         {
             if (!chase[sideToMove])
                 break;
@@ -915,52 +917,16 @@ Value Position::detect_chases(int d, int ply) {
         }
         else
         {
-            if (st->checkersBB)
-            {
-                chase[~sideToMove] = rooks[~sideToMove] = 0;
-                light_undo_move(st->move, st->capturedPiece);
-                st = st->previous;
-            }
-            else
-            {
-                uint16_t oldChase = chased(~sideToMove);
-                // Calculate rooks pinned by knight
-                uint16_t flag = 0;
-                if (rooks[~sideToMove]
-                    && (blockers_for_king(sideToMove) & pieces(sideToMove, ROOK)))
-                {
-                    Bitboard knights = pinners(~sideToMove) & pieces(KNIGHT);
-                    while (knights)
-                    {
-                        Square   s = pop_lsb(knights);
-                        Bitboard b = between_bb(square<KING>(sideToMove), s) ^ s;
-                        s          = pop_lsb(b);
-                        if (piece_on(s) == make_piece(sideToMove, ROOK))
-                            flag |= 1 << idBoard[s];
-                    }
-                }
-                light_undo_move(st->move, st->capturedPiece);
-                st = st->previous;
-                // Take the exact diff to detect the chase
-                uint16_t chases      = oldChase & ~newChase[sideToMove];
-                newChase[sideToMove] = chased(sideToMove);
-                if (i == d - 2)
-                    chases &= ~newChase[sideToMove];
-                rooks[sideToMove] &= chases & flag;
-                chase[sideToMove] &= chases;
-            }
+            uint16_t after = chased(~sideToMove);
+            light_undo_move(st->move, st->capturedPiece);
+            st = st->previous;
+            // Take the exact diff to detect the chase
+            chase[sideToMove] &= after & ~chased(sideToMove);
         }
     }
 
-    // Overrides chases if rooks pinned by knight is being chased
-    if ((!chase[us] && !chase[them]) || (rooks[us] && rooks[them]))
-        return VALUE_DRAW;
-    else if (rooks[us])
-        return mated_in(ply);
-    else if (rooks[them])
-        return mate_in(ply);
-
-    return !chase[us] ? mate_in(ply) : !chase[them] ? mated_in(ply) : VALUE_DRAW;
+    return bool(chase[us]) ^ bool(chase[them]) ? chase[us] ? mated_in(ply) : mate_in(ply)
+                                               : VALUE_DRAW;
 }
 
 
