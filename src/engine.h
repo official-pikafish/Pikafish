@@ -26,6 +26,7 @@
 #include <string_view>
 #include <utility>
 #include <vector>
+#include <cstdint>
 
 #include "nnue/network.h"
 #include "position.h"
@@ -44,6 +45,8 @@ class Engine {
 
     Engine(std::string path = "");
     ~Engine() { wait_for_search_finished(); }
+
+    std::uint64_t perft(const std::string& fen, Depth depth);
 
     // non blocking call to start searching
     void go(const Search::LimitsType&);
