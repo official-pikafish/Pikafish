@@ -64,10 +64,6 @@ class HalfKAv2_hm {
     };
     // clang-format on
 
-    // Index of a feature for a given king position and another piece on some square
-    template<Color Perspective>
-    static IndexType make_index(Square s, Piece pc, Square ksq, int ab);
-
    public:
     // Feature name
     static constexpr const char* Name = "HalfKAv2_hm";
@@ -94,6 +90,19 @@ class HalfKAv2_hm {
         0,  0,  0,  0,  1, M(0),  0,  0,  0,
     };
 #undef M
+
+    static constexpr uint8_t KingCacheMaps[SQUARE_NB] = {
+        0,  0,  0,  0,  1,  2,  0,  0,  0,
+        0,  0,  0,  5,  4,  3,  0,  0,  0,
+        0,  0,  0,  6,  7,  8,  0,  0,  0,
+        0,  0,  0,  0,  0,  0,  0,  0,  0,
+        0,  0,  0,  0,  0,  0,  0,  0,  0,
+        0,  0,  0,  0,  0,  0,  0,  0,  0,
+        0,  0,  0,  0,  0,  0,  0,  0,  0,
+        0,  0,  0,  6,  7,  8,  0,  0,  0,
+        0,  0,  0,  5,  4,  3,  0,  0,  0,
+        0,  0,  0,  0,  1,  2,  0,  0,  0,
+    };
 
     // Map advisor and bishop location into White King plane
     static constexpr uint8_t ABMap[SQUARE_NB] = {
@@ -133,9 +142,9 @@ class HalfKAv2_hm {
     static constexpr IndexType MaxActiveDimensions = 32;
     using IndexList                                = ValueList<IndexType, MaxActiveDimensions>;
 
-    // Get a list of indices for active features
+    // Index of a feature for a given king position and another piece on some square
     template<Color Perspective>
-    static void append_active_indices(const Position& pos, IndexList& active);
+    static IndexType make_index(Square s, Piece pc, Square ksq, int ab);
 
     // Get a list of indices for recently changed features
     template<Color Perspective>

@@ -26,9 +26,9 @@
 #include <cstdint>
 #include <functional>
 #include <memory>
+#include <string>
 #include <string_view>
 #include <vector>
-#include <string>
 
 #include "misc.h"
 #include "movepick.h"
@@ -36,6 +36,7 @@
 #include "score.h"
 #include "timeman.h"
 #include "types.h"
+#include "nnue/nnue_accumulator.h"
 
 namespace Stockfish {
 
@@ -294,6 +295,10 @@ class Worker {
 
     // The main thread has a SearchManager, the others have a NullSearchManager
     std::unique_ptr<ISearchManager> manager;
+
+    // Used by NNUE
+
+    Eval::NNUE::AccumulatorCaches refreshTable;
 
     const OptionsMap&          options;
     ThreadPool&                threads;

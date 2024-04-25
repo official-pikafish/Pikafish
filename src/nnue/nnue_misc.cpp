@@ -38,9 +38,11 @@ namespace Stockfish::Eval::NNUE {
 constexpr std::string_view PieceToChar(" RACPNBK racpnbk");
 
 
-void hint_common_parent_position(const Position& pos, const Network& network) {
+void hint_common_parent_position(const Position&    pos,
+                                 const Network&     network,
+                                 AccumulatorCaches& caches) {
 
-    network.hint_common_access(pos);
+    network.hint_common_access(pos, &caches.cache);
 }
 
 namespace {
@@ -96,7 +98,7 @@ void format_cp_aligned_dot(Value v, std::stringstream& stream, const Position& p
 
 // Returns a string with the value of each piece on a board,
 // and a table for (PSQT, Layers) values bucket by bucket.
-std::string trace(Position& pos, const Eval::NNUE::Network& network) {
+std::string trace(Position& pos, const Eval::NNUE::Network& network, AccumulatorCaches& caches) {
 
     std::stringstream ss;
 
@@ -122,7 +124,7 @@ std::string trace(Position& pos, const Eval::NNUE::Network& network) {
 
     // We estimate the value of each piece by doing a differential evaluation from
     // the current base eval, simulating the removal of the piece from its square.
-    Value base = network.evaluate(pos);
+    Value base = network.evaluate(pos, &caches.cache);
     base       = pos.side_to_move() == WHITE ? base : -base;
 
     for (File f = FILE_A; f <= FILE_I; ++f)
@@ -140,7 +142,7 @@ std::string trace(Position& pos, const Eval::NNUE::Network& network) {
                 st->accumulator.computed[WHITE] = false;
                 st->accumulator.computed[BLACK] = false;
 
-                Value eval = network.evaluate(pos);
+                Value eval = network.evaluate(pos, &caches.cache);
                 eval       = pos.side_to_move() == WHITE ? eval : -eval;
                 v          = base - eval;
 
@@ -157,7 +159,7 @@ std::string trace(Position& pos, const Eval::NNUE::Network& network) {
         ss << board[row] << '\n';
     ss << '\n';
 
-    auto t = network.trace_evaluate(pos);
+    auto t = network.trace_evaluate(pos, &caches.cache);
 
     ss << " NNUE network contributions "
        << (pos.side_to_move() == WHITE ? "(White to move)" : "(Black to move)") << std::endl
@@ -171,11 +173,14 @@ std::string trace(Position& pos, const Eval::NNUE::Network& network) {
         ss << "|  " << bucket << "        ";
         ss << " |  ";
         format_cp_aligned_dot(t.psqt[bucket], ss, pos);
-        ss << "  " << " |  ";
+        ss << "  "
+           << " |  ";
         format_cp_aligned_dot(t.positional[bucket], ss, pos);
-        ss << "  " << " |  ";
+        ss << "  "
+           << " |  ";
         format_cp_aligned_dot(t.psqt[bucket] + t.positional[bucket], ss, pos);
-        ss << "  " << " |";
+        ss << "  "
+           << " |";
         if (bucket == t.correctBucket)
             ss << " <-- this bucket is used";
         ss << '\n';
