@@ -26,6 +26,7 @@
 #include "nnue_architecture.h"
 #include "nnue_feature_transformer.h"
 #include "nnue_misc.h"
+#include "nnue_accumulator.h"
 
 namespace Stockfish {
 
@@ -42,13 +43,16 @@ class Network {
     bool save(const std::optional<std::string>& filename) const;
 
 
-    Value evaluate(const Position& pos, bool adjusted = false, int* complexity = nullptr) const;
+    Value evaluate(const Position&           pos,
+                   AccumulatorCaches::Cache* cache,
+                   bool                      adjusted   = false,
+                   int*                      complexity = nullptr) const;
 
 
-    void hint_common_access(const Position& pos) const;
+    void hint_common_access(const Position& pos, AccumulatorCaches::Cache* cache) const;
 
     void          verify(std::string evalfilePath) const;
-    NnueEvalTrace trace_evaluate(const Position& pos) const;
+    NnueEvalTrace trace_evaluate(const Position& pos, AccumulatorCaches::Cache* cache) const;
 
    private:
     void load_user_net(const std::string&, const std::string&);
@@ -75,6 +79,8 @@ class Network {
     // Hash value of evaluation function structure
     static constexpr std::uint32_t hash =
       FeatureTransformer::get_hash_value() ^ NetworkArchitecture::get_hash_value();
+
+    friend struct AccumulatorCaches::Cache;
 };
 
 }  // namespace Stockfish::Eval::NNUE
