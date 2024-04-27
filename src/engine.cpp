@@ -20,18 +20,15 @@
 
 #include <deque>
 #include <memory>
-#include <ostream>
 #include <string_view>
 #include <utility>
 #include <vector>
 #include <sstream>
-#include <iosfwd>
 #include <cassert>
 
 #include "evaluate.h"
 #include "misc.h"
 #include "nnue/network.h"
-#include "nnue/nnue_common.h"
 #include "perft.h"
 #include "position.h"
 #include "search.h"
