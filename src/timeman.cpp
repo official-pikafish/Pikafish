@@ -22,6 +22,7 @@
 #include <cassert>
 #include <cmath>
 #include <cstdint>
+#include <string>
 
 #include "search.h"
 #include "ucioption.h"

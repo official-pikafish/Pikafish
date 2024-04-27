@@ -20,13 +20,11 @@
 
 #include <stdint.h>
 #include <algorithm>
-#include <cctype>
 #include <cmath>
-#include <cstdint>
+#include <functional>
 #include <optional>
 #include <sstream>
 #include <string_view>
-#include <utility>
 #include <vector>
 
 #include "benchmark.h"

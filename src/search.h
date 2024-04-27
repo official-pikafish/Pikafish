@@ -296,14 +296,13 @@ class Worker {
     // The main thread has a SearchManager, the others have a NullSearchManager
     std::unique_ptr<ISearchManager> manager;
 
-    // Used by NNUE
-
-    Eval::NNUE::AccumulatorCaches refreshTable;
-
     const OptionsMap&          options;
     ThreadPool&                threads;
     TranspositionTable&        tt;
     const Eval::NNUE::Network& network;
+
+    // Used by NNUE
+    Eval::NNUE::AccumulatorCaches refreshTable;
 
     friend class Stockfish::ThreadPool;
     friend class SearchManager;

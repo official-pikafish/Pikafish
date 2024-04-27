@@ -23,7 +23,6 @@
 #include <cmath>
 #include <cstdlib>
 #include <iomanip>
-#include <iostream>
 #include <sstream>
 #include <memory>
 
@@ -85,8 +84,7 @@ Value Eval::evaluate(const Eval::NNUE::Network& network,
 // Trace scores are from white's point of view
 std::string Eval::trace(Position& pos, const Eval::NNUE::Network& network) {
 
-    auto caches = std::make_unique<Eval::NNUE::AccumulatorCaches>();
-    caches->clear(network);
+    auto caches = std::make_unique<Eval::NNUE::AccumulatorCaches>(network);
 
     if (pos.checkers())
         return "Final evaluation: none (in check)";
