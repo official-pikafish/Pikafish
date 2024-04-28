@@ -106,8 +106,7 @@ struct RootMove {
 using RootMoves = std::vector<RootMove>;
 
 
-// LimitsType struct stores information sent by GUI about available time to
-// search the current move, maximum depth/time, or if we are in analysis mode.
+// LimitsType struct stores information sent by the caller about the analysis required.
 struct LimitsType {
     // Init explicitly due to broken value-initialization of non POD in MSVC
     LimitsType() {
@@ -124,6 +123,7 @@ struct LimitsType {
     int                      movestogo, depth, mate, perft, infinite;
     uint64_t                 nodes;
     bool                     ponderMode;
+    Square                   capSq;
 };
 
 

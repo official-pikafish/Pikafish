@@ -47,6 +47,7 @@ Engine::Engine(std::string path) :
     states(new std::deque<StateInfo>(1)),
     network(NN::Network({EvalFileDefaultName, "None", ""})) {
     pos.set(StartFEN, &states->back());
+    capSq = SQ_NONE;
 }
 
 std::uint64_t Engine::perft(const std::string& fen, Depth depth) {
@@ -55,9 +56,10 @@ std::uint64_t Engine::perft(const std::string& fen, Depth depth) {
     return Benchmark::perft(fen, depth);
 }
 
-void Engine::go(const Search::LimitsType& limits) {
+void Engine::go(Search::LimitsType& limits) {
     assert(limits.perft == 0);
     verify_network();
+    limits.capSq = capSq;
 
     threads.start_thinking(pos, states, limits);
 }
@@ -93,6 +95,7 @@ void Engine::set_position(const std::string& fen, const std::vector<std::string>
     states = StateListPtr(new std::deque<StateInfo>(1));
     pos.set(fen, &states->back());
 
+    capSq = SQ_NONE;
     for (const auto& move : moves)
     {
         auto m = UCIEngine::to_move(pos, move);
@@ -102,6 +105,11 @@ void Engine::set_position(const std::string& fen, const std::vector<std::string>
 
         states->emplace_back();
         pos.do_move(m, states->back());
+
+        capSq          = SQ_NONE;
+        DirtyPiece& dp = states->back().dirtyPiece;
+        if (dp.dirty_num > 1 && dp.to[1] == SQ_NONE)
+            capSq = m.to_sq();
     }
 }
 
