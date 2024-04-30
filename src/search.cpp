@@ -120,9 +120,6 @@ Search::Worker::Worker(SharedState&                    sharedState,
 
 void Search::Worker::start_searching() {
 
-    // Initialize accumulator refresh entries
-    refreshTable.clear(network);
-
     // Non-main threads go directly to iterative_deepening()
     if (!is_mainthread())
     {
@@ -448,6 +445,8 @@ void Search::Worker::clear() {
 
     for (size_t i = 1; i < reductions.size(); ++i)
         reductions[i] = int((18.36 + std::log(size_t(options["Threads"])) / 2) * std::log(i));
+
+    refreshTable.clear(network);
 }
 
 

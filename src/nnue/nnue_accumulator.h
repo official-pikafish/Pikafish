@@ -56,36 +56,32 @@ struct AccumulatorCaches {
     struct alignas(CacheLineSize) Cache {
 
         struct alignas(CacheLineSize) Entry {
-            BiasType       accumulation[COLOR_NB][TransformedFeatureDimensions];
-            PSQTWeightType psqtAccumulation[COLOR_NB][PSQTBuckets];
-            Bitboard       byColorBB[COLOR_NB][COLOR_NB];
-            Bitboard       byTypeBB[COLOR_NB][PIECE_TYPE_NB];
+            BiasType       accumulation[TransformedFeatureDimensions];
+            PSQTWeightType psqtAccumulation[PSQTBuckets];
+            Bitboard       byColorBB[COLOR_NB];
+            Bitboard       byTypeBB[PIECE_TYPE_NB];
 
             // To initialize a refresh entry, we set all its bitboards empty,
             // so we put the biases in the accumulation, without any weights on top
             void clear(const BiasType* biases) {
 
-                std::memset(byColorBB, 0, sizeof(byColorBB));
-                std::memset(byTypeBB, 0, sizeof(byTypeBB));
-
-                std::memcpy(accumulation[WHITE], biases,
-                            TransformedFeatureDimensions * sizeof(BiasType));
-                std::memcpy(accumulation[BLACK], biases,
-                            TransformedFeatureDimensions * sizeof(BiasType));
-
-                std::memset(psqtAccumulation, 0, sizeof(psqtAccumulation));
+                std::memcpy(accumulation, biases, sizeof(accumulation));
+                std::memset((uint8_t*) this + offsetof(Entry, psqtAccumulation), 0,
+                            sizeof(Entry) - offsetof(Entry, psqtAccumulation));
             }
         };
 
         template<typename Network>
         void clear(const Network& network) {
-            for (auto& entry : entries)
-                entry.clear(network.featureTransformer->biases);
+            for (auto& entries1D : entries)
+                for (auto& entry : entries1D)
+                    entry.clear(network.featureTransformer->biases);
         }
 
-        Entry& operator[](int index) { return entries[index]; }
 
-        std::array<Entry, 9 * 3 * 3> entries;
+        std::array<Entry, COLOR_NB>& operator[](int index) { return entries[index]; }
+
+        std::array<std::array<Entry, COLOR_NB>, 9 * 3 * 3> entries;
     };
 
     template<typename Network>

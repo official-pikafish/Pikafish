@@ -662,7 +662,7 @@ class FeatureTransformer {
         const Square ksq = pos.square<KING>(Perspective);
         const int    ab  = pos.count<ADVISOR>(Perspective) * 3 + pos.count<BISHOP>(Perspective);
 
-        auto& entry = (*cache)[FeatureSet::KingCacheMaps[ksq] * 9 + ab];
+        auto& entry = (*cache)[FeatureSet::KingCacheMaps[ksq] * 9 + ab][Perspective];
 
         auto& accumulator                 = pos.state()->accumulator;
         accumulator.computed[Perspective] = true;
@@ -672,9 +672,8 @@ class FeatureTransformer {
         {
             for (PieceType pt = ROOK; pt <= KING; ++pt)
             {
-                const Piece    piece = make_piece(c, pt);
-                const Bitboard oldBB =
-                  entry.byColorBB[Perspective][c] & entry.byTypeBB[Perspective][pt];
+                const Piece    piece    = make_piece(c, pt);
+                const Bitboard oldBB    = entry.byColorBB[c] & entry.byTypeBB[pt];
                 const Bitboard newBB    = pos.pieces(c, pt);
                 Bitboard       toRemove = oldBB & ~newBB;
                 Bitboard       toAdd    = newBB & ~oldBB;
@@ -698,8 +697,7 @@ class FeatureTransformer {
 
         for (IndexType j = 0; j < HalfDimensions / TileHeight; ++j)
         {
-            auto entryTile =
-              reinterpret_cast<vec_t*>(&entry.accumulation[Perspective][j * TileHeight]);
+            auto entryTile = reinterpret_cast<vec_t*>(&entry.accumulation[j * TileHeight]);
             for (IndexType k = 0; k < NumRegs; ++k)
                 acc[k] = entryTile[k];
 
@@ -741,8 +739,8 @@ class FeatureTransformer {
 
         for (IndexType j = 0; j < PSQTBuckets / PsqtTileHeight; ++j)
         {
-            auto entryTilePsqt = reinterpret_cast<psqt_vec_t*>(
-              &entry.psqtAccumulation[Perspective][j * PsqtTileHeight]);
+            auto entryTilePsqt =
+              reinterpret_cast<psqt_vec_t*>(&entry.psqtAccumulation[j * PsqtTileHeight]);
             for (std::size_t k = 0; k < NumPsqtRegs; ++k)
                 psqt[k] = entryTilePsqt[k];
 
@@ -775,19 +773,19 @@ class FeatureTransformer {
         {
             const IndexType offset = HalfDimensions * index;
             for (IndexType j = 0; j < HalfDimensions; ++j)
-                entry.accumulation[Perspective][j] -= weights[offset + j];
+                entry.accumulation[j] -= weights[offset + j];
 
             for (std::size_t k = 0; k < PSQTBuckets; ++k)
-                entry.psqtAccumulation[Perspective][k] -= psqtWeights[index * PSQTBuckets + k];
+                entry.psqtAccumulation[k] -= psqtWeights[index * PSQTBuckets + k];
         }
         for (const auto index : added)
         {
             const IndexType offset = HalfDimensions * index;
             for (IndexType j = 0; j < HalfDimensions; ++j)
-                entry.accumulation[Perspective][j] += weights[offset + j];
+                entry.accumulation[j] += weights[offset + j];
 
             for (std::size_t k = 0; k < PSQTBuckets; ++k)
-                entry.psqtAccumulation[Perspective][k] += psqtWeights[index * PSQTBuckets + k];
+                entry.psqtAccumulation[k] += psqtWeights[index * PSQTBuckets + k];
         }
 
 #endif
@@ -795,17 +793,17 @@ class FeatureTransformer {
         // The accumulator of the refresh entry has been updated.
         // Now copy its content to the actual accumulator we were refreshing
 
-        std::memcpy(accumulator.psqtAccumulation[Perspective], entry.psqtAccumulation[Perspective],
-                    sizeof(int32_t) * PSQTBuckets);
-
-        std::memcpy(accumulator.accumulation[Perspective], entry.accumulation[Perspective],
+        std::memcpy(accumulator.accumulation[Perspective], entry.accumulation,
                     sizeof(BiasType) * HalfDimensions);
 
+        std::memcpy(accumulator.psqtAccumulation[Perspective], entry.psqtAccumulation,
+                    sizeof(int32_t) * PSQTBuckets);
+
         for (Color c : {WHITE, BLACK})
-            entry.byColorBB[Perspective][c] = pos.pieces(c);
+            entry.byColorBB[c] = pos.pieces(c);
 
         for (PieceType pt = ROOK; pt <= KING; ++pt)
-            entry.byTypeBB[Perspective][pt] = pos.pieces(pt);
+            entry.byTypeBB[pt] = pos.pieces(pt);
     }
 
     template<Color Perspective>
