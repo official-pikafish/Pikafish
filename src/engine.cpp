@@ -128,7 +128,10 @@ void Engine::set_ponderhit(bool b) { threads.main_manager()->ponder = b; }
 
 void Engine::verify_network() const { network.verify(options["EvalFile"]); }
 
-void Engine::load_network(const std::string& file) { network.load(binaryDirectory, file); }
+void Engine::load_network(const std::string& file) {
+    network.load(binaryDirectory, file);
+    threads.clear();
+}
 
 void Engine::save_network(const std::optional<std::string>& file) { network.save(file); }
 
