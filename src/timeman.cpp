@@ -33,12 +33,12 @@ TimePoint TimeManagement::optimum() const { return optimumTime; }
 TimePoint TimeManagement::maximum() const { return maximumTime; }
 
 void TimeManagement::clear() {
-    availableNodes = 0;  // When in 'nodes as time' mode
+    availableNodes = -1;  // When in 'nodes as time' mode
 }
 
 void TimeManagement::advance_nodes_time(std::int64_t nodes) {
     assert(useNodesTime);
-    availableNodes += nodes;
+    availableNodes = std::max(int64_t(0), availableNodes - nodes);
 }
 
 // Called at the beginning of the search and calculates
@@ -49,14 +49,17 @@ void TimeManagement::init(Search::LimitsType& limits,
                           Color               us,
                           int                 ply,
                           const OptionsMap&   options) {
-    // If we have no time, no need to initialize TM, except for the start time,
-    // which is used by movetime.
-    startTime = limits.startTime;
+    TimePoint npmsec = TimePoint(options["nodestime"]);
+
+    // If we have no time, we don't need to fully initialize TM.
+    // startTime is used by movetime and useNodesTime is used in elapsed calls.
+    startTime    = limits.startTime;
+    useNodesTime = npmsec != 0;
+
     if (limits.time[us] == 0)
         return;
 
     TimePoint moveOverhead = TimePoint(options["Move Overhead"]);
-    TimePoint npmsec       = TimePoint(options["nodestime"]);
 
     // optScale is a percentage of available time to use for the current move.
     // maxScale is a multiplier applied to optimumTime.
@@ -66,26 +69,31 @@ void TimeManagement::init(Search::LimitsType& limits,
     // to nodes, and use resulting values in time management formulas.
     // WARNING: to avoid time losses, the given npmsec (nodes per millisecond)
     // must be much lower than the real engine speed.
-    if (npmsec)
+    if (useNodesTime)
     {
-        useNodesTime = true;
-
-        if (!availableNodes)                            // Only once at game start
+        if (availableNodes == -1)                       // Only once at game start
             availableNodes = npmsec * limits.time[us];  // Time is in msec
 
         // Convert from milliseconds to nodes
         limits.time[us] = TimePoint(availableNodes);
         limits.inc[us] *= npmsec;
         limits.npmsec = npmsec;
+        moveOverhead *= npmsec;
     }
+
+    // These numbers are used where multiplications, divisions or comparisons
+    // with constants are involved.
+    const int64_t   scaleFactor = useNodesTime ? npmsec : 1;
+    const TimePoint scaledTime  = limits.time[us] / scaleFactor;
+    const TimePoint scaledInc   = limits.inc[us] / scaleFactor;
 
     // Maximum move horizon of 60 moves
     int mtg = limits.movestogo ? std::min(limits.movestogo, 60) : 60;
 
-    // if less than one second, gradually reduce mtg
-    if (limits.time[us] < 1000 && (double(mtg) / limits.time[us] > 0.05))
+    // If less than one second, gradually reduce mtg
+    if (scaledTime < 1000 && double(mtg) / scaledInc > 0.05)
     {
-        mtg = limits.time[us] * 0.05;
+        mtg = scaledTime * 0.05;
     }
 
     // Make sure timeLeft is > 0 since we may use it as a divisor
@@ -98,15 +106,15 @@ void TimeManagement::init(Search::LimitsType& limits,
     if (limits.movestogo == 0)
     {
         // Use extra time with larger increments
-        double optExtra = limits.inc[us] < 500 ? 1.0 : 1.10;
+        double optExtra = scaledInc < 500 ? 1.0 : 1.10;
 
         // Calculate time constants based on current time left.
-        double optConstant =
-          std::min(0.00344 + 0.0002 * std::log10(limits.time[us] / 1000.0), 0.0045);
-        double maxConstant = std::max(3.9 + 3.1 * std::log10(limits.time[us] / 1000.0), 2.5);
+        double logTimeInSec = std::log10(scaledTime / 1000.0);
+        double optConstant  = std::min(0.00344 + 0.000200 * logTimeInSec, 0.00450);
+        double maxConstant  = std::max(3.90 + 3.10 * logTimeInSec, 2.50);
 
         optScale = std::min(0.0155 + std::pow(ply + 3.0, 0.45) * optConstant,
-                            0.2 * limits.time[us] / double(timeLeft))
+                            0.2 * limits.time[us] / timeLeft)
                  * optExtra;
         maxScale = std::min(6.5, maxConstant + ply / 13.6);
     }
@@ -114,7 +122,7 @@ void TimeManagement::init(Search::LimitsType& limits,
     // x moves in y seconds (+ z increment)
     else
     {
-        optScale = std::min((0.88 + ply / 116.4) / mtg, 0.88 * limits.time[us] / double(timeLeft));
+        optScale = std::min((0.88 + ply / 116.4) / mtg, 0.88 * limits.time[us] / timeLeft);
         maxScale = std::min(6.3, 1.5 + 0.11 * mtg);
     }
 
