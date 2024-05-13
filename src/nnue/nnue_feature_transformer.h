@@ -699,8 +699,7 @@ class FeatureTransformer {
         {
             auto accTile =
               reinterpret_cast<vec_t*>(&accumulator.accumulation[Perspective][j * TileHeight]);
-            auto entryTile =
-              reinterpret_cast<vec_t*>(&entry.accumulation[j * TileHeight]);
+            auto entryTile = reinterpret_cast<vec_t*>(&entry.accumulation[j * TileHeight]);
 
             for (IndexType k = 0; k < NumRegs; ++k)
                 acc[k] = entryTile[k];
@@ -747,9 +746,9 @@ class FeatureTransformer {
         {
             auto accTilePsqt = reinterpret_cast<psqt_vec_t*>(
               &accumulator.psqtAccumulation[Perspective][j * PsqtTileHeight]);
-            auto entryTilePsqt = reinterpret_cast<psqt_vec_t*>(
-              &entry.psqtAccumulation[j * PsqtTileHeight]);
-            
+            auto entryTilePsqt =
+              reinterpret_cast<psqt_vec_t*>(&entry.psqtAccumulation[j * PsqtTileHeight]);
+
             for (std::size_t k = 0; k < NumPsqtRegs; ++k)
                 psqt[k] = entryTilePsqt[k];
 
