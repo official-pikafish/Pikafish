@@ -109,15 +109,17 @@ void update_all_stats(const Position& pos,
 
 Search::Worker::Worker(SharedState&                    sharedState,
                        std::unique_ptr<ISearchManager> sm,
-                       size_t                          thread_id) :
+                       size_t                          thread_id,
+                       NumaReplicatedAccessToken       token) :
     // Unpack the SharedState struct into member variables
     thread_idx(thread_id),
+    numaAccessToken(token),
     manager(std::move(sm)),
     options(sharedState.options),
     threads(sharedState.threads),
     tt(sharedState.tt),
     network(sharedState.network),
-    refreshTable(network) {
+    refreshTable(network[token]) {
     clear();
 }
 
@@ -379,7 +381,7 @@ void Search::Worker::iterative_deepening() {
             threads.stop = true;
 
         // Use part of the gained time from a previous stable move for the current move
-        for (Thread* th : threads)
+        for (auto&& th : threads)
         {
             totBestMoveChanges += th->worker->bestMoveChanges;
             th->worker->bestMoveChanges = 0;
@@ -451,7 +453,7 @@ void Search::Worker::clear() {
     for (size_t i = 1; i < reductions.size(); ++i)
         reductions[i] = int((20.22 + std::log(size_t(options["Threads"])) / 2) * std::log(i));
 
-    refreshTable.clear(network);
+    refreshTable.clear(network[numaAccessToken]);
 }
 
 
@@ -525,7 +527,7 @@ Value Search::Worker::search(
 
         if (threads.stop.load(std::memory_order_relaxed) || ss->ply >= MAX_PLY)
             return (ss->ply >= MAX_PLY && !ss->inCheck)
-                   ? evaluate(network, pos, refreshTable, thisThread->optimism[us])
+                   ? evaluate(network[numaAccessToken], pos, refreshTable, thisThread->optimism[us])
                    : value_draw(thisThread->nodes);
 
         // Step 3. Mate distance pruning. Even if we mate at the next move our score
@@ -601,7 +603,7 @@ Value Search::Worker::search(
     {
         // Providing the hint that this node's accumulator will be used often
         // brings significant Elo gain (~13 Elo).
-        Eval::NNUE::hint_common_parent_position(pos, network, refreshTable);
+        Eval::NNUE::hint_common_parent_position(pos, network[numaAccessToken], refreshTable);
         unadjustedStaticEval = eval = ss->staticEval;
     }
     else if (ss->ttHit)
@@ -609,9 +611,10 @@ Value Search::Worker::search(
         // Never assume anything about values stored in TT
         unadjustedStaticEval = tte->eval();
         if (unadjustedStaticEval == VALUE_NONE)
-            unadjustedStaticEval = evaluate(network, pos, refreshTable, thisThread->optimism[us]);
+            unadjustedStaticEval =
+              evaluate(network[numaAccessToken], pos, refreshTable, thisThread->optimism[us]);
         else if (PvNode)
-            Eval::NNUE::hint_common_parent_position(pos, network, refreshTable);
+            Eval::NNUE::hint_common_parent_position(pos, network[numaAccessToken], refreshTable);
 
         ss->staticEval = eval = to_corrected_static_eval(unadjustedStaticEval, *thisThread, pos);
 
@@ -621,7 +624,8 @@ Value Search::Worker::search(
     }
     else
     {
-        unadjustedStaticEval = evaluate(network, pos, refreshTable, thisThread->optimism[us]);
+        unadjustedStaticEval =
+          evaluate(network[numaAccessToken], pos, refreshTable, thisThread->optimism[us]);
         ss->staticEval = eval = to_corrected_static_eval(unadjustedStaticEval, *thisThread, pos);
 
         // Static evaluation is saved as it was before adjustment by correction history
@@ -787,7 +791,7 @@ Value Search::Worker::search(
                 }
             }
 
-        Eval::NNUE::hint_common_parent_position(pos, network, refreshTable);
+        Eval::NNUE::hint_common_parent_position(pos, network[numaAccessToken], refreshTable);
     }
 
 moves_loop:  // When in check, search starts here
@@ -1345,8 +1349,9 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta,
     }
 
     if (ss->ply >= MAX_PLY)
-        return !ss->inCheck ? evaluate(network, pos, refreshTable, thisThread->optimism[us])
-                            : VALUE_DRAW;
+        return !ss->inCheck
+               ? evaluate(network[numaAccessToken], pos, refreshTable, thisThread->optimism[us])
+               : VALUE_DRAW;
 
     assert(0 <= ss->ply && ss->ply < MAX_PLY);
 
@@ -1380,7 +1385,7 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta,
             unadjustedStaticEval = tte->eval();
             if (unadjustedStaticEval == VALUE_NONE)
                 unadjustedStaticEval =
-                  evaluate(network, pos, refreshTable, thisThread->optimism[us]);
+                  evaluate(network[numaAccessToken], pos, refreshTable, thisThread->optimism[us]);
             ss->staticEval = bestValue =
               to_corrected_static_eval(unadjustedStaticEval, *thisThread, pos);
 
@@ -1392,10 +1397,11 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta,
         else
         {
             // In case of null move search, use previous static eval with a different sign
-            unadjustedStaticEval = (ss - 1)->currentMove != Move::null()
-                                   ? evaluate(network, pos, refreshTable, thisThread->optimism[us])
-                                   : -(ss - 1)->staticEval;
-            ss->staticEval       = bestValue =
+            unadjustedStaticEval =
+              (ss - 1)->currentMove != Move::null()
+                ? evaluate(network[numaAccessToken], pos, refreshTable, thisThread->optimism[us])
+                : -(ss - 1)->staticEval;
+            ss->staticEval = bestValue =
               to_corrected_static_eval(unadjustedStaticEval, *thisThread, pos);
         }
 

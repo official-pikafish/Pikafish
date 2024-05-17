@@ -32,17 +32,15 @@
 
 #include "misc.h"
 #include "movepick.h"
+#include "nnue/network.h"
+#include "nnue/nnue_accumulator.h"
+#include "numa.h"
 #include "position.h"
 #include "score.h"
 #include "timeman.h"
 #include "types.h"
-#include "nnue/nnue_accumulator.h"
 
 namespace Stockfish {
-
-namespace Eval::NNUE {
-class Network;
-}
 
 // Different node types, used as a template parameter
 enum NodeType {
@@ -129,19 +127,19 @@ struct LimitsType {
 // The UCI stores the uci options, thread pool, and transposition table.
 // This struct is used to easily forward data to the Search::Worker class.
 struct SharedState {
-    SharedState(const OptionsMap&          optionsMap,
-                ThreadPool&                threadPool,
-                TranspositionTable&        transpositionTable,
-                const Eval::NNUE::Network& net) :
+    SharedState(const OptionsMap&                          optionsMap,
+                ThreadPool&                                threadPool,
+                TranspositionTable&                        transpositionTable,
+                const NumaReplicated<Eval::NNUE::Network>& net) :
         options(optionsMap),
         threads(threadPool),
         tt(transpositionTable),
         network(net) {}
 
-    const OptionsMap&          options;
-    ThreadPool&                threads;
-    TranspositionTable&        tt;
-    const Eval::NNUE::Network& network;
+    const OptionsMap&                          options;
+    ThreadPool&                                threads;
+    TranspositionTable&                        tt;
+    const NumaReplicated<Eval::NNUE::Network>& network;
 };
 
 class Worker;
@@ -232,7 +230,7 @@ class NullSearchManager: public ISearchManager {
 // of the search history, and storing data required for the search.
 class Worker {
    public:
-    Worker(SharedState&, std::unique_ptr<ISearchManager>, size_t);
+    Worker(SharedState&, std::unique_ptr<ISearchManager>, size_t, NumaReplicatedAccessToken);
 
     // Called at instantiation to initialize Reductions tables
     // Reset histories, usually before a new game
@@ -289,7 +287,8 @@ class Worker {
     Depth     rootDepth, completedDepth;
     Value     rootDelta;
 
-    size_t thread_idx;
+    size_t                    thread_idx;
+    NumaReplicatedAccessToken numaAccessToken;
 
     // Reductions lookup table initialized at startup
     std::array<int, MAX_PLY + 10> reductions;  // [depth or moveNumber]
@@ -297,10 +296,10 @@ class Worker {
     // The main thread has a SearchManager, the others have a NullSearchManager
     std::unique_ptr<ISearchManager> manager;
 
-    const OptionsMap&          options;
-    ThreadPool&                threads;
-    TranspositionTable&        tt;
-    const Eval::NNUE::Network& network;
+    const OptionsMap&                          options;
+    ThreadPool&                                threads;
+    TranspositionTable&                        tt;
+    const NumaReplicated<Eval::NNUE::Network>& network;
 
     // Used by NNUE
     Eval::NNUE::AccumulatorCaches refreshTable;
