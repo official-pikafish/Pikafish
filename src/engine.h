@@ -34,6 +34,7 @@
 #include "tt.h"
 #include "types.h"
 #include "ucioption.h"
+#include "numa.h"
 
 namespace Stockfish {
 
@@ -44,6 +45,13 @@ class Engine {
     using InfoIter  = Search::InfoIteration;
 
     Engine(std::string path = "");
+
+    // Can't be movable due to components holding backreferences to fields
+    Engine(const Engine&)            = delete;
+    Engine(Engine&&)                 = delete;
+    Engine& operator=(const Engine&) = delete;
+    Engine& operator=(Engine&&)      = delete;
+
     ~Engine() { wait_for_search_finished(); }
 
     std::uint64_t perft(const std::string& fen, Depth depth);
@@ -60,6 +68,7 @@ class Engine {
 
     // modifiers
 
+    void set_numa_config_from_option(const std::string& o);
     void resize_threads();
     void set_tt_size(size_t mb);
     void set_ponderhit(bool);
@@ -78,23 +87,27 @@ class Engine {
 
     // utility functions
 
-    void        trace_eval() const;
-    OptionsMap& get_options();
-    std::string fen() const;
-    void        flip();
-    std::string visualize() const;
+    void                                   trace_eval() const;
+    OptionsMap&                            get_options();
+    std::string                            fen() const;
+    void                                   flip();
+    std::string                            visualize() const;
+    std::vector<std::pair<size_t, size_t>> get_bound_thread_count_by_numa_node() const;
+    std::string                            get_numa_config_as_string() const;
 
    private:
     const std::string binaryDirectory;
+
+    NumaReplicationContext numaContext;
 
     Position     pos;
     StateListPtr states;
     Square       capSq;
 
-    OptionsMap          options;
-    ThreadPool          threads;
-    TranspositionTable  tt;
-    Eval::NNUE::Network network;
+    OptionsMap                          options;
+    ThreadPool                          threads;
+    TranspositionTable                  tt;
+    NumaReplicated<Eval::NNUE::Network> network;
 
     Search::SearchManager::UpdateContext updateContext;
 };

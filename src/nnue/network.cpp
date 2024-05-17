@@ -21,7 +21,9 @@
 #include <fstream>
 #include <iostream>
 #include <sstream>
+#include <memory>
 #include <optional>
+#include <type_traits>
 #include <vector>
 
 #include "../misc.h"
@@ -74,6 +76,42 @@ bool write_parameters(std::ostream& stream, const T& reference) {
 
 }  // namespace Detail
 
+Network::Network(const Network& other) :
+    evalFile(other.evalFile) {
+    if (other.featureTransformer)
+    {
+        Detail::initialize(featureTransformer);
+        *featureTransformer = *other.featureTransformer;
+    }
+    for (std::size_t i = 0; i < LayerStacks; ++i)
+    {
+        if (other.network[i])
+        {
+            Detail::initialize(network[i]);
+            *(network[i]) = *(other.network[i]);
+        }
+    }
+}
+
+Network& Network::operator=(const Network& other) {
+    evalFile = other.evalFile;
+
+    if (other.featureTransformer)
+    {
+        Detail::initialize(featureTransformer);
+        *featureTransformer = *other.featureTransformer;
+    }
+    for (std::size_t i = 0; i < LayerStacks; ++i)
+    {
+        if (other.network[i])
+        {
+            Detail::initialize(network[i]);
+            *(network[i]) = *(other.network[i]);
+        }
+    }
+
+    return *this;
+}
 
 void Network::load(const std::string& rootDirectory, std::string evalfilePath) {
 #if defined(DEFAULT_NNUE_DIRECTORY)
