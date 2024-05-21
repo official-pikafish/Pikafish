@@ -35,16 +35,6 @@
 
 namespace Stockfish {
 
-// Returns a static, purely materialistic evaluation of the position from
-// the point of view of the given color. It can be divided by PawnValue to get
-// an approximation of the material advantage on the board in terms of pawns.
-int Eval::simple_eval(const Position& pos, Color c) {
-    return PawnValue * (pos.count<PAWN>(c) - pos.count<PAWN>(~c))
-         + AdvisorValue * (pos.count<ADVISOR>(c) - pos.count<ADVISOR>(~c))
-         + BishopValue * (pos.count<BISHOP>(c) - pos.count<BISHOP>(~c))
-         + (pos.major_material(c) - pos.major_material(~c));
-}
-
 // Evaluate is the evaluator for the outer world. It returns a static evaluation
 // of the position from the point of view of the side to move.
 Value Eval::evaluate(const Eval::NNUE::Network& network,
@@ -54,16 +44,14 @@ Value Eval::evaluate(const Eval::NNUE::Network& network,
 
     assert(!pos.checkers());
 
-    int   v;
-    Color stm        = pos.side_to_move();
-    int   shuffling  = pos.rule60_count();
-    int   simpleEval = simple_eval(pos, stm);
+    int v;
+    int shuffling = pos.rule60_count();
 
     int   nnueComplexity;
     Value nnue = network.evaluate(pos, &caches.cache, true, &nnueComplexity);
 
-    // Blend optimism and eval with nnue complexity and material imbalance
-    optimism += optimism * (nnueComplexity + std::abs(simpleEval - nnue)) / 729;
+    // Blend optimism and eval with nnue complexity
+    optimism += optimism * nnueComplexity / 512;
     nnue -= nnue * (nnueComplexity * 5 / 3) / 28920;
 
     int mm = pos.major_material() / 36;
