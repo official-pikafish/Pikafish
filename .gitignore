@@ -4,6 +4,7 @@
 src/.depend
 
 # Files from Qt
+build
 CMakeLists.txt
 CMakeLists.txt.user
 
