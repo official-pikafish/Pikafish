@@ -52,7 +52,7 @@ Value Eval::evaluate(const Eval::NNUE::Network& network,
 
     // Blend optimism and eval with nnue complexity
     optimism += optimism * nnueComplexity / 512;
-    nnue -= nnue * (nnueComplexity * 5 / 3) / 28920;
+    nnue -= nnue * nnueComplexity / 17352;
 
     int mm = pos.major_material() / 36;
     v      = (nnue * (537 + mm) + optimism * (128 + mm)) / 1433;
