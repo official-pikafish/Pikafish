@@ -585,9 +585,7 @@ Value Search::Worker::search(
         // Partial workaround for the graph history interaction problem
         // For high rule60 counts don't produce transposition table cutoffs.
         if (pos.rule60_count() < 110)
-            return ttValue >= beta && std::abs(ttValue) < VALUE_MATE_IN_MAX_PLY
-                   ? (ttValue * 3 + beta) / 4
-                   : ttValue;
+            return ttValue;
     }
 
     // Step 5. Static evaluation of the position
