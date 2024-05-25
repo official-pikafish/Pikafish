@@ -967,12 +967,27 @@ bool Position::rule_judge(Value& result, int ply) {
                     // Checking detection
                     result = !checkUs ? mate_in(ply) : !checkThem ? mated_in(ply) : VALUE_DRAW;
 
-                // Catch false mates
+                // 3 folds and 2 fold draws can be judged immediately
                 if (result == VALUE_DRAW || cnt == 2)
                     return true;
-                // We know there can't be another fold
+
+                // 2 fold mates need further investigations
                 if (filter[st->key] <= 1)
-                    return false;
+                {
+                    // Have the same previous step
+                    if (st->previous->key == stp->previous->key)
+                    {
+                        // Even if we entering this loop again, it will not lead to a 3 fold repetition
+                        StateInfo* next = st->previous;
+                        while ((next = next->previous) != stp)
+                            if (filter[next->key] > 1)
+                                break;
+                        if (next == stp)
+                            return true;
+                    }
+                    // We know there can't be another fold
+                    break;
+                }
             }
 
             if (i + 1 <= end)
