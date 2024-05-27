@@ -27,6 +27,13 @@
 
 using namespace Stockfish;
 
+static int            old_psqt[311040];
+static bool           first = true;
+static int            psqt[720];
+std::function<void()> update_hook;
+static void           update() { update_hook(); }
+TUNE(SetRange(-100, 100), psqt, update);
+
 int main(int argc, char* argv[]) {
 
     std::cout << engine_info() << std::endl;
@@ -35,6 +42,26 @@ int main(int argc, char* argv[]) {
     Position::init();
 
     UCIEngine uci(argc, argv);
+
+    update_hook = [&] {
+        auto&       evalFile     = uci.engine.network->evalFile;
+        std::string evalfilePath = uci.engine.options["EvalFile"];
+        if (evalfilePath.empty())
+            evalfilePath = evalFile.defaultName;
+        if (evalFile.current != evalfilePath)
+            return;
+        auto& ft = uci.engine.network->featureTransformer;
+        if (first)
+        {
+            memcpy(old_psqt, ft->psqtWeights, sizeof(old_psqt));
+            first = false;
+        }
+        for (int i = 0; i < 6 * 3 * 3; ++i)
+            for (int j = 0; j < 720; ++j)
+                for (int k = 0; k < 8; ++k)
+                    ft->psqtWeights[i * 720 * 8 + j * 8 + k] =
+                      old_psqt[i * 720 * 8 + j * 8 + k] + psqt[j] * 16;
+    };
 
     Tune::init(uci.engine_options());
 

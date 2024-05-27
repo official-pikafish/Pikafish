@@ -59,7 +59,6 @@ class Network {
     void          verify(std::string evalfilePath) const;
     NnueEvalTrace trace_evaluate(const Position& pos, AccumulatorCaches::Cache* cache) const;
 
-   private:
     void load_user_net(const std::string&, const std::string&);
 
     void initialize();

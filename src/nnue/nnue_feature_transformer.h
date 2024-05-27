@@ -902,6 +902,7 @@ class FeatureTransformer {
 
     friend struct AccumulatorCaches::Cache;
 
+   public:
     alignas(CacheLineSize) BiasType biases[HalfDimensions];
     alignas(CacheLineSize) WeightType weights[HalfDimensions * InputDimensions];
     alignas(CacheLineSize) PSQTWeightType psqtWeights[InputDimensions * PSQTBuckets];
