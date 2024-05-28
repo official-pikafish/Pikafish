@@ -668,7 +668,7 @@ Value Search::Worker::search(
                - (ss - 1)->statScore / 210
              >= beta
         && eval >= beta && eval < VALUE_MATE_IN_MAX_PLY && (!ttMove || ttCapture))
-        return beta > VALUE_MATED_IN_MAX_PLY ? (eval + beta) / 2 : eval;
+        return beta > VALUE_MATED_IN_MAX_PLY ? beta + (eval - beta) / 3 : eval;
 
     // Step 8. Null move search with verification search (~35 Elo)
     if (!PvNode && (ss - 1)->currentMove != Move::null() && (ss - 1)->statScore < 11973
