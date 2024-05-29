@@ -178,7 +178,7 @@ void ThreadPool::set(const NumaConfig&                           numaConfig,
             const size_t    threadId = threads.size();
             const NumaIndex numaId   = doBindThreads ? boundThreadToNumaNode[threadId] : 0;
             auto            manager  = threadId == 0 ? std::unique_ptr<Search::ISearchManager>(
-                                             std::make_unique<Search::SearchManager>(updateContext))
+                             std::make_unique<Search::SearchManager>(updateContext))
                                                      : std::make_unique<Search::NullSearchManager>();
 
             // When not binding threads we want to force all access to happen
@@ -214,6 +214,7 @@ void ThreadPool::clear() {
     main_manager()->bestPreviousScore        = VALUE_INFINITE;
     main_manager()->bestPreviousAverageScore = VALUE_INFINITE;
     main_manager()->originalPly              = -1;
+    main_manager()->originalTimeAdjust       = -1;
     main_manager()->previousTimeReduction    = 1.0;
     main_manager()->tm.clear();
 }

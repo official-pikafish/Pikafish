@@ -45,8 +45,12 @@ void TimeManagement::advance_nodes_time(std::int64_t nodes) {
 // the bounds of time allowed for the current game ply. We currently support:
 //      1) x basetime (+ z increment)
 //      2) x moves in y seconds (+ z increment)
-void TimeManagement::init(
-  Search::LimitsType& limits, Color us, int ply, const OptionsMap& options, int& originalPly) {
+void TimeManagement::init(Search::LimitsType& limits,
+                          Color               us,
+                          int                 ply,
+                          const OptionsMap&   options,
+                          int&                originalPly,
+                          double&             originalTimeAdjust) {
     TimePoint npmsec = TimePoint(options["nodestime"]);
 
     // If we have no time, we don't need to fully initialize TM.
@@ -101,6 +105,10 @@ void TimeManagement::init(
     TimePoint timeLeft = std::max(TimePoint(1), limits.time[us] + limits.inc[us] * (mtg - 1)
                                                   - moveOverhead * (2 + mtg));
 
+    // Extra time according to timeLeft
+    if (originalTimeAdjust < 0)
+        originalTimeAdjust = 0.2078 + 0.1623 * std::log10(timeLeft);
+
     // x basetime (+ z increment)
     // If there is a healthy increment, timeLeft can exceed the actual available
     // game time for the current move, so also cap to a percentage of available game time.
@@ -110,6 +118,7 @@ void TimeManagement::init(
         double optExtra = scaledInc < 500 ? 1.0 : 1.10;
         if (ply - originalPly < 2)
             optExtra *= 0.95;
+        optExtra *= originalTimeAdjust;
 
         // Calculate time constants based on current time left.
         double logTimeInSec = std::log10(scaledTime / 1000.0);
@@ -119,6 +128,7 @@ void TimeManagement::init(
         optScale = std::min(0.0155 + std::pow(ply + 3.0, 0.45) * optConstant,
                             0.2 * limits.time[us] / timeLeft)
                  * optExtra;
+
         maxScale = std::min(6.5, maxConstant + ply / 13.6);
     }
 
