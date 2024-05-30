@@ -368,12 +368,12 @@ WinRateParams win_rate_params(const Position& pos) {
     int material = 10 * pos.count<ROOK>() + 5 * pos.count<KNIGHT>() + 5 * pos.count<CANNON>()
                  + 3 * pos.count<BISHOP>() + 2 * pos.count<ADVISOR>() + pos.count<PAWN>();
 
-    // The fitted model only uses data for material counts in [10, 110], and is anchored at count 53.
-    double m = std::clamp(material, 10, 110) / 53.0;
+    // The fitted model only uses data for material counts in [17, 110], and is anchored at count 65.
+    double m = std::clamp(material, 17, 110) / 65.0;
 
     // Return a = p_a(material) and b = p_b(material), see github.com/official-stockfish/WDL_model
-    constexpr double as[] = {229.68413041, -836.53336539, 1004.77236193, 18.19226434};
-    constexpr double bs[] = {114.18428891, -392.54680852, 475.32622987, -123.49708474};
+    constexpr double as[] = {220.59891365, -810.35730430, 928.68185198, 79.83955423};
+    constexpr double bs[] = {61.99287416, -233.72674182, 325.85508322, -68.72720854};
 
     double a = (((as[0] * m + as[1]) * m + as[2]) * m) + as[3];
     double b = (((bs[0] * m + bs[1]) * m + bs[2]) * m) + bs[3];
@@ -423,7 +423,7 @@ std::string UCIEngine::wdl(Value v, const Position& pos) {
     int wdl_w = win_rate_model(v, pos);
     int wdl_l = win_rate_model(-v, pos);
     int wdl_d = 1000 - wdl_w - wdl_l;
-    ss << " wdl " << wdl_w << " " << wdl_d << " " << wdl_l;
+    ss << wdl_w << " " << wdl_d << " " << wdl_l;
 
     return ss.str();
 }
