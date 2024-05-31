@@ -326,22 +326,21 @@ bool Position::legal(Move m) const {
     Square   from     = m.from_sq();
     Square   to       = m.to_sq();
     Bitboard occupied = (pieces() ^ from) | to;
-    Square   ksq      = type_of(moved_piece(m)) == KING ? to : square<KING>(us);
 
     assert(color_of(moved_piece(m)) == us);
     assert(piece_on(square<KING>(us)) == make_piece(us, KING));
-
-    // A non-king move is always legal when not moving the king or a pinned piece if we don't need slow check
-    if (!st->needSlowCheck && ksq != to && !(blockers_for_king(us) & from))
-        return true;
 
     // If the moving piece is a king, check whether the destination square is
     // attacked by the opponent.
     if (type_of(piece_on(from)) == KING)
         return !(checkers_to(~us, to, occupied));
 
+    // A non-king move is always legal when not moving a pinned piece if we don't need slow check
+    if (!st->needSlowCheck && !(blockers_for_king(us) & from))
+        return true;
+
     // A non-king move is legal if the king is not under attack after the move.
-    return !(checkers_to(~us, ksq, occupied) & ~square_bb(to));
+    return !(checkers_to(~us, square<KING>(us), occupied) & ~square_bb(to));
 }
 
 
