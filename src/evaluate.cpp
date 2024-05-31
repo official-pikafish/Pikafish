@@ -55,10 +55,10 @@ Value Eval::evaluate(const Eval::NNUE::Network& network,
     nnue -= nnue * nnueComplexity / 17352;
 
     int mm = pos.major_material() / 36;
-    v      = (nnue * (537 + mm) + optimism * (128 + mm)) / 1433;
+    v      = (nnue * (537 + mm) + optimism * (128 + mm)) / 894;
 
     // Damp down the evaluation linearly when shuffling
-    v = v * (279 - shuffling) / 174;
+    v -= (v * shuffling) / 174;
 
     // Guarantee evaluation does not hit the mate range
     v = std::clamp(v, VALUE_MATED_IN_MAX_PLY + 1, VALUE_MATE_IN_MAX_PLY - 1);
