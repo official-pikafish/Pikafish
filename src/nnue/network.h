@@ -22,12 +22,13 @@
 #include <string>
 #include <tuple>
 
-#include "../misc.h"
+#include "../memory.h"
+#include "../position.h"
 #include "../types.h"
+#include "nnue_accumulator.h"
 #include "nnue_architecture.h"
 #include "nnue_feature_transformer.h"
 #include "nnue_misc.h"
-#include "nnue_accumulator.h"
 
 namespace Stockfish {
 
@@ -76,7 +77,7 @@ class Network {
     LargePagePtr<FeatureTransformer> featureTransformer;
 
     // Evaluation function
-    AlignedPtr<NetworkArchitecture> network[LayerStacks];
+    AlignedPtr<NetworkArchitecture[]> network;
 
     EvalFile evalFile;
 
