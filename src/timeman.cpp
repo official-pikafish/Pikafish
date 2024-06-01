@@ -49,7 +49,6 @@ void TimeManagement::init(Search::LimitsType& limits,
                           Color               us,
                           int                 ply,
                           const OptionsMap&   options,
-                          int&                originalPly,
                           double&             originalTimeAdjust) {
     TimePoint npmsec = TimePoint(options["nodestime"]);
 
@@ -60,9 +59,6 @@ void TimeManagement::init(Search::LimitsType& limits,
 
     if (limits.time[us] == 0)
         return;
-
-    if (originalPly == -1)
-        originalPly = ply;
 
     TimePoint moveOverhead = TimePoint(options["Move Overhead"]);
 
@@ -105,20 +101,14 @@ void TimeManagement::init(Search::LimitsType& limits,
     TimePoint timeLeft = std::max(TimePoint(1), limits.time[us] + limits.inc[us] * (mtg - 1)
                                                   - moveOverhead * (2 + mtg));
 
-    // Extra time according to timeLeft
-    if (originalTimeAdjust < 0)
-        originalTimeAdjust = 0.2078 + 0.1623 * std::log10(timeLeft);
-
     // x basetime (+ z increment)
     // If there is a healthy increment, timeLeft can exceed the actual available
     // game time for the current move, so also cap to a percentage of available game time.
     if (limits.movestogo == 0)
     {
-        // Use extra time with larger increments
-        double optExtra = scaledInc < 500 ? 1.0 : 1.10;
-        if (ply - originalPly < 2)
-            optExtra *= 0.95;
-        optExtra *= originalTimeAdjust;
+        // Extra time according to timeLeft
+        if (originalTimeAdjust < 0)
+            originalTimeAdjust = 0.3285 * std::log10(timeLeft) - 0.4830;
 
         // Calculate time constants based on current time left.
         double logTimeInSec = std::log10(scaledTime / 1000.0);
@@ -127,7 +117,7 @@ void TimeManagement::init(Search::LimitsType& limits,
 
         optScale = std::min(0.0155 + std::pow(ply + 3.0, 0.45) * optConstant,
                             0.2 * limits.time[us] / timeLeft)
-                 * optExtra;
+                 * originalTimeAdjust;
 
         maxScale = std::min(6.5, maxConstant + ply / 13.6);
     }
