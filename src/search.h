@@ -205,7 +205,6 @@ class SearchManager: public ISearchManager {
 
     Stockfish::TimeManagement tm;
     double                    originalTimeAdjust;
-    int                       originalPly;
     int                       callsCnt;
     std::atomic_bool          ponder;
 
