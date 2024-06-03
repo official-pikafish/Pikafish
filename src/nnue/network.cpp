@@ -15,7 +15,6 @@
 
 #include "network.h"
 
-#include <cmath>
 #include <cstdlib>
 #include <cstring>
 #include <fstream>
@@ -163,10 +162,7 @@ bool Network::save(const std::optional<std::string>& filename) const {
 }
 
 
-Value Network::evaluate(const Position&           pos,
-                        AccumulatorCaches::Cache* cache,
-                        bool                      adjusted,
-                        int*                      complexity) const {
+NetworkOutput Network::evaluate(const Position& pos, AccumulatorCaches::Cache* cache) const {
     // We manually align the arrays on the stack because with gcc < 9.3
     // overaligning stack variables with alignas() doesn't work correctly.
 
@@ -188,14 +184,7 @@ Value Network::evaluate(const Position&           pos,
     const auto psqt       = featureTransformer->transform(pos, cache, transformedFeatures, bucket);
     const auto positional = network[bucket]->propagate(transformedFeatures);
 
-    if (complexity)
-        *complexity = std::abs(psqt - positional) / OutputScale;
-
-    // Adjust psqt and positional ratio in evaluation when adjusted flag is set
-    if (adjusted)
-        return static_cast<Value>((1784 * psqt + 1853 * positional) / (985 * OutputScale));
-    else
-        return static_cast<Value>((psqt + positional) / OutputScale);
+    return {static_cast<Value>(psqt / OutputScale), static_cast<Value>(positional / OutputScale)};
 }
 
 

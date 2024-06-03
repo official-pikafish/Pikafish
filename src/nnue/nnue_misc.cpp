@@ -23,6 +23,7 @@
 #include <iomanip>
 #include <sstream>
 #include <string_view>
+#include <tuple>
 
 #include "../position.h"
 #include "../types.h"
@@ -122,8 +123,9 @@ std::string trace(Position& pos, const Eval::NNUE::Network& network, Accumulator
 
     // We estimate the value of each piece by doing a differential evaluation from
     // the current base eval, simulating the removal of the piece from its square.
-    Value base = network.evaluate(pos, &caches.cache);
-    base       = pos.side_to_move() == WHITE ? base : -base;
+    auto [psqt, positional] = network.evaluate(pos, &caches.cache);
+    Value base              = psqt + positional;
+    base                    = pos.side_to_move() == WHITE ? base : -base;
 
     for (File f = FILE_A; f <= FILE_I; ++f)
         for (Rank r = RANK_0; r <= RANK_9; ++r)
@@ -140,9 +142,10 @@ std::string trace(Position& pos, const Eval::NNUE::Network& network, Accumulator
                 st->accumulator.computed[WHITE] = false;
                 st->accumulator.computed[BLACK] = false;
 
-                Value eval = network.evaluate(pos, &caches.cache);
-                eval       = pos.side_to_move() == WHITE ? eval : -eval;
-                v          = base - eval;
+                std::tie(psqt, positional) = network.evaluate(pos, &caches.cache);
+                Value eval                 = psqt + positional;
+                eval                       = pos.side_to_move() == WHITE ? eval : -eval;
+                v                          = base - eval;
 
                 pos.put_piece(pc, sq);
                 st->accumulator.computed[WHITE] = false;
