@@ -23,8 +23,9 @@
 #include <cmath>
 #include <cstdlib>
 #include <iomanip>
-#include <sstream>
 #include <memory>
+#include <sstream>
+#include <tuple>
 
 #include "nnue/network.h"
 #include "nnue/nnue_misc.h"
@@ -44,21 +45,19 @@ Value Eval::evaluate(const Eval::NNUE::Network& network,
 
     assert(!pos.checkers());
 
-    int v;
-    int shuffling = pos.rule60_count();
-
-    int   nnueComplexity;
-    Value nnue = network.evaluate(pos, &caches.cache, true, &nnueComplexity);
+    auto [psqt, positional] = network.evaluate(pos, &caches.cache);
+    Value nnue              = (1784 * psqt + 1853 * positional) / 985;
+    int   nnueComplexity    = std::abs(psqt - positional);
 
     // Blend optimism and eval with nnue complexity
     optimism += optimism * nnueComplexity / 566;
     nnue -= nnue * nnueComplexity / 18194;
 
     int mm = pos.major_material() / 34;
-    v      = (nnue * (525 + mm) + optimism * (115 + mm)) / 1087;
+    int v  = (nnue * (525 + mm) + optimism * (115 + mm)) / 1087;
 
     // Damp down the evaluation linearly when shuffling
-    v -= (v * shuffling) / 245;
+    v -= (v * pos.rule60_count()) / 245;
 
     // Guarantee evaluation does not hit the mate range
     v = std::clamp(v, VALUE_MATED_IN_MAX_PLY + 1, VALUE_MATE_IN_MAX_PLY - 1);
@@ -84,8 +83,9 @@ std::string Eval::trace(Position& pos, const Eval::NNUE::Network& network) {
 
     ss << std::showpoint << std::showpos << std::fixed << std::setprecision(2) << std::setw(15);
 
-    Value v = network.evaluate(pos, &caches->cache);
-    v       = pos.side_to_move() == WHITE ? v : -v;
+    auto [psqt, positional] = network.evaluate(pos, &caches->cache);
+    Value v                 = psqt + positional;
+    v                       = pos.side_to_move() == WHITE ? v : -v;
     ss << "NNUE evaluation        " << 0.01 * UCIEngine::to_cp(v, pos) << " (white side)\n";
 
     v = evaluate(network, pos, *caches, VALUE_ZERO);
