@@ -51,14 +51,14 @@ Value Eval::evaluate(const Eval::NNUE::Network& network,
     Value nnue = network.evaluate(pos, &caches.cache, true, &nnueComplexity);
 
     // Blend optimism and eval with nnue complexity
-    optimism += optimism * nnueComplexity / 512;
-    nnue -= nnue * nnueComplexity / 17352;
+    optimism += optimism * nnueComplexity / 566;
+    nnue -= nnue * nnueComplexity / 18194;
 
-    int mm = pos.major_material() / 36;
-    v      = (nnue * (537 + mm) + optimism * (128 + mm)) / 894;
+    int mm = pos.major_material() / 34;
+    v      = (nnue * (525 + mm) + optimism * (115 + mm)) / 1087;
 
     // Damp down the evaluation linearly when shuffling
-    v -= (v * shuffling) / 174;
+    v -= (v * shuffling) / 245;
 
     // Guarantee evaluation does not hit the mate range
     v = std::clamp(v, VALUE_MATED_IN_MAX_PLY + 1, VALUE_MATE_IN_MAX_PLY - 1);

@@ -193,7 +193,7 @@ Value Network::evaluate(const Position&           pos,
 
     // Adjust psqt and positional ratio in evaluation when adjusted flag is set
     if (adjusted)
-        return static_cast<Value>((1740 * psqt + 1798 * positional) / (953 * OutputScale));
+        return static_cast<Value>((1784 * psqt + 1853 * positional) / (985 * OutputScale));
     else
         return static_cast<Value>((psqt + positional) / OutputScale);
 }
