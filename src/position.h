@@ -103,9 +103,8 @@ class Position {
     template<PieceType Pt>
     int count(Color c) const;
     template<PieceType Pt>
-    int count() const;
-    template<PieceType Pt>
-    Square square(Color c) const;
+    int    count() const;
+    Square king_square(Color c) const;
 
     // Checking
     Bitboard checkers() const;
@@ -183,6 +182,7 @@ class Position {
     Piece      board[SQUARE_NB];
     Bitboard   byTypeBB[PIECE_TYPE_NB];
     Bitboard   byColorBB[COLOR_NB];
+    Square     kingSquare[COLOR_NB];
     int        pieceCount[PIECE_NB];
     StateInfo* st;
     int        gamePly;
@@ -232,11 +232,7 @@ inline int Position::count() const {
     return count<Pt>(WHITE) + count<Pt>(BLACK);
 }
 
-template<PieceType Pt>
-inline Square Position::square(Color c) const {
-    assert(count<Pt>(c) == 1);
-    return lsb(pieces(c, Pt));
-}
+inline Square Position::king_square(Color c) const { return kingSquare[c]; }
 
 inline Bitboard Position::attackers_to(Square s) const { return attackers_to(s, pieces()); }
 
@@ -320,6 +316,8 @@ inline void Position::move_piece(Square from, Square to) {
     byColorBB[color_of(pc)] ^= fromTo;
     board[from] = NO_PIECE;
     board[to]   = pc;
+    if (type_of(pc) == KING)
+        kingSquare[color_of(pc)] = to;
 }
 
 inline void Position::do_move(Move m, StateInfo& newSt) { do_move(m, newSt, gives_check(m)); }

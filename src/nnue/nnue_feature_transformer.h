@@ -479,7 +479,7 @@ class FeatureTransformer {
 
         // Update incrementally going back through states_to_update.
         // Gather all features to be updated.
-        const Square ksq = pos.square<KING>(Perspective);
+        const Square ksq = pos.king_square(Perspective);
         const int    ab  = pos.count<ADVISOR>(Perspective) * 3 + pos.count<BISHOP>(Perspective);
 
         // The size must be enough to contain the largest possible update.
@@ -685,7 +685,7 @@ class FeatureTransformer {
     void update_accumulator_refresh(const Position& pos, AccumulatorCaches::Cache* cache) const {
         assert(cache != nullptr);
 
-        const Square ksq = pos.square<KING>(Perspective);
+        const Square ksq = pos.king_square(Perspective);
         const int    ab  = pos.count<ADVISOR>(Perspective) * 3 + pos.count<BISHOP>(Perspective);
 
         auto& entry = (*cache)[FeatureSet::KingCacheMaps[ksq] * 9 + ab][Perspective];
