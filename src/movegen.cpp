@@ -27,10 +27,6 @@ namespace Stockfish {
 
 namespace {
 
-// Store the places where we can result in hollow cannon discovered check
-// by inserting a piece in between the hollow cannon and the king.
-thread_local Bitboard HollowCannonDiscover;
-
 template<Color Us, PieceType Pt, GenType Type>
 ExtMove* generate_moves(const Position& pos, ExtMove* moveList, Bitboard target) {
 
@@ -62,11 +58,9 @@ ExtMove* generate_moves(const Position& pos, ExtMove* moveList, Bitboard target)
 
         // To check, you either move freely a blocker or make a direct check.
         if constexpr (Type == QUIET_CHECKS)
-            b &= Pt == CANNON ? ~line_bb(from, pos.king_square(~Us))
-                                  & (pos.check_squares(Pt) | HollowCannonDiscover)
-               : (pos.blockers_for_king(~Us) & from)
-                 ? ~line_bb(from, pos.king_square(~Us))
-                 : (pos.check_squares(Pt) | HollowCannonDiscover);
+            b &= Pt == CANNON ? ~line_bb(from, pos.king_square(~Us)) & pos.check_squares(Pt)
+               : (pos.blockers_for_king(~Us) & from) ? ~line_bb(from, pos.king_square(~Us))
+                                                     : pos.check_squares(Pt);
 
         while (b)
             *moveList++ = Move(from, pop_lsb(b));
@@ -123,19 +117,8 @@ ExtMove* generate(const Position& pos, ExtMove* moveList) {
 
     static_assert(Type != LEGAL && Type != EVASIONS, "Unsupported type in generate()");
 
-    Color us = pos.side_to_move();
-
-    // Prepare hollow cannon discover bitboard when generate quite check moves
-    if constexpr (Type == QUIET_CHECKS)
-    {
-        Bitboard hollowCannons = pos.check_squares(ROOK) & pos.pieces(us, CANNON);
-        HollowCannonDiscover   = Bitboard(0);
-        while (hollowCannons)
-            HollowCannonDiscover |= between_bb(pos.king_square(~us), pop_lsb(hollowCannons));
-    }
-
-    return us == WHITE ? generate_all<WHITE, Type>(pos, moveList)
-                       : generate_all<BLACK, Type>(pos, moveList);
+    return pos.side_to_move() == WHITE ? generate_all<WHITE, Type>(pos, moveList)
+                                       : generate_all<BLACK, Type>(pos, moveList);
 }
 
 // Explicit template instantiations

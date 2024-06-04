@@ -183,14 +183,24 @@ void Position::set_check_info() const {
     Square ksq = king_square(~sideToMove);
 
     // We have to take special cares about the cannon and checks
-    st->needSlowCheck =
-      checkers() || (attacks_bb<ROOK>(king_square(sideToMove)) & pieces(~sideToMove, CANNON));
+    st->needSlowCheck = more_than_one(checkers())
+                     || (attacks_bb<ROOK>(king_square(sideToMove)) & pieces(~sideToMove, CANNON));
 
     st->checkSquares[PAWN]   = pawn_attacks_to_bb(sideToMove, ksq);
     st->checkSquares[KNIGHT] = attacks_bb<KNIGHT_TO>(ksq, pieces());
     st->checkSquares[CANNON] = attacks_bb<CANNON>(ksq, pieces());
     st->checkSquares[ROOK]   = attacks_bb<ROOK>(ksq, pieces());
     st->checkSquares[KING] = st->checkSquares[ADVISOR] = st->checkSquares[BISHOP] = 0;
+
+    Bitboard hollowCannons = st->checkSquares[ROOK] & pieces(sideToMove, CANNON);
+    if (hollowCannons)
+    {
+        Bitboard hollowCannonDiscover = Bitboard(0);
+        while (hollowCannons)
+            hollowCannonDiscover |= between_bb(ksq, pop_lsb(hollowCannons));
+        for (PieceType pt = ROOK; pt < KING; ++pt)
+            st->checkSquares[pt] |= hollowCannonDiscover;
+    }
 }
 
 
@@ -337,8 +347,14 @@ bool Position::legal(Move m) const {
     if (type_of(piece_on(from)) == KING)
         return !(checkers_to(~us, to, occupied));
 
-    // A non-king move is always legal when not moving a pinned piece if we don't need slow check
-    if (!st->needSlowCheck && !(blockers_for_king(us) & from))
+    // If we don't need slow check. A non-king move is always legal when either:
+    // 1. Not moving a pinned piece.
+    // 2. Moving a pinned non-cannon piece and aligned with king.
+    // 3. Moving a pinned cannon and aligned with king but it's not a capture move.
+    if (!st->needSlowCheck
+        && (!(blockers_for_king(us) & from)
+            || (((type_of(piece_on(from)) != CANNON) || !capture(m))
+                && aligned(from, to, king_square(us)))))
         return true;
 
     // A non-king move is legal if the king is not under attack after the move.
@@ -388,7 +404,7 @@ bool Position::gives_check(Move m) const {
     PieceType pt = type_of(moved_piece(m));
 
     // Is there a direct check?
-    if (pt == CANNON)
+    if (pt == CANNON && aligned(from, to, ksq))
     {
         if (attacks_bb<CANNON>(to, (pieces() ^ from) | to) & ksq)
             return true;
