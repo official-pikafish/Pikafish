@@ -161,36 +161,45 @@ NetworkOutput Network::evaluate(const Position& pos, AccumulatorCaches::Cache* c
 }
 
 
-void Network::verify(std::string evalfilePath) const {
+void Network::verify(std::string                                  evalfilePath,
+                     const std::function<void(std::string_view)>& f) const {
     if (evalfilePath.empty())
         evalfilePath = evalFile.defaultName;
 
     if (evalFile.current != evalfilePath)
     {
-        std::string msg1 =
-          "Network evaluation parameters compatible with the engine must be available.";
-        std::string msg2 = "The network file " + evalfilePath + " was not loaded successfully.";
-        std::string msg3 = "The UCI option EvalFile might need to specify the full path, "
-                           "including the directory name, to the network file.";
-        std::string msg4 =
-          "The default net can be downloaded from: "
-          "https://github.com/official-pikafish/Networks/releases/download/master-net/"
-          + evalFile.defaultName;
-        std::string msg5 = "The engine will be terminated now.";
+        if (f)
+        {
+            std::string msg1 =
+              "Network evaluation parameters compatible with the engine must be available.";
+            std::string msg2 = "The network file " + evalfilePath + " was not loaded successfully.";
+            std::string msg3 = "The UCI option EvalFile might need to specify the full path, "
+                               "including the directory name, to the network file.";
+            std::string msg4 =
+              "The default net can be downloaded from: "
+              "https://github.com/official-pikafish/Networks/releases/download/master-net/"
+              + evalFile.defaultName;
+            std::string msg5 = "The engine will be terminated now.";
 
-        sync_cout << "info string ERROR: " << msg1 << sync_endl;
-        sync_cout << "info string ERROR: " << msg2 << sync_endl;
-        sync_cout << "info string ERROR: " << msg3 << sync_endl;
-        sync_cout << "info string ERROR: " << msg4 << sync_endl;
-        sync_cout << "info string ERROR: " << msg5 << sync_endl;
+            std::string msg = "ERROR: " + msg1 + '\n' + "ERROR: " + msg2 + '\n' + "ERROR: " + msg3
+                            + '\n' + "ERROR: " + msg4 + '\n' + "ERROR: " + msg5 + '\n';
+
+            f(msg);
+        }
+
         exit(EXIT_FAILURE);
     }
 
-    size_t size = sizeof(*featureTransformer) + sizeof(NetworkArchitecture) * LayerStacks;
-    sync_cout << "info string NNUE evaluation using " << evalfilePath << " ("
-              << size / (1024 * 1024) << "MiB, (" << featureTransformer->InputDimensions << ", "
-              << TransformedFeatureDimensions << ", " << NetworkArchitecture::FC_0_OUTPUTS << ", "
-              << NetworkArchitecture::FC_1_OUTPUTS << ", 1))" << sync_endl;
+    if (f)
+    {
+        size_t size = sizeof(*featureTransformer) + sizeof(NetworkArchitecture) * LayerStacks;
+        f("info string NNUE evaluation using " + evalfilePath + " ("
+          + std::to_string(size / (1024 * 1024)) + "MiB, ("
+          + std::to_string(featureTransformer->InputDimensions) + ", "
+          + std::to_string(TransformedFeatureDimensions) + ", "
+          + std::to_string(NetworkArchitecture::FC_0_OUTPUTS) + ", "
+          + std::to_string(NetworkArchitecture::FC_1_OUTPUTS) + ", 1))");
+    }
 }
 
 

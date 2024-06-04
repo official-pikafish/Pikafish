@@ -966,7 +966,7 @@ net:
 	@$(SHELL) ../scripts/net.sh
 
 format:
-	$(CLANG-FORMAT) -i $(SRCS) $(HEADERS) -style=file
+	$(CLANG-FORMAT) -i $(filter %.cpp,$(SRCS)) $(HEADERS) -style=file
 
 default:
 	help
