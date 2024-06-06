@@ -486,7 +486,7 @@ Value Search::Worker::search(
     bool     givesCheck, improving, priorCapture, opponentWorsening;
     bool     capture, moveCountPruning, ttCapture;
     Piece    movedPiece;
-    int      moveCount, captureCount, quietCount;
+    int      moveCount, captureCount, quietCount, futilityMargin;
     Bound    singularBound;
 
     // Step 1. Initialize node
@@ -656,10 +656,12 @@ Value Search::Worker::search(
 
     opponentWorsening = ss->staticEval + (ss - 1)->staticEval > 2;
 
+    futilityMargin = futility_margin(depth, cutNode && !ss->ttHit, improving, opponentWorsening);
+
     // Step 6. Razoring (~1 Elo)
     // If eval is really low check with qsearch if it can exceed alpha, if it can't,
     // return a fail low.
-    if (eval < alpha - 904 - 316 * depth * depth)
+    if (eval < alpha - 904 - futilityMargin * depth)
     {
         value = qsearch<NonPV>(pos, ss, alpha - 1, alpha);
         if (value < alpha)
@@ -668,10 +670,7 @@ Value Search::Worker::search(
 
     // Step 7. Futility pruning: child node (~40 Elo)
     // The depth condition is important for mate finding.
-    if (!ss->ttPv && depth < 7
-        && eval - futility_margin(depth, cutNode && !ss->ttHit, improving, opponentWorsening)
-               - (ss - 1)->statScore / 202
-             >= beta
+    if (!ss->ttPv && depth < 7 && eval - futilityMargin - (ss - 1)->statScore / 202 >= beta
         && eval >= beta && eval < VALUE_MATE_IN_MAX_PLY && (!ttMove || ttCapture))
         return beta > VALUE_MATED_IN_MAX_PLY ? beta + (eval - beta) / 3 : eval;
 
