@@ -25,7 +25,7 @@
 // size of 512KB by default, this is too low for deep searches, which require
 // somewhat more than 1MB stack, so adjust it to TH_STACK_SIZE.
 // The implementation calls pthread_create() with the stack size parameter
-// equal to the linux 8MB default, on platforms that support it.
+// equal to the Linux 8MB default, on platforms that support it.
 
 #if defined(__APPLE__) || defined(__MINGW32__) || defined(__MINGW64__) || defined(USE_PTHREADS)
 

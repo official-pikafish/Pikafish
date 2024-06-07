@@ -152,7 +152,6 @@ void Search::Worker::start_searching() {
     // the UCI protocol states that we shouldn't print the best move before the
     // GUI sends a "stop" or "ponderhit" command. We therefore simply wait here
     // until the GUI sends one of those commands.
-
     while (!threads.stop && (main_manager()->ponder || limits.infinite))
     {}  // Busy wait for a stop or a ponder reset
 
@@ -1095,7 +1094,7 @@ moves_loop:  // When in check, search starts here
             }
         }
 
-        // Step 17. Full-depth search when LMR is skipped.
+        // Step 17. Full-depth search when LMR is skipped
         else if (!PvNode || moveCount > 1)
         {
             // Increase reduction if ttMove is not present (~6 Elo)
@@ -1743,7 +1742,6 @@ void update_quiet_stats(
 // Used to print debug info and, more importantly,
 // to detect when we are out of available time and thus stop the search.
 void SearchManager::check_time(Search::Worker& worker) {
-
     if (--callsCnt > 0)
         return;
 

@@ -140,7 +140,6 @@ TTEntry* TranspositionTable::probe(const Key key, bool& found) const {
 
 // Returns an approximation of the hashtable
 // occupation during a search. The hash is x permill full, as per UCI protocol.
-
 // Only counts entries which match the current generation.
 int TranspositionTable::hashfull() const {
 

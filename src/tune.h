@@ -51,10 +51,9 @@ struct SetRange {
 #define SetDefaultRange SetRange(default_range)
 
 
-// Tune class implements the 'magic' code that makes the setup of a fishtest
-// tuning session as easy as it can be. Mainly you have just to remove const
-// qualifiers from the variables you want to tune and flag them for tuning, so
-// if you have:
+// Tune class implements the 'magic' code that makes the setup of a fishtest tuning
+// session as easy as it can be. Mainly you have just to remove const qualifiers
+// from the variables you want to tune and flag them for tuning, so if you have:
 //
 //   const Value myValue[][2] = { { V(100), V(20) }, { V(7), V(78) } };
 //
@@ -169,7 +168,7 @@ class Tune {
     static OptionsMap* options;
 };
 
-// Some macro magic :-) we define a dummy int variable that compiler initializes calling Tune::add()
+// Some macro magic :-) we define a dummy int variable that the compiler initializes calling Tune::add()
 #define STRINGIFY(x) #x
 #define UNIQUE2(x, y) x##y
 #define UNIQUE(x, y) UNIQUE2(x, y)  // Two indirection levels to expand __LINE__
