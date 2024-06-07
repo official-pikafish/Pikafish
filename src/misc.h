@@ -113,7 +113,7 @@ std::ostream& operator<<(std::ostream&, SyncCout);
 #define sync_cout std::cout << IO_LOCK
 #define sync_endl std::endl << IO_UNLOCK
 
-// True if and only if the binary is compiled on a little endian machine
+// True if and only if the binary is compiled on a little-endian machine
 static inline const union {
     uint32_t i;
     char     c[4];

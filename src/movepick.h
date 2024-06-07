@@ -55,7 +55,7 @@ inline int pawn_structure_index(const Position& pos) {
 }
 
 // StatsEntry stores the stat table value. It is usually a number but could
-// be a move or even a nested history. We use a class instead of naked value
+// be a move or even a nested history. We use a class instead of a naked value
 // to directly call history update operator<<() on the entry so to use stats
 // tables at caller sites as simple multi-dim arrays.
 template<typename T, int D>
@@ -81,7 +81,7 @@ class StatsEntry {
 };
 
 // Stats is a generic N-dimensional array used to store various statistics.
-// The first template parameter T is the base type of the array, the second
+// The first template parameter T is the base type of the array, and the second
 // template parameter D limits the range of updates in [-D, D] when we update
 // values with the << operator, while the last parameters (Size and Sizes)
 // encode the dimensions of the array.
@@ -91,7 +91,7 @@ struct Stats: public std::array<Stats<T, D, Sizes...>, Size> {
 
     void fill(const T& v) {
 
-        // For standard-layout 'this' points to first struct member
+        // For standard-layout 'this' points to the first struct member
         assert(std::is_standard_layout_v<stats>);
 
         using entry = StatsEntry<T, D>;
