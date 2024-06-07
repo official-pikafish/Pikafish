@@ -661,7 +661,7 @@ Value Search::Worker::search(
     if (eval < alpha - 1095 - 337 * depth * depth)
     {
         value = qsearch<NonPV>(pos, ss, alpha - 1, alpha);
-        if (value < alpha)
+        if (value < alpha && std::abs(value) < VALUE_MATE_IN_MAX_PLY)
             return value;
     }
 
