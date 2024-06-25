@@ -677,8 +677,9 @@ Value Search::Worker::search(
         && eval - futility_margin(depth, cutNode && !ss->ttHit, improving, opponentWorsening)
                - (ss - 1)->statScore / 183
              >= beta
-        && eval >= beta && eval < VALUE_MATE_IN_MAX_PLY && (!ttData.move || ttCapture))
-        return beta > VALUE_MATED_IN_MAX_PLY ? beta + (eval - beta) / 3 : eval;
+        && eval >= beta && (!ttData.move || ttCapture) && beta > VALUE_MATED_IN_MAX_PLY
+        && eval < VALUE_MATE_IN_MAX_PLY)
+        return beta + (eval - beta) / 3;
 
     // Step 8. Null move search with verification search (~35 Elo)
     if (!PvNode && (ss - 1)->currentMove != Move::null() && (ss - 1)->statScore < 12853
