@@ -56,7 +56,7 @@ int main(int argc, char* argv[]) {
             memcpy(old_psqt, ft->psqtWeights, sizeof(old_psqt));
             first = false;
         }
-        for (int i = 0; i < 6 * 3 * 3; ++i)
+        for (int i = 0; i < 1 * 3 * 3; ++i)
             for (int j = 0; j < 720; ++j)
                 for (int k = 0; k < 8; ++k)
                     ft->psqtWeights[i * 720 * 8 + j * 8 + k] =
