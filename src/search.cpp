@@ -1247,10 +1247,15 @@ moves_loop:  // When in check, search starts here
     // Bonus for prior countermove that caused the fail low
     else if (!priorCapture && prevSq != SQ_NONE)
     {
-        int bonus = (121 * (depth > 5) + 102 * (PvNode || cutNode)
-                     + 187 * ((ss - 1)->statScore < -13333) + 121 * ((ss - 1)->moveCount > 13)
-                     + 61 * (!ss->inCheck && bestValue <= ss->staticEval - 138)
-                     + 143 * (!(ss - 1)->inCheck && bestValue <= -(ss - 1)->staticEval - 81));
+        int bonus =
+          (121 * (depth > 5) + 102 * (PvNode || cutNode) + 121 * ((ss - 1)->moveCount > 13)
+           + 61 * (!ss->inCheck && bestValue <= ss->staticEval - 138)
+           + 143 * (!(ss - 1)->inCheck && bestValue <= -(ss - 1)->staticEval - 81));
+
+        // proportional to "how much damage we have to undo"
+        if ((ss - 1)->statScore < -8000)
+            bonus += std::clamp(-(ss - 1)->statScore / 100, 0, 250);
+
         update_continuation_histories(ss - 1, pos.piece_on(prevSq), prevSq,
                                       stat_bonus(depth) * bonus / 106);
         thisThread->mainHistory[~us][((ss - 1)->currentMove).from_to()]
