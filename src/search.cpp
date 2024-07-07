@@ -54,7 +54,7 @@ namespace {
 // Futility margin
 Value futility_margin(Depth d, bool noTtCutNode, bool improving, bool oppWorsening) {
     Value futilityMult       = 174 - 28 * noTtCutNode;
-    Value improvingDeduction = 2 * improving * futilityMult;
+    Value improvingDeduction = improving * futilityMult * 2;
     Value worseningDeduction = oppWorsening * futilityMult / 3;
 
     return futilityMult * d - improvingDeduction - worseningDeduction;
@@ -481,12 +481,11 @@ Value Search::Worker::search(
     Key   posKey;
     Move  move, excludedMove, bestMove;
     Depth extension, newDepth;
-    Value bestValue, value, eval, maxValue, probCutBeta, singularValue;
+    Value bestValue, value, eval, maxValue, probCutBeta;
     bool  givesCheck, improving, priorCapture, opponentWorsening;
     bool  capture, moveCountPruning, ttCapture;
     Piece movedPiece;
     int   moveCount, captureCount, quietCount;
-    Bound singularBound;
 
     // Step 1. Initialize node
     Worker* thisThread = this;
@@ -832,8 +831,6 @@ moves_loop:  // When in check, search starts here
 
     value            = bestValue;
     moveCountPruning = false;
-    singularValue    = VALUE_INFINITE;
-    singularBound    = BOUND_NONE;
 
     // Step 12. Loop through all pseudo-legal moves until no moves remain
     // or a beta cutoff occurs.
@@ -883,9 +880,7 @@ moves_loop:  // When in check, search starts here
         if (!rootNode && pos.major_material(us) && bestValue > VALUE_MATED_IN_MAX_PLY)
         {
             // Skip quiet moves if movecount exceeds our FutilityMoveCount threshold (~8 Elo)
-            moveCountPruning =
-              moveCount >= futility_move_count(improving, depth)
-                             - (singularBound == BOUND_UPPER && singularValue < alpha - 49);
+            moveCountPruning = moveCount >= futility_move_count(improving, depth);
 
             // Reduced depth of the next LMR search
             int lmrDepth = newDepth - r;
@@ -971,9 +966,8 @@ moves_loop:  // When in check, search starts here
                 Depth singularDepth = newDepth / 2;
 
                 ss->excludedMove = move;
-                value            = singularValue =
+                value =
                   search<NonPV>(pos, ss, singularBeta - 1, singularBeta, singularDepth, cutNode);
-                singularBound    = singularValue >= singularBeta ? BOUND_LOWER : BOUND_UPPER;
                 ss->excludedMove = Move::none();
 
                 if (value < singularBeta)
