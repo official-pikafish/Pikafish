@@ -131,9 +131,9 @@ enum Bound {
     BOUND_EXACT = BOUND_UPPER | BOUND_LOWER
 };
 
-// Value is used as an alias for int16_t, this is done to differentiate between
-// a search value and any other integer value. The values used in search are always
-// supposed to be in the range (-VALUE_NONE, VALUE_NONE] and should not exceed this range.
+// Value is used as an alias for int, this is done to differentiate between a search
+// value and any other integer value. The values used in search are always supposed
+// to be in the range (-VALUE_NONE, VALUE_NONE] and should not exceed this range.
 using Value = int;
 
 constexpr Value VALUE_ZERO     = 0;
@@ -174,15 +174,20 @@ constexpr Value PieceValue[PIECE_NB] = {
 using Depth = int;
 
 enum : int {
-    // The following DEPTH_ constants are used for TT entries and QS movegen stages. In regular search,
-    // TT depth is literal: the search depth (effort) used to make the corresponding TT value.
-    // In qsearch, however, TT entries only store the current QS movegen stage (which should thus compare
+    // The following DEPTH_ constants are used for transposition table entries
+    // and quiescence search move generation stages. In regular search, the
+    // depth stored in the transposition table is literal: the search depth
+    // (effort) used to make the corresponding transposition table value. In
+    // quiescence search, however, the transposition table entries only store
+    // the current quiescence move generation stage (which should thus compare
     // lower than any regular search depth).
     DEPTH_QS_CHECKS = 0,
     DEPTH_QS_NORMAL = -1,
-    // For TT entries where no searching at all was done (whether regular or qsearch) we use
-    // _UNSEARCHED, which should thus compare lower than any QS or regular depth. _ENTRY_OFFSET is used
-    // only for the TT entry occupancy check (see tt.cpp), and should thus be lower than _UNSEARCHED.
+    // For transposition table entries where no searching at all was done
+    // (whether regular or qsearch) we use DEPTH_UNSEARCHED, which should thus
+    // compare lower than any quiescence or regular depth. DEPTH_ENTRY_OFFSET
+    // is used only for the transposition table entry occupancy check (see tt.cpp),
+    // and should thus be lower than DEPTH_UNSEARCHED.
     DEPTH_UNSEARCHED   = -2,
     DEPTH_ENTRY_OFFSET = -3
 };
@@ -336,9 +341,10 @@ constexpr Key make_key(uint64_t seed) {
 // bit  0- 6: destination square (from 0 to 89)
 // bit  7-13: origin square (from 0 to 89)
 //
-// Special cases are Move::none() and Move::null(). We can sneak these in because in
-// any normal move destination square is always different from origin square
-// while Move::none() and Move::null() have the same origin and destination square.
+// Special cases are Move::none() and Move::null(). We can sneak these in because
+// in any normal move the destination square and origin square are always different,
+// but Move::none() and Move::null() have the same origin and destination square.
+
 class Move {
    public:
     Move() = default;
