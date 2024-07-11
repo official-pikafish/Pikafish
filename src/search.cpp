@@ -72,7 +72,7 @@ Value to_corrected_static_eval(Value v, const Worker& w, const Position& pos) {
 }
 
 // History and stats update bonus, based on depth
-int stat_bonus(Depth d) { return std::clamp(226 * d - 327, 0, 1675); }
+int stat_bonus(Depth d) { return std::min(226 * d - 101, 1675); }
 
 // History and stats update malus, based on depth
 int stat_malus(Depth d) { return (d < 4 ? 748 * d - 255 : 1435); }
@@ -1659,7 +1659,7 @@ void update_all_stats(const Position& pos,
     Piece                  moved_piece    = pos.moved_piece(bestMove);
     PieceType              captured;
 
-    int quietMoveBonus = stat_bonus(depth + 1);
+    int quietMoveBonus = stat_bonus(depth);
     int quietMoveMalus = stat_malus(depth);
 
     if (!pos.capture(bestMove))
