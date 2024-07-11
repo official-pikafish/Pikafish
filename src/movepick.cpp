@@ -20,7 +20,6 @@
 
 #include <algorithm>
 #include <cassert>
-#include <iterator>
 #include <utility>
 
 #include "bitboard.h"
@@ -35,7 +34,7 @@ enum Stages {
     MAIN_TT,
     CAPTURE_INIT,
     GOOD_CAPTURE,
-    REFUTATION,
+    KILLER,
     QUIET_INIT,
     GOOD_QUIET,
     BAD_CAPTURE,
@@ -91,14 +90,14 @@ MovePicker::MovePicker(const Position&              p,
                        const CapturePieceToHistory* cph,
                        const PieceToHistory**       ch,
                        const PawnHistory*           ph,
-                       const Move*                  killers) :
+                       Move                         km) :
     pos(p),
     mainHistory(mh),
     captureHistory(cph),
     continuationHistory(ch),
     pawnHistory(ph),
     ttMove(ttm),
-    refutations{{killers[0], 0}, {killers[1], 0}},
+    killer{km, 0},
     depth(d) {
     assert(d > 0);
 
@@ -276,19 +275,17 @@ top:
             }))
             return *(cur - 1);
 
-        // Prepare the pointers to loop over the refutations array
-        cur      = std::begin(refutations);
-        endMoves = std::end(refutations);
-
         ++stage;
         [[fallthrough]];
 
-    case REFUTATION :
-        if (select<Next>([&]() {
-                return *cur != Move::none() && !pos.capture(*cur) && pos.pseudo_legal(*cur);
-            }))
-            return *(cur - 1);
+    case KILLER :
+        // increment it before so if we aren't stuck here indefinitely
         ++stage;
+
+        if (killer != ttMove && killer != Move::none() && !pos.capture(killer)
+            && pos.pseudo_legal(killer))
+            return killer;
+
         [[fallthrough]];
 
     case QUIET_INIT :
@@ -305,8 +302,7 @@ top:
         [[fallthrough]];
 
     case GOOD_QUIET :
-        if (!skipQuiets
-            && select<Next>([&]() { return *cur != refutations[0] && *cur != refutations[1]; }))
+        if (!skipQuiets && select<Next>([&]() { return *cur != killer; }))
         {
             if ((cur - 1)->value > -8000 || (cur - 1)->value <= quiet_threshold(depth))
                 return *(cur - 1);
@@ -335,7 +331,7 @@ top:
 
     case BAD_QUIET :
         if (!skipQuiets)
-            return select<Next>([&]() { return *cur != refutations[0] && *cur != refutations[1]; });
+            return select<Next>([&]() { return *cur != killer; });
 
         return Move::none();
 
