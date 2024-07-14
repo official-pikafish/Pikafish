@@ -34,7 +34,6 @@ enum Stages {
     MAIN_TT,
     CAPTURE_INIT,
     GOOD_CAPTURE,
-    KILLER,
     QUIET_INIT,
     GOOD_QUIET,
     BAD_CAPTURE,
@@ -97,7 +96,7 @@ MovePicker::MovePicker(const Position&              p,
     continuationHistory(ch),
     pawnHistory(ph),
     ttMove(ttm),
-    killer{km, 0},
+    killer(km),
     depth(d) {
     assert(d > 0);
 
@@ -185,6 +184,8 @@ void MovePicker::score() {
             m.value += (*continuationHistory[2])[pc][to] / 3;
             m.value += (*continuationHistory[3])[pc][to];
             m.value += (*continuationHistory[5])[pc][to];
+
+            m.value += (m == killer) * 65536;
 
             // bonus for checks
             m.value += bool((pt == CANNON ? pos.check_squares(pt)
@@ -278,16 +279,6 @@ top:
         ++stage;
         [[fallthrough]];
 
-    case KILLER :
-        // increment it before so if we aren't stuck here indefinitely
-        ++stage;
-
-        if (killer != ttMove && killer != Move::none() && !pos.capture(killer)
-            && pos.pseudo_legal(killer))
-            return killer;
-
-        [[fallthrough]];
-
     case QUIET_INIT :
         if (!skipQuiets)
         {
@@ -302,7 +293,7 @@ top:
         [[fallthrough]];
 
     case GOOD_QUIET :
-        if (!skipQuiets && select<Next>([&]() { return *cur != killer; }))
+        if (!skipQuiets && select<Next>([]() { return true; }))
         {
             if ((cur - 1)->value > -8000 || (cur - 1)->value <= quiet_threshold(depth))
                 return *(cur - 1);
@@ -331,7 +322,7 @@ top:
 
     case BAD_QUIET :
         if (!skipQuiets)
-            return select<Next>([&]() { return *cur != killer; });
+            return select<Next>([]() { return true; });
 
         return Move::none();
 
