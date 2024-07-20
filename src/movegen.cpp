@@ -44,7 +44,7 @@ ExtMove* generate_moves(const Position& pos, ExtMove* moveList, Bitboard target)
         else
         {
             // Generate cannon capture moves.
-            if (Type != QUIETS && Type != QUIET_CHECKS)
+            if (Type != QUIETS)
                 b |= attacks_bb<CANNON>(from, pos.pieces()) & pos.pieces(~Us);
 
             // Generate cannon quite moves.
@@ -55,12 +55,6 @@ ExtMove* generate_moves(const Position& pos, ExtMove* moveList, Bitboard target)
             if (Type == EVASIONS)
                 b &= target;
         }
-
-        // To check, you either move freely a blocker or make a direct check.
-        if constexpr (Type == QUIET_CHECKS)
-            b &= Pt == CANNON ? ~line_bb(from, pos.king_square(~Us)) & pos.check_squares(Pt)
-               : (pos.blockers_for_king(~Us) & from) ? ~line_bb(from, pos.king_square(~Us))
-                                                     : pos.check_squares(Pt);
 
         while (b)
             *moveList++ = Move(from, pop_lsb(b));
@@ -86,15 +80,13 @@ ExtMove* generate_all(const Position& pos, ExtMove* moveList) {
     const Square ksq    = pos.king_square(Us);
     Bitboard     target = Type == PSEUDO_LEGAL ? ~pos.pieces(Us)
                         : Type == CAPTURES     ? pos.pieces(~Us)
-                                               : ~pos.pieces();  // QUIETS || QUIET_CHECKS
+                                               : ~pos.pieces();  // QUIETS
 
     moveList = generate_moves<Us, Type>(pos, moveList, target);
 
-    if (Type != EVASIONS && (Type != QUIET_CHECKS || pos.blockers_for_king(~Us) & ksq))
+    if (Type != EVASIONS)
     {
         Bitboard b = attacks_bb<KING>(ksq) & target;
-        if constexpr (Type == QUIET_CHECKS)
-            b &= ~attacks_bb<ROOK>(pos.king_square(~Us));
 
         while (b)
             *moveList++ = Move(ksq, pop_lsb(b));
@@ -109,7 +101,6 @@ ExtMove* generate_all(const Position& pos, ExtMove* moveList) {
 // <CAPTURES>     Generates all pseudo-legal captures
 // <QUIETS>       Generates all pseudo-legal non-captures
 // <PSEUDO_LEGAL> Generates all pseudo-legal captures and non-captures
-// <QUIET_CHECKS> Generates all pseudo-legal non-captures giving check
 //
 // Returns a pointer to the end of the move list.
 template<GenType Type>
@@ -124,7 +115,6 @@ ExtMove* generate(const Position& pos, ExtMove* moveList) {
 // Explicit template instantiations
 template ExtMove* generate<CAPTURES>(const Position&, ExtMove*);
 template ExtMove* generate<QUIETS>(const Position&, ExtMove*);
-template ExtMove* generate<QUIET_CHECKS>(const Position&, ExtMove*);
 template ExtMove* generate<PSEUDO_LEGAL>(const Position&, ExtMove*);
 
 
