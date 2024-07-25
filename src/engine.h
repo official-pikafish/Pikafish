@@ -109,10 +109,10 @@ class Engine {
     StateListPtr states;
     Square       capSq;
 
-    OptionsMap                          options;
-    ThreadPool                          threads;
-    TranspositionTable                  tt;
-    NumaReplicated<Eval::NNUE::Network> network;
+    OptionsMap                              options;
+    ThreadPool                              threads;
+    TranspositionTable                      tt;
+    LazyNumaReplicated<Eval::NNUE::Network> network;
 
     Search::SearchManager::UpdateContext updateContext;
 };
