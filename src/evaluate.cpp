@@ -46,21 +46,21 @@ Value Eval::evaluate(const Eval::NNUE::Network& network,
     assert(!pos.checkers());
 
     auto [psqt, positional] = network.evaluate(pos, &caches.cache);
-    Value nnue              = psqt + positional;
+    Value nnue              = (1020 * psqt + 1092 * positional) / 1194;
     int   nnueComplexity    = std::abs(psqt - positional);
 
     // Blend optimism and eval with nnue complexity
-    optimism += optimism * nnueComplexity / 372;
-    nnue -= nnue * nnueComplexity / 11013;
+    optimism += optimism * nnueComplexity / 434;
+    nnue -= nnue * nnueComplexity / 11623;
 
-    int mm = pos.major_material() / 31;
-    int v  = (nnue * (576 + mm) + optimism * (107 + mm)) / 535;
+    int mm = pos.major_material() / 36;
+    int v  = (nnue * (615 + mm) + optimism * (109 + mm)) / 509;
 
     // Evaluation grain (to get more alpha-beta cuts) with randomization (for robustness)
     v = (v / 16) * 16 - 1 + (pos.key() & 0x2);
 
     // Damp down the evaluation linearly when shuffling
-    v -= (v * pos.rule60_count()) / 279;
+    v -= (v * pos.rule60_count()) / 262;
 
     // Guarantee evaluation does not hit the mate range
     v = std::clamp(v, VALUE_MATED_IN_MAX_PLY + 1, VALUE_MATE_IN_MAX_PLY - 1);
