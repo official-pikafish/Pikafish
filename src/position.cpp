@@ -183,8 +183,8 @@ void Position::set_check_info() const {
     Square ksq = king_square(~sideToMove);
 
     // We have to take special cares about the cannon and checks
-    st->needSlowCheck = more_than_one(checkers())
-                     || (attacks_bb<ROOK>(king_square(sideToMove)) & pieces(~sideToMove, CANNON));
+    st->needSlowCheck =
+      checkers() || (attacks_bb<ROOK>(king_square(sideToMove)) & pieces(~sideToMove, CANNON));
 
     st->checkSquares[PAWN]   = pawn_attacks_to_bb(sideToMove, ksq);
     st->checkSquares[KNIGHT] = attacks_bb<KNIGHT_TO>(ksq, pieces());
