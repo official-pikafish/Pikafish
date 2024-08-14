@@ -1084,7 +1084,7 @@ moves_loop:  // When in check, search starts here
                 // Adjust full-depth search based on LMR results - if the result was
                 // good enough search deeper, if it was bad enough search shallower.
                 const bool doDeeperSearch    = value > (bestValue + 66 + 2 * newDepth);  // (~1 Elo)
-                const bool doShallowerSearch = value < bestValue + newDepth;             // (~2 Elo)
+                const bool doShallowerSearch = value < bestValue + 8;                    // (~2 Elo)
 
                 newDepth += doDeeperSearch - doShallowerSearch;
 
@@ -1252,10 +1252,9 @@ moves_loop:  // When in check, search starts here
     // Bonus for prior countermove that caused the fail low
     else if (!priorCapture && prevSq != SQ_NONE)
     {
-        int bonus =
-          (121 * (depth > 5) + 98 * (PvNode || cutNode) + 120 * ((ss - 1)->moveCount > 14)
-           + 67 * (!ss->inCheck && bestValue <= ss->staticEval - 136)
-           + 123 * (!(ss - 1)->inCheck && bestValue <= -(ss - 1)->staticEval - 72));
+        int bonus = (121 * (depth > 5) + 98 * (PvNode || cutNode) + 120 * ((ss - 1)->moveCount > 14)
+                     + 67 * (!ss->inCheck && bestValue <= ss->staticEval - 136)
+                     + 123 * (!(ss - 1)->inCheck && bestValue <= -(ss - 1)->staticEval - 72));
 
         // proportional to "how much damage we have to undo"
         bonus += std::clamp(-(ss - 1)->statScore / 100, -60, 227);
