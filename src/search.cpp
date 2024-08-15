@@ -1271,6 +1271,10 @@ moves_loop:  // When in check, search starts here
               << stat_bonus(depth) * bonus / 23;
     }
 
+    // Bonus when search fails low and there is a TT move
+    else if (moveCount > 1 && ttData.move && (cutNode || PvNode))
+        thisThread->mainHistory[us][ttData.move.from_to()] << stat_bonus(depth) / 4;
+
     if (PvNode)
         bestValue = std::min(bestValue, maxValue);
 
