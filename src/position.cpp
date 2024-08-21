@@ -484,9 +484,10 @@ void Position::do_move(Move m, StateInfo& newSt, bool givesCheck) {
         if (type_of(captured) == PAWN)
             st->pawnKey ^= Zobrist::psq[captured][capsq];
         else if (type_of(captured) & 1)
+        {
             st->majorMaterial[them] -= PieceValue[captured];
-        else
             dp.requires_refresh[them] = true;
+        }
 
         dp.dirty_num = 2;  // 1 piece moved, 1 piece captured
         dp.piece[1]  = captured;
