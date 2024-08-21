@@ -527,7 +527,8 @@ class FeatureTransformer {
         // Update incrementally going back through states_to_update.
         // Gather all features to be updated.
         const Square ksq = pos.king_square(Perspective);
-        const int    ab  = pos.count<ADVISOR>(Perspective) * 3 + pos.count<BISHOP>(Perspective);
+        const int    att = pos.count<ROOK>(Perspective) * 2 + pos.count<KNIGHT>(Perspective)
+                      + pos.count<CANNON>(Perspective);
 
         // The size must be enough to contain the largest possible update.
         // That might depend on the feature set and generally relies on the
@@ -542,7 +543,7 @@ class FeatureTransformer {
             const StateInfo* end_state = i == 0 ? computed_st : states_to_update[i - 1];
 
             for (StateInfo* st2 = states_to_update[i]; st2 != end_state; st2 = st2->previous)
-                FeatureSet::append_changed_indices<Perspective>(ksq, ab, st2->dirtyPiece,
+                FeatureSet::append_changed_indices<Perspective>(ksq, att, st2->dirtyPiece,
                                                                 removed[i], added[i]);
         }
 
@@ -734,9 +735,10 @@ class FeatureTransformer {
         assert(cache != nullptr);
 
         const Square ksq = pos.king_square(Perspective);
-        const int    ab  = pos.count<ADVISOR>(Perspective) * 3 + pos.count<BISHOP>(Perspective);
+        const int    att = pos.count<ROOK>(Perspective) * 2 + pos.count<KNIGHT>(Perspective)
+                      + pos.count<CANNON>(Perspective);
 
-        auto& entry = (*cache)[FeatureSet::KingCacheMaps[ksq] * 9 + ab][Perspective];
+        auto& entry = (*cache)[FeatureSet::KingCacheMaps[ksq] * 9 + att][Perspective];
 
         auto& accumulator                 = pos.state()->accumulator;
         accumulator.computed[Perspective] = true;
@@ -755,12 +757,12 @@ class FeatureTransformer {
                 while (toRemove)
                 {
                     Square sq = pop_lsb(toRemove);
-                    removed.push_back(FeatureSet::make_index<Perspective>(sq, piece, ksq, ab));
+                    removed.push_back(FeatureSet::make_index<Perspective>(sq, piece, ksq, att));
                 }
                 while (toAdd)
                 {
                     Square sq = pop_lsb(toAdd);
-                    added.push_back(FeatureSet::make_index<Perspective>(sq, piece, ksq, ab));
+                    added.push_back(FeatureSet::make_index<Perspective>(sq, piece, ksq, att));
                 }
             }
         }
