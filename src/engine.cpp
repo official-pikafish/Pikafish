@@ -82,6 +82,7 @@ Engine::Engine(std::string path) :
     options["MultiPV"] << Option(1, 1, MAX_MOVES);
     options["Move Overhead"] << Option(10, 0, 5000);
     options["nodestime"] << Option(0, 0, 10000);
+    options["UCI_ShowWDL"] << Option(false);
     options["EvalFile"] << Option(EvalFileDefaultName, [this](const Option& o) {
         load_network(o);
         return std::nullopt;
