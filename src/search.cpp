@@ -468,6 +468,7 @@ Value Search::Worker::search(
 
     constexpr bool PvNode   = nodeType != NonPV;
     constexpr bool rootNode = nodeType == Root;
+    const bool     allNode  = !(PvNode || cutNode);
 
     // Dive into quiescence search when the depth reaches zero
     if (depth <= 0)
@@ -1052,7 +1053,7 @@ moves_loop:  // When in check, search starts here
 
         // Increase reduction if next ply has a lot of fail high (~5 Elo)
         if ((ss + 1)->cutoffCnt > 3)
-            r += 1 + !(PvNode || cutNode);
+            r += 1 + allNode;
 
         // For first picked move (ttMove) reduce reduction, but never allow
         // reduction to go below 0 (~3 Elo)
@@ -1074,7 +1075,7 @@ moves_loop:  // When in check, search starts here
             // beyond the first move depth.
             // To prevent problems when the max value is less than the min value,
             // std::clamp has been replaced by a more robust implementation.
-            Depth d = std::max(1, std::min(newDepth - r, newDepth + (PvNode || cutNode)));
+            Depth d = std::max(1, std::min(newDepth - r, newDepth + !allNode));
 
             value = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, d, true);
 
@@ -1252,7 +1253,7 @@ moves_loop:  // When in check, search starts here
     // Bonus for prior countermove that caused the fail low
     else if (!priorCapture && prevSq != SQ_NONE)
     {
-        int bonus = (126 * (depth > 5) + 98 * (PvNode || cutNode) + 122 * ((ss - 1)->moveCount > 14)
+        int bonus = (126 * (depth > 5) + 98 * !allNode + 122 * ((ss - 1)->moveCount > 14)
                      + 64 * (!ss->inCheck && bestValue <= ss->staticEval - 134)
                      + 129 * (!(ss - 1)->inCheck && bestValue <= -(ss - 1)->staticEval - 76));
 
@@ -1272,7 +1273,7 @@ moves_loop:  // When in check, search starts here
     }
 
     // Bonus when search fails low and there is a TT move
-    else if (moveCount > 1 && ttData.move && (cutNode || PvNode))
+    else if (moveCount > 1 && ttData.move && !allNode)
         thisThread->mainHistory[us][ttData.move.from_to()] << stat_bonus(depth) / 4;
 
     if (PvNode)
