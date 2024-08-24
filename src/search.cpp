@@ -71,8 +71,11 @@ constexpr int futility_move_count(bool improving, Depth depth) {
 // Add correctionHistory value to raw staticEval and guarantee evaluation
 // does not hit the mate range.
 Value to_corrected_static_eval(Value v, const Worker& w, const Position& pos) {
-    auto cv = w.correctionHistory[pos.side_to_move()][pawn_structure_index<Correction>(pos)];
-    v += cv / 16;
+    const auto pcv =
+      w.pawnCorrectionHistory[pos.side_to_move()][pawn_structure_index<Correction>(pos)];
+    const auto mcv = w.materialCorrectionHistory[pos.side_to_move()][material_index(pos)];
+    const auto cv  = (2 * pcv + mcv) / 3;
+    v += 32 * cv / 512;
     return std::clamp(v, VALUE_MATED_IN_MAX_PLY + 1, VALUE_MATE_IN_MAX_PLY - 1);
 }
 
@@ -446,7 +449,8 @@ void Search::Worker::clear() {
     mainHistory.fill(0);
     captureHistory.fill(-733);
     pawnHistory.fill(-1316);
-    correctionHistory.fill(0);
+    pawnCorrectionHistory.fill(0);
+    materialCorrectionHistory.fill(0);
 
     for (bool inCheck : {false, true})
         for (StatsType c : {NoCaptures, Captures})
@@ -1300,7 +1304,8 @@ moves_loop:  // When in check, search starts here
     {
         auto bonus = std::clamp(int(bestValue - ss->staticEval) * depth / 8,
                                 -CORRECTION_HISTORY_LIMIT / 4, CORRECTION_HISTORY_LIMIT / 4);
-        thisThread->correctionHistory[us][pawn_structure_index<Correction>(pos)] << bonus;
+        thisThread->pawnCorrectionHistory[us][pawn_structure_index<Correction>(pos)] << bonus;
+        thisThread->materialCorrectionHistory[us][material_index(pos)] << bonus;
     }
 
     assert(bestValue > -VALUE_INFINITE && bestValue < VALUE_INFINITE);

@@ -44,6 +44,7 @@ class TranspositionTable;
 struct StateInfo {
 
     // Copied when making a move
+    Key     materialKey;
     Key     pawnKey;
     Value   majorMaterial[COLOR_NB];
     int16_t check10[COLOR_NB];
@@ -143,6 +144,7 @@ class Position {
     // Accessing hash keys
     Key key() const;
     Key key_after(Move m) const;
+    Key material_key() const;
     Key pawn_key() const;
 
     // Other properties of the position
@@ -269,6 +271,8 @@ inline Key Position::adjust_key60(Key k) const {
 }
 
 inline Key Position::pawn_key() const { return st->pawnKey; }
+
+inline Key Position::material_key() const { return st->materialKey; }
 
 inline Value Position::major_material(Color c) const { return st->majorMaterial[c]; }
 
