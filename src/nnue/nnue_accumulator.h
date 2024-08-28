@@ -48,6 +48,21 @@ struct alignas(CacheLineSize) Accumulator {
 // is commonly referred to as "Finny Tables".
 struct AccumulatorCaches {
 
+    // clang-format off
+    static constexpr uint8_t KingCacheMaps[SQUARE_NB] = {
+        0,  0,  0,  6,  0,  3,  0,  0,  0,
+        0,  0,  0,  7,  1,  4,  0,  0,  0,
+        0,  0,  0,  8,  2,  5,  0,  0,  0,
+        0,  0,  0,  0,  0,  0,  0,  0,  0,
+        0,  0,  0,  0,  0,  0,  0,  0,  0,
+        0,  0,  0,  0,  0,  0,  0,  0,  0,
+        0,  0,  0,  0,  0,  0,  0,  0,  0,
+        0,  0,  0,  8,  2,  5,  0,  0,  0,
+        0,  0,  0,  7,  1,  4,  0,  0,  0,
+        0,  0,  0,  6,  0,  3,  0,  0,  0,
+    };
+    // clang-format on
+
     template<typename Network>
     AccumulatorCaches(const Network& network) {
         clear(network);
@@ -81,7 +96,7 @@ struct AccumulatorCaches {
 
         std::array<Entry, COLOR_NB>& operator[](int index) { return entries[index]; }
 
-        std::array<std::array<Entry, COLOR_NB>, 9 * 9> entries;
+        std::array<std::array<Entry, COLOR_NB>, (9 + 3) * 2 * 3> entries;
     };
 
     template<typename Network>

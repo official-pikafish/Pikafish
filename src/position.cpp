@@ -468,8 +468,15 @@ void Position::do_move(Move m, StateInfo& newSt, bool givesCheck) {
     Piece  pc       = piece_on(from);
     Piece  captured = piece_on(to);
 
-    dp.requires_refresh[us]   = pc == make_piece(us, KING);
-    dp.requires_refresh[them] = false;
+    if (pc == make_piece(us, KING))
+    {
+        dp.requires_refresh[us] = true;
+        bool mirror_before = Eval::NNUE::FeatureSet::KingBuckets[king_square(them)][from].second;
+        bool mirror_after  = Eval::NNUE::FeatureSet::KingBuckets[king_square(them)][to].second;
+        dp.requires_refresh[them] = (mirror_before != mirror_after);
+    }
+    else
+        dp.requires_refresh[us] = dp.requires_refresh[them] = false;
 
     assert(color_of(pc) == us);
     assert(captured == NO_PIECE || color_of(captured) == them);
@@ -484,18 +491,22 @@ void Position::do_move(Move m, StateInfo& newSt, bool givesCheck) {
         if (type_of(captured) == PAWN)
             st->pawnKey ^= Zobrist::psq[captured][capsq];
         else if (type_of(captured) & 1)
-        {
             st->majorMaterial[them] -= PieceValue[captured];
-            dp.requires_refresh[them] = true;
-        }
 
         dp.dirty_num = 2;  // 1 piece moved, 1 piece captured
         dp.piece[1]  = captured;
         dp.from[1]   = capsq;
         dp.to[1]     = SQ_NONE;
 
+        auto attack_bucket_before = Eval::NNUE::FeatureSet::make_attack_bucket(*this, them);
+
         // Update board and piece lists
         remove_piece(capsq);
+
+        auto attack_bucket_after = Eval::NNUE::FeatureSet::make_attack_bucket(*this, them);
+
+        if (attack_bucket_before != attack_bucket_after)
+            dp.requires_refresh[them] = true;
 
         // Update hash key
         k ^= Zobrist::psq[captured][capsq];

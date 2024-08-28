@@ -72,57 +72,85 @@ class HalfKAv2_hm {
     static constexpr std::uint32_t HashValue = 0xd17b100;
 
     // Number of feature dimensions
-    static constexpr IndexType Dimensions = 6 * 9 * static_cast<IndexType>(PS_NB);
+    static constexpr IndexType Dimensions = 6 * 2 * 3 * static_cast<IndexType>(PS_NB);
 
-    // clang-format off
+    // Get king_index and mirror information
+    static constexpr std::array<std::array<std::pair<int, bool>, SQUARE_NB>, SQUARE_NB>
+      KingBuckets = []() {
 #define M(s) ((1 << 3) | s)
-    // Stored as (mirror << 3 | bucket)
-    static constexpr uint8_t KingBuckets[SQUARE_NB] = {
-        0,  0,  0,  0,  1, M(0),  0,  0,  0,
-        0,  0,  0,  3,  2, M(3),  0,  0,  0,
-        0,  0,  0,  4,  5, M(4),  0,  0,  0,
-        0,  0,  0,  0,  0,   0 ,  0,  0,  0,
-        0,  0,  0,  0,  0,   0 ,  0,  0,  0,
-        0,  0,  0,  0,  0,   0 ,  0,  0,  0,
-        0,  0,  0,  0,  0,   0 ,  0,  0,  0,
-        0,  0,  0,  4,  5, M(4),  0,  0,  0,
-        0,  0,  0,  3,  2, M(3),  0,  0,  0,
-        0,  0,  0,  0,  1, M(0),  0,  0,  0,
-    };
+          // clang-format off
+          // Stored as (mirror << 3 | bucket)
+          constexpr uint8_t KingBuckets[SQUARE_NB] = {
+              0,  0,  0,  0,  1, M(0),  0,  0,  0,
+              0,  0,  0,  2,  3, M(2),  0,  0,  0,
+              0,  0,  0,  4,  5, M(4),  0,  0,  0,
+              0,  0,  0,  0,  0,   0 ,  0,  0,  0,
+              0,  0,  0,  0,  0,   0 ,  0,  0,  0,
+              0,  0,  0,  0,  0,   0 ,  0,  0,  0,
+              0,  0,  0,  0,  0,   0 ,  0,  0,  0,
+              0,  0,  0,  4,  5, M(4),  0,  0,  0,
+              0,  0,  0,  2,  3, M(2),  0,  0,  0,
+              0,  0,  0,  0,  1, M(0),  0,  0,  0,
+          };
+        // clang-format on
 #undef M
+          std::array<std::array<std::pair<int, bool>, SQUARE_NB>, SQUARE_NB> v{};
+          for (uint8_t ksq = SQ_A0; ksq <= SQ_I9; ++ksq)
+              for (uint8_t oksq = SQ_A0; oksq <= SQ_I9; ++oksq)
+              {
+                  uint8_t king_bucket_ = KingBuckets[ksq];
+                  int     king_bucket  = king_bucket_ & 0x7;
+                  bool    mirror =
+                    (king_bucket_ >> 3) || ((king_bucket & 1) && (KingBuckets[oksq] >> 3));
+                  v[ksq][oksq].first  = king_bucket;
+                  v[ksq][oksq].second = mirror;
+              }
+          return v;
+      }();
 
-    static constexpr uint8_t KingCacheMaps[SQUARE_NB] = {
-        0,  0,  0,  0,  1,  2,  0,  0,  0,
-        0,  0,  0,  5,  4,  3,  0,  0,  0,
-        0,  0,  0,  6,  7,  8,  0,  0,  0,
-        0,  0,  0,  0,  0,  0,  0,  0,  0,
-        0,  0,  0,  0,  0,  0,  0,  0,  0,
-        0,  0,  0,  0,  0,  0,  0,  0,  0,
-        0,  0,  0,  0,  0,  0,  0,  0,  0,
-        0,  0,  0,  6,  7,  8,  0,  0,  0,
-        0,  0,  0,  5,  4,  3,  0,  0,  0,
-        0,  0,  0,  0,  1,  2,  0,  0,  0,
-    };
-
-    // Map advisor and bishop location into White King plane
-    static constexpr uint8_t ABMap[SQUARE_NB] = {
-        0,  0,  0,  1,  0,  2,  5,  0,  0,
-        0,  0,  0,  0,  6,  0,  0,  0,  0,
-        7,  0,  0,  8,  9, 10,  0,  0, 11,
-        0,  0,  0,  0,  0,  0,  0,  0,  0,
-        0,  0, 14,  0,  0,  0, 15,  0,  0,
-        0,  0, 16,  0,  0,  0, 17,  0,  0,
-        0,  0,  0,  0,  0,  0,  0,  0,  0,
-       18,  0,  0, 19, 20, 23,  0,  0, 24,
-        0,  0,  0,  0, 25,  0,  0,  0,  0,
-        0,  0, 26, 28,  0, 30, 32,  0,  0,
-    };
-    // clang-format on
+    // Get attack bucket based on attack feature
+    static constexpr std::array<std::array<std::array<int, 3>, 3>, 3> AttackBucket = []() {
+        std::array<std::array<std::array<int, 3>, 3>, 3> v{};
+        for (uint8_t rook = 0; rook <= 2; ++rook)
+            for (uint8_t knight = 0; knight <= 2; ++knight)
+                for (uint8_t cannon = 0; cannon <= 2; ++cannon)
+                    v[rook][knight][cannon] = [&] {
+                        if (rook != 0)
+                            if (knight > 0 && cannon > 0)
+                                return 0;
+                            else if (rook == 1 && knight + cannon <= 1)
+                                return 2;
+                            else
+                                return 1;
+                        else if (knight > 0 && cannon > 0)
+                            return 3;
+                        else if (knight + cannon <= 1)
+                            return 5;
+                        else
+                            return 4;
+                    }();
+        return v;
+    }();
 
     // Square index mapping based on condition (Mirror, Rotate, ABMap)
     static constexpr std::array<std::array<std::array<std::array<std::uint8_t, SQUARE_NB>, 2>, 2>,
                                 2>
       IndexMap = []() {
+          // clang-format off
+          // Map advisor and bishop location into White King plane
+          constexpr uint8_t ABMap[SQUARE_NB] = {
+              0,  0,  0,  1,  0,  2,  5,  0,  0,
+              0,  0,  0,  0,  6,  0,  0,  0,  0,
+              7,  0,  0,  8,  9, 10,  0,  0, 11,
+              0,  0,  0,  0,  0,  0,  0,  0,  0,
+              0,  0, 14,  0,  0,  0, 15,  0,  0,
+              0,  0, 16,  0,  0,  0, 17,  0,  0,
+              0,  0,  0,  0,  0,  0,  0,  0,  0,
+             18,  0,  0, 19, 20, 23,  0,  0, 24,
+              0,  0,  0,  0, 25,  0,  0,  0,  0,
+              0,  0, 26, 28,  0, 30, 32,  0,  0,
+          };
+          // clang-format on
           std::array<std::array<std::array<std::array<std::uint8_t, SQUARE_NB>, 2>, 2>, 2> v{};
           for (uint8_t m = 0; m < 2; ++m)
               for (uint8_t r = 0; r < 2; ++r)
@@ -138,18 +166,51 @@ class HalfKAv2_hm {
           return v;
       }();
 
+    // LayerStack buckets
+    static constexpr std::array<std::array<std::array<std::array<uint8_t, 5>, 5>, 3>, 3>
+      LayerStackBuckets = [] {
+          std::array<std::array<std::array<std::array<uint8_t, 5>, 5>, 3>, 3> v{};
+          for (uint8_t us_rook = 0; us_rook <= 2; ++us_rook)
+              for (uint8_t opp_rook = 0; opp_rook <= 2; ++opp_rook)
+                  for (uint8_t us_knight_cannon = 0; us_knight_cannon <= 4; ++us_knight_cannon)
+                      for (uint8_t opp_knight_cannon = 0; opp_knight_cannon <= 4;
+                           ++opp_knight_cannon)
+                          v[us_rook][opp_rook][us_knight_cannon][opp_knight_cannon] = [&] {
+                              if (us_rook == opp_rook)
+                                  return us_rook * 4
+                                       + int(us_knight_cannon + opp_knight_cannon >= 4) * 2
+                                       + int(us_knight_cannon == opp_knight_cannon);
+                              else if (us_rook == 2 && opp_rook == 1)
+                                  return 12;
+                              else if (us_rook == 1 && opp_rook == 2)
+                                  return 13;
+                              else if (us_rook > 0 && opp_rook == 0)
+                                  return 14;
+                              else if (us_rook == 0 && opp_rook > 0)
+                                  return 15;
+                              return -1;
+                          }();
+          return v;
+      }();
+
     // Maximum number of simultaneously active features.
     static constexpr IndexType MaxActiveDimensions = 32;
     using IndexList                                = ValueList<IndexType, MaxActiveDimensions>;
 
+    // Get attack bucket
+    static IndexType make_attack_bucket(const Position& pos, Color c);
+
+    // Get layer stack bucket
+    static IndexType make_layer_stack_bucket(const Position& pos);
+
     // Index of a feature for a given king position and another piece on some square
     template<Color Perspective>
-    static IndexType make_index(Square s, Piece pc, Square ksq, int att);
+    static IndexType make_index(Square s, Piece pc, int bucket, bool mirror);
 
     // Get a list of indices for recently changed features
     template<Color Perspective>
     static void append_changed_indices(
-      Square ksq, int att, const DirtyPiece& dp, IndexList& removed, IndexList& added);
+      int bucket, bool mirror, const DirtyPiece& dp, IndexList& removed, IndexList& added);
 
     // Returns the cost of updating one perspective, the most costly one.
     // Assumes no refresh needed.

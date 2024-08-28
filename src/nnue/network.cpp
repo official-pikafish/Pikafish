@@ -155,7 +155,7 @@ NetworkOutput Network::evaluate(const Position& pos, AccumulatorCaches::Cache* c
 
     ASSERT_ALIGNED(transformedFeatures, alignment);
 
-    const int  bucket     = (pos.count<ALL_PIECES>() - 1) / 4;
+    const int  bucket     = FeatureSet::make_layer_stack_bucket(pos);
     const auto psqt       = featureTransformer->transform(pos, cache, transformedFeatures, bucket);
     const auto positional = network[bucket].propagate(transformedFeatures);
 
@@ -219,7 +219,7 @@ NnueEvalTrace Network::trace_evaluate(const Position& pos, AccumulatorCaches::Ca
     ASSERT_ALIGNED(transformedFeatures, alignment);
 
     NnueEvalTrace t{};
-    t.correctBucket = (pos.count<ALL_PIECES>() - 1) / 4;
+    t.correctBucket = FeatureSet::make_layer_stack_bucket(pos);
     for (IndexType bucket = 0; bucket < LayerStacks; ++bucket)
     {
         const auto materialist =
