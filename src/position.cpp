@@ -440,6 +440,7 @@ void Position::do_move(Move m, StateInfo& newSt, bool givesCheck) {
     // our state pointer to point to the new (ready to be updated) state.
     std::memcpy(&newSt, st, offsetof(StateInfo, key));
     newSt.previous = st;
+    st->next       = &newSt;
     st             = &newSt;
     st->move       = m;
 
@@ -594,6 +595,7 @@ void Position::do_null_move(StateInfo& newSt, TranspositionTable& tt) {
     std::memcpy(&newSt, st, offsetof(StateInfo, accumulator));
 
     newSt.previous = st;
+    st->next       = &newSt;
     st             = &newSt;
 
     st->dirtyPiece.dirty_num               = 0;  // Avoid checks in UpdateAccumulator()
