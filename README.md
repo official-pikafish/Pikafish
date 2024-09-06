@@ -100,7 +100,7 @@ descriptions.
 
 ```
 cd src
-make -j build ARCH=x86-64-modern
+make -j profile-build
 ```
 
 Detailed compilation instructions for all platforms can be found in our
