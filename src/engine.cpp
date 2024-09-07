@@ -45,8 +45,8 @@ namespace NN = Eval::NNUE;
 constexpr auto StartFEN  = "rnbakabnr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C5C1/9/RNBAKABNR w";
 constexpr int  MaxHashMB = Is64Bit ? 33554432 : 2048;
 
-Engine::Engine(std::string path) :
-    binaryDirectory(CommandLine::get_binary_directory(path)),
+Engine::Engine(std::optional<std::string> path) :
+    binaryDirectory(path ? CommandLine::get_binary_directory(*path) : ""),
     numaContext(NumaConfig::from_system()),
     states(new std::deque<StateInfo>(1)),
     threads(),
