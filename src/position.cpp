@@ -444,6 +444,7 @@ void Position::do_move(Move m, StateInfo& newSt, bool givesCheck) {
     // our state pointer to point to the new (ready to be updated) state.
     std::memcpy(&newSt, st, offsetof(StateInfo, key));
     newSt.previous = st;
+    st->next       = &newSt;
     st             = &newSt;
     st->move       = m;
 
@@ -599,6 +600,7 @@ void Position::do_null_move(StateInfo& newSt, TranspositionTable& tt) {
     std::memcpy(&newSt, st, offsetof(StateInfo, accumulator));
 
     newSt.previous = st;
+    st->next       = &newSt;
     st             = &newSt;
 
     st->dirtyPiece.dirty_num               = 0;  // Avoid checks in UpdateAccumulator()
@@ -1012,11 +1014,11 @@ bool Position::rule_judge(Value& result, int ply) {
                     if (st->previous->key == stp->previous->key)
                     {
                         // Even if we entering this loop again, it will not lead to a 3 fold repetition
-                        StateInfo* next = st->previous;
-                        while ((next = next->previous) != stp)
+                        StateInfo* next = stp;
+                        while ((next = next->next) != st->previous)
                             if (filter[next->key] > 1)
                                 break;
-                        if (next == stp)
+                        if (next == st->previous)
                             return true;
                     }
                     // We know there can't be another fold
