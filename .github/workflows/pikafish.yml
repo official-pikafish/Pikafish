@@ -3,7 +3,7 @@ name: Pikafish
 on:
   push:
     branches:
-      - master
+      - main
 
 jobs:
   Pikafish-x86-64:
