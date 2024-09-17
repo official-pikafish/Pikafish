@@ -46,6 +46,10 @@ struct StateInfo {
     // Copied when making a move
     Key     materialKey;
     Key     pawnKey;
+    Key     majorPieceKey;
+    Key     minorPieceKey;
+    Key     defenderPieceKey;
+    Key     nonPawnKey[COLOR_NB];
     Value   majorMaterial[COLOR_NB];
     int16_t check10[COLOR_NB];
     int     rule60;
@@ -147,6 +151,10 @@ class Position {
     Key key_after(Move m) const;
     Key material_key() const;
     Key pawn_key() const;
+    Key major_piece_key() const;
+    Key minor_piece_key() const;
+    Key defender_piece_key() const;
+    Key non_pawn_key(Color c) const;
 
     // Other properties of the position
     Color    side_to_move() const;
@@ -274,6 +282,14 @@ inline Key Position::adjust_key60(Key k) const {
 inline Key Position::pawn_key() const { return st->pawnKey; }
 
 inline Key Position::material_key() const { return st->materialKey; }
+
+inline Key Position::major_piece_key() const { return st->majorPieceKey; }
+
+inline Key Position::minor_piece_key() const { return st->minorPieceKey; }
+
+inline Key Position::defender_piece_key() const { return st->defenderPieceKey; }
+
+inline Key Position::non_pawn_key(Color c) const { return st->nonPawnKey[c]; }
 
 inline Value Position::major_material(Color c) const { return st->majorMaterial[c]; }
 
