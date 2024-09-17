@@ -75,7 +75,7 @@ Value to_corrected_static_eval(Value v, const Worker& w, const Position& pos) {
     const auto  wnpcv = w.nonPawnCorrectionHistory[WHITE][us][non_pawn_index<WHITE>(pos)];
     const auto  bnpcv = w.nonPawnCorrectionHistory[BLACK][us][non_pawn_index<BLACK>(pos)];
     const auto  cv =
-      (83203 * pcv + 64210 * mcv + 64090 * macv + 67863 * micv + 94696 * (wnpcv + bnpcv)) / 2360809;
+      (4619 * pcv + 3565 * mcv + 3558 * macv + 3768 * micv + 5258 * (wnpcv + bnpcv)) / 131072;
     v += cv;
     return std::clamp(v, VALUE_MATED_IN_MAX_PLY + 1, VALUE_MATE_IN_MAX_PLY - 1);
 }
