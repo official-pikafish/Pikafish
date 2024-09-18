@@ -1316,12 +1316,15 @@ moves_loop:  // When in check, search starts here
     {
         auto bonus = std::clamp(int(bestValue - ss->staticEval) * depth / 8,
                                 -CORRECTION_HISTORY_LIMIT / 4, CORRECTION_HISTORY_LIMIT / 4);
-        thisThread->pawnCorrectionHistory[us][pawn_structure_index<Correction>(pos)] << bonus;
-        thisThread->materialCorrectionHistory[us][material_index(pos)] << bonus;
-        thisThread->majorPieceCorrectionHistory[us][major_piece_index(pos)] << bonus;
-        thisThread->minorPieceCorrectionHistory[us][minor_piece_index(pos)] << bonus;
-        thisThread->nonPawnCorrectionHistory[WHITE][us][non_pawn_index<WHITE>(pos)] << bonus;
-        thisThread->nonPawnCorrectionHistory[BLACK][us][non_pawn_index<BLACK>(pos)] << bonus;
+        thisThread->pawnCorrectionHistory[us][pawn_structure_index<Correction>(pos)]
+          << bonus * 128 / 128;
+        thisThread->materialCorrectionHistory[us][material_index(pos)] << bonus * 128 / 128;
+        thisThread->majorPieceCorrectionHistory[us][major_piece_index(pos)] << bonus * 128 / 128;
+        thisThread->minorPieceCorrectionHistory[us][minor_piece_index(pos)] << bonus * 128 / 128;
+        thisThread->nonPawnCorrectionHistory[WHITE][us][non_pawn_index<WHITE>(pos)]
+          << bonus * 128 / 128;
+        thisThread->nonPawnCorrectionHistory[BLACK][us][non_pawn_index<BLACK>(pos)]
+          << bonus * 128 / 128;
     }
 
     assert(bestValue > -VALUE_INFINITE && bestValue < VALUE_INFINITE);
