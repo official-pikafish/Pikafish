@@ -18,12 +18,12 @@
 
 #include <cstdint>
 #include <iostream>
+#include <memory>
 #include <optional>
 #include <string>
 #include <tuple>
 
 #include "../memory.h"
-#include "../position.h"
 #include "../types.h"
 #include "nnue_accumulator.h"
 #include "nnue_architecture.h"

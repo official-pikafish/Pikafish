@@ -19,6 +19,7 @@
 #include "position.h"
 
 #include <algorithm>
+#include <array>
 #include <cassert>
 #include <cctype>
 #include <cstddef>
@@ -31,6 +32,7 @@
 #include "bitboard.h"
 #include "misc.h"
 #include "movegen.h"
+#include "nnue/nnue_architecture.h"
 #include "tt.h"
 #include "uci.h"
 

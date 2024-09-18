@@ -25,7 +25,6 @@
 #include <iomanip>
 #include <memory>
 #include <sstream>
-#include <tuple>
 
 #include "nnue/network.h"
 #include "nnue/nnue_misc.h"

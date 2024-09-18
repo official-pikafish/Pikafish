@@ -20,9 +20,7 @@
 
 #include <cassert>
 #include <deque>
-#include <iosfwd>
 #include <memory>
-#include <ostream>
 #include <sstream>
 #include <string_view>
 #include <utility>

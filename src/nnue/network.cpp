@@ -21,12 +21,10 @@
 #include <sstream>
 #include <memory>
 #include <optional>
-#include <type_traits>
 #include <vector>
 
 #include "../memory.h"
 #include "../misc.h"
-#include "../position.h"
 #include "../types.h"
 #include "nnue_architecture.h"
 #include "nnue_common.h"
