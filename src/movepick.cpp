@@ -181,9 +181,9 @@ void MovePicker::score() {
                        : 0;
 
             // malus for putting piece en prise
-            m.value -= (pt == ROOK                       ? bool(to & threatenedByMinor) * 50000
-                        : (pt == KNIGHT || pt == CANNON) ? bool(to & threatenedByDefender) * 25000
-                                                         : bool(to & threatenedByPawn) * 15000);
+            m.value -= (pt == ROOK ? bool(to & threatenedByMinor) * 50000
+                        : (pt == KNIGHT || pt == CANNON) && bool(to & threatenedByDefender) ? 25000
+                                                                                            : 0);
 
             if (rootNode)
                 m.value += 4 * (*rootHistory)[pos.side_to_move()][m.from_to()];
