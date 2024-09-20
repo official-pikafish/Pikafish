@@ -48,7 +48,6 @@ struct StateInfo {
     Key     pawnKey;
     Key     majorPieceKey;
     Key     minorPieceKey;
-    Key     defenderPieceKey;
     Key     nonPawnKey[COLOR_NB];
     Value   majorMaterial[COLOR_NB];
     int16_t check10[COLOR_NB];
@@ -286,8 +285,6 @@ inline Key Position::material_key() const { return st->materialKey; }
 inline Key Position::major_piece_key() const { return st->majorPieceKey; }
 
 inline Key Position::minor_piece_key() const { return st->minorPieceKey; }
-
-inline Key Position::defender_piece_key() const { return st->defenderPieceKey; }
 
 inline Key Position::non_pawn_key(Color c) const { return st->nonPawnKey[c]; }
 

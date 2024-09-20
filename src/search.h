@@ -251,12 +251,11 @@ class Worker {
     ContinuationHistory   continuationHistory[2][2];
     PawnHistory           pawnHistory;
 
-    PawnCorrectionHistory          pawnCorrectionHistory;
-    MaterialCorrectionHistory      materialCorrectionHistory;
-    MajorPieceCorrectionHistory    majorPieceCorrectionHistory;
-    MinorPieceCorrectionHistory    minorPieceCorrectionHistory;
-    DefenderPieceCorrectionHistory defenderPieceCorrectionHistory;
-    NonPawnCorrectionHistory       nonPawnCorrectionHistory[COLOR_NB];
+    PawnCorrectionHistory       pawnCorrectionHistory;
+    MaterialCorrectionHistory   materialCorrectionHistory;
+    MajorPieceCorrectionHistory majorPieceCorrectionHistory;
+    MinorPieceCorrectionHistory minorPieceCorrectionHistory;
+    NonPawnCorrectionHistory    nonPawnCorrectionHistory[COLOR_NB];
 
    private:
     void iterative_deepening();

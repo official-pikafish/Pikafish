@@ -34,14 +34,13 @@
 
 namespace Stockfish {
 
-constexpr int PAWN_HISTORY_SIZE                      = 512;    // has to be a power of 2
-constexpr int PAWN_CORRECTION_HISTORY_SIZE           = 16384;  // has to be a power of 2
-constexpr int MATERIAL_CORRECTION_HISTORY_SIZE       = 32768;  // has to be a power of 2
-constexpr int MAJOR_PIECE_CORRECTION_HISTORY_SIZE    = 32768;  // has to be a power of 2
-constexpr int MINOR_PIECE_CORRECTION_HISTORY_SIZE    = 32768;  // has to be a power of 2
-constexpr int DEFENDER_PIECE_CORRECTION_HISTORY_SIZE = 32768;  // has to be a power of 2
-constexpr int NON_PAWN_CORRECTION_HISTORY_SIZE       = 32768;  // has to be a power of 2
-constexpr int CORRECTION_HISTORY_LIMIT               = 1024;
+constexpr int PAWN_HISTORY_SIZE                   = 512;    // has to be a power of 2
+constexpr int PAWN_CORRECTION_HISTORY_SIZE        = 16384;  // has to be a power of 2
+constexpr int MATERIAL_CORRECTION_HISTORY_SIZE    = 32768;  // has to be a power of 2
+constexpr int MAJOR_PIECE_CORRECTION_HISTORY_SIZE = 32768;  // has to be a power of 2
+constexpr int MINOR_PIECE_CORRECTION_HISTORY_SIZE = 32768;  // has to be a power of 2
+constexpr int NON_PAWN_CORRECTION_HISTORY_SIZE    = 32768;  // has to be a power of 2
+constexpr int CORRECTION_HISTORY_LIMIT            = 1024;
 
 static_assert((PAWN_HISTORY_SIZE & (PAWN_HISTORY_SIZE - 1)) == 0,
               "PAWN_HISTORY_SIZE has to be a power of 2");
@@ -70,11 +69,6 @@ inline int major_piece_index(const Position& pos) {
 inline int minor_piece_index(const Position& pos) {
     return pos.minor_piece_key() & (MINOR_PIECE_CORRECTION_HISTORY_SIZE - 1);
 }
-
-inline int defender_piece_index(const Position& pos) {
-    return pos.defender_piece_key() & (DEFENDER_PIECE_CORRECTION_HISTORY_SIZE - 1);
-}
-
 template<Color c>
 inline int non_pawn_index(const Position& pos) {
     return pos.non_pawn_key(c) & (NON_PAWN_CORRECTION_HISTORY_SIZE - 1);
@@ -173,17 +167,13 @@ using PawnCorrectionHistory =
 using MaterialCorrectionHistory =
   Stats<int16_t, CORRECTION_HISTORY_LIMIT, COLOR_NB, MATERIAL_CORRECTION_HISTORY_SIZE>;
 
-// MajorPieceCorrectionHistory is addressed by color and king/rook positions
+// MajorPieceCorrectionHistory is addressed by color and king/major piece (Rook, Knight, Cannon) positions
 using MajorPieceCorrectionHistory =
   Stats<int16_t, CORRECTION_HISTORY_LIMIT, COLOR_NB, MAJOR_PIECE_CORRECTION_HISTORY_SIZE>;
 
-// MinorPieceCorrectionHistory is addressed by color and king/minor piece (Knight, Cannon) positions
+// MinorPieceCorrectionHistory is addressed by color and king/minor piece (Advisor, Bishop) positions
 using MinorPieceCorrectionHistory =
   Stats<int16_t, CORRECTION_HISTORY_LIMIT, COLOR_NB, MINOR_PIECE_CORRECTION_HISTORY_SIZE>;
-
-// DefenderPieceCorrectionHistory is addressed by color and king/defender piece (Advisor, Bishop) positions
-using DefenderPieceCorrectionHistory =
-  Stats<int16_t, CORRECTION_HISTORY_LIMIT, COLOR_NB, DEFENDER_PIECE_CORRECTION_HISTORY_SIZE>;
 
 // NonPawnCorrectionHistory is addressed by color and non-pawn material positions
 using NonPawnCorrectionHistory =
