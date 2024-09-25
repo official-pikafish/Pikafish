@@ -75,7 +75,7 @@ Value to_corrected_static_eval(Value v, const Worker& w, const Position& pos) {
     const auto  wnpcv = w.nonPawnCorrectionHistory[WHITE][us][non_pawn_index<WHITE>(pos)];
     const auto  bnpcv = w.nonPawnCorrectionHistory[BLACK][us][non_pawn_index<BLACK>(pos)];
     const auto  cv =
-      (98198 * pcv + 68968 * mcv + 54353 * macv + 85174 * micv + 85581 * (wnpcv + bnpcv)) / 2097152;
+      (83203 * pcv + 64210 * mcv + 64090 * macv + 67863 * micv + 94696 * (wnpcv + bnpcv)) / 2360809;
     v += cv;
     return std::clamp(v, VALUE_MATED_IN_MAX_PLY + 1, VALUE_MATE_IN_MAX_PLY - 1);
 }
@@ -974,7 +974,7 @@ moves_loop:  // When in check, search starts here
                 && std::abs(ttData.value) < VALUE_MATE_IN_MAX_PLY && (ttData.bound & BOUND_LOWER)
                 && ttData.depth >= depth - 3)
             {
-                Value singularBeta  = ttData.value - (48 + 69 * (ss->ttPv && !PvNode)) * depth / 71;
+                Value singularBeta  = ttData.value - (52 + 75 * (ss->ttPv && !PvNode)) * depth / 71;
                 Depth singularDepth = newDepth / 2;
 
                 ss->excludedMove = move;
@@ -984,13 +984,13 @@ moves_loop:  // When in check, search starts here
 
                 if (value < singularBeta)
                 {
-                    int doubleMargin = 250 * PvNode - 171 * !ttCapture;
-                    int tripleMargin = 136 + 240 * PvNode - 313 * !ttCapture + 99 * ss->ttPv;
+                    int doubleMargin = 275 * PvNode - 153 * !ttCapture;
+                    int tripleMargin = 139 + 279 * PvNode - 328 * !ttCapture + 97 * ss->ttPv;
 
                     extension = 1 + (value < singularBeta - doubleMargin)
                               + (value < singularBeta - tripleMargin);
 
-                    depth += ((!PvNode) && (depth < 16));
+                    depth += ((!PvNode) && (depth < 19));
                 }
 
                 // Multi-cut pruning
@@ -1023,7 +1023,7 @@ moves_loop:  // When in check, search starts here
             else if (PvNode && move.to_sq() == prevSq
                      && thisThread->captureHistory[movedPiece][move.to_sq()]
                                                   [type_of(pos.piece_on(move.to_sq()))]
-                          > 4179)
+                          > 4175)
                 extension = 1;
         }
 
@@ -1077,10 +1077,10 @@ moves_loop:  // When in check, search starts here
 
         ss->statScore = 2 * thisThread->mainHistory[us][move.from_to()]
                       + (*contHist[0])[movedPiece][move.to_sq()]
-                      + (*contHist[1])[movedPiece][move.to_sq()] - 4365;
+                      + (*contHist[1])[movedPiece][move.to_sq()] - 4315;
 
         // Decrease/increase reduction for moves with a good/bad history (~8 Elo)
-        r -= ss->statScore / 10103;
+        r -= ss->statScore / 9902;
 
         // Step 16. Late moves reduction / extension (LMR, ~117 Elo)
         if (depth >= 2 && moveCount > 1)
