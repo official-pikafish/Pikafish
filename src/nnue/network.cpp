@@ -233,14 +233,8 @@ NnueEvalTrace Network::trace_evaluate(const Position& pos, AccumulatorCaches::Ca
 
 
 void Network::load_user_net(const std::string& dir, const std::string& evalfilePath) {
-    std::stringstream sstream     = read_zipped_nnue(dir + evalfilePath);
+    std::stringstream sstream     = read_compressed_nnue(dir + evalfilePath);
     auto              description = load(sstream);
-
-    if (!description.has_value())
-    {
-        std::ifstream stream(dir + evalfilePath, std::ios::binary);
-        description = load(stream);
-    }
 
     if (description.has_value())
     {

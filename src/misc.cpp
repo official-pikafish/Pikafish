@@ -32,7 +32,7 @@
 #include <string_view>
 
 #include "types.h"
-#include "external/zip.h"
+#include "external/zstd.h"
 
 namespace Stockfish {
 
@@ -502,23 +502,37 @@ std::string CommandLine::get_working_directory() {
     return workingDirectory;
 }
 
-std::stringstream read_zipped_nnue(const std::string& fpath) {
-    void*  buf     = NULL;
-    size_t bufsize = 0;
-
-    struct zip_t* zip = zip_open(fpath.c_str(), 0, 'r');
-    if (zip_entries_total(zip) == 1)
-    {
-        zip_entry_openbyindex(zip, 0);
-        { zip_entry_read(zip, &buf, &bufsize); }
-        zip_entry_close(zip);
-    }
-    zip_close(zip);
-
+std::stringstream read_compressed_nnue(const std::string& fpath) {
     std::stringstream ss;
-    if (buf)
-        ss.write((const char*) buf, bufsize);
-    free(buf);
+
+    std::ifstream fin(fpath, std::ios::binary);
+    if (!fin)
+        return ss;
+    std::vector<char> buffIn(ZSTD_DStreamInSize()), buffOut(ZSTD_DStreamOutSize());
+    ZSTD_DCtx* const  dctx = ZSTD_createDCtx();
+    if (!dctx)
+        return ss;
+
+    while (fin.read(buffIn.data(), buffIn.size()) || fin.gcount() > 0)
+    {
+        size_t        read  = static_cast<size_t>(fin.gcount());
+        ZSTD_inBuffer input = {buffIn.data(), read, 0};
+
+        while (input.pos < input.size)
+        {
+            ZSTD_outBuffer output = {buffOut.data(), buffOut.size(), 0};
+            size_t const   ret    = ZSTD_decompressStream(dctx, &output, &input);
+            if (ZSTD_isError(ret))
+            {
+                ZSTD_freeDCtx(dctx);
+                return ss;
+            }
+
+            ss.write(buffOut.data(), output.pos);
+        }
+    }
+
+    ZSTD_freeDCtx(dctx);
 
     return ss;
 }
