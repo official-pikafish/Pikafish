@@ -55,9 +55,6 @@ Value Eval::evaluate(const Eval::NNUE::Network& network,
     int mm = pos.major_material() / 39;
     int v  = (nnue * (447 + mm) + optimism * (97 + mm)) / 469;
 
-    // Evaluation grain (to get more alpha-beta cuts) with randomization (for robustness)
-    v = (v / 16) * 16 - 1 + (pos.key() & 0x2);
-
     // Damp down the evaluation linearly when shuffling
     v -= (v * pos.rule60_count()) / 245;
 
