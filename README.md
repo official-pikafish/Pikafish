@@ -44,6 +44,23 @@ Pikafish with it.
 
 See also the Pikafish [documentation][wiki-usage-link] for further usage help.
 
+## Usage
+Evaluate position scores with FEN string:
+```sh
+cd src
+
+# build
+#   make -j profile-build (slower building, faster execution)
+make -j build
+
+./pikafish eval 'rnbakabnr/9/4c2c1/p1p3p1p/9/9/P1P3P1P/1C5C1/9/RNBAKABNR b'
+
+# example output:
+#  ...
+#  NNUE evaluation        -2.04 (white side)
+#  Final evaluation       -3.10 (white side) [with scaled NNUE, ...]
+```
+
 ## Files
 
 This distribution of Pikafish consists of the following files:

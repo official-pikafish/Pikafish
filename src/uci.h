@@ -53,8 +53,10 @@ class UCIEngine {
 
     auto& engine_options() { return engine.get_options(); }
 
+    Engine engine;
+    void   position(std::istringstream& is);
+
    private:
-    Engine      engine;
     CommandLine cli;
 
     static void print_info_string(std::string_view str);
@@ -62,7 +64,6 @@ class UCIEngine {
     void          go(std::istringstream& is);
     void          bench(std::istream& args);
     void          benchmark(std::istream& args);
-    void          position(std::istringstream& is);
     void          setoption(std::istringstream& is);
     std::uint64_t perft(const Search::LimitsType&);
 

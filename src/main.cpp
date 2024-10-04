@@ -27,8 +27,22 @@
 
 using namespace Stockfish;
 
-int main(int argc, char* argv[]) {
+int eval(char* argv0, const char* fen);
 
+int main(int argc, char* argv[]) {
+    if (argc >= 2)
+    {
+        if (strcmp(argv[1], "eval") == 0)
+        {
+            if (argc < 3)
+            {
+                std::cerr << "usage: eval FEN\n";
+                return 1;
+            }
+
+            return eval(argv[0], argv[2]);
+        }
+    }
     std::cout << engine_info() << std::endl;
 
     Bitboards::init();
@@ -39,6 +53,28 @@ int main(int argc, char* argv[]) {
     Tune::init(uci.engine_options());
 
     uci.loop();
+
+    return 0;
+}
+
+
+int eval(char* argv0, const char* fen) {
+    Bitboards::init();
+    Position::init();
+
+    UCIEngine uci(1, &argv0);
+
+    Tune::init(uci.engine_options());
+
+    std::istringstream is(fen);
+
+    // uci.engine.search_clear();
+    uci.position(is);
+
+
+    std::vector<std::string> moves;
+    uci.engine.set_position(fen, moves);
+    uci.engine.trace_eval();
 
     return 0;
 }

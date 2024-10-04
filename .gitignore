@@ -1,3 +1,9 @@
+# dev
+.vscode
+.idea
+
+.DS_Store
+
 # Files from build
 **/*.o
 **/*.s
@@ -14,4 +20,3 @@ src/-lstdc++.res
 
 # Neural network for the NNUE evaluation
 **/*.nnue
-
