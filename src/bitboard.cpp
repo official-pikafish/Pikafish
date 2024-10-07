@@ -24,7 +24,9 @@
 
 #include <set>
 #include <utility>
-#include "magics.h"
+#ifndef USE_PEXT
+    #include "magics.h"
+#endif
 
 namespace Stockfish {
 
@@ -60,7 +62,7 @@ const std::set<Direction> BishopDirections{2 * NORTH_EAST, 2 * SOUTH_EAST, 2 * S
 
 
 template<PieceType pt>
-void init_magics(Bitboard table[], Magic magics[], const Bitboard magicsInit[]);
+void init_magics(Bitboard table[], Magic magics[] IF_NOT_PEXT(, const Bitboard magicsInit[]));
 
 template<PieceType pt>
 Bitboard lame_leaper_path(Direction d, Square s);
@@ -107,11 +109,11 @@ void Bitboards::init() {
         for (Square s2 = SQ_A0; s2 <= SQ_I9; ++s2)
             SquareDistance[s1][s2] = std::max(distance<File>(s1, s2), distance<Rank>(s1, s2));
 
-    init_magics<ROOK>(RookTable, RookMagics, RookMagicsInit);
-    init_magics<CANNON>(CannonTable, CannonMagics, RookMagicsInit);
-    init_magics<BISHOP>(BishopTable, BishopMagics, BishopMagicsInit);
-    init_magics<KNIGHT>(KnightTable, KnightMagics, KnightMagicsInit);
-    init_magics<KNIGHT_TO>(KnightToTable, KnightToMagics, KnightToMagicsInit);
+    init_magics<ROOK>(RookTable, RookMagics IF_NOT_PEXT(, RookMagicsInit));
+    init_magics<CANNON>(CannonTable, CannonMagics IF_NOT_PEXT(, RookMagicsInit));
+    init_magics<BISHOP>(BishopTable, BishopMagics IF_NOT_PEXT(, BishopMagicsInit));
+    init_magics<KNIGHT>(KnightTable, KnightMagics IF_NOT_PEXT(, KnightMagicsInit));
+    init_magics<KNIGHT_TO>(KnightToTable, KnightToMagics IF_NOT_PEXT(, KnightToMagicsInit));
 
     for (Square s1 = SQ_A0; s1 <= SQ_I9; ++s1)
     {
@@ -241,7 +243,7 @@ Bitboard lame_leaper_attack(Square s, Bitboard occupied) {
 // https://www.chessprogramming.org/Magic_Bitboards. In particular, here we use
 // the so called "fancy" approach.
 template<PieceType pt>
-void init_magics(Bitboard table[], Magic magics[], const Bitboard magicsInit[]) {
+void init_magics(Bitboard table[], Magic magics[] IF_NOT_PEXT(, const Bitboard magicsInit[])) {
 
     Bitboard edges, b;
     uint64_t size = 0;
@@ -262,12 +264,12 @@ void init_magics(Bitboard table[], Magic magics[], const Bitboard magicsInit[]) 
         if (pt != KNIGHT_TO)
             m.mask &= ~edges;
 
-        if (HasPext)
-            m.shift = popcount(uint64_t(m.mask));
-        else
-            m.shift = 128 - popcount(m.mask);
-
+#ifdef USE_PEXT
+        m.shift = popcount(uint64_t(m.mask));
+#else
         m.magic = magicsInit[s];
+        m.shift = 128 - popcount(m.mask);
+#endif
 
         // Set the offset for the attacks table of the square. We have individual
         // table sizes for each square with "Fancy Magic Bitboards".

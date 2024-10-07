@@ -28,6 +28,12 @@
 
 #include "types.h"
 
+#ifdef USE_PEXT
+    #define IF_NOT_PEXT(...)
+#else
+    #define IF_NOT_PEXT(...) __VA_ARGS__
+#endif
+
 namespace Stockfish {
 
 namespace Bitboards {
@@ -82,17 +88,18 @@ int popcount(Bitboard b);  // required for 128 bit pext
 // Magic holds all magic bitboards relevant data for a single square
 struct Magic {
     Bitboard  mask;
-    Bitboard  magic;
     Bitboard* attacks;
     unsigned  shift;
+    IF_NOT_PEXT(Bitboard magic;)
 
     // Compute the attack's index using the 'magic bitboards' approach
     unsigned index(Bitboard occupied) const {
 
-        if (HasPext)
-            return unsigned(pext(occupied, mask, shift));
-
+#ifdef USE_PEXT
+        return unsigned(pext(occupied, mask, shift));
+#else
         return unsigned(((occupied & mask) * magic) >> shift);
+#endif
     }
 };
 
