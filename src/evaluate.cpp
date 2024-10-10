@@ -35,6 +35,9 @@
 
 namespace Stockfish {
 
+int fact = 1024;
+TUNE(fact);
+
 // Evaluate is the evaluator for the outer world. It returns a static evaluation
 // of the position from the point of view of the side to move.
 Value Eval::evaluate(const Eval::NNUE::Network& network,
@@ -45,7 +48,7 @@ Value Eval::evaluate(const Eval::NNUE::Network& network,
     assert(!pos.checkers());
 
     auto [psqt, positional] = network.evaluate(pos, &caches.cache);
-    Value nnue              = psqt + positional;
+    Value nnue              = fact * psqt / 1024 + positional;
     int   nnueComplexity    = std::abs(psqt - positional);
 
     // Blend optimism and eval with nnue complexity
