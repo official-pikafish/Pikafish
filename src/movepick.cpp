@@ -185,7 +185,7 @@ void MovePicker::score() {
                         : (pt == KNIGHT || pt == CANNON) && bool(to & threatenedByDefender) ? 25000
                                                                                             : 0);
 
-            if (ply < 4)
+            if (ply < LOW_PLY_HISTORY_SIZE)
                 m.value += 8 * (*lowPlyHistory)[ply][m.from_to()] / (1 + 2 * ply);
         }
 
