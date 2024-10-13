@@ -42,8 +42,14 @@ jobs:
       - name: Install LLVM and Clang
         if: runner.os == 'Linux'
         run: |
-          sudo apt update
-          sudo apt install clang llvm
+          wget https://apt.llvm.org/llvm.sh
+          chmod u+x llvm.sh
+          echo | sudo ./llvm.sh 18
+          rm llvm.sh
+          sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-18 100
+          sudo update-alternatives --install /usr/bin/llvm-profdata llvm-profdata /usr/bin/llvm-profdata-18 100
+          sudo update-alternatives --set clang++ /usr/bin/clang++-18
+          sudo update-alternatives --set llvm-profdata /usr/bin/llvm-profdata-18
 
       - name: Setup msys and install required packages
         if: runner.os == 'Windows'
