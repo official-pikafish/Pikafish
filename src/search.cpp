@@ -46,6 +46,9 @@
 
 namespace Stockfish {
 
+int futi1 = 140, futi2 = 29, futi3 = 13, futi4 = 153;
+TUNE(futi1, futi2, futi3, futi4);
+
 using Eval::evaluate;
 using namespace Search;
 
@@ -53,7 +56,7 @@ namespace {
 
 // Futility margin
 Value futility_margin(Depth d, bool noTtCutNode, bool improving, bool oppWorsening) {
-    Value futilityMult       = 140 - 29 * noTtCutNode;
+    Value futilityMult       = futi1 - futi2 * noTtCutNode;
     Value improvingDeduction = improving * futilityMult * 2;
     Value worseningDeduction = oppWorsening * futilityMult / 3;
 
@@ -699,9 +702,9 @@ Value Search::Worker::search(
 
     // Step 7. Futility pruning: child node (~40 Elo)
     // The depth condition is important for mate finding.
-    if (!ss->ttPv && depth < 13
+    if (!ss->ttPv && depth < futi3
         && eval - futility_margin(depth, cutNode && !ss->ttHit, improving, opponentWorsening)
-               - (ss - 1)->statScore / 153
+               - (ss - 1)->statScore / futi4
              >= beta
         && eval >= beta && (!ttData.move || ttCapture) && beta > VALUE_MATED_IN_MAX_PLY
         && eval < VALUE_MATE_IN_MAX_PLY)
