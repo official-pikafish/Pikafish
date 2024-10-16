@@ -1062,8 +1062,8 @@ bool Position::rule_judge(Value& result, int ply) {
                 // 2 fold mates need further investigations
                 if (filter[st->key] <= 1)
                 {
-                    // Have the same previous step
-                    if (st->previous->key == stp->previous->key)
+                    // Not exceeding rule 60 and have the same previous step
+                    if (st->rule60 < 120 && st->previous->key == stp->previous->key)
                     {
                         // Even if we entering this loop again, it will not lead to a 3 fold repetition
                         StateInfo* next = stp;
