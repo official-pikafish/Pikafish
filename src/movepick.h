@@ -55,10 +55,6 @@ inline int pawn_structure_index(const Position& pos) {
     return pos.pawn_key() & ((T == Normal ? PAWN_HISTORY_SIZE : CORRECTION_HISTORY_SIZE) - 1);
 }
 
-inline int material_index(const Position& pos) {
-    return pos.material_key() & (CORRECTION_HISTORY_SIZE - 1);
-}
-
 inline int major_piece_index(const Position& pos) {
     return pos.major_piece_key() & (CORRECTION_HISTORY_SIZE - 1);
 }
@@ -165,10 +161,6 @@ using PawnHistory = Stats<int16_t, 8192, PAWN_HISTORY_SIZE, PIECE_NB, SQUARE_NB>
 
 // PawnCorrectionHistory is addressed by color and pawn structure
 using PawnCorrectionHistory =
-  Stats<int16_t, CORRECTION_HISTORY_LIMIT, COLOR_NB, CORRECTION_HISTORY_SIZE>;
-
-// MaterialCorrectionHistory is addressed by color and material configuration
-using MaterialCorrectionHistory =
   Stats<int16_t, CORRECTION_HISTORY_LIMIT, COLOR_NB, CORRECTION_HISTORY_SIZE>;
 
 // MajorPieceCorrectionHistory is addressed by color and king/major piece (Rook, Knight, Cannon) positions
