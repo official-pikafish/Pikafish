@@ -30,6 +30,7 @@
 #include <utility>
 
 #include "evaluate.h"
+#include "history.h"
 #include "misc.h"
 #include "movegen.h"
 #include "movepick.h"
