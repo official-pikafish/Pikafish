@@ -128,11 +128,11 @@ enum StatsType {
 // during the current search, and is used for reduction and move ordering decisions.
 // It uses 2 tables (one for each color) indexed by the move's from and to squares,
 // see https://www.chessprogramming.org/Butterfly_Boards (~11 elo)
-using ButterflyHistory = Stats<int16_t, 7183, COLOR_NB, int(SQUARE_NB) * int(SQUARE_NB)>;
+using ButterflyHistory = Stats<int16_t, 7183, COLOR_NB, 1 << 14>;
 
 // LowPlyHistory is adressed by play and move's from and to squares, used
 // to improve move ordering near the root
-using LowPlyHistory = Stats<int16_t, 7183, LOW_PLY_HISTORY_SIZE, int(SQUARE_NB) * int(SQUARE_NB)>;
+using LowPlyHistory = Stats<int16_t, 7183, LOW_PLY_HISTORY_SIZE, 1 << 14>;
 
 // CapturePieceToHistory is addressed by a move's [piece][to][captured piece type]
 using CapturePieceToHistory = Stats<int16_t, 10692, PIECE_NB, SQUARE_NB, PIECE_TYPE_NB>;
@@ -155,8 +155,8 @@ using PawnHistory = Stats<int16_t, 8192, PAWN_HISTORY_SIZE, PIECE_NB, SQUARE_NB>
 // see https://www.chessprogramming.org/Static_Evaluation_Correction_History
 enum CorrHistType {
     Pawn,          // By color and pawn structure
-    Major,         // By color and positions of major pieces (Queen, Rook) and King
-    Minor,         // By color and positions of minor pieces (Knight, Bishop) and King
+    Major,         // By color and positions of major pieces (Rook, Knight, Cannon) and King
+    Minor,         // By color and positions of minor pieces (Advisor, Bishop) and King
     NonPawn,       // By color and non-pawn material positions
     PieceTo,       // By [piece][to] move
     Continuation,  // Combined history of move pairs
