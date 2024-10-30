@@ -223,7 +223,7 @@ Move MovePicker::select(Pred filter) {
 // This is the most important method of the MovePicker class. We emit one
 // new pseudo-legal move on every call until there are no more moves left,
 // picking the move with the highest score from a list of generated moves.
-Move MovePicker::next_move(bool skipQuiets) {
+Move MovePicker::next_move() {
 
     auto quiet_threshold = [](Depth d) { return -3330 * d; };
 
@@ -328,5 +328,7 @@ top:
     assert(false);
     return Move::none();  // Silence warning
 }
+
+void MovePicker::skip_quiet_moves() { skipQuiets = true; }
 
 }  // namespace Stockfish
