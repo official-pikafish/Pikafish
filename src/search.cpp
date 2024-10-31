@@ -705,6 +705,8 @@ Value Search::Worker::search(
         && eval < VALUE_MATE_IN_MAX_PLY)
         return beta + (eval - beta) / 3;
 
+    improving |= ss->staticEval >= beta + 100;
+
     // Step 8. Null move search with verification search (~35 Elo)
     if (cutNode && (ss - 1)->currentMove != Move::null() && eval >= beta
         && ss->staticEval >= beta - 8 * depth + 175 && !excludedMove && pos.major_material(us)
