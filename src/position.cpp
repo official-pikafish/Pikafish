@@ -211,7 +211,7 @@ void Position::set_check_info() const {
 // The function is only used when a new position is set up
 void Position::set_state() const {
 
-    st->key = st->materialKey = 0;
+    st->key           = 0;
     st->majorPieceKey = st->minorPieceKey = 0;
     st->nonPawnKey[WHITE] = st->nonPawnKey[BLACK] = 0;
     st->pawnKey                                   = Zobrist::noPawns;
@@ -257,10 +257,6 @@ void Position::set_state() const {
 
     if (sideToMove == BLACK)
         st->key ^= Zobrist::side;
-
-    for (Piece pc : Pieces)
-        for (int cnt = 0; cnt < pieceCount[pc]; ++cnt)
-            st->materialKey ^= Zobrist::psq[pc][cnt];
 }
 
 
@@ -551,7 +547,6 @@ void Position::do_move(Move m, StateInfo& newSt, bool givesCheck) {
 
         // Update hash key
         k ^= Zobrist::psq[captured][capsq];
-        st->materialKey ^= Zobrist::psq[captured][pieceCount[captured]];
 
         // Reset rule 60 counter
         st->check10[WHITE] = st->check10[BLACK] = st->rule60 = 0;

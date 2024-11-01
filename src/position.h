@@ -44,7 +44,6 @@ class TranspositionTable;
 struct StateInfo {
 
     // Copied when making a move
-    Key     materialKey;
     Key     pawnKey;
     Key     majorPieceKey;
     Key     minorPieceKey;
@@ -148,7 +147,6 @@ class Position {
     // Accessing hash keys
     Key key() const;
     Key key_after(Move m) const;
-    Key material_key() const;
     Key pawn_key() const;
     Key major_piece_key() const;
     Key minor_piece_key() const;
@@ -279,8 +277,6 @@ inline Key Position::adjust_key60(Key k) const {
 }
 
 inline Key Position::pawn_key() const { return st->pawnKey; }
-
-inline Key Position::material_key() const { return st->materialKey; }
 
 inline Key Position::major_piece_key() const { return st->majorPieceKey; }
 
