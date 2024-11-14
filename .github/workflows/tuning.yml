@@ -19,6 +19,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install LLVM and Clang
+        if: runner.os == 'Linux'
+        run: |
+          wget https://apt.llvm.org/llvm.sh
+          chmod u+x llvm.sh
+          echo | sudo ./llvm.sh 19
+          rm llvm.sh
+          sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-19 100
+          sudo update-alternatives --set clang++ /usr/bin/clang++-19
+
       - name: make
         run: make clean && make -j build && make strip
 

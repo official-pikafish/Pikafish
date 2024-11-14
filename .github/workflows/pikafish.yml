@@ -44,12 +44,12 @@ jobs:
         run: |
           wget https://apt.llvm.org/llvm.sh
           chmod u+x llvm.sh
-          echo | sudo ./llvm.sh 18
+          echo | sudo ./llvm.sh 19
           rm llvm.sh
-          sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-18 100
-          sudo update-alternatives --install /usr/bin/llvm-profdata llvm-profdata /usr/bin/llvm-profdata-18 100
-          sudo update-alternatives --set clang++ /usr/bin/clang++-18
-          sudo update-alternatives --set llvm-profdata /usr/bin/llvm-profdata-18
+          sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-19 100
+          sudo update-alternatives --install /usr/bin/llvm-profdata llvm-profdata /usr/bin/llvm-profdata-19 100
+          sudo update-alternatives --set clang++ /usr/bin/clang++-19
+          sudo update-alternatives --set llvm-profdata /usr/bin/llvm-profdata-19
 
       - name: Setup msys and install required packages
         if: runner.os == 'Windows'
