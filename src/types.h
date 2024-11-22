@@ -145,6 +145,20 @@ constexpr Value VALUE_MATE             = 32000;
 constexpr Value VALUE_MATE_IN_MAX_PLY  = VALUE_MATE - MAX_PLY;
 constexpr Value VALUE_MATED_IN_MAX_PLY = -VALUE_MATE_IN_MAX_PLY;
 
+constexpr bool is_valid(Value value) { return value != VALUE_NONE; }
+
+constexpr bool is_win(Value value) {
+    assert(is_valid(value));
+    return value >= VALUE_MATE_IN_MAX_PLY;
+}
+
+constexpr bool is_loss(Value value) {
+    assert(is_valid(value));
+    return value <= VALUE_MATED_IN_MAX_PLY;
+}
+
+constexpr bool is_decisive(Value value) { return is_win(value) || is_loss(value); }
+
 constexpr Value RookValue    = 1305;
 constexpr Value AdvisorValue = 219;
 constexpr Value CannonValue  = 773;
