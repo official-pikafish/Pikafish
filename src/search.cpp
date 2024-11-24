@@ -1340,7 +1340,8 @@ moves_loop:  // When in check, search starts here
         && ((bestValue < ss->staticEval && bestValue < beta)  // negative correction & no fail high
             || (bestValue > ss->staticEval && bestMove)))     // positive correction & no fail low
     {
-        const auto m = (ss - 1)->currentMove;
+        const auto       m             = (ss - 1)->currentMove;
+        static const int nonPawnWeight = 139;
 
         auto bonus = std::clamp(int(bestValue - ss->staticEval) * depth / 8,
                                 -CORRECTION_HISTORY_LIMIT / 4, CORRECTION_HISTORY_LIMIT / 4);
@@ -1349,9 +1350,9 @@ moves_loop:  // When in check, search starts here
         thisThread->majorPieceCorrectionHistory[us][major_piece_index(pos)] << bonus * 185 / 128;
         thisThread->minorPieceCorrectionHistory[us][minor_piece_index(pos)] << bonus * 101 / 128;
         thisThread->nonPawnCorrectionHistory[WHITE][us][non_pawn_index<WHITE>(pos)]
-          << bonus * 128 / 128;
+          << bonus * nonPawnWeight / 128;
         thisThread->nonPawnCorrectionHistory[BLACK][us][non_pawn_index<BLACK>(pos)]
-          << bonus * 150 / 128;
+          << bonus * nonPawnWeight / 128;
 
         if (m.is_ok())
             (*(ss - 2)->continuationCorrectionHistory)[pos.piece_on(m.to_sq())][m.to_sq()] << bonus;
