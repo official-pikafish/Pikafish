@@ -18,11 +18,9 @@
 
 #include "movepick.h"
 
-#include <algorithm>
 #include <array>
 #include <cassert>
 #include <limits>
-#include <utility>
 
 #include "bitboard.h"
 #include "position.h"
@@ -206,19 +204,13 @@ void MovePicker::score() {
 
 // Returns the next move satisfying a predicate function.
 // This never returns the TT move, as it was emitted before.
-template<MovePicker::PickType T, typename Pred>
+template<typename Pred>
 Move MovePicker::select(Pred filter) {
 
-    while (cur < endMoves)
-    {
-        if constexpr (T == Best)
-            std::swap(*cur, *std::max_element(cur, endMoves));
-
+    for (; cur < endMoves; ++cur)
         if (*cur != ttMove && filter())
             return *cur++;
 
-        cur++;
-    }
     return Move::none();
 }
 
@@ -252,7 +244,7 @@ top:
         goto top;
 
     case GOOD_CAPTURE :
-        if (select<Next>([&]() {
+        if (select([&]() {
                 // Move losing capture to endBadCaptures to be tried later
                 return pos.see_ge(*cur, -cur->value / 18) ? true
                                                           : (*endBadCaptures++ = *cur, false);
@@ -276,7 +268,7 @@ top:
         [[fallthrough]];
 
     case GOOD_QUIET :
-        if (!skipQuiets && select<Next>([]() { return true; }))
+        if (!skipQuiets && select([]() { return true; }))
         {
             if ((cur - 1)->value > -8000 || (cur - 1)->value <= quiet_threshold(depth))
                 return *(cur - 1);
@@ -293,7 +285,7 @@ top:
         [[fallthrough]];
 
     case BAD_CAPTURE :
-        if (select<Next>([]() { return true; }))
+        if (select([]() { return true; }))
             return *(cur - 1);
 
         // Prepare the pointers to loop over the bad quiets
@@ -305,7 +297,7 @@ top:
 
     case BAD_QUIET :
         if (!skipQuiets)
-            return select<Next>([]() { return true; });
+            return select([]() { return true; });
 
         return Move::none();
 
@@ -314,17 +306,16 @@ top:
         endMoves = generate<EVASIONS>(pos, cur);
 
         score<EVASIONS>();
+        partial_insertion_sort(cur, endMoves, std::numeric_limits<int>::min());
         ++stage;
         [[fallthrough]];
 
     case EVASION :
-        return select<Best>([]() { return true; });
+    case QCAPTURE :
+        return select([]() { return true; });
 
     case PROBCUT :
-        return select<Next>([&]() { return pos.see_ge(*cur, threshold); });
-
-    case QCAPTURE :
-        return select<Next>([]() { return true; });
+        return select([&]() { return pos.see_ge(*cur, threshold); });
     }
 
     assert(false);
