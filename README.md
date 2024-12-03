@@ -125,6 +125,11 @@ where the source code can be found) to generate the exact binary you are
 distributing. If you make any changes to the source code, these changes must
 also be made available under GPL v3.
 
+## Acknowledgements
+
+Pikafish uses neural networks trained on [data provided by the Pika Xiangqi Zero
+project][px0-data-link], which is made available under the [Open Database License][odbl-link] (ODbL).
+
 [authors-link]:			https://github.com/official-pikafish/Pikafish/blob/master/AUTHORS
 [build-badge]:			https://img.shields.io/github/actions/workflow/status/official-pikafish/Pikafish/pikafish.yml?branch=master&style=for-the-badge&label=pikafish&logo=github
 [build-link]:				https://github.com/official-pikafish/Pikafish/actions/workflows/pikafish.yml
@@ -159,3 +164,5 @@ also be made available under GPL v3.
 [wiki-uci-link]:      https://github.com/official-pikafish/Pikafish/wiki/UCI-&-Commands
 [wiki-usage-link]:    https://github.com/official-pikafish/Pikafish/wiki/Download-and-usage
 [worker-link]:			https://github.com/xyztnecniV/yolo
+[px0-data-link]:      https://www.kaggle.com/datasets/pikacat/px0data
+[odbl-link]:          https://opendatacommons.org/licenses/odbl/odbl-10.txt
