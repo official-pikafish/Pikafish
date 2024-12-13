@@ -419,10 +419,9 @@ void Search::Worker::iterative_deepening() {
             timeReduction    = lastBestMoveDepth + 12 < completedDepth ? 1.59 : 0.63;
             double reduction = (1.91 + mainThread->previousTimeReduction) / (3.17 * timeReduction);
             double bestMoveInstability = 0.87 + 1.62 * totBestMoveChanges / threads.size();
-            double recapture           = limits.capSq == rootMoves[0].pv[0].to_sq() ? 0.845 : 1.171;
 
             double totalTime =
-              mainThread->tm.optimum() * fallingEval * reduction * bestMoveInstability * recapture;
+              mainThread->tm.optimum() * fallingEval * reduction * bestMoveInstability;
 
             auto elapsedTime = elapsed();
 

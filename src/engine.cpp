@@ -50,7 +50,6 @@ Engine::Engine(std::optional<std::string> path) :
     threads(),
     network(numaContext, NN::Network({EvalFileDefaultName, "None", ""})) {
     pos.set(StartFEN, &states->back());
-    capSq = SQ_NONE;
 
     options["Debug Log File"] << Option("", [](const Option& o) {
         start_logger(o);
@@ -100,7 +99,6 @@ std::uint64_t Engine::perft(const std::string& fen, Depth depth) {
 void Engine::go(Search::LimitsType& limits) {
     assert(limits.perft == 0);
     verify_network();
-    limits.capSq = capSq;
 
     threads.start_thinking(pos, states, limits);
 }
@@ -140,7 +138,6 @@ void Engine::set_position(const std::string& fen, const std::vector<std::string>
     states = StateListPtr(new std::deque<StateInfo>(1));
     pos.set(fen, &states->back());
 
-    capSq = SQ_NONE;
     for (const auto& move : moves)
     {
         auto m = UCIEngine::to_move(pos, move);
@@ -150,11 +147,6 @@ void Engine::set_position(const std::string& fen, const std::vector<std::string>
 
         states->emplace_back();
         pos.do_move(m, states->back());
-
-        capSq          = SQ_NONE;
-        DirtyPiece& dp = states->back().dirtyPiece;
-        if (dp.dirty_num > 1 && dp.to[1] == SQ_NONE)
-            capSq = m.to_sq();
     }
 }
 
