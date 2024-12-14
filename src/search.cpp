@@ -686,12 +686,9 @@ Value Search::Worker::search(
     // Step 6. Razoring (~1 Elo)
     // If eval is really low, check with qsearch if we can exceed alpha. If the
     // search suggests we cannot exceed alpha, return a speculative fail low.
-    if (eval < alpha - 1373 - 252 * depth * depth)
-    {
-        value = qsearch<NonPV>(pos, ss, alpha - 1, alpha);
-        if (value < alpha && !is_decisive(value))
-            return value;
-    }
+    // For PvNodes, we must have a guard against mates being returned.
+    if (!PvNode && eval < alpha - 1373 - 252 * depth * depth)
+        return qsearch<NonPV>(pos, ss, alpha - 1, alpha);
 
     // Step 7. Futility pruning: child node (~40 Elo)
     // The depth condition is important for mate finding.
