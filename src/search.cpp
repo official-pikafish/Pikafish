@@ -47,7 +47,6 @@
 
 namespace Stockfish {
 
-using Eval::evaluate;
 using namespace Search;
 
 namespace {
@@ -556,9 +555,8 @@ Value Search::Worker::search(
         }
 
         if (threads.stop.load(std::memory_order_relaxed) || ss->ply >= MAX_PLY)
-            return (ss->ply >= MAX_PLY && !ss->inCheck)
-                   ? evaluate(network[numaAccessToken], pos, refreshTable, thisThread->optimism[us])
-                   : value_draw(thisThread->nodes);
+            return (ss->ply >= MAX_PLY && !ss->inCheck) ? evaluate(pos)
+                                                        : value_draw(thisThread->nodes);
 
         // Step 3. Mate distance pruning. Even if we mate at the next move our score
         // would be at best mate_in(ss->ply + 1), but if alpha is already bigger because
@@ -642,8 +640,7 @@ Value Search::Worker::search(
         // Never assume anything about values stored in TT
         unadjustedStaticEval = ttData.eval;
         if (!is_valid(unadjustedStaticEval))
-            unadjustedStaticEval =
-              evaluate(network[numaAccessToken], pos, refreshTable, thisThread->optimism[us]);
+            unadjustedStaticEval = evaluate(pos);
         else if (PvNode)
             Eval::NNUE::hint_common_parent_position(pos, network[numaAccessToken], refreshTable);
 
@@ -657,9 +654,8 @@ Value Search::Worker::search(
     }
     else
     {
-        unadjustedStaticEval =
-          evaluate(network[numaAccessToken], pos, refreshTable, thisThread->optimism[us]);
-        ss->staticEval = eval =
+        unadjustedStaticEval = evaluate(pos);
+        ss->staticEval       = eval =
           to_corrected_static_eval(unadjustedStaticEval, *thisThread, pos, ss);
 
         // Static evaluation is saved as it was before adjustment by correction history
@@ -1431,9 +1427,7 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
     }
 
     if (ss->ply >= MAX_PLY)
-        return !ss->inCheck
-               ? evaluate(network[numaAccessToken], pos, refreshTable, thisThread->optimism[us])
-               : VALUE_DRAW;
+        return !ss->inCheck ? evaluate(pos) : VALUE_DRAW;
 
     assert(0 <= ss->ply && ss->ply < MAX_PLY);
 
@@ -1463,8 +1457,7 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
             // Never assume anything about values stored in TT
             unadjustedStaticEval = ttData.eval;
             if (!is_valid(unadjustedStaticEval))
-                unadjustedStaticEval =
-                  evaluate(network[numaAccessToken], pos, refreshTable, thisThread->optimism[us]);
+                unadjustedStaticEval = evaluate(pos);
             ss->staticEval = bestValue =
               to_corrected_static_eval(unadjustedStaticEval, *thisThread, pos, ss);
 
@@ -1477,9 +1470,7 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
         {
             // In case of null move search, use previous static eval with opposite sign
             unadjustedStaticEval =
-              (ss - 1)->currentMove != Move::null()
-                ? evaluate(network[numaAccessToken], pos, refreshTable, thisThread->optimism[us])
-                : -(ss - 1)->staticEval;
+              (ss - 1)->currentMove != Move::null() ? evaluate(pos) : -(ss - 1)->staticEval;
             ss->staticEval = bestValue =
               to_corrected_static_eval(unadjustedStaticEval, *thisThread, pos, ss);
         }
@@ -1650,6 +1641,10 @@ TimePoint Search::Worker::elapsed() const {
 
 TimePoint Search::Worker::elapsed_time() const { return main_manager()->tm.elapsed_time(); }
 
+Value Search::Worker::evaluate(const Position& pos) {
+    return Eval::evaluate(network[numaAccessToken], pos, refreshTable,
+                          optimism[pos.side_to_move()]);
+}
 
 namespace {
 // Adjusts a mate from "plies to mate from the root" to
