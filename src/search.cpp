@@ -475,7 +475,7 @@ void Search::Worker::clear() {
                     h->fill(-427);
 
     for (size_t i = 1; i < reductions.size(); ++i)
-        reductions[i] = int((14.60 + std::log(size_t(options["Threads"])) / 2) * std::log(i));
+        reductions[i] = int(14.60 * std::log(i));
 
     refreshTable.clear(network[numaAccessToken]);
 }
