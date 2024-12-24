@@ -15,7 +15,6 @@ extern "C" {
     #define ZSTD_H_235446
 
     /* ======   Dependencies   ======*/
-    #include <limits.h> /* INT_MAX */
     #include <stddef.h> /* size_t */
 
 
@@ -109,7 +108,7 @@ extern "C" {
     /*------   Version   ------*/
     #define ZSTD_VERSION_MAJOR 1
     #define ZSTD_VERSION_MINOR 5
-    #define ZSTD_VERSION_RELEASE 6
+    #define ZSTD_VERSION_RELEASE 7
     #define ZSTD_VERSION_NUMBER \
         (ZSTD_VERSION_MAJOR * 100 * 100 + ZSTD_VERSION_MINOR * 100 + ZSTD_VERSION_RELEASE)
 
@@ -149,7 +148,7 @@ ZSTDLIB_API const char* ZSTD_versionString(void);
 
 
 /***************************************
-*  Simple API
+*  Simple Core API
 ***************************************/
 /*! ZSTD_compress() :
  *  Compresses `src` content as a single zstd compressed frame into already allocated `dst`.
@@ -173,6 +172,9 @@ ZSTDLIB_API size_t ZSTD_decompress(void*       dst,
                                    size_t      dstCapacity,
                                    const void* src,
                                    size_t      compressedSize);
+
+
+    /*======  Decompression helper functions  ======*/
 
     /*! ZSTD_getFrameContentSize() : requires v1.3.0+
  * `src` should point to the start of a ZSTD encoded frame.
@@ -220,14 +222,15 @@ unsigned long long ZSTD_getDecompressedSize(const void* src, size_t srcSize);
 ZSTDLIB_API size_t ZSTD_findFrameCompressedSize(const void* src, size_t srcSize);
 
 
-    /*======  Helper functions  ======*/
-    /* ZSTD_compressBound() :
+    /*======  Compression helper functions  ======*/
+
+    /*! ZSTD_compressBound() :
  * maximum compressed size in worst case single-pass scenario.
- * When invoking `ZSTD_compress()` or any other one-pass compression function,
+ * When invoking `ZSTD_compress()`, or any other one-pass compression function,
  * it's recommended to provide @dstCapacity >= ZSTD_compressBound(srcSize)
  * as it eliminates one potential failure scenario,
  * aka not enough room in dst buffer to write the compressed frame.
- * Note : ZSTD_compressBound() itself can fail, if @srcSize > ZSTD_MAX_INPUT_SIZE .
+ * Note : ZSTD_compressBound() itself can fail, if @srcSize >= ZSTD_MAX_INPUT_SIZE .
  *        In which case, ZSTD_compressBound() will return an error code
  *        which can be tested using ZSTD_isError().
  *
@@ -235,7 +238,7 @@ ZSTDLIB_API size_t ZSTD_findFrameCompressedSize(const void* src, size_t srcSize)
  * same as ZSTD_compressBound(), but as a macro.
  * It can be used to produce constants, which can be useful for static allocation,
  * for example to size a static array on stack.
- * Will produce constant value 0 if srcSize too large.
+ * Will produce constant value 0 if srcSize is too large.
  */
     #define ZSTD_MAX_INPUT_SIZE ((sizeof(size_t) == 8) ? 0xFF00FF00FF00FF00ULL : 0xFF00FF00U)
     #define ZSTD_COMPRESSBOUND(srcSize) \
@@ -247,15 +250,22 @@ ZSTDLIB_API size_t ZSTD_findFrameCompressedSize(const void* src, size_t srcSize)
                     : 0)) /* this formula ensures that bound(A) + bound(B) <= bound(A+B) as long as A and B >= 128 KB */
 ZSTDLIB_API size_t ZSTD_compressBound(
   size_t srcSize); /*!< maximum compressed size in worst case single-pass scenario */
+
+
+    /*======  Error helper functions  ======*/
+    #include "zstd_errors.h" /* list of errors */
 /* ZSTD_isError() :
  * Most ZSTD_* functions returning a size_t value can be tested for error,
  * using ZSTD_isError().
  * @return 1 if error, 0 otherwise
  */
 ZSTDLIB_API unsigned
-ZSTD_isError(size_t code); /*!< tells if a `size_t` function result is an error code */
+ZSTD_isError(size_t result); /*!< tells if a `size_t` function result is an error code */
+ZSTDLIB_API ZSTD_ErrorCode ZSTD_getErrorCode(
+  size_t
+    functionResult); /* convert a result into an error code, which can be compared to error enum list */
 ZSTDLIB_API const char*
-ZSTD_getErrorName(size_t code); /*!< provides readable string from an error code */
+ZSTD_getErrorName(size_t result); /*!< provides readable string from a function result */
 ZSTDLIB_API int
 ZSTD_minCLevel(void); /*!< minimum negative compression level allowed, requires v1.4.0+ */
 ZSTDLIB_API int ZSTD_maxCLevel(void); /*!< maximum compression level available */
@@ -268,17 +278,17 @@ ZSTDLIB_API int ZSTD_defaultCLevel(
 ***************************************/
 /*= Compression context
  *  When compressing many times,
- *  it is recommended to allocate a context just once,
+ *  it is recommended to allocate a compression context just once,
  *  and reuse it for each successive compression operation.
- *  This will make workload friendlier for system's memory.
+ *  This will make the workload easier for system's memory.
  *  Note : re-using context is just a speed / resource optimization.
  *         It doesn't change the compression ratio, which remains identical.
- *  Note 2 : In multi-threaded environments,
- *         use one different context per thread for parallel execution.
+ *  Note 2: For parallel execution in multi-threaded environments,
+ *         use one different context per thread .
  */
 typedef struct ZSTD_CCtx_s ZSTD_CCtx;
 ZSTDLIB_API ZSTD_CCtx*     ZSTD_createCCtx(void);
-ZSTDLIB_API size_t         ZSTD_freeCCtx(ZSTD_CCtx* cctx); /* accept NULL pointer */
+ZSTDLIB_API size_t         ZSTD_freeCCtx(ZSTD_CCtx* cctx); /* compatible with NULL pointer */
 
 /*! ZSTD_compressCCtx() :
  *  Same as ZSTD_compress(), using an explicit ZSTD_CCtx.
@@ -286,7 +296,7 @@ ZSTDLIB_API size_t         ZSTD_freeCCtx(ZSTD_CCtx* cctx); /* accept NULL pointe
  *  this function compresses at the requested compression level,
  *  __ignoring any other advanced parameter__ .
  *  If any advanced parameter was set using the advanced API,
- *  they will all be reset. Only `compressionLevel` remains.
+ *  they will all be reset. Only @compressionLevel remains.
  */
 ZSTDLIB_API size_t ZSTD_compressCCtx(ZSTD_CCtx*  cctx,
                                      void*       dst,
@@ -517,7 +527,8 @@ typedef enum {
      * ZSTD_c_stableOutBuffer
      * ZSTD_c_blockDelimiters
      * ZSTD_c_validateSequences
-     * ZSTD_c_useBlockSplitter
+     * ZSTD_c_blockSplitterLevel
+     * ZSTD_c_splitAfterSequences
      * ZSTD_c_useRowMatchFinder
      * ZSTD_c_prefetchCDictTables
      * ZSTD_c_enableSeqProducerFallback
@@ -544,7 +555,8 @@ typedef enum {
     ZSTD_c_experimentalParam16 = 1013,
     ZSTD_c_experimentalParam17 = 1014,
     ZSTD_c_experimentalParam18 = 1015,
-    ZSTD_c_experimentalParam19 = 1016
+    ZSTD_c_experimentalParam19 = 1016,
+    ZSTD_c_experimentalParam20 = 1017
 } ZSTD_cParameter;
 
 typedef struct {
@@ -1245,6 +1257,8 @@ ZSTDLIB_API size_t ZSTD_sizeof_DDict(const ZSTD_DDict* ddict);
 
 #if defined(ZSTD_STATIC_LINKING_ONLY) && !defined(ZSTD_H_ZSTD_STATIC_LINKING_ONLY)
     #define ZSTD_H_ZSTD_STATIC_LINKING_ONLY
+
+    #include <limits.h> /* INT_MAX */
 
     /* This can be overridden externally to hide static symbols. */
     #ifndef ZSTDLIB_STATIC_API
@@ -2261,8 +2275,32 @@ ZSTDLIB_STATIC_API size_t ZSTD_CCtx_refPrefix_advanced(ZSTD_CCtx*             cc
  */
     #define ZSTD_c_validateSequences ZSTD_c_experimentalParam12
 
-    /* ZSTD_c_useBlockSplitter
- * Controlled with ZSTD_paramSwitch_e enum.
+    /* ZSTD_c_blockSplitterLevel
+ * note: this parameter only influences the first splitter stage,
+ *       which is active before producing the sequences.
+ *       ZSTD_c_splitAfterSequences controls the next splitter stage,
+ *       which is active after sequence production.
+ *       Note that both can be combined.
+ * Allowed values are between 0 and ZSTD_BLOCKSPLITTER_LEVEL_MAX included.
+ * 0 means "auto", which will select a value depending on current ZSTD_c_strategy.
+ * 1 means no splitting.
+ * Then, values from 2 to 6 are sorted in increasing cpu load order.
+ *
+ * Note that currently the first block is never split,
+ * to ensure expansion guarantees in presence of incompressible data.
+ */
+    #define ZSTD_BLOCKSPLITTER_LEVEL_MAX 6
+    #define ZSTD_c_blockSplitterLevel ZSTD_c_experimentalParam20
+
+    /* ZSTD_c_splitAfterSequences
+ * This is a stronger splitter algorithm,
+ * based on actual sequences previously produced by the selected parser.
+ * It's also slower, and as a consequence, mostly used for high compression levels.
+ * While the post-splitter does overlap with the pre-splitter,
+ * both can nonetheless be combined,
+ * notably with ZSTD_c_blockSplitterLevel at ZSTD_BLOCKSPLITTER_LEVEL_MAX,
+ * resulting in higher compression ratio than just one of them.
+ *
  * Default is ZSTD_ps_auto.
  * Set to ZSTD_ps_disable to never use block splitter.
  * Set to ZSTD_ps_enable to always use block splitter.
@@ -2270,7 +2308,7 @@ ZSTDLIB_STATIC_API size_t ZSTD_CCtx_refPrefix_advanced(ZSTD_CCtx*             cc
  * By default, in ZSTD_ps_auto, the library will decide at runtime whether to use
  * block splitting based on the compression parameters.
  */
-    #define ZSTD_c_useBlockSplitter ZSTD_c_experimentalParam13
+    #define ZSTD_c_splitAfterSequences ZSTD_c_experimentalParam13
 
     /* ZSTD_c_useRowMatchFinder
  * Controlled with ZSTD_paramSwitch_e enum.
@@ -2349,7 +2387,6 @@ ZSTDLIB_STATIC_API size_t ZSTD_CCtx_refPrefix_advanced(ZSTD_CCtx*             cc
  * that overrides the default ZSTD_BLOCKSIZE_MAX. It cannot be used to set upper
  * bounds greater than ZSTD_BLOCKSIZE_MAX or bounds lower than 1KB (will make
  * compressBound() inaccurate). Only currently meant to be used for testing.
- *
  */
     #define ZSTD_c_maxBlockSize ZSTD_c_experimentalParam18
 
@@ -2376,6 +2413,7 @@ ZSTDLIB_STATIC_API size_t ZSTD_CCtx_refPrefix_advanced(ZSTD_CCtx*             cc
  * set to ZSTD_sf_explicitBlockDelimiters. That may change in the future.
  */
     #define ZSTD_c_searchForExternalRepcodes ZSTD_c_experimentalParam19
+
 
 /*! ZSTD_CCtx_getParameter() :
  *  Get the requested compression parameter value, selected by enum ZSTD_cParameter,
