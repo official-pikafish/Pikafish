@@ -761,7 +761,7 @@ Value Search::Worker::search(
     // If we have a good enough capture and a reduced search
     // returns a value much above beta, we can (almost) safely prune the previous move.
     probCutBeta = beta + 234 - 66 * improving;
-    if (!PvNode && depth > 4
+    if (depth > 4
         && !is_decisive(beta)
         // If value from transposition table is lower than probCutBeta, don't attempt
         // probCut there and in further interactions with transposition table cutoff
@@ -818,7 +818,9 @@ Value Search::Worker::search(
                 // Save ProbCut data into transposition table
                 ttWriter.write(posKey, value_to_tt(value, ss->ply), ss->ttPv, BOUND_LOWER,
                                depth - 3, move, unadjustedStaticEval, tt.generation());
-                return is_decisive(value) ? value : value - (probCutBeta - beta);
+
+                if (!is_decisive(value))
+                    return value - (probCutBeta - beta);
             }
         }
     }
