@@ -466,13 +466,13 @@ void Search::Worker::clear() {
 
     for (auto& to : continuationCorrectionHistory)
         for (auto& h : to)
-            h->fill(0);
+            h.fill(0);
 
     for (bool inCheck : {false, true})
         for (StatsType c : {NoCaptures, Captures})
             for (auto& to : continuationHistory[inCheck][c])
                 for (auto& h : to)
-                    h->fill(-427);
+                    h.fill(-427);
 
     for (size_t i = 1; i < reductions.size(); ++i)
         reductions[i] = int(14.60 * std::log(i));
