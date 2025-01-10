@@ -496,9 +496,8 @@ class FeatureTransformer {
         return st;
     }
 
-    // It computes the accumulator of the next position, or updates the
-    // current position's accumulator if CurrentOnly is true.
-    template<Color Perspective, bool CurrentOnly>
+    // Computes the accumulator of the next position.
+    template<Color Perspective>
     void update_accumulator_incremental(const Position& pos, StateInfo* computed) const {
         assert(computed->accumulator.computed[Perspective]);
         assert(computed->next != nullptr);
@@ -521,16 +520,10 @@ class FeatureTransformer {
         // feature set's update cost calculation to be correct and never allow
         // updates with more added/removed features than MaxActiveDimensions.
         FeatureSet::IndexList removed, added;
+        FeatureSet::append_changed_indices<Perspective>(king_bucket, mirror,
+                                                        computed->next->dirtyPiece, removed, added);
 
-        if constexpr (CurrentOnly)
-            for (StateInfo* st = pos.state(); st != computed; st = st->previous)
-                FeatureSet::append_changed_indices<Perspective>(bucket, mirror, st->dirtyPiece,
-                                                                removed, added);
-        else
-            FeatureSet::append_changed_indices<Perspective>(
-              bucket, mirror, computed->next->dirtyPiece, removed, added);
-
-        StateInfo* next = CurrentOnly ? pos.state() : computed->next;
+        StateInfo* next = computed->next;
         assert(!next->accumulator.computed[Perspective]);
 
 #ifdef VECTOR
@@ -694,8 +687,8 @@ class FeatureTransformer {
 
         next->accumulator.computed[Perspective] = true;
 
-        if (!CurrentOnly && next != pos.state())
-            update_accumulator_incremental<Perspective, false>(pos, next);
+        if (next != pos.state())
+            update_accumulator_incremental<Perspective>(pos, next);
     }
 
     template<Color Perspective>
@@ -883,7 +876,7 @@ class FeatureTransformer {
         StateInfo* oldest = try_find_computed_accumulator<Perspective>(pos);
 
         if (oldest->accumulator.computed[Perspective] && oldest != pos.state())
-            update_accumulator_incremental<Perspective, true>(pos, oldest);
+            update_accumulator_incremental<Perspective>(pos, oldest);
         else
             update_accumulator_refresh<Perspective>(pos, cache);
     }
@@ -896,7 +889,7 @@ class FeatureTransformer {
         if (oldest->accumulator.computed[Perspective] && oldest != pos.state())
             // Start from the oldest computed accumulator, update all the
             // accumulators up to the current position.
-            update_accumulator_incremental<Perspective, false>(pos, oldest);
+            update_accumulator_incremental<Perspective>(pos, oldest);
         else
         {
             update_accumulator_refresh<Perspective>(pos, cache);
