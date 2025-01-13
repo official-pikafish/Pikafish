@@ -473,8 +473,8 @@ class FeatureTransformer {
     }  // end of function transform()
 
     void hint_common_access(const Position& pos, AccumulatorCaches::Cache* cache) const {
-        hint_common_access_for_perspective<WHITE>(pos, cache);
-        hint_common_access_for_perspective<BLACK>(pos, cache);
+        update_accumulator<WHITE>(pos, cache);
+        update_accumulator<BLACK>(pos, cache);
     }
 
    private:
@@ -861,29 +861,9 @@ class FeatureTransformer {
     }
 
     template<Color Perspective>
-    void hint_common_access_for_perspective(const Position&           pos,
-                                            AccumulatorCaches::Cache* cache) const {
-
-        // Works like update_accumulator, but performs less work.
-        // Updates ONLY the accumulator for pos.
-
-        // Look for a usable accumulator of an earlier position. We keep track
-        // of the estimated gain in terms of features to be added/subtracted.
-        // Fast early exit.
+    void update_accumulator(const Position& pos, AccumulatorCaches::Cache* cache) const {
         if (pos.state()->accumulator.computed[Perspective])
             return;
-
-        StateInfo* oldest = try_find_computed_accumulator<Perspective>(pos);
-
-        if (oldest->accumulator.computed[Perspective] && oldest != pos.state())
-            update_accumulator_incremental<Perspective>(pos, oldest);
-        else
-            update_accumulator_refresh<Perspective>(pos, cache);
-    }
-
-    template<Color Perspective>
-    void update_accumulator(const Position& pos, AccumulatorCaches::Cache* cache) const {
-
         StateInfo* oldest = try_find_computed_accumulator<Perspective>(pos);
 
         if (oldest->accumulator.computed[Perspective] && oldest != pos.state())
