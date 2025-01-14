@@ -1844,12 +1844,13 @@ void SearchManager::pv(const Search::Worker&     worker,
         if (i == pvIdx && updated)  // previous-scores are exact
             info.bound = bound;
 
-        info.timeMs   = time;
-        info.nodes    = nodes;
-        info.nps      = nodes * 1000 / time;
-        info.tbHits   = 0;
-        info.pv       = pv;
-        info.hashfull = tt.hashfull();
+        TimePoint time = std::max(TimePoint(1), tm.elapsed_time());
+        info.timeMs    = time;
+        info.nodes     = nodes;
+        info.nps       = nodes * 1000 / time;
+        info.tbHits    = 0;
+        info.pv        = pv;
+        info.hashfull  = tt.hashfull();
 
         updates.onUpdateFull(info);
     }
