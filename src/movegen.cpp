@@ -65,12 +65,12 @@ ExtMove* generate_moves(const Position& pos, ExtMove* moveList, Bitboard target)
 
 template<Color Us, GenType Type>
 ExtMove* generate_moves(const Position& pos, ExtMove* moveList, Bitboard target) {
-    moveList = generate_moves<Us, ROOK, Type>(pos, moveList, target);
-    moveList = generate_moves<Us, ADVISOR, Type>(pos, moveList, target);
-    moveList = generate_moves<Us, CANNON, Type>(pos, moveList, target);
     moveList = generate_moves<Us, PAWN, Type>(pos, moveList, target);
-    moveList = generate_moves<Us, KNIGHT, Type>(pos, moveList, target);
     moveList = generate_moves<Us, BISHOP, Type>(pos, moveList, target);
+    moveList = generate_moves<Us, ADVISOR, Type>(pos, moveList, target);
+    moveList = generate_moves<Us, KNIGHT, Type>(pos, moveList, target);
+    moveList = generate_moves<Us, CANNON, Type>(pos, moveList, target);
+    moveList = generate_moves<Us, ROOK, Type>(pos, moveList, target);
     return moveList;
 }
 
@@ -135,6 +135,11 @@ ExtMove* generate<EVASIONS>(const Position& pos, ExtMove* moveList) {
     Square    checksq = lsb(pos.checkers());
     PieceType pt      = type_of(pos.piece_on(checksq));
 
+    // Generate blocking evasions or captures of the checking piece
+    Bitboard target = (between_bb(ksq, checksq)) & ~pos.pieces(us);
+    moveList        = us == WHITE ? generate_moves<WHITE, EVASIONS>(pos, moveList, target)
+                                  : generate_moves<BLACK, EVASIONS>(pos, moveList, target);
+
     // Generate evasions for king, capture and non capture moves
     Bitboard b = attacks_bb<KING>(ksq) & ~pos.pieces(us);
     // For all the squares attacked by slider checkers. We will remove them from
@@ -167,10 +172,7 @@ ExtMove* generate<EVASIONS>(const Position& pos, ExtMove* moveList) {
         }
     }
 
-    // Generate blocking evasions or captures of the checking piece
-    Bitboard target = (between_bb(ksq, checksq)) & ~pos.pieces(us);
-    return us == WHITE ? generate_moves<WHITE, EVASIONS>(pos, moveList, target)
-                       : generate_moves<BLACK, EVASIONS>(pos, moveList, target);
+    return moveList;
 }
 
 
