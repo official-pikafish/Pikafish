@@ -520,8 +520,8 @@ class FeatureTransformer {
         // feature set's update cost calculation to be correct and never allow
         // updates with more added/removed features than MaxActiveDimensions.
         FeatureSet::IndexList removed, added;
-        FeatureSet::append_changed_indices<Perspective>(king_bucket, mirror,
-                                                        computed->next->dirtyPiece, removed, added);
+        FeatureSet::append_changed_indices<Perspective>(bucket, mirror, computed->next->dirtyPiece,
+                                                        removed, added);
 
         StateInfo* next = computed->next;
         assert(!next->accumulator.computed[Perspective]);
