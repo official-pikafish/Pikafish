@@ -641,15 +641,14 @@ void Position::do_null_move(StateInfo& newSt, const TranspositionTable& tt) {
     st->next       = &newSt;
     st             = &newSt;
 
+    st->key ^= Zobrist::side;
+    prefetch(tt.first_entry(key()));
+
     st->dirtyPiece.dirty_num               = 0;  // Avoid checks in UpdateAccumulator()
     st->dirtyPiece.requires_refresh[WHITE] = false;
     st->dirtyPiece.requires_refresh[BLACK] = false;
     st->accumulator.computed[WHITE]        = false;
     st->accumulator.computed[BLACK]        = false;
-
-    st->key ^= Zobrist::side;
-    ++st->rule60;
-    prefetch(tt.first_entry(key()));
 
     st->pliesFromNull = 0;
 
