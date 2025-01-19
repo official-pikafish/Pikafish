@@ -800,6 +800,7 @@ Value Search::Worker::search(
             thisThread->nodes.fetch_add(1, std::memory_order_relaxed);
 
             ss->currentMove = move;
+            ss->isTTMove    = (move == ttData.move);
             ss->continuationHistory =
               &this->continuationHistory[ss->inCheck][true][movedPiece][move.to_sq()];
             ss->continuationCorrectionHistory =
@@ -1045,6 +1046,7 @@ moves_loop:  // When in check, search starts here
 
         // Update the current move (this must be done after singular extension search)
         ss->currentMove = move;
+        ss->isTTMove    = (move == ttData.move);
         ss->continuationHistory =
           &thisThread->continuationHistory[ss->inCheck][capture][movedPiece][move.to_sq()];
         ss->continuationCorrectionHistory =
@@ -1298,7 +1300,8 @@ moves_loop:  // When in check, search starts here
     {
         int bonusScale = (184 * (depth > 6) + 80 * !allNode + 152 * ((ss - 1)->moveCount > 11)
                           + 77 * (!ss->inCheck && bestValue <= ss->staticEval - 157)
-                          + 169 * (!(ss - 1)->inCheck && bestValue <= -(ss - 1)->staticEval - 99));
+                          + 169 * (!(ss - 1)->inCheck && bestValue <= -(ss - 1)->staticEval - 99)
+                          + 80 * ((ss - 1)->isTTMove));
 
         // Proportional to "how much damage we have to undo"
         bonusScale += std::min(-(ss - 1)->statScore / 79, 234);

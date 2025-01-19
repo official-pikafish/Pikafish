@@ -73,6 +73,7 @@ struct Stack {
     bool                        ttHit;
     int                         cutoffCnt;
     int                         reduction;
+    bool                        isTTMove;
 };
 
 
