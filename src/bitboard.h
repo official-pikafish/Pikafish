@@ -22,6 +22,7 @@
 #include <algorithm>
 #include <cassert>
 #include <cmath>
+#include <cstring>
 #include <cstdint>
 #include <cstdlib>
 #include <string>
@@ -317,12 +318,11 @@ inline int popcount(Bitboard b) {
 
 #ifndef USE_POPCNT
 
-    union {
-        Bitboard bb;
-        uint16_t u[8];
-    } v = {b};
-    return PopCnt16[v.u[0]] + PopCnt16[v.u[1]] + PopCnt16[v.u[2]] + PopCnt16[v.u[3]]
-         + PopCnt16[v.u[4]] + PopCnt16[v.u[5]] + PopCnt16[v.u[6]] + PopCnt16[v.u[7]];
+    std::uint16_t indices[8];
+    std::memcpy(indices, &b, sizeof(b));
+    return PopCnt16[indices[0]] + PopCnt16[indices[1]] + PopCnt16[indices[2]] + PopCnt16[indices[3]]
+         + PopCnt16[indices[4]] + PopCnt16[indices[5]] + PopCnt16[indices[6]]
+         + PopCnt16[indices[7]];
 
 #elif defined(_MSC_VER)
 
