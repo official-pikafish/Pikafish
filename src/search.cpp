@@ -939,8 +939,7 @@ moves_loop:  // When in check, search starts here
 
                 lmrDepth += history / 3718;
 
-                Value futilityValue =
-                  ss->staticEval + (bestValue < ss->staticEval - 45 ? 215 : 96) + 120 * lmrDepth;
+                Value futilityValue = ss->staticEval + (bestMove ? 96 : 215) + 120 * lmrDepth;
 
                 // Futility pruning: parent node
                 if (!ss->inCheck && lmrDepth < 10 && futilityValue <= alpha)
