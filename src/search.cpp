@@ -766,7 +766,7 @@ Value Search::Worker::search(
         return qsearch<PV>(pos, ss, alpha, beta);
 
     // Step 10. ProbCut (~10 Elo)
-    // If we have a good enough capture (or queen promotion) and a reduced search
+    // If we have a good enough capture and a reduced search
     // returns a value much above beta, we can (almost) safely prune the previous move.
     probCutBeta = beta + 234 - 66 * improving;
     if (depth >= 4
