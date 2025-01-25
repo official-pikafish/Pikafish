@@ -412,24 +412,26 @@ void Search::Worker::iterative_deepening() {
         // Do we have time for the next iteration? Can we stop searching now?
         if (limits.use_time_management() && !threads.stop && !mainThread->stopOnPonderhit)
         {
-            int nodesEffort = rootMoves[0].effort * 144 / std::max(size_t(1), size_t(nodes));
+            int nodesEffort = rootMoves[0].effort * 100000 / std::max(size_t(1), size_t(nodes));
 
-            double fallingEval = (86 + 14 * (mainThread->bestPreviousAverageScore - bestValue)
-                                  + 4 * (mainThread->iterValue[iterIdx] - bestValue))
-                               / 566.87;
-            fallingEval = std::clamp(fallingEval, 0.62, 1.76);
+            double fallingEval =
+              (15.171 + 2.470 * (mainThread->bestPreviousAverageScore - bestValue)
+               + 0.706 * (mainThread->iterValue[iterIdx] - bestValue))
+              / 100.0;
+            fallingEval = std::clamp(fallingEval, 0.6200, 1.7600);
 
             // If the bestMove is stable over several iterations, reduce time accordingly
-            timeReduction    = lastBestMoveDepth + 12 < completedDepth ? 1.59 : 0.63;
-            double reduction = (1.91 + mainThread->previousTimeReduction) / (3.17 * timeReduction);
-            double bestMoveInstability = 0.87 + 1.62 * totBestMoveChanges / threads.size();
+            timeReduction = lastBestMoveDepth + 12 < completedDepth ? 1.5900 : 0.6300;
+            double reduction =
+              (1.9100 + mainThread->previousTimeReduction) / (3.1700 * timeReduction);
+            double bestMoveInstability = 0.8700 + 1.6200 * totBestMoveChanges / threads.size();
 
             double totalTime =
               mainThread->tm.optimum() * fallingEval * reduction * bestMoveInstability;
 
             auto elapsedTime = elapsed();
 
-            if (completedDepth >= 9 && nodesEffort >= 111 && elapsedTime > totalTime * 0.73
+            if (completedDepth >= 9 && nodesEffort >= 77000 && elapsedTime > totalTime * 0.7300
                 && !mainThread->ponder)
                 threads.stop = true;
 
