@@ -211,8 +211,8 @@ void Position::set_check_info() const {
 // The function is only used when a new position is set up
 void Position::set_state() const {
 
-    st->key           = 0;
-    st->majorPieceKey = st->minorPieceKey = 0;
+    st->key               = 0;
+    st->minorPieceKey     = 0;
     st->nonPawnKey[WHITE] = st->nonPawnKey[BLACK] = 0;
     st->pawnKey                                   = Zobrist::noPawns;
     st->majorMaterial[WHITE] = st->majorMaterial[BLACK] = VALUE_ZERO;
@@ -238,18 +238,13 @@ void Position::set_state() const {
             if (pt != KING)
             {
                 if (pt & 1)
-                {
                     st->majorMaterial[color_of(pc)] += PieceValue[pc];
-                    st->majorPieceKey ^= Zobrist::psq[pc][s];
-                }
-
                 else
                     st->minorPieceKey ^= Zobrist::psq[pc][s];
             }
 
             else
             {
-                st->majorPieceKey ^= Zobrist::psq[pc][s];
                 st->minorPieceKey ^= Zobrist::psq[pc][s];
             }
         }
@@ -526,11 +521,7 @@ void Position::do_move(Move                      m,
             st->nonPawnKey[them] ^= Zobrist::psq[captured][capsq];
 
             if (type_of(captured) & 1)
-            {
                 st->majorMaterial[them] -= PieceValue[captured];
-                st->majorPieceKey ^= Zobrist::psq[captured][capsq];
-            }
-
             else
                 st->minorPieceKey ^= Zobrist::psq[captured][capsq];
         }
@@ -567,15 +558,8 @@ void Position::do_move(Move                      m,
         st->nonPawnKey[us] ^= Zobrist::psq[pc][from] ^ Zobrist::psq[pc][to];
 
         if (type_of(pc) == KING)
-        {
-            st->majorPieceKey ^= Zobrist::psq[pc][from] ^ Zobrist::psq[pc][to];
             st->minorPieceKey ^= Zobrist::psq[pc][from] ^ Zobrist::psq[pc][to];
-        }
-
-        else if (type_of(pc) & 1)
-            st->majorPieceKey ^= Zobrist::psq[pc][from] ^ Zobrist::psq[pc][to];
-
-        else
+        else if (!(type_of(pc) & 1))
             st->minorPieceKey ^= Zobrist::psq[pc][from] ^ Zobrist::psq[pc][to];
     }
 
