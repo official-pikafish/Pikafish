@@ -1293,23 +1293,22 @@ moves_loop:  // When in check, search starts here
         int bonusScale = (184 * (depth > 6) + 80 * !allNode + 152 * ((ss - 1)->moveCount > 11)
                           + 77 * (!ss->inCheck && bestValue <= ss->staticEval - 157)
                           + 169 * (!(ss - 1)->inCheck && bestValue <= -(ss - 1)->staticEval - 99)
-                          + 80 * ((ss - 1)->isTTMove));
+                          + 80 * ((ss - 1)->isTTMove) + std::min(-(ss - 1)->statScore / 79, 234));
 
-        // Proportional to "how much damage we have to undo"
-        bonusScale += std::min(-(ss - 1)->statScore / 79, 234);
 
         bonusScale = std::max(bonusScale, 0);
 
-        const int scaledBonus = stat_bonus(depth) * bonusScale / 32;
+        const int scaledBonus = stat_bonus(depth) * bonusScale;
 
         update_continuation_histories(ss - 1, pos.piece_on(prevSq), prevSq,
-                                      scaledBonus * 416 / 1024);
+                                      scaledBonus * 416 / 32768);
 
-        thisThread->mainHistory[~us][((ss - 1)->currentMove).from_to()] << scaledBonus * 212 / 1024;
+        thisThread->mainHistory[~us][((ss - 1)->currentMove).from_to()]
+          << scaledBonus * 212 / 32768;
 
         if (type_of(pos.piece_on(prevSq)) != PAWN)
             thisThread->pawnHistory[pawn_structure_index(pos)][pos.piece_on(prevSq)][prevSq]
-              << scaledBonus * 1073 / 1024;
+              << scaledBonus * 1073 / 32768;
     }
 
     else if (priorCapture && prevSq != SQ_NONE)
@@ -1349,14 +1348,8 @@ moves_loop:  // When in check, search starts here
         auto bonus = std::clamp(int(bestValue - ss->staticEval) * depth / 8,
                                 -CORRECTION_HISTORY_LIMIT / 4, CORRECTION_HISTORY_LIMIT / 4);
         thisThread->pawnCorrectionHistory[us][pawn_structure_index<Correction>(pos)]
-<<<<<<< HEAD
           << bonus * 148 / 128;
-        thisThread->majorPieceCorrectionHistory[us][major_piece_index(pos)] << bonus * 185 / 128;
         thisThread->minorPieceCorrectionHistory[us][minor_piece_index(pos)] << bonus * 101 / 128;
-=======
-          << bonus * 114 / 128;
-        thisThread->minorPieceCorrectionHistory[us][minor_piece_index(pos)] << bonus * 146 / 128;
->>>>>>> 831cb01c (Remove major corrhist)
         thisThread->nonPawnCorrectionHistory[WHITE][non_pawn_index<WHITE>(pos)][us]
           << bonus * nonPawnWeight / 128;
         thisThread->nonPawnCorrectionHistory[BLACK][non_pawn_index<BLACK>(pos)][us]
