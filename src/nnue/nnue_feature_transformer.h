@@ -26,6 +26,7 @@
 #include <cstdint>
 #include <cstring>
 #include <iosfwd>
+#include <type_traits>
 #include <utility>
 
 #include "../position.h"
@@ -175,6 +176,46 @@ using psqt_vec_t = int32x4_t;
 
 #endif
 
+// Returns the inverse of a permutation
+template<std::size_t Len>
+constexpr std::array<std::size_t, Len>
+invert_permutation(const std::array<std::size_t, Len>& order) {
+    std::array<std::size_t, Len> inverse{};
+    for (std::size_t i = 0; i < order.size(); i++)
+        inverse[order[i]] = i;
+    return inverse;
+}
+
+// Divide a byte region of size TotalSize to chunks of size
+// BlockSize, and permute the blocks by a given order
+template<std::size_t BlockSize, typename T, std::size_t N, std::size_t OrderSize>
+void permute(T (&data)[N], const std::array<std::size_t, OrderSize>& order) {
+    constexpr std::size_t TotalSize = N * sizeof(T);
+
+    static_assert(TotalSize % (BlockSize * OrderSize) == 0,
+                  "ChunkSize * OrderSize must perfectly divide TotalSize");
+
+    constexpr std::size_t ProcessChunkSize = BlockSize * OrderSize;
+
+    std::array<std::byte, ProcessChunkSize> buffer{};
+
+    std::byte* const bytes = reinterpret_cast<std::byte*>(data);
+
+    for (std::size_t i = 0; i < TotalSize; i += ProcessChunkSize)
+    {
+        std::byte* const values = &bytes[i];
+
+        for (std::size_t j = 0; j < OrderSize; j++)
+        {
+            auto* const buffer_chunk = &buffer[j * BlockSize];
+            auto* const value_chunk  = &values[order[j] * BlockSize];
+
+            std::copy(value_chunk, value_chunk + BlockSize, buffer_chunk);
+        }
+
+        std::copy(std::begin(buffer), std::end(buffer), values);
+    }
+}
 
 // Compute optimal SIMD register count for feature transformer accumulation.
 template<IndexType TransformedFeatureWidth, IndexType HalfDimensions>
@@ -251,58 +292,42 @@ class FeatureTransformer {
     // Size of forward propagation buffer
     static constexpr std::size_t BufferSize = OutputDimensions * sizeof(OutputType);
 
+    // Store the order by which 128-bit blocks of a 1024-bit data must
+    // be permuted so that calling packus on adjacent vectors of 16-bit
+    // integers loaded from the data results in the pre-permutation order
+    static constexpr auto PackusEpi16Order = []() -> std::array<std::size_t, 8> {
+#if defined(USE_AVX512) || defined(USE_AVX512F)
+        // _mm512_packus_epi16 after permutation:
+        // |   0   |   2   |   4   |   6   | // Vector 0
+        // |   1   |   3   |   5   |   7   | // Vector 1
+        // | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | // Packed Result
+        return {0, 2, 4, 6, 1, 3, 5, 7};
+#elif defined(USE_AVX2)
+        // _mm256_packus_epi16 after permutation:
+        // |   0   |   2   |  |   4   |   6   | // Vector 0, 2
+        // |   1   |   3   |  |   5   |   7   | // Vector 1, 3
+        // | 0 | 1 | 2 | 3 |  | 4 | 5 | 6 | 7 | // Packed Result
+        return {0, 2, 1, 3, 4, 6, 5, 7};
+#else
+        return {0, 1, 2, 3, 4, 5, 6, 7};
+#endif
+    }();
+
+    static constexpr auto InversePackusEpi16Order = invert_permutation(PackusEpi16Order);
+
     // Hash value embedded in the evaluation file
     static constexpr std::uint32_t get_hash_value() {
         return FeatureSet::HashValue ^ (OutputDimensions * 2);
     }
 
-    static void order_packs([[maybe_unused]] uint64_t* v) {
-#if defined(USE_AVX2)
-        vec_t* vec  = reinterpret_cast<vec_t*>(v);
-        vec_t  vec0 = vec[0], vec1 = vec[1];
-    #if defined(USE_AVX512) || defined(USE_AVX512F)  // _mm512_packs_epi16 ordering
-        vec[0] = __builtin_shufflevector(vec0, vec1, 0, 1, 8, 9, 2, 3, 10, 11);
-        vec[1] = __builtin_shufflevector(vec0, vec1, 4, 5, 12, 13, 6, 7, 14, 15);
-    #else  // _mm256_packs_epi16 ordering
-        vec[0] = __builtin_shufflevector(vec0, vec1, 0, 1, 4, 5);
-        vec[1] = __builtin_shufflevector(vec0, vec1, 2, 3, 6, 7);
-    #endif
-#endif
+    void permute_weights() {
+        permute<16>(biases, PackusEpi16Order);
+        permute<16>(weights, PackusEpi16Order);
     }
 
-    static void inverse_order_packs([[maybe_unused]] uint64_t* v) {
-#if defined(USE_AVX2)
-        vec_t* vec  = reinterpret_cast<vec_t*>(v);
-        vec_t  vec0 = vec[0], vec1 = vec[1];
-    #if defined(USE_AVX512) || defined(USE_AVX512F)  // Inverse _mm512_packs_epi16 ordering
-        vec[0] = __builtin_shufflevector(vec0, vec1, 0, 1, 4, 5, 8, 9, 12, 13);
-        vec[1] = __builtin_shufflevector(vec0, vec1, 2, 3, 6, 7, 10, 11, 14, 15);
-    #else  // Inverse _mm256_packs_epi16 ordering
-        vec[0] = __builtin_shufflevector(vec0, vec1, 0, 1, 4, 5);
-        vec[1] = __builtin_shufflevector(vec0, vec1, 2, 3, 6, 7);
-    #endif
-#endif
-    }
-
-    void permute_weights([[maybe_unused]] void (*order_fn)(uint64_t*)) {
-#if defined(USE_AVX2)
-    #if defined(USE_AVX512) || defined(USE_AVX512F)
-        constexpr IndexType di = 16;
-    #else
-        constexpr IndexType di = 8;
-    #endif
-        uint64_t* b = reinterpret_cast<uint64_t*>(&biases[0]);
-        for (IndexType i = 0; i < HalfDimensions * sizeof(BiasType) / sizeof(uint64_t); i += di)
-            order_fn(&b[i]);
-
-        for (IndexType j = 0; j < InputDimensions; ++j)
-        {
-            uint64_t* w = reinterpret_cast<uint64_t*>(&weights[j * HalfDimensions]);
-            for (IndexType i = 0; i < HalfDimensions * sizeof(WeightType) / sizeof(uint64_t);
-                 i += di)
-                order_fn(&w[i]);
-        }
-#endif
+    void unpermute_weights() {
+        permute<16>(biases, InversePackusEpi16Order);
+        permute<16>(weights, InversePackusEpi16Order);
     }
 
     inline void scale_weights(bool read) {
@@ -324,7 +349,7 @@ class FeatureTransformer {
         read_leb_128<WeightType>(stream, weights, HalfDimensions * InputDimensions);
         read_leb_128<PSQTWeightType>(stream, psqtWeights, PSQTBuckets * InputDimensions);
 
-        permute_weights(inverse_order_packs);
+        permute_weights();
         scale_weights(true);
         return !stream.fail();
     }
@@ -332,14 +357,14 @@ class FeatureTransformer {
     // Write network parameters
     bool write_parameters(std::ostream& stream) {
 
-        permute_weights(order_packs);
+        unpermute_weights();
         scale_weights(false);
 
         write_leb_128<BiasType>(stream, biases, HalfDimensions);
         write_leb_128<WeightType>(stream, weights, HalfDimensions * InputDimensions);
         write_leb_128<PSQTWeightType>(stream, psqtWeights, PSQTBuckets * InputDimensions);
 
-        permute_weights(inverse_order_packs);
+        permute_weights();
         scale_weights(true);
         return !stream.fail();
     }
