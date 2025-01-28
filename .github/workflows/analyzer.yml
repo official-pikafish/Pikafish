@@ -89,7 +89,7 @@ jobs:
           make analyze
           COMP=clang
           CXX=include-what-you-use
-          CXXFLAGS="-stdlib=libc++ -Xiwyu --comment_style=long -Xiwyu --mapping='${{ github.workspace }}/Pikafish/.github/workflows/libcxx17.imp' -Xiwyu --error"
+          CXXFLAGS="-stdlib=libc++ -Xiwyu --exclude=external/** -Xiwyu --comment_style=long -Xiwyu --mapping='${{ github.workspace }}/Pikafish/.github/workflows/libcxx17.imp' -Xiwyu --error"
 
   Clang-Format:
     name: Check format
