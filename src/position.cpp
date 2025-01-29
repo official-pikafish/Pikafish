@@ -495,9 +495,11 @@ void Position::do_move(Move                      m,
 
     if (pc == make_piece(us, KING))
     {
-        dp.requires_refresh[us] = true;
-        bool mirror_before = Eval::NNUE::FeatureSet::KingBuckets[king_square(them)][from].second;
-        bool mirror_after  = Eval::NNUE::FeatureSet::KingBuckets[king_square(them)][to].second;
+        bool mirror_before        = Eval::NNUE::FeatureSet::NeedMirror[from][king_square(them)];
+        bool mirror_after         = Eval::NNUE::FeatureSet::NeedMirror[to][king_square(them)];
+        dp.requires_refresh[us]   = (mirror_before != mirror_after);
+        mirror_before             = Eval::NNUE::FeatureSet::NeedMirror[king_square(them)][from];
+        mirror_after              = Eval::NNUE::FeatureSet::NeedMirror[king_square(them)][to];
         dp.requires_refresh[them] = (mirror_before != mirror_after);
     }
     else

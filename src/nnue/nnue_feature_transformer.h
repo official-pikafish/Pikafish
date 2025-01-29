@@ -527,11 +527,10 @@ class FeatureTransformer {
         assert(computed->accumulator.computed[Perspective]);
         assert(computed->next != nullptr);
 
-        const Square ksq           = pos.king_square(Perspective);
-        const Square oksq          = pos.king_square(~Perspective);
-        auto [king_bucket, mirror] = FeatureSet::KingBuckets[ksq][oksq];
-        auto attack_bucket         = FeatureSet::make_attack_bucket(pos, Perspective);
-        auto bucket                = king_bucket * 6 + attack_bucket;
+        const Square ksq    = pos.king_square(Perspective);
+        const Square oksq   = pos.king_square(~Perspective);
+        bool         mirror = FeatureSet::NeedMirror[ksq][oksq];
+        auto         bucket = FeatureSet::make_attack_bucket(pos, Perspective);
 
         // The size must be enough to contain the largest possible update.
         // That might depend on the feature set and generally relies on the
@@ -689,17 +688,12 @@ class FeatureTransformer {
     void update_accumulator_refresh(const Position& pos, AccumulatorCaches::Cache* cache) const {
         assert(cache != nullptr);
 
-        const Square ksq           = pos.king_square(Perspective);
-        const Square oksq          = pos.king_square(~Perspective);
-        auto [king_bucket, mirror] = FeatureSet::KingBuckets[ksq][oksq];
-        auto attack_bucket         = FeatureSet::make_attack_bucket(pos, Perspective);
-        auto bucket                = king_bucket * 6 + attack_bucket;
+        const Square ksq    = pos.king_square(Perspective);
+        const Square oksq   = pos.king_square(~Perspective);
+        bool         mirror = FeatureSet::NeedMirror[ksq][oksq];
+        auto         bucket = FeatureSet::make_attack_bucket(pos, Perspective);
 
-        auto cache_index = AccumulatorCaches::KingCacheMaps[ksq];
-        if (cache_index < 3 && mirror)
-            cache_index += 9;
-
-        auto&                 entry = (*cache)[cache_index * 6 + attack_bucket][Perspective];
+        auto&                 entry = (*cache)[bucket * 2 + mirror][Perspective];
         FeatureSet::IndexList removed, added;
 
         for (Color c : {WHITE, BLACK})

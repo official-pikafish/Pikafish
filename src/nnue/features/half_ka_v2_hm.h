@@ -75,10 +75,10 @@ class HalfKAv2_hm {
     static constexpr std::uint32_t HashValue = 0xd17b100;
 
     // Number of feature dimensions
-    static constexpr IndexType Dimensions = 6 * 2 * 3 * static_cast<IndexType>(PS_NB);
+    static constexpr IndexType Dimensions = 2 * 3 * static_cast<IndexType>(PS_NB);
 
-    // Get king_index and mirror information
-    static constexpr auto KingBuckets = []() {
+    // Get Mirror information
+    static constexpr auto NeedMirror = []() {
 #define M(s) ((1 << 3) | s)
         // Stored as (mirror << 3 | bucket)
         constexpr uint8_t KingBuckets[SQUARE_NB] = {
@@ -96,7 +96,7 @@ class HalfKAv2_hm {
           // clang-format on
         };
 #undef M
-        std::array<std::array<std::pair<int, bool>, SQUARE_NB>, SQUARE_NB> v{};
+        std::array<std::array<bool, SQUARE_NB>, SQUARE_NB> v{};
         for (uint8_t ksq = SQ_A0; ksq <= SQ_I9; ++ksq)
             for (uint8_t oksq = SQ_A0; oksq <= SQ_I9; ++oksq)
             {
@@ -104,8 +104,7 @@ class HalfKAv2_hm {
                 int     king_bucket  = king_bucket_ & 0x7;
                 bool    mirror =
                   (king_bucket_ >> 3) || ((king_bucket & 1) && (KingBuckets[oksq] >> 3));
-                v[ksq][oksq].first  = king_bucket;
-                v[ksq][oksq].second = mirror;
+                v[ksq][oksq] = mirror;
             }
         return v;
     }();
