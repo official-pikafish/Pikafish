@@ -770,8 +770,7 @@ bool Position::see_ge(Move m, int threshold) const {
 
         else if ((bb = stmAttackers & pieces(ROOK)))
         {
-            if ((swap = RookValue - swap) < res)
-                break;
+            swap = RookValue - swap;
             occupied ^= least_significant_square_bb(bb);
 
             nonCannons |= attacks_bb<ROOK>(to, occupied) & pieces(ROOK);
