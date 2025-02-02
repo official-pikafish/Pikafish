@@ -780,8 +780,8 @@ Value Search::Worker::search(
     // Step 9. Internal iterative reductions
     // For PV nodes without a ttMove as well as for deep enough cutNodes, we decrease depth.
     // (* Scaler) Especially if they make IIR more aggressive.
-    if (((PvNode || cutNode) && depth >= 7 - 4 * PvNode) && !ttData.move)
-        depth -= 2;
+    if (((PvNode || cutNode) && depth >= 7 - 3 * PvNode) && !ttData.move)
+        depth--;
 
     // Step 10. ProbCut
     // If we have a good enough capture and a reduced search
@@ -938,7 +938,7 @@ moves_loop:  // When in check, search starts here
                 if (!givesCheck && lmrDepth < 18 && !ss->inCheck)
                 {
                     Value futilityValue = ss->staticEval + 332 + 371 * lmrDepth
-                                        + PieceValue[capturedPiece] + captHist / 5;
+                                        + PieceValue[capturedPiece] + 100 * captHist / 500;
                     if (futilityValue <= alpha)
                         continue;
                 }
@@ -959,7 +959,7 @@ moves_loop:  // When in check, search starts here
                 if (history < -3190 * depth)
                     continue;
 
-                history += 2 * thisThread->mainHistory[us][move.from_to()];
+                history += 64 * thisThread->mainHistory[us][move.from_to()] / 32;
 
                 lmrDepth += history / 3718;
 
@@ -1011,10 +1011,11 @@ moves_loop:  // When in check, search starts here
 
                 if (value < singularBeta)
                 {
-                    int corrValAdj   = std::abs(correctionValue) / 262144;
-                    int doubleMargin = 249 * PvNode - 194 * !ttCapture - corrValAdj;
+                    int corrValAdj1  = std::abs(correctionValue) / 265083;
+                    int corrValAdj2  = std::abs(correctionValue) / 253680;
+                    int doubleMargin = 267 * PvNode - 181 * !ttCapture - corrValAdj1;
                     int tripleMargin =
-                      94 + 287 * PvNode - 249 * !ttCapture + 99 * ss->ttPv - corrValAdj;
+                      96 + 282 * PvNode - 250 * !ttCapture + 103 * ss->ttPv - corrValAdj2;
 
                     extension = 1 + (value < singularBeta - doubleMargin)
                               + (value < singularBeta - tripleMargin);
@@ -1047,13 +1048,6 @@ moves_loop:  // When in check, search starts here
                 else if (cutNode)
                     extension = -2;
             }
-
-            // Extension for capturing the previous moved piece
-            else if (PvNode && move.to_sq() == prevSq
-                     && thisThread->captureHistory[movedPiece][move.to_sq()]
-                                                  [type_of(pos.piece_on(move.to_sq()))]
-                          > 5255)
-                extension = 1;
         }
 
         // Step 15. Make the move
@@ -1103,7 +1097,7 @@ moves_loop:  // When in check, search starts here
 
         if (capture)
             ss->statScore =
-              7 * int(PieceValue[pos.captured_piece()])
+              700 * int(PieceValue[pos.captured_piece()]) / 100
               + thisThread->captureHistory[movedPiece][move.to_sq()][type_of(pos.captured_piece())]
               - 5000;
         else
@@ -1312,10 +1306,10 @@ moves_loop:  // When in check, search starts here
     // Bonus for prior countermove that caused the fail low
     else if (!priorCapture && prevSq != SQ_NONE)
     {
-        int bonusScale = (195 * (depth > 6) + 161 * ((ss - 1)->moveCount > 11)
-                          + 82 * (!ss->inCheck && bestValue <= ss->staticEval - 157)
-                          + 179 * (!(ss - 1)->inCheck && bestValue <= -(ss - 1)->staticEval - 99)
-                          + 85 * ((ss - 1)->isTTMove) + std::min(-(ss - 1)->statScore / 79, 234));
+        int bonusScale = (184 * (depth > 6) + 80 * !allNode + 152 * ((ss - 1)->moveCount > 11)
+                          + 77 * (!ss->inCheck && bestValue <= ss->staticEval - 157)
+                          + 169 * (!(ss - 1)->inCheck && bestValue <= -(ss - 1)->staticEval - 99)
+                          + 80 * ((ss - 1)->isTTMove) + std::min(-(ss - 1)->statScore / 79, 234));
 
         bonusScale = std::max(bonusScale, 0);
 
@@ -1750,7 +1744,7 @@ void update_all_stats(const Position&      pos,
 // at ply -1, -2, -3, -4, and -6 with current move.
 void update_continuation_histories(Stack* ss, Piece pc, Square to, int bonus) {
     static constexpr std::array<ConthistBonus, 6> conthist_bonuses = {
-      {{1, 1025}, {2, 621}, {3, 325}, {4, 512}, {5, 122}, {6, 534}}};
+      {{1, 1029}, {2, 656}, {3, 326}, {4, 536}, {5, 120}, {6, 537}}};
 
     for (const auto [i, weight] : conthist_bonuses)
     {

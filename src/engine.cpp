@@ -51,40 +51,46 @@ Engine::Engine(std::optional<std::string> path) :
     network(numaContext, NN::Network({EvalFileDefaultName, "None", ""})) {
     pos.set(StartFEN, &states->back());
 
-    options["Debug Log File"] << Option("", [](const Option& o) {
-        start_logger(o);
-        return std::nullopt;
-    });
+    options.add("Debug Log File", Option("", [](const Option& o) {
+                    start_logger(o);
+                    return std::nullopt;
+                }));
 
-    options["NumaPolicy"] << Option("auto", [this](const Option& o) {
-        set_numa_config_from_option(o);
-        return numa_config_information_as_string() + "\n"
-             + thread_allocation_information_as_string();
-    });
+    options.add("NumaPolicy", Option("auto", [this](const Option& o) {
+                    set_numa_config_from_option(o);
+                    return numa_config_information_as_string() + "\n"
+                         + thread_allocation_information_as_string();
+                }));
 
-    options["Threads"] << Option(1, 1, 1024, [this](const Option&) {
-        resize_threads();
-        return thread_allocation_information_as_string();
-    });
+    options.add("Threads", Option(1, 1, 1024, [this](const Option&) {
+                    resize_threads();
+                    return thread_allocation_information_as_string();
+                }));
 
-    options["Hash"] << Option(16, 1, MaxHashMB, [this](const Option& o) {
-        set_tt_size(o);
-        return std::nullopt;
-    });
+    options.add("Hash", Option(16, 1, MaxHashMB, [this](const Option& o) {
+                    set_tt_size(o);
+                    return std::nullopt;
+                }));
 
-    options["Clear Hash"] << Option([this](const Option&) {
-        search_clear();
-        return std::nullopt;
-    });
-    options["Ponder"] << Option(false);
-    options["MultiPV"] << Option(1, 1, MAX_MOVES);
-    options["Move Overhead"] << Option(10, 0, 5000);
-    options["nodestime"] << Option(0, 0, 10000);
-    options["UCI_ShowWDL"] << Option(false);
-    options["EvalFile"] << Option(EvalFileDefaultName, [this](const Option& o) {
-        load_network(o);
-        return std::nullopt;
-    });
+    options.add("Clear Hash", Option([this](const Option&) {
+                    search_clear();
+                    return std::nullopt;
+                }));
+
+    options.add("Ponder", Option(false));
+
+    options.add("MultiPV", Option(1, 1, MAX_MOVES));
+
+    options.add("Move Overhead", Option(10, 0, 5000));
+
+    options.add("nodestime", Option(0, 0, 10000));
+
+    options.add("UCI_ShowWDL", Option(false));
+
+    options.add("EvalFile", Option(EvalFileDefaultName, [this](const Option& o) {
+                    load_network(o);
+                    return std::nullopt;
+                }));
 
     load_network(options["EvalFile"]);
     resize_threads();
