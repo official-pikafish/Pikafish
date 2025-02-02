@@ -1158,8 +1158,8 @@ moves_loop:  // When in check, search starts here
                 r += 1744;
 
             // Note that if expected reduction is high, we reduce search depth here
-            value =
-              -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, newDepth - (r > 4047), !cutNode);
+            value = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha,
+                                   newDepth - (r > 4047) - (r > 5588 && newDepth > 2), !cutNode);
         }
 
         // For PV nodes only, do a full PV search on the first move or after a fail high,
