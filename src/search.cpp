@@ -1309,7 +1309,8 @@ moves_loop:  // When in check, search starts here
         int bonusScale = (184 * (depth > 6) + 80 * !allNode + 152 * ((ss - 1)->moveCount > 11)
                           + 77 * (!ss->inCheck && bestValue <= ss->staticEval - 157)
                           + 169 * (!(ss - 1)->inCheck && bestValue <= -(ss - 1)->staticEval - 99)
-                          + 80 * ((ss - 1)->isTTMove) + std::min(-(ss - 1)->statScore / 79, 234));
+                          + 80 * ((ss - 1)->isTTMove) + 100 * (ss->cutoffCnt <= 3)
+                          + std::min(-(ss - 1)->statScore / 79, 234));
 
         bonusScale = std::max(bonusScale, 0);
 
