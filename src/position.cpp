@@ -235,17 +235,11 @@ void Position::set_state() const {
         {
             st->nonPawnKey[color_of(pc)] ^= Zobrist::psq[pc][s];
 
-            if (pt != KING)
+            if (pt != KING && (pt & 1))
             {
-                if (pt & 1)
-                    st->majorMaterial[color_of(pc)] += PieceValue[pc];
-                else
+                st->majorMaterial[color_of(pc)] += PieceValue[pc];
+                if (pt != ROOK)
                     st->minorPieceKey ^= Zobrist::psq[pc][s];
-            }
-
-            else
-            {
-                st->minorPieceKey ^= Zobrist::psq[pc][s];
             }
         }
     }
@@ -521,9 +515,11 @@ void Position::do_move(Move                      m,
             st->nonPawnKey[them] ^= Zobrist::psq[captured][capsq];
 
             if (type_of(captured) & 1)
+            {
                 st->majorMaterial[them] -= PieceValue[captured];
-            else
-                st->minorPieceKey ^= Zobrist::psq[captured][capsq];
+                if (type_of(captured) != ROOK)
+                    st->minorPieceKey ^= Zobrist::psq[captured][capsq];
+            }
         }
 
         dp.dirty_num = 2;  // 1 piece moved, 1 piece captured
@@ -557,9 +553,7 @@ void Position::do_move(Move                      m,
     {
         st->nonPawnKey[us] ^= Zobrist::psq[pc][from] ^ Zobrist::psq[pc][to];
 
-        if (type_of(pc) == KING)
-            st->minorPieceKey ^= Zobrist::psq[pc][from] ^ Zobrist::psq[pc][to];
-        else if (!(type_of(pc) & 1))
+        if (type_of(pc) == KNIGHT && type_of(pc) == CANNON)
             st->minorPieceKey ^= Zobrist::psq[pc][from] ^ Zobrist::psq[pc][to];
     }
 
