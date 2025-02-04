@@ -56,8 +56,6 @@ class Network {
 
     NetworkOutput evaluate(const Position& pos, AccumulatorCaches::Cache* cache) const;
 
-    void hint_common_access(const Position& pos, AccumulatorCaches::Cache* cache) const;
-
     void verify(std::string evalfilePath, const std::function<void(std::string_view)>&) const;
     NnueEvalTrace trace_evaluate(const Position& pos, AccumulatorCaches::Cache* cache) const;
 

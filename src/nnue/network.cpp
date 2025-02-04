@@ -203,11 +203,6 @@ void Network::verify(std::string                                  evalfilePath,
 }
 
 
-void Network::hint_common_access(const Position& pos, AccumulatorCaches::Cache* cache) const {
-    featureTransformer->hint_common_access(pos, cache);
-}
-
-
 NnueEvalTrace Network::trace_evaluate(const Position& pos, AccumulatorCaches::Cache* cache) const {
     // We manually align the arrays on the stack because with gcc < 9.3
     // overaligning stack variables with alignas() doesn't work correctly.

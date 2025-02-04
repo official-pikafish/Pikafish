@@ -65,8 +65,8 @@ struct StateInfo {
     Move       move;
 
     // Used by NNUE
-    Eval::NNUE::Accumulator accumulator;
     DirtyPiece              dirtyPiece;
+    Eval::NNUE::Accumulator accumulator;
 };
 
 

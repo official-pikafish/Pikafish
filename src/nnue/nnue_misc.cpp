@@ -40,13 +40,6 @@ namespace Stockfish::Eval::NNUE {
 constexpr std::string_view PieceToChar(" RACPNBK racpnbk");
 
 
-void hint_common_parent_position(const Position&    pos,
-                                 const Network&     network,
-                                 AccumulatorCaches& caches) {
-
-    network.hint_common_access(pos, &caches.cache);
-}
-
 namespace {
 // Converts a Value into (centi)pawns and writes it in a buffer.
 // The buffer must have capacity for at least 5 chars.
