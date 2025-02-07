@@ -108,7 +108,8 @@ void update_correction_history(const Position& pos,
       << bonus * nonPawnWeight / 128;
 
     if (m.is_ok())
-        (*(ss - 2)->continuationCorrectionHistory)[pos.piece_on(m.to_sq())][m.to_sq()] << bonus;
+        (*(ss - 2)->continuationCorrectionHistory)[pos.piece_on(m.to_sq())][m.to_sq()]
+          << bonus * 128 / 128;
 }
 
 // History and stats update bonus, based on depth
@@ -508,7 +509,7 @@ void Search::Worker::clear() {
                     h.fill(-427);
 
     for (size_t i = 1; i < reductions.size(); ++i)
-        reductions[i] = int(14.60 * std::log(i));
+        reductions[i] = int(1460 / 100.0 * std::log(i));
 
     refreshTable.clear(network[numaAccessToken]);
 }
@@ -1629,7 +1630,7 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
 
 Depth Search::Worker::reduction(bool i, Depth d, int mn, int delta) const {
     int reductionScale = reductions[d] * reductions[mn];
-    return reductionScale - delta * 1181 / rootDelta + !i * reductionScale / 3 + 2199;
+    return reductionScale - delta * 1181 / rootDelta + !i * reductionScale * 100 / 300 + 2199;
 }
 
 // elapsed() returns the time elapsed since the search started. If the
