@@ -120,16 +120,16 @@ class HalfKAv2_hm {
                         if (rook != 0)
                             if (knight > 0 && cannon > 0)
                                 return 0;
-                            else if (rook == 1 && knight + cannon <= 1)
-                                return 2;
-                            else
+                            else if (rook == 2 || knight + cannon > 1)
                                 return 1;
+                            else
+                                return 2;
                         else if (knight > 0 && cannon > 0)
                             return 3;
-                        else if (knight + cannon <= 1)
-                            return 5;
-                        else
+                        else if (knight + cannon > 1)
                             return 4;
+                        else
+                            return 5;
                     }();
         return v;
     }();
@@ -184,9 +184,8 @@ class HalfKAv2_hm {
                                 return 13;
                             else if (us_rook > 0 && opp_rook == 0)
                                 return 14;
-                            else if (us_rook == 0 && opp_rook > 0)
+                            else  // us_rook == 0 && opp_rook > 0
                                 return 15;
-                            return -1;
                         }();
         return v;
     }();
