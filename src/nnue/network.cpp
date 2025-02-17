@@ -193,9 +193,8 @@ void Network::verify(std::string                                  evalfilePath,
     if (f)
     {
         size_t size = sizeof(*featureTransformer) + sizeof(NetworkArchitecture) * LayerStacks;
-        f("info string NNUE evaluation using " + evalfilePath + " ("
-          + std::to_string(size / (1024 * 1024)) + "MiB, ("
-          + std::to_string(featureTransformer->InputDimensions) + ", "
+        f("NNUE evaluation using " + evalfilePath + " (" + std::to_string(size / (1024 * 1024))
+          + "MiB, (" + std::to_string(featureTransformer->InputDimensions) + ", "
           + std::to_string(TransformedFeatureDimensions) + ", "
           + std::to_string(NetworkArchitecture::FC_0_OUTPUTS) + ", "
           + std::to_string(NetworkArchitecture::FC_1_OUTPUTS) + ", 1))");
