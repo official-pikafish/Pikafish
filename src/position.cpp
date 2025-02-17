@@ -1085,8 +1085,8 @@ bool Position::rule_judge(Value& result, int ply) {
             }
 
             // Two cannons left on the board, one for each side, and no advisors left on the board
-            if (major_material() == CannonValue * 2 && count<ADVISOR>() == 0
-                && count<CANNON>(WHITE) == 1 && count<CANNON>(BLACK) == 1)
+            if (major_material(WHITE) == CannonValue && major_material(BLACK) == CannonValue
+                && count<ADVISOR>() == 0)
                 return count<BISHOP>() == 0 ? DIRECT_DRAW : MATE_DRAW;
 
             return NO_DRAW;
