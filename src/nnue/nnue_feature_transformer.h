@@ -889,8 +889,7 @@ class FeatureTransformer {
         auto bucket        = king_bucket * 6 + attack_bucket;
 
         // Look for a usable already computed accumulator of an earlier position.
-        // When computing the accumulator, we expect to be able to reuse any
-        // accumulators, so we always try to do an incremental update.
+        // Always try to do an incremental update as most accumulators will be reusable.
         do
         {
             if (FeatureSet::requires_refresh(st, Perspective) || !st->previous

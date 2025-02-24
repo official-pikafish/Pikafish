@@ -70,10 +70,6 @@ template void HalfKAv2_hm::append_changed_indices<WHITE>(
 template void HalfKAv2_hm::append_changed_indices<BLACK>(
   int bucket, bool mirror, const DirtyPiece& dp, IndexList& removed, IndexList& added);
 
-int HalfKAv2_hm::update_cost(const StateInfo* st) { return st->dirtyPiece.dirty_num; }
-
-int HalfKAv2_hm::refresh_cost(const Position& pos) { return pos.count<ALL_PIECES>(); }
-
 bool HalfKAv2_hm::requires_refresh(const StateInfo* st, Color perspective) {
     return st->dirtyPiece.requires_refresh[perspective];
 }

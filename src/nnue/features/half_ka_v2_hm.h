@@ -213,11 +213,6 @@ class HalfKAv2_hm {
     static void append_changed_indices(
       int bucket, bool mirror, const DirtyPiece& dp, IndexList& removed, IndexList& added);
 
-    // Returns the cost of updating one perspective, the most costly one.
-    // Assumes no refresh needed.
-    static int update_cost(const StateInfo* st);
-    static int refresh_cost(const Position& pos);
-
     // Returns whether the change stored in this StateInfo means
     // that a full accumulator refresh is required.
     static bool requires_refresh(const StateInfo* st, Color perspective);
