@@ -89,16 +89,16 @@ int risk_tolerance(const Position& pos, Value v) {
         return -345600 * x / (x * x + 3 * y * y);
     };
 
-    int material = pos.count<PAWN>() + 3 * pos.count<KNIGHT>() + 3 * pos.count<BISHOP>()
-                 + 5 * pos.count<ROOK>() + 9 * pos.count<QUEEN>();
+    int material = 10 * pos.count<ROOK>() + 5 * pos.count<KNIGHT>() + 5 * pos.count<CANNON>()
+                 + 3 * pos.count<BISHOP>() + 2 * pos.count<ADVISOR>() + pos.count<PAWN>();
 
-    int m = std::clamp(material, 17, 78);
+    int m = std::clamp(material, 17, 110);
 
     // a and b are the crude approximation of the wdl model.
     // The win rate is: 1/(1+exp((a-v)/b))
     // The loss rate is 1/(1+exp((v+a)/b))
-    int a = ((-m * 3220 / 256 + 2361) * m / 256 - 586) * m / 256 + 421;
-    int b = ((m * 7761 / 256 - 2674) * m / 256 + 314) * m / 256 + 51;
+    int a = ((m * 13477 / 256 - 12570) * m / 256 - 3658) * m / 256 + 80;
+    int b = ((m * 3787 / 256 - 3625) * m / 256 + 1283) * m / 256 - 69;
 
 
     // The risk utility is therefore d/dv^2 (1/(1+exp(-(v-a)/b)) -1/(1+exp(-(-v-a)/b)))
