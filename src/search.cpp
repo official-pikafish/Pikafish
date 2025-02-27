@@ -605,8 +605,7 @@ Value Search::Worker::search(
     Value bestValue, value, eval, maxValue, probCutBeta;
     bool  givesCheck, improving, priorCapture, opponentWorsening;
     bool  capture, ttCapture;
-    int   priorReduction = (ss - 1)->reduction;
-    (ss - 1)->reduction  = 0;
+    int   priorReduction;
     Piece movedPiece;
 
     ValueList<Move, 32> capturesSearched;
@@ -667,11 +666,13 @@ Value Search::Worker::search(
 
     assert(0 <= ss->ply && ss->ply < MAX_PLY);
 
-    bestMove            = Move::none();
+    Square prevSq  = ((ss - 1)->currentMove).is_ok() ? ((ss - 1)->currentMove).to_sq() : SQ_NONE;
+    bestMove       = Move::none();
+    priorReduction = (ss - 1)->reduction;
+    (ss - 1)->reduction = 0;
+    ss->statScore       = 0;
+    ss->isPvNode        = PvNode;
     (ss + 2)->cutoffCnt = 0;
-    Square prevSq = ((ss - 1)->currentMove).is_ok() ? ((ss - 1)->currentMove).to_sq() : SQ_NONE;
-    ss->statScore = 0;
-    ss->isPvNode  = PvNode;
 
     // Step 4. Transposition table lookup
     excludedMove                   = ss->excludedMove;
@@ -837,8 +838,8 @@ Value Search::Worker::search(
 
     // Step 9. Internal iterative reductions
     // For PV nodes without a ttMove as well as for deep enough cutNodes, we decrease depth.
-    // (* Scaler) Especially if they make IIR more aggressive.
-    if (((PvNode || cutNode) && depth >= 7 - 3 * PvNode) && !ttData.move)
+    // (*Scaler) Especially if they make IIR less aggressive.
+    if (depth >= 7 - 3 * PvNode && !allNode && !ttData.move)
         depth--;
 
     // Step 10. ProbCut
@@ -1051,7 +1052,7 @@ moves_loop:  // When in check, search starts here
             // and if the result is lower than ttValue minus a margin, then we will
             // extend the ttMove. Recursive singular search is avoided.
 
-            // (* Scaler) Generally, higher singularBeta (i.e closer to ttValue)
+            // (*Scaler) Generally, higher singularBeta (i.e closer to ttValue)
             // and lower extension margins scale well.
 
             if (!rootNode && move == ttData.move && !excludedMove
@@ -1131,8 +1132,8 @@ moves_loop:  // When in check, search starts here
 
         // These reduction adjustments have no proven non-linear scaling
 
-        r += 330 - moveCount * 32;
-
+        r += 330;  // Base reduction offset to compensate for other tweaks
+        r -= moveCount * 32;
         r -= std::abs(correctionValue) / 32768;
 
         if (PvNode && std::abs(bestValue) <= 2000)
@@ -1178,17 +1179,13 @@ moves_loop:  // When in check, search starts here
             // beyond the first move depth.
             // To prevent problems when the max value is less than the min value,
             // std::clamp has been replaced by a more robust implementation.
-
-
             Depth d = std::max(1, std::min(newDepth - r / 1024,
                                            newDepth + !allNode + (PvNode && !bestMove)))
                     + (!cutNode && (ss - 1)->isPvNode && moveCount < 8);
 
             ss->reduction = newDepth - d;
-
             value         = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, d, true);
             ss->reduction = 0;
-
 
             // Do a full-depth search when reduced LMR search fails high
             if (value > alpha && d < newDepth)
@@ -1385,12 +1382,14 @@ moves_loop:  // When in check, search starts here
     // Bonus for prior quiet countermove that caused the fail low
     else if (!priorCapture && prevSq != SQ_NONE)
     {
-        int bonusScale =
-          (std::min(78 * depth - 312, 194) + 80 * !allNode + 152 * ((ss - 1)->moveCount > 11)
-           + 77 * (!ss->inCheck && bestValue <= ss->staticEval - 157)
-           + 169 * (!(ss - 1)->inCheck && bestValue <= -(ss - 1)->staticEval - 99)
-           + 80 * ((ss - 1)->isTTMove) + 100 * (ss->cutoffCnt <= 3)
-           + std::min(-(ss - 1)->statScore / 79, 234));
+        int bonusScale = std::min(-(ss - 1)->statScore / 79, 234);
+        bonusScale += std::min(78 * depth - 312, 194);
+        bonusScale += 80 * !allNode;
+        bonusScale += 152 * ((ss - 1)->moveCount > 11);
+        bonusScale += 80 * (ss - 1)->isTTMove;
+        bonusScale += 100 * (ss->cutoffCnt <= 3);
+        bonusScale += 77 * (!ss->inCheck && bestValue <= ss->staticEval - 157);
+        bonusScale += 169 * (!(ss - 1)->inCheck && bestValue <= -(ss - 1)->staticEval - 99);
 
         bonusScale = std::max(bonusScale, 0);
 
@@ -1783,14 +1782,14 @@ void update_all_stats(const Position&      pos,
                       ValueList<Move, 32>& quietsSearched,
                       ValueList<Move, 32>& capturesSearched,
                       Depth                depth,
-                      Move                 TTMove,
+                      Move                 ttMove,
                       int                  moveCount) {
 
     CapturePieceToHistory& captureHistory = workerThread.captureHistory;
     Piece                  moved_piece    = pos.moved_piece(bestMove);
     PieceType              captured;
 
-    int bonus = std::min(158 * depth - 87, 2168) + 300 * (bestMove == TTMove);
+    int bonus = std::min(158 * depth - 87, 2168) + 300 * (bestMove == ttMove);
     int malus = std::min(977 * depth - 282, 1524) - 34 * (moveCount - 1);
 
     if (!pos.capture(bestMove))
