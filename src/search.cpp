@@ -26,6 +26,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <initializer_list>
+#include <limits>
 #include <string>
 #include <utility>
 
@@ -86,29 +87,28 @@ int correction_value(const Worker& w, const Position& pos, const Stack* const ss
 int risk_tolerance(const Position& pos, Value v) {
     // Returns (some constant of) second derivative of sigmoid.
     static constexpr auto sigmoid_d2 = [](int x, int y) {
-        return -345600 * x / (x * x + 3 * y * y);
+        return 644800 * x / ((x * x + 3 * y * y) * y);
     };
 
-    int material =
-      (640 * pos.count<ROOK>() + 320 * pos.count<KNIGHT>() + 320 * pos.count<CANNON>()
-       + 192 * pos.count<BISHOP>() + 128 * pos.count<ADVISOR>() + 64 * pos.count<PAWN>())
-      / 64;
-
-    int m = std::clamp(material, 17, 110);
+    int m = (640 * pos.count<ROOK>() + 320 * pos.count<KNIGHT>() + 320 * pos.count<CANNON>()
+             + 192 * pos.count<BISHOP>() + 128 * pos.count<ADVISOR>() + 64 * pos.count<PAWN>())
+          / 64;
 
     // a and b are the crude approximation of the wdl model.
     // The win rate is: 1/(1+exp((a-v)/b))
     // The loss rate is 1/(1+exp((v+a)/b))
-    int a = ((m * 13477 / 256 - 12570) * m / 256 - 3658) * m / 256 + 80;
-    int b = ((m * 3787 / 256 - 3625) * m / 256 + 1283) * m / 256 - 69;
+    int a = 391;
+    int b = ((25 * m - 5287) * m + 61279) / 2048;
 
+    // guard against overflow
+    assert(abs(v) + a <= std::numeric_limits<int>::max() / 644800);
 
     // The risk utility is therefore d/dv^2 (1/(1+exp(-(v-a)/b)) -1/(1+exp(-(-v-a)/b)))
     // -115200x/(x^2+3) = -345600(ab) / (a^2+3b^2) (multiplied by some constant) (second degree pade approximant)
     int winning_risk = sigmoid_d2(v - a, b);
-    int losing_risk  = -sigmoid_d2(-v - a, b);
+    int losing_risk  = sigmoid_d2(v + a, b);
 
-    return (winning_risk + losing_risk) * 60 / b;
+    return -(winning_risk + losing_risk) * 32;
 }
 
 // Add correctionHistory value to raw staticEval and guarantee evaluation
@@ -1104,7 +1104,7 @@ moves_loop:  // When in check, search starts here
 
         r -= std::abs(correctionValue) / 32768;
 
-        if (PvNode && !is_decisive(bestValue))
+        if (PvNode && std::abs(bestValue) <= 2000)
             r -= risk_tolerance(pos, bestValue);
 
         // Increase reduction for cut nodes
