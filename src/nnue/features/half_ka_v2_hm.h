@@ -96,17 +96,21 @@ class HalfKAv2_hm {
           // clang-format on
         };
 #undef M
-        std::array<std::array<std::pair<int, bool>, SQUARE_NB>, SQUARE_NB> v{};
+        std::array<std::array<std::array<std::pair<int, bool>, 2>, SQUARE_NB>, SQUARE_NB> v{};
         for (uint8_t ksq = SQ_A0; ksq <= SQ_I9; ++ksq)
             for (uint8_t oksq = SQ_A0; oksq <= SQ_I9; ++oksq)
-            {
-                uint8_t king_bucket_ = KingBuckets[ksq];
-                int     king_bucket  = king_bucket_ & 0x7;
-                bool    mirror =
-                  (king_bucket_ >> 3) || ((king_bucket & 1) && (KingBuckets[oksq] >> 3));
-                v[ksq][oksq].first  = king_bucket;
-                v[ksq][oksq].second = mirror;
-            }
+                for (uint8_t midm = 0; midm <= 1; ++midm)
+                {
+                    uint8_t king_bucket_ = KingBuckets[ksq];
+                    int     king_bucket  = king_bucket_ & 0x7;
+                    int     oking_bucket = KingBuckets[oksq] & 0x7;
+                    bool    mirror =
+                      (king_bucket_ >> 3)
+                      || ((king_bucket & 1)
+                          && ((KingBuckets[oksq] >> 3) || (bool(oking_bucket & 1) && midm)));
+                    v[ksq][oksq][midm].first  = king_bucket;
+                    v[ksq][oksq][midm].second = mirror;
+                }
         return v;
     }();
 
