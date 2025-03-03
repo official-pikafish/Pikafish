@@ -487,19 +487,21 @@ void Position::do_move(Move                      m,
     Piece  pc       = piece_on(from);
     Piece  captured = piece_on(to);
 
+    assert(color_of(pc) == us);
+    assert(captured == NO_PIECE || color_of(captured) == them);
+    assert(type_of(captured) != KING);
+
     if (pc == make_piece(us, KING))
     {
         dp.requires_refresh[us] = true;
-        bool mirror_before = Eval::NNUE::FeatureSet::KingBuckets[king_square(them)][from].second;
-        bool mirror_after  = Eval::NNUE::FeatureSet::KingBuckets[king_square(them)][to].second;
+        bool mirror_before = Eval::NNUE::FeatureSet::KingBuckets[king_square(them)][from][0].second;
+        bool mirror_after  = Eval::NNUE::FeatureSet::KingBuckets[king_square(them)][to][0].second;
         dp.requires_refresh[them] = (mirror_before != mirror_after);
     }
     else
         dp.requires_refresh[us] = dp.requires_refresh[them] = false;
 
-    assert(color_of(pc) == us);
-    assert(captured == NO_PIECE || color_of(captured) == them);
-    assert(type_of(captured) != KING);
+    bool mid_mirror_before[2] = {mid_mirror(us), mid_mirror(them)};
 
     if (captured)
     {
@@ -563,6 +565,9 @@ void Position::do_move(Move                      m,
     dp.to[0]    = to;
 
     move_piece(from, to);
+
+    dp.requires_refresh[us] |= (mid_mirror_before[0] != mid_mirror(us));
+    dp.requires_refresh[them] |= (mid_mirror_before[1] != mid_mirror(them));
 
     // Update the key with the final value
     st->key = k;

@@ -705,15 +705,20 @@ class FeatureTransformer {
     void update_accumulator_refresh(const Position& pos, AccumulatorCaches::Cache* cache) const {
         assert(cache != nullptr);
 
-        const Square ksq           = pos.king_square(Perspective);
-        const Square oksq          = pos.king_square(~Perspective);
-        auto [king_bucket, mirror] = FeatureSet::KingBuckets[ksq][oksq];
-        auto attack_bucket         = FeatureSet::make_attack_bucket(pos, Perspective);
-        auto bucket                = king_bucket * 6 + attack_bucket;
+        const Square ksq  = pos.king_square(Perspective);
+        const Square oksq = pos.king_square(~Perspective);
+        auto [king_bucket, mirror] =
+          FeatureSet::KingBuckets[ksq][oksq][pos.mid_mirror(Perspective)];
+        auto attack_bucket = FeatureSet::make_attack_bucket(pos, Perspective);
+        auto bucket        = king_bucket * 6 + attack_bucket;
 
         auto cache_index = AccumulatorCaches::KingCacheMaps[ksq];
         if (cache_index < 3 && mirror)
+        {
             cache_index += 9;
+            if (pos.mid_mirror(Perspective))
+                cache_index += 3;
+        }
 
         auto&                 entry = (*cache)[cache_index * 6 + attack_bucket][Perspective];
         FeatureSet::IndexList removed, added;
@@ -876,11 +881,12 @@ class FeatureTransformer {
         if (st->accumulator.computed[Perspective])
             return;  // nothing to do
 
-        const Square ksq           = pos.king_square(Perspective);
-        const Square oksq          = pos.king_square(~Perspective);
-        auto [king_bucket, mirror] = FeatureSet::KingBuckets[ksq][oksq];
-        auto attack_bucket         = FeatureSet::make_attack_bucket(pos, Perspective);
-        auto bucket                = king_bucket * 6 + attack_bucket;
+        const Square ksq  = pos.king_square(Perspective);
+        const Square oksq = pos.king_square(~Perspective);
+        auto [king_bucket, mirror] =
+          FeatureSet::KingBuckets[ksq][oksq][pos.mid_mirror(Perspective)];
+        auto attack_bucket = FeatureSet::make_attack_bucket(pos, Perspective);
+        auto bucket        = king_bucket * 6 + attack_bucket;
 
         // Look for a usable already computed accumulator of an earlier position.
         // When computing the accumulator, we expect to be able to reuse any

@@ -108,6 +108,7 @@ class Position {
     template<PieceType Pt>
     int    count() const;
     Square king_square(Color c) const;
+    bool   mid_mirror(Color c) const;
 
     // Checking
     Bitboard checkers() const;
@@ -189,6 +190,7 @@ class Position {
     Bitboard   byColorBB[COLOR_NB];
     Square     kingSquare[COLOR_NB];
     int        pieceCount[PIECE_NB];
+    int        flankPCDiff[COLOR_NB];
     StateInfo* st;
     int        gamePly;
     Color      sideToMove;
@@ -238,6 +240,11 @@ inline int Position::count() const {
 }
 
 inline Square Position::king_square(Color c) const { return kingSquare[c]; }
+
+inline bool Position::mid_mirror(Color c) const {
+    return file_of(king_square(WHITE)) == FILE_E && file_of(king_square(BLACK)) == FILE_E
+        && (flankPCDiff[c] < 0 || (flankPCDiff[c] == 0 && flankPCDiff[~c] < 0));
+}
 
 inline Bitboard Position::attackers_to(Square s) const { return attackers_to(s, pieces()); }
 
@@ -304,6 +311,10 @@ inline void Position::put_piece(Piece pc, Square s) {
     byColorBB[color_of(pc)] |= s;
     pieceCount[pc]++;
     pieceCount[make_piece(color_of(pc), ALL_PIECES)]++;
+    if (file_of(s) < FILE_E)
+        flankPCDiff[color_of(pc)]++;
+    else if (file_of(s) > FILE_E)
+        flankPCDiff[color_of(pc)]--;
 }
 
 inline void Position::remove_piece(Square s) {
@@ -315,6 +326,10 @@ inline void Position::remove_piece(Square s) {
     board[s] = NO_PIECE;
     pieceCount[pc]--;
     pieceCount[make_piece(color_of(pc), ALL_PIECES)]--;
+    if (file_of(s) < FILE_E)
+        flankPCDiff[color_of(pc)]--;
+    else if (file_of(s) > FILE_E)
+        flankPCDiff[color_of(pc)]++;
 }
 
 inline void Position::move_piece(Square from, Square to) {
@@ -328,6 +343,14 @@ inline void Position::move_piece(Square from, Square to) {
     board[to]   = pc;
     if (type_of(pc) == KING)
         kingSquare[color_of(pc)] = to;
+    if (file_of(from) < FILE_E)
+        flankPCDiff[color_of(pc)]--;
+    else if (file_of(from) > FILE_E)
+        flankPCDiff[color_of(pc)]++;
+    if (file_of(to) < FILE_E)
+        flankPCDiff[color_of(pc)]++;
+    else if (file_of(to) > FILE_E)
+        flankPCDiff[color_of(pc)]--;
 }
 
 inline void Position::do_move(Move m, StateInfo& newSt, const TranspositionTable* tt = nullptr) {
