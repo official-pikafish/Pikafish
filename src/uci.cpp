@@ -152,11 +152,12 @@ void UCIEngine::loop() {
             sync_cout << compiler_info() << sync_endl;
         else if (token == "export_net")
         {
-            std::optional<std::string> file;
-            std::string                f;
-            if (is >> std::skipws >> f)
-                file = f;
-            engine.save_network(file);
+            std::pair<std::optional<std::string>, std::string> files;
+
+            if (is >> std::skipws >> files.second)
+                files.first = files.second;
+
+            engine.save_network(files);
         }
         else if (token == "--help" || token == "help" || token == "--license" || token == "license")
             sync_cout

@@ -34,7 +34,6 @@
 #include "search.h"
 #include "thread.h"
 #include "tt.h"
-#include "types.h"
 #include "ucioption.h"
 
 namespace Stockfish {
@@ -83,9 +82,10 @@ class Engine {
 
     // network related
 
-    void verify_network() const;
-    void load_network(const std::string& file);
-    void save_network(const std::optional<std::string>& file);
+    void verify_networks() const;
+    void load_networks();
+    void load_big_network(const std::string& file);
+    void save_network(const std::pair<std::optional<std::string>, std::string> files);
 
     // utility functions
 
@@ -113,10 +113,10 @@ class Engine {
     Position     pos;
     StateListPtr states;
 
-    OptionsMap                              options;
-    ThreadPool                              threads;
-    TranspositionTable                      tt;
-    LazyNumaReplicated<Eval::NNUE::Network> network;
+    OptionsMap                               options;
+    ThreadPool                               threads;
+    TranspositionTable                       tt;
+    LazyNumaReplicated<Eval::NNUE::Networks> networks;
 
     Search::SearchManager::UpdateContext  updateContext;
     std::function<void(std::string_view)> onVerifyNetworks;

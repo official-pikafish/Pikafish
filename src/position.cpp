@@ -32,7 +32,6 @@
 #include "bitboard.h"
 #include "misc.h"
 #include "movegen.h"
-#include "nnue/nnue_architecture.h"
 #include "tt.h"
 #include "uci.h"
 
@@ -440,10 +439,10 @@ bool Position::gives_check(Move m) const {
 // moves should be filtered out before this function is called.
 // If a pointer to the TT table is passed, the entry for the new position
 // will be prefetched
-void Position::do_move(Move                      m,
-                       StateInfo&                newSt,
-                       bool                      givesCheck,
-                       const TranspositionTable* tt = nullptr) {
+DirtyPiece Position::do_move(Move                      m,
+                             StateInfo&                newSt,
+                             bool                      givesCheck,
+                             const TranspositionTable* tt = nullptr) {
 
     assert(m.is_ok());
     assert(&newSt != st);
@@ -474,11 +473,8 @@ void Position::do_move(Move                      m,
     }
     ++st->pliesFromNull;
 
-    // Used by NNUE
-    st->accumulator.computed[WHITE] = false;
-    st->accumulator.computed[BLACK] = false;
-    auto& dp                        = st->dirtyPiece;
-    dp.dirty_num                    = 1;
+    DirtyPiece dp;
+    dp.dirty_num = 1;
 
     Color  us       = sideToMove;
     Color  them     = ~us;
@@ -587,6 +583,8 @@ void Position::do_move(Move                      m,
     set_check_info();
 
     assert(pos_is_ok());
+
+    return dp;
 }
 
 
@@ -634,7 +632,7 @@ void Position::do_null_move(StateInfo& newSt, const TranspositionTable& tt) {
     // Update the bloom filter
     ++filter[st->key];
 
-    std::memcpy(&newSt, st, offsetof(StateInfo, accumulator));
+    std::memcpy(&newSt, st, sizeof(StateInfo));
 
     newSt.previous = st;
     st->next       = &newSt;
@@ -642,12 +640,6 @@ void Position::do_null_move(StateInfo& newSt, const TranspositionTable& tt) {
 
     st->key ^= Zobrist::side;
     prefetch(tt.first_entry(key()));
-
-    st->dirtyPiece.dirty_num               = 0;  // Avoid checks in UpdateAccumulator()
-    st->dirtyPiece.requires_refresh[WHITE] = false;
-    st->dirtyPiece.requires_refresh[BLACK] = false;
-    st->accumulator.computed[WHITE]        = false;
-    st->accumulator.computed[BLACK]        = false;
 
     st->pliesFromNull = 0;
 

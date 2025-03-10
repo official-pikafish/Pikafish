@@ -70,8 +70,8 @@ template void HalfKAv2_hm::append_changed_indices<WHITE>(
 template void HalfKAv2_hm::append_changed_indices<BLACK>(
   int bucket, bool mirror, const DirtyPiece& dp, IndexList& removed, IndexList& added);
 
-bool HalfKAv2_hm::requires_refresh(const StateInfo* st, Color perspective) {
-    return st->dirtyPiece.requires_refresh[perspective];
+bool HalfKAv2_hm::requires_refresh(const DirtyPiece& dirtyPiece, Color perspective) {
+    return dirtyPiece.requires_refresh[perspective];
 }
 
 }  // namespace Stockfish::Eval::NNUE::Features

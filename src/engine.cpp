@@ -20,7 +20,9 @@
 
 #include <cassert>
 #include <deque>
+#include <iosfwd>
 #include <memory>
+#include <ostream>
 #include <sstream>
 #include <string_view>
 #include <utility>
@@ -29,6 +31,7 @@
 #include "evaluate.h"
 #include "misc.h"
 #include "nnue/network.h"
+#include "nnue/nnue_common.h"
 #include "perft.h"
 #include "position.h"
 #include "search.h"
@@ -48,38 +51,46 @@ Engine::Engine(std::optional<std::string> path) :
     numaContext(NumaConfig::from_system()),
     states(new std::deque<StateInfo>(1)),
     threads(),
-    network(numaContext, NN::Network({EvalFileDefaultName, "None", ""})) {
+    networks(numaContext, NN::Networks(NN::NetworkBig({EvalFileDefaultNameBig, "None", ""}))) {
     pos.set(StartFEN, &states->back());
 
-    options.add("Debug Log File", Option("", [](const Option& o) {
-                    start_logger(o);
-                    return std::nullopt;
-                }));
 
-    options.add("NumaPolicy", Option("auto", [this](const Option& o) {
-                    set_numa_config_from_option(o);
-                    return numa_config_information_as_string() + "\n"
-                         + thread_allocation_information_as_string();
-                }));
+    options.add(  //
+      "Debug Log File", Option("", [](const Option& o) {
+          start_logger(o);
+          return std::nullopt;
+      }));
 
-    options.add("Threads", Option(1, 1, 1024, [this](const Option&) {
-                    resize_threads();
-                    return thread_allocation_information_as_string();
-                }));
+    options.add(  //
+      "NumaPolicy", Option("auto", [this](const Option& o) {
+          set_numa_config_from_option(o);
+          return numa_config_information_as_string() + "\n"
+               + thread_allocation_information_as_string();
+      }));
 
-    options.add("Hash", Option(16, 1, MaxHashMB, [this](const Option& o) {
-                    set_tt_size(o);
-                    return std::nullopt;
-                }));
+    options.add(  //
+      "Threads", Option(1, 1, 1024, [this](const Option&) {
+          resize_threads();
+          return thread_allocation_information_as_string();
+      }));
 
-    options.add("Clear Hash", Option([this](const Option&) {
-                    search_clear();
-                    return std::nullopt;
-                }));
+    options.add(  //
+      "Hash", Option(16, 1, MaxHashMB, [this](const Option& o) {
+          set_tt_size(o);
+          return std::nullopt;
+      }));
 
-    options.add("Ponder", Option(false));
+    options.add(  //
+      "Clear Hash", Option([this](const Option&) {
+          search_clear();
+          return std::nullopt;
+      }));
 
-    options.add("MultiPV", Option(1, 1, MAX_MOVES));
+    options.add(  //
+      "Ponder", Option(false));
+
+    options.add(  //
+      "MultiPV", Option(1, 1, MAX_MOVES));
 
     options.add("Move Overhead", Option(10, 0, 5000));
 
@@ -87,24 +98,25 @@ Engine::Engine(std::optional<std::string> path) :
 
     options.add("UCI_ShowWDL", Option(false));
 
-    options.add("EvalFile", Option(EvalFileDefaultName, [this](const Option& o) {
-                    load_network(o);
-                    return std::nullopt;
-                }));
+    options.add(  //
+      "EvalFile", Option(EvalFileDefaultNameBig, [this](const Option& o) {
+          load_big_network(o);
+          return std::nullopt;
+      }));
 
-    load_network(options["EvalFile"]);
+    load_networks();
     resize_threads();
 }
 
 std::uint64_t Engine::perft(const std::string& fen, Depth depth) {
-    verify_network();
+    verify_networks();
 
     return Benchmark::perft(fen, depth);
 }
 
 void Engine::go(Search::LimitsType& limits) {
     assert(limits.perft == 0);
-    verify_network();
+    verify_networks();
 
     threads.start_thinking(pos, states, limits);
 }
@@ -184,7 +196,7 @@ void Engine::set_numa_config_from_option(const std::string& o) {
 
 void Engine::resize_threads() {
     threads.wait_for_search_finished();
-    threads.set(numaContext.get_numa_config(), {options, threads, tt, network}, updateContext);
+    threads.set(numaContext.get_numa_config(), {options, threads, tt, networks}, updateContext);
 
     // Reallocate the hash with the new threadpool size
     set_tt_size(options["Hash"]);
@@ -200,17 +212,28 @@ void Engine::set_ponderhit(bool b) { threads.main_manager()->ponder = b; }
 
 // network related
 
-void Engine::verify_network() const { network->verify(options["EvalFile"], onVerifyNetworks); }
+void Engine::verify_networks() const {
+    networks->big.verify(options["EvalFile"], onVerifyNetworks);
+}
 
-void Engine::load_network(const std::string& file) {
-    network.modify_and_replicate(
-      [this, &file](NN::Network& network_) { network_.load(binaryDirectory, file); });
+void Engine::load_networks() {
+    networks.modify_and_replicate([this](NN::Networks& networks_) {
+        networks_.big.load(binaryDirectory, options["EvalFile"]);
+    });
     threads.clear();
     threads.ensure_network_replicated();
 }
 
-void Engine::save_network(const std::optional<std::string>& file) {
-    network.modify_and_replicate([&file](NN::Network& network_) { network_.save(file); });
+void Engine::load_big_network(const std::string& file) {
+    networks.modify_and_replicate(
+      [this, &file](NN::Networks& networks_) { networks_.big.load(binaryDirectory, file); });
+    threads.clear();
+    threads.ensure_network_replicated();
+}
+
+void Engine::save_network(const std::pair<std::optional<std::string>, std::string> files) {
+    networks.modify_and_replicate(
+      [&files](NN::Networks& networks_) { networks_.big.save(files.first); });
 }
 
 // utility functions
@@ -220,9 +243,9 @@ void Engine::trace_eval() const {
     Position     p;
     p.set(pos.fen(), &trace_states->back());
 
-    verify_network();
+    verify_networks();
 
-    sync_cout << "\n" << Eval::trace(p, *network) << sync_endl;
+    sync_cout << "\n" << Eval::trace(p, *networks) << sync_endl;
 }
 
 const OptionsMap& Engine::get_options() const { return options; }
@@ -296,5 +319,4 @@ std::string Engine::thread_allocation_information_as_string() const {
 
     return ss.str();
 }
-
 }

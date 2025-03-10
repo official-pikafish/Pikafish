@@ -37,7 +37,6 @@
 #include "movepick.h"
 #include "nnue/network.h"
 #include "nnue/nnue_accumulator.h"
-#include "nnue/nnue_common.h"
 #include "position.h"
 #include "thread.h"
 #include "timeman.h"
@@ -172,18 +171,20 @@ Search::Worker::Worker(SharedState&                    sharedState,
     options(sharedState.options),
     threads(sharedState.threads),
     tt(sharedState.tt),
-    network(sharedState.network),
-    refreshTable(network[token]) {
+    networks(sharedState.networks),
+    refreshTable(networks[token]) {
     clear();
 }
 
 void Search::Worker::ensure_network_replicated() {
     // Access once to force lazy initialization.
     // We do this because we want to avoid initialization during search.
-    (void) (network[numaAccessToken]);
+    (void) (networks[numaAccessToken]);
 }
 
 void Search::Worker::start_searching() {
+
+    accumulatorStack.reset(rootPos, networks[numaAccessToken], refreshTable);
 
     // Non-main threads go directly to iterative_deepening()
     if (!is_mainthread())
@@ -508,6 +509,26 @@ void Search::Worker::iterative_deepening() {
     mainThread->previousTimeReduction = timeReduction;
 }
 
+
+void Search::Worker::do_move(Position& pos, const Move move, StateInfo& st) {
+    do_move(pos, move, st, pos.gives_check(move));
+}
+
+void Search::Worker::do_move(Position& pos, const Move move, StateInfo& st, const bool givesCheck) {
+    DirtyPiece dp = pos.do_move(move, st, givesCheck, &tt);
+    accumulatorStack.push(dp);
+}
+
+void Search::Worker::do_null_move(Position& pos, StateInfo& st) { pos.do_null_move(st, tt); }
+
+void Search::Worker::undo_move(Position& pos, const Move move) {
+    pos.undo_move(move);
+    accumulatorStack.pop();
+}
+
+void Search::Worker::undo_null_move(Position& pos) { pos.undo_null_move(); }
+
+
 // Reset histories, usually before a new game
 void Search::Worker::clear() {
     mainHistory.fill(61);
@@ -532,7 +553,7 @@ void Search::Worker::clear() {
     for (size_t i = 1; i < reductions.size(); ++i)
         reductions[i] = int(1460 / 100.0 * std::log(i));
 
-    refreshTable.clear(network[numaAccessToken]);
+    refreshTable.clear(networks[numaAccessToken]);
 }
 
 
@@ -562,7 +583,6 @@ Value Search::Worker::search(
 
     Move      pv[MAX_PLY + 1];
     StateInfo st;
-    ASSERT_ALIGNED(&st, Eval::NNUE::CacheLineSize);
 
     Key   posKey;
     Move  move, excludedMove, bestMove;
@@ -770,11 +790,11 @@ Value Search::Worker::search(
         ss->continuationHistory           = &thisThread->continuationHistory[0][0][NO_PIECE][0];
         ss->continuationCorrectionHistory = &thisThread->continuationCorrectionHistory[NO_PIECE][0];
 
-        pos.do_null_move(st, tt);
+        do_null_move(pos, st);
 
         Value nullValue = -search<NonPV>(pos, ss + 1, -beta, -beta + 1, depth - R, false);
 
-        pos.undo_null_move();
+        undo_null_move(pos);
 
         // Do not return unproven mate
         if (nullValue >= beta && !is_win(nullValue))
@@ -836,7 +856,7 @@ Value Search::Worker::search(
 
             movedPiece = pos.moved_piece(move);
 
-            pos.do_move(move, st, &tt);
+            do_move(pos, move, st);
             thisThread->nodes.fetch_add(1, std::memory_order_relaxed);
 
             ss->currentMove = move;
@@ -854,7 +874,7 @@ Value Search::Worker::search(
                 value = -search<NonPV>(pos, ss + 1, -probCutBeta, -probCutBeta + 1, probCutDepth,
                                        !cutNode);
 
-            pos.undo_move(move);
+            undo_move(pos, move);
 
             if (value >= probCutBeta)
             {
@@ -1076,7 +1096,7 @@ moves_loop:  // When in check, search starts here
         }
 
         // Step 15. Make the move
-        pos.do_move(move, st, givesCheck, &tt);
+        do_move(pos, move, st, givesCheck);
         thisThread->nodes.fetch_add(1, std::memory_order_relaxed);
 
         // Add extension to new depth
@@ -1201,7 +1221,7 @@ moves_loop:  // When in check, search starts here
         }
 
         // Step 18. Undo move
-        pos.undo_move(move);
+        undo_move(pos, move);
 
         assert(value > -VALUE_INFINITE && value < VALUE_INFINITE);
 
@@ -1413,7 +1433,6 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
 
     Move      pv[MAX_PLY + 1];
     StateInfo st;
-    ASSERT_ALIGNED(&st, Eval::NNUE::CacheLineSize);
 
     Key   posKey;
     Move  move, bestMove;
@@ -1596,7 +1615,7 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
         // Step 7. Make and search the move
         Piece movedPiece = pos.moved_piece(move);
 
-        pos.do_move(move, st, givesCheck, &tt);
+        do_move(pos, move, st, givesCheck);
         thisThread->nodes.fetch_add(1, std::memory_order_relaxed);
 
         // Update the current move
@@ -1607,7 +1626,7 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
           &thisThread->continuationCorrectionHistory[movedPiece][move.to_sq()];
 
         value = -qsearch<nodeType>(pos, ss + 1, -beta, -alpha);
-        pos.undo_move(move);
+        undo_move(pos, move);
 
         assert(value > -VALUE_INFINITE && value < VALUE_INFINITE);
 
@@ -1674,7 +1693,7 @@ TimePoint Search::Worker::elapsed() const {
 TimePoint Search::Worker::elapsed_time() const { return main_manager()->tm.elapsed_time(); }
 
 Value Search::Worker::evaluate(const Position& pos) {
-    return Eval::evaluate(network[numaAccessToken], pos, refreshTable,
+    return Eval::evaluate(networks[numaAccessToken], pos, accumulatorStack, refreshTable,
                           optimism[pos.side_to_move()]);
 }
 
@@ -1903,7 +1922,6 @@ void SearchManager::pv(const Search::Worker&     worker,
 bool RootMove::extract_ponder_from_tt(const TranspositionTable& tt, Position& pos) {
 
     StateInfo st;
-    ASSERT_ALIGNED(&st, Eval::NNUE::CacheLineSize);
 
     assert(pv.size() == 1);
     if (pv[0] == Move::none())

@@ -23,8 +23,10 @@
 #include <cmath>
 #include <cstdlib>
 #include <iomanip>
+#include <iostream>
 #include <memory>
 #include <sstream>
+#include <tuple>
 
 #include "nnue/network.h"
 #include "nnue/nnue_misc.h"
@@ -37,23 +39,25 @@ namespace Stockfish {
 
 // Evaluate is the evaluator for the outer world. It returns a static evaluation
 // of the position from the point of view of the side to move.
-Value Eval::evaluate(const Eval::NNUE::Network& network,
-                     const Position&            pos,
-                     NNUE::AccumulatorCaches&   caches,
-                     int                        optimism) {
+Value Eval::evaluate(const Eval::NNUE::Networks&    networks,
+                     const Position&                pos,
+                     Eval::NNUE::AccumulatorStack&  accumulators,
+                     Eval::NNUE::AccumulatorCaches& caches,
+                     int                            optimism) {
 
     assert(!pos.checkers());
 
-    auto [psqt, positional] = network.evaluate(pos, &caches.cache);
-    Value nnue              = psqt + positional;
-    int   nnueComplexity    = std::abs(psqt - positional);
+    auto [psqt, positional] = networks.big.evaluate(pos, accumulators, &caches.big);
+
+    Value nnue = psqt + positional;
 
     // Blend optimism and eval with nnue complexity
+    int nnueComplexity = std::abs(psqt - positional);
     optimism += optimism * nnueComplexity / 485;
     nnue -= nnue * nnueComplexity / 11683;
 
-    int mm = pos.major_material() / 40;
-    int v  = (nnue * (443 + mm) + optimism * (76 + mm)) / 503;
+    int material = pos.major_material();
+    int v        = (nnue * (17720 + material) + optimism * (3040 + material)) / 20120;
 
     // Damp down the evaluation linearly when shuffling
     v -= (v * pos.rule60_count()) / 267;
@@ -68,26 +72,28 @@ Value Eval::evaluate(const Eval::NNUE::Network& network,
 // a string (suitable for outputting to stdout) that contains the detailed
 // descriptions and values of each evaluation term. Useful for debugging.
 // Trace scores are from white's point of view
-std::string Eval::trace(Position& pos, const Eval::NNUE::Network& network) {
+std::string Eval::trace(Position& pos, const Eval::NNUE::Networks& networks) {
 
     if (pos.checkers())
         return "Final evaluation: none (in check)";
 
-    auto caches = std::make_unique<Eval::NNUE::AccumulatorCaches>(network);
+    Eval::NNUE::AccumulatorStack accumulators;
+    auto                         caches = std::make_unique<Eval::NNUE::AccumulatorCaches>(networks);
+
+    accumulators.reset(pos, networks, *caches);
 
     std::stringstream ss;
     ss << std::showpoint << std::noshowpos << std::fixed << std::setprecision(2);
-
-    ss << '\n' << NNUE::trace(pos, network, *caches) << '\n';
+    ss << '\n' << NNUE::trace(pos, networks, *caches) << '\n';
 
     ss << std::showpoint << std::showpos << std::fixed << std::setprecision(2) << std::setw(15);
 
-    auto [psqt, positional] = network.evaluate(pos, &caches->cache);
+    auto [psqt, positional] = networks.big.evaluate(pos, accumulators, &caches->big);
     Value v                 = psqt + positional;
     v                       = pos.side_to_move() == WHITE ? v : -v;
     ss << "NNUE evaluation        " << 0.01 * UCIEngine::to_cp(v, pos) << " (white side)\n";
 
-    v = evaluate(network, pos, *caches, VALUE_ZERO);
+    v = evaluate(networks, pos, accumulators, *caches, VALUE_ZERO);
     v = pos.side_to_move() == WHITE ? v : -v;
     ss << "Final evaluation       " << 0.01 * UCIEngine::to_cp(v, pos) << " (white side)";
     ss << " [with scaled NNUE, ...]";
