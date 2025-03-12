@@ -89,8 +89,10 @@ int risk_tolerance(const Position& pos, Value v) {
         return -345600 * x / (x * x + 3 * y * y);
     };
 
-    int material = 10 * pos.count<ROOK>() + 5 * pos.count<KNIGHT>() + 5 * pos.count<CANNON>()
-                 + 3 * pos.count<BISHOP>() + 2 * pos.count<ADVISOR>() + pos.count<PAWN>();
+    int material =
+      (640 * pos.count<ROOK>() + 320 * pos.count<KNIGHT>() + 320 * pos.count<CANNON>()
+       + 192 * pos.count<BISHOP>() + 128 * pos.count<ADVISOR>() + 64 * pos.count<PAWN>())
+      / 64;
 
     int m = std::clamp(material, 17, 110);
 
@@ -137,11 +139,11 @@ void update_correction_history(const Position& pos,
           << bonus * 128 / 128;
 }
 
-// History and stats update bonus, based on depth
-int stat_bonus(Depth d) { return std::min(158 * d - 87, 2168); }
+// // History and stats update bonus, based on depth
+// int stat_bonus(Depth d) { return std::min(158 * d - 87, 2168); }
 
-// History and stats update malus, based on depth
-int stat_malus(Depth d) { return std::min(977 * d - 282, 1524); }
+// // History and stats update malus, based on depth
+// int stat_malus(Depth d) { return std::min(977 * d - 282, 1524); }
 
 // Add a small random component to draw evaluations to avoid 3-fold blindness
 Value value_draw(size_t nodes) { return VALUE_DRAW - 1 + Value(nodes & 0x2); }
@@ -668,12 +670,13 @@ Value Search::Worker::search(
         {
             // Bonus for a quiet ttMove that fails high
             if (!ttCapture)
-                update_quiet_histories(pos, ss, *this, ttData.move, stat_bonus(depth) * 747 / 1024);
+                update_quiet_histories(pos, ss, *this, ttData.move,
+                                       std::min(115 * depth - 63, 1582));
 
             // Extra penalty for early quiet moves of the previous ply
             if (prevSq != SQ_NONE && (ss - 1)->moveCount <= 2 && !priorCapture)
                 update_continuation_histories(ss - 1, pos.piece_on(prevSq), prevSq,
-                                              -stat_malus(depth + 1) * 1091 / 1024);
+                                              -std::min(1041 * (depth + 1) - 300, 1624));
         }
 
         // Partial workaround for the graph history interaction problem
@@ -1347,7 +1350,7 @@ moves_loop:  // When in check, search starts here
 
         bonusScale = std::max(bonusScale, 0);
 
-        const int scaledBonus = stat_bonus(depth) * bonusScale;
+        const int scaledBonus = std::min(158 * depth - 87, 2168) * bonusScale;
 
         update_continuation_histories(ss - 1, pos.piece_on(prevSq), prevSq,
                                       scaledBonus * 416 / 32768);
@@ -1366,7 +1369,7 @@ moves_loop:  // When in check, search starts here
         Piece capturedPiece = pos.captured_piece();
         assert(capturedPiece != NO_PIECE);
         thisThread->captureHistory[pos.piece_on(prevSq)][prevSq][type_of(capturedPiece)]
-          << stat_bonus(depth) * 2;
+          << std::min(316 * depth - 174, 4336);
     }
 
     if (PvNode)
@@ -1740,8 +1743,8 @@ void update_all_stats(const Position&      pos,
     Piece                  moved_piece    = pos.moved_piece(bestMove);
     PieceType              captured;
 
-    int bonus = stat_bonus(depth) + 300 * isTTMove;
-    int malus = stat_malus(depth) - 34 * (moveCount - 1);
+    int bonus = std::min(158 * depth - 87, 2168) + 300 * isTTMove;
+    int malus = std::min(977 * depth - 282, 1524) - 34 * (moveCount - 1);
 
     if (!pos.capture(bestMove))
     {
