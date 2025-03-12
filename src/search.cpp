@@ -139,12 +139,6 @@ void update_correction_history(const Position& pos,
           << bonus * 128 / 128;
 }
 
-// // History and stats update bonus, based on depth
-// int stat_bonus(Depth d) { return std::min(158 * d - 87, 2168); }
-
-// // History and stats update malus, based on depth
-// int stat_malus(Depth d) { return std::min(977 * d - 282, 1524); }
-
 // Add a small random component to draw evaluations to avoid 3-fold blindness
 Value value_draw(size_t nodes) { return VALUE_DRAW - 1 + Value(nodes & 0x2); }
 

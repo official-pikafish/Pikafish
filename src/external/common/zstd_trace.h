@@ -11,10 +11,6 @@
 #ifndef ZSTD_TRACE_H
 #define ZSTD_TRACE_H
 
-#if defined(__cplusplus)
-extern "C" {
-#endif
-
 #include <stddef.h>
 
 /* weak symbol support
@@ -64,7 +60,7 @@ typedef struct {
     /**
      * Non-zero if streaming (de)compression is used.
      */
-    unsigned streaming;
+    int streaming;
     /**
      * The dictionary ID.
      */
@@ -73,7 +69,7 @@ typedef struct {
      * Is the dictionary cold?
      * Only set on decompression.
      */
-    unsigned dictionaryIsCold;
+    int dictionaryIsCold;
     /**
      * The dictionary size or zero if no dictionary.
      */
@@ -149,9 +145,5 @@ ZSTD_WEAK_ATTR ZSTD_TraceCtx ZSTD_trace_decompress_begin(struct ZSTD_DCtx_s cons
 ZSTD_WEAK_ATTR void ZSTD_trace_decompress_end(ZSTD_TraceCtx ctx, ZSTD_Trace const* trace);
 
 #endif /* ZSTD_TRACE */
-
-#if defined(__cplusplus)
-}
-#endif
 
 #endif /* ZSTD_TRACE_H */

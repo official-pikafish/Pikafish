@@ -58,6 +58,8 @@ const char* ERR_getErrorString(ERR_enum code) {
         return "Unsupported max Symbol Value : too large";
     case PREFIX(maxSymbolValue_tooSmall) :
         return "Specified maxSymbolValue is too small";
+    case PREFIX(cannotProduce_uncompressedBlock) :
+        return "This mode cannot generate an uncompressed block";
     case PREFIX(stabilityCondition_notRespected) :
         return "pledged buffer stability condition is not respected";
     case PREFIX(dictionary_corrupted) :

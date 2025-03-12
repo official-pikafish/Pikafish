@@ -246,24 +246,12 @@
     #pragma warning(disable: 4324) /* disable: C4324: padded structure */
 #endif
 
-/*Like DYNAMIC_BMI2 but for compile time determination of BMI2 support*/
-#ifndef STATIC_BMI2
-    #if defined(_MSC_VER) && (defined(_M_X64) || defined(_M_I86))
-        #ifdef __AVX2__  //MSVC does not have a BMI2 specific flag, but every CPU that supports AVX2 also supports BMI2
-            #define STATIC_BMI2 1
-        #endif
-    #elif defined(__BMI2__) && defined(__x86_64__) && defined(__GNUC__)
-        #define STATIC_BMI2 1
-    #endif
-#endif
-
-#ifndef STATIC_BMI2
-    #define STATIC_BMI2 0
-#endif
-
 /* compile time determination of SIMD support */
 #if !defined(ZSTD_NO_INTRINSICS)
-    #if defined(__SSE2__) || defined(_M_AMD64) \
+    #if defined(__AVX2__)
+        #define ZSTD_ARCH_X86_AVX2
+    #endif
+    #if defined(__SSE2__) || defined(_M_X64) \
       || (defined(_M_IX86) && defined(_M_IX86_FP) && (_M_IX86_FP >= 2))
         #define ZSTD_ARCH_X86_SSE2
     #endif
@@ -271,6 +259,9 @@
         #define ZSTD_ARCH_ARM_NEON
     #endif
     #
+    #if defined(ZSTD_ARCH_X86_AVX2)
+        #include <immintrin.h>
+    #endif
     #if defined(ZSTD_ARCH_X86_SSE2)
         #include <emmintrin.h>
     #elif defined(ZSTD_ARCH_ARM_NEON)
@@ -317,7 +308,7 @@
 #endif
 
 /*-**************************************************************
-*  Alignment check
+*  Alignment
 *****************************************************************/
 
 /* @return 1 if @u is a 2^n value, 0 otherwise
@@ -348,6 +339,21 @@ MEM_STATIC int ZSTD_isPower2(size_t u) { return (u & (u - 1)) == 0; }
 
     #endif
 #endif /* ZSTD_ALIGNOF */
+
+#ifndef ZSTD_ALIGNED
+    /* C90-compatible alignment macro (GCC/Clang). Adjust for other compilers if needed. */
+    #if defined(__GNUC__) || defined(__clang__)
+        #define ZSTD_ALIGNED(a) __attribute__((aligned(a)))
+    #elif defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 201112L) /* C11 */
+        #define ZSTD_ALIGNED(a) _Alignas(a)
+    #elif defined(_MSC_VER)
+        #define ZSTD_ALIGNED(n) __declspec(align(n))
+    #else
+        /* this compiler will require its own alignment instruction */
+        #define ZSTD_ALIGNED(...)
+    #endif
+#endif /* ZSTD_ALIGNED */
+
 
 /*-**************************************************************
 *  Sanitizer
@@ -392,9 +398,7 @@ ptrdiff_t ZSTD_wrappedPtrDiff(unsigned char const* lhs, unsigned char const* rhs
  */
 MEM_STATIC
 ZSTD_ALLOW_POINTER_OVERFLOW_ATTR
-unsigned char const* ZSTD_wrappedPtrAdd(unsigned char const* ptr, ptrdiff_t add) {
-    return ptr + add;
-}
+const void* ZSTD_wrappedPtrAdd(const void* ptr, ptrdiff_t add) { return (const char*) ptr + add; }
 
 /**
  * Helper function to perform a wrapped pointer subtraction without triggering
@@ -404,9 +408,7 @@ unsigned char const* ZSTD_wrappedPtrAdd(unsigned char const* ptr, ptrdiff_t add)
  */
 MEM_STATIC
 ZSTD_ALLOW_POINTER_OVERFLOW_ATTR
-unsigned char const* ZSTD_wrappedPtrSub(unsigned char const* ptr, ptrdiff_t sub) {
-    return ptr - sub;
-}
+const void* ZSTD_wrappedPtrSub(const void* ptr, ptrdiff_t sub) { return (const char*) ptr - sub; }
 
 /**
  * Helper function to add to a pointer that works around C's undefined behavior
@@ -415,9 +417,7 @@ unsigned char const* ZSTD_wrappedPtrSub(unsigned char const* ptr, ptrdiff_t sub)
  * @returns `ptr + add` except it defines `NULL + 0 == NULL`.
  */
 MEM_STATIC
-unsigned char* ZSTD_maybeNullPtrAdd(unsigned char* ptr, ptrdiff_t add) {
-    return add > 0 ? ptr + add : ptr;
-}
+void* ZSTD_maybeNullPtrAdd(void* ptr, ptrdiff_t add) { return add > 0 ? (char*) ptr + add : ptr; }
 
 /* Issue #3240 reports an ASAN failure on an llvm-mingw build. Out of an
  * abundance of caution, disable our custom poisoning on mingw. */

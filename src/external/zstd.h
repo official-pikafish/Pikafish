@@ -7,72 +7,78 @@
  * in the COPYING file in the root directory of this source tree).
  * You may select, at your option, one of the above-listed licenses.
  */
+
+#ifndef ZSTD_H_235446
+#define ZSTD_H_235446
+
+
+/* ======   Dependencies   ======*/
+#include <stddef.h> /* size_t */
+
+#include "zstd_errors.h" /* list of errors */
+#if defined(ZSTD_STATIC_LINKING_ONLY) && !defined(ZSTD_H_ZSTD_STATIC_LINKING_ONLY)
+    #include <limits.h> /* INT_MAX */
+#endif                  /* ZSTD_STATIC_LINKING_ONLY */
+
 #if defined(__cplusplus)
 extern "C" {
 #endif
 
-#ifndef ZSTD_H_235446
-    #define ZSTD_H_235446
-
-    /* ======   Dependencies   ======*/
-    #include <stddef.h> /* size_t */
-
-
-    /* =====   ZSTDLIB_API : control library symbols visibility   ===== */
-    #ifndef ZSTDLIB_VISIBLE
+/* =====   ZSTDLIB_API : control library symbols visibility   ===== */
+#ifndef ZSTDLIB_VISIBLE
     /* Backwards compatibility with old macro name */
-        #ifdef ZSTDLIB_VISIBILITY
-            #define ZSTDLIB_VISIBLE ZSTDLIB_VISIBILITY
-        #elif defined(__GNUC__) && (__GNUC__ >= 4) && !defined(__MINGW32__)
-            #define ZSTDLIB_VISIBLE __attribute__((visibility("default")))
-        #else
-            #define ZSTDLIB_VISIBLE
-        #endif
-    #endif
-
-    #ifndef ZSTDLIB_HIDDEN
-        #if defined(__GNUC__) && (__GNUC__ >= 4) && !defined(__MINGW32__)
-            #define ZSTDLIB_HIDDEN __attribute__((visibility("hidden")))
-        #else
-            #define ZSTDLIB_HIDDEN
-        #endif
-    #endif
-
-    #if defined(ZSTD_DLL_EXPORT) && (ZSTD_DLL_EXPORT == 1)
-        #define ZSTDLIB_API __declspec(dllexport) ZSTDLIB_VISIBLE
-    #elif defined(ZSTD_DLL_IMPORT) && (ZSTD_DLL_IMPORT == 1)
-        #define ZSTDLIB_API \
-            __declspec(dllimport) \
-            ZSTDLIB_VISIBLE /* It isn't required but allows to generate better code, saving a function pointer load from the IAT and an indirect jump.*/
+    #ifdef ZSTDLIB_VISIBILITY
+        #define ZSTDLIB_VISIBLE ZSTDLIB_VISIBILITY
+    #elif defined(__GNUC__) && (__GNUC__ >= 4) && !defined(__MINGW32__)
+        #define ZSTDLIB_VISIBLE __attribute__((visibility("default")))
     #else
-        #define ZSTDLIB_API ZSTDLIB_VISIBLE
+        #define ZSTDLIB_VISIBLE
     #endif
+#endif
 
-    /* Deprecation warnings :
+#ifndef ZSTDLIB_HIDDEN
+    #if defined(__GNUC__) && (__GNUC__ >= 4) && !defined(__MINGW32__)
+        #define ZSTDLIB_HIDDEN __attribute__((visibility("hidden")))
+    #else
+        #define ZSTDLIB_HIDDEN
+    #endif
+#endif
+
+#if defined(ZSTD_DLL_EXPORT) && (ZSTD_DLL_EXPORT == 1)
+    #define ZSTDLIB_API __declspec(dllexport) ZSTDLIB_VISIBLE
+#elif defined(ZSTD_DLL_IMPORT) && (ZSTD_DLL_IMPORT == 1)
+    #define ZSTDLIB_API \
+        __declspec(dllimport) \
+        ZSTDLIB_VISIBLE /* It isn't required but allows to generate better code, saving a function pointer load from the IAT and an indirect jump.*/
+#else
+    #define ZSTDLIB_API ZSTDLIB_VISIBLE
+#endif
+
+/* Deprecation warnings :
  * Should these warnings be a problem, it is generally possible to disable them,
  * typically with -Wno-deprecated-declarations for gcc or _CRT_SECURE_NO_WARNINGS in Visual.
  * Otherwise, it's also possible to define ZSTD_DISABLE_DEPRECATE_WARNINGS.
  */
-    #ifdef ZSTD_DISABLE_DEPRECATE_WARNINGS
-        #define ZSTD_DEPRECATED(message) /* disable deprecation warnings */
+#ifdef ZSTD_DISABLE_DEPRECATE_WARNINGS
+    #define ZSTD_DEPRECATED(message) /* disable deprecation warnings */
+#else
+    #if defined(__cplusplus) && (__cplusplus >= 201402) /* C++14 or greater */
+        #define ZSTD_DEPRECATED(message) [[deprecated(message)]]
+    #elif (defined(GNUC) && (GNUC > 4 || (GNUC == 4 && GNUC_MINOR >= 5))) || defined(__clang__) \
+      || defined(__IAR_SYSTEMS_ICC__)
+        #define ZSTD_DEPRECATED(message) __attribute__((deprecated(message)))
+    #elif defined(__GNUC__) && (__GNUC__ >= 3)
+        #define ZSTD_DEPRECATED(message) __attribute__((deprecated))
+    #elif defined(_MSC_VER)
+        #define ZSTD_DEPRECATED(message) __declspec(deprecated(message))
     #else
-        #if defined(__cplusplus) && (__cplusplus >= 201402) /* C++14 or greater */
-            #define ZSTD_DEPRECATED(message) [[deprecated(message)]]
-        #elif (defined(GNUC) && (GNUC > 4 || (GNUC == 4 && GNUC_MINOR >= 5))) \
-          || defined(__clang__) || defined(__IAR_SYSTEMS_ICC__)
-            #define ZSTD_DEPRECATED(message) __attribute__((deprecated(message)))
-        #elif defined(__GNUC__) && (__GNUC__ >= 3)
-            #define ZSTD_DEPRECATED(message) __attribute__((deprecated))
-        #elif defined(_MSC_VER)
-            #define ZSTD_DEPRECATED(message) __declspec(deprecated(message))
-        #else
-            #pragma message("WARNING: You need to implement ZSTD_DEPRECATED for this compiler")
-            #define ZSTD_DEPRECATED(message)
-        #endif
-    #endif /* ZSTD_DISABLE_DEPRECATE_WARNINGS */
+        #pragma message("WARNING: You need to implement ZSTD_DEPRECATED for this compiler")
+        #define ZSTD_DEPRECATED(message)
+    #endif
+#endif /* ZSTD_DISABLE_DEPRECATE_WARNINGS */
 
 
-    /*******************************************************************************
+/*******************************************************************************
   Introduction
 
   zstd, short for Zstandard, is a fast lossless compression algorithm, targeting
@@ -105,46 +111,46 @@ extern "C" {
   the future. Only static linking is allowed.
 *******************************************************************************/
 
-    /*------   Version   ------*/
-    #define ZSTD_VERSION_MAJOR 1
-    #define ZSTD_VERSION_MINOR 5
-    #define ZSTD_VERSION_RELEASE 7
-    #define ZSTD_VERSION_NUMBER \
-        (ZSTD_VERSION_MAJOR * 100 * 100 + ZSTD_VERSION_MINOR * 100 + ZSTD_VERSION_RELEASE)
+/*------   Version   ------*/
+#define ZSTD_VERSION_MAJOR 1
+#define ZSTD_VERSION_MINOR 5
+#define ZSTD_VERSION_RELEASE 8
+#define ZSTD_VERSION_NUMBER \
+    (ZSTD_VERSION_MAJOR * 100 * 100 + ZSTD_VERSION_MINOR * 100 + ZSTD_VERSION_RELEASE)
 
 /*! ZSTD_versionNumber() :
  *  Return runtime library version, the value is (MAJOR*100*100 + MINOR*100 + RELEASE). */
 ZSTDLIB_API unsigned ZSTD_versionNumber(void);
 
-    #define ZSTD_LIB_VERSION ZSTD_VERSION_MAJOR.ZSTD_VERSION_MINOR.ZSTD_VERSION_RELEASE
-    #define ZSTD_QUOTE(str) #str
-    #define ZSTD_EXPAND_AND_QUOTE(str) ZSTD_QUOTE(str)
-    #define ZSTD_VERSION_STRING ZSTD_EXPAND_AND_QUOTE(ZSTD_LIB_VERSION)
+#define ZSTD_LIB_VERSION ZSTD_VERSION_MAJOR.ZSTD_VERSION_MINOR.ZSTD_VERSION_RELEASE
+#define ZSTD_QUOTE(str) #str
+#define ZSTD_EXPAND_AND_QUOTE(str) ZSTD_QUOTE(str)
+#define ZSTD_VERSION_STRING ZSTD_EXPAND_AND_QUOTE(ZSTD_LIB_VERSION)
 
 /*! ZSTD_versionString() :
  *  Return runtime library version, like "1.4.5". Requires v1.3.0+. */
 ZSTDLIB_API const char* ZSTD_versionString(void);
 
-    /* *************************************
+/* *************************************
  *  Default constant
  ***************************************/
-    #ifndef ZSTD_CLEVEL_DEFAULT
-        #define ZSTD_CLEVEL_DEFAULT 3
-    #endif
+#ifndef ZSTD_CLEVEL_DEFAULT
+    #define ZSTD_CLEVEL_DEFAULT 3
+#endif
 
-    /* *************************************
+/* *************************************
  *  Constants
  ***************************************/
 
-    /* All magic numbers are supposed read/written to/from files/memory using little-endian convention */
-    #define ZSTD_MAGICNUMBER 0xFD2FB528      /* valid since v0.8.0 */
-    #define ZSTD_MAGIC_DICTIONARY 0xEC30A437 /* valid since v0.7.0 */
-    #define ZSTD_MAGIC_SKIPPABLE_START \
-        0x184D2A50 /* all 16 values, from 0x184D2A50 to 0x184D2A5F, signal the beginning of a skippable frame */
-    #define ZSTD_MAGIC_SKIPPABLE_MASK 0xFFFFFFF0
+/* All magic numbers are supposed read/written to/from files/memory using little-endian convention */
+#define ZSTD_MAGICNUMBER 0xFD2FB528      /* valid since v0.8.0 */
+#define ZSTD_MAGIC_DICTIONARY 0xEC30A437 /* valid since v0.7.0 */
+#define ZSTD_MAGIC_SKIPPABLE_START \
+    0x184D2A50 /* all 16 values, from 0x184D2A50 to 0x184D2A5F, signal the beginning of a skippable frame */
+#define ZSTD_MAGIC_SKIPPABLE_MASK 0xFFFFFFF0
 
-    #define ZSTD_BLOCKSIZELOG_MAX 17
-    #define ZSTD_BLOCKSIZE_MAX (1 << ZSTD_BLOCKSIZELOG_MAX)
+#define ZSTD_BLOCKSIZELOG_MAX 17
+#define ZSTD_BLOCKSIZE_MAX (1 << ZSTD_BLOCKSIZELOG_MAX)
 
 
 /***************************************
@@ -174,9 +180,9 @@ ZSTDLIB_API size_t ZSTD_decompress(void*       dst,
                                    size_t      compressedSize);
 
 
-    /*======  Decompression helper functions  ======*/
+/*======  Decompression helper functions  ======*/
 
-    /*! ZSTD_getFrameContentSize() : requires v1.3.0+
+/*! ZSTD_getFrameContentSize() : requires v1.3.0+
  * `src` should point to the start of a ZSTD encoded frame.
  * `srcSize` must be at least as large as the frame header.
  *           hint : any size >= `ZSTD_frameHeaderSize_max` is large enough.
@@ -184,6 +190,7 @@ ZSTDLIB_API size_t ZSTD_decompress(void*       dst,
  *           - ZSTD_CONTENTSIZE_UNKNOWN if the size cannot be determined
  *           - ZSTD_CONTENTSIZE_ERROR if an error occurred (e.g. invalid magic number, srcSize too small)
  *  note 1 : a 0 return value means the frame is valid but "empty".
+ *           When invoking this method on a skippable frame, it will return 0.
  *  note 2 : decompressed size is an optional field, it may not be present (typically in streaming mode).
  *           When `return==ZSTD_CONTENTSIZE_UNKNOWN`, data to decompress could be any size.
  *           In which case, it's necessary to use streaming mode to decompress data.
@@ -199,32 +206,36 @@ ZSTDLIB_API size_t ZSTD_decompress(void*       dst,
  *           Always ensure return value fits within application's authorized limits.
  *           Each application can set its own limits.
  *  note 6 : This function replaces ZSTD_getDecompressedSize() */
-    #define ZSTD_CONTENTSIZE_UNKNOWN (0ULL - 1)
-    #define ZSTD_CONTENTSIZE_ERROR (0ULL - 2)
+#define ZSTD_CONTENTSIZE_UNKNOWN (0ULL - 1)
+#define ZSTD_CONTENTSIZE_ERROR (0ULL - 2)
 ZSTDLIB_API unsigned long long ZSTD_getFrameContentSize(const void* src, size_t srcSize);
 
-/*! ZSTD_getDecompressedSize() :
- *  NOTE: This function is now obsolete, in favor of ZSTD_getFrameContentSize().
+/*! ZSTD_getDecompressedSize() (obsolete):
+ *  This function is now obsolete, in favor of ZSTD_getFrameContentSize().
  *  Both functions work the same way, but ZSTD_getDecompressedSize() blends
  *  "empty", "unknown" and "error" results to the same return value (0),
  *  while ZSTD_getFrameContentSize() gives them separate return values.
  * @return : decompressed size of `src` frame content _if known and not empty_, 0 otherwise. */
 ZSTD_DEPRECATED("Replaced by ZSTD_getFrameContentSize")
-ZSTDLIB_API
-unsigned long long ZSTD_getDecompressedSize(const void* src, size_t srcSize);
+ZSTDLIB_API unsigned long long ZSTD_getDecompressedSize(const void* src, size_t srcSize);
 
 /*! ZSTD_findFrameCompressedSize() : Requires v1.4.0+
  * `src` should point to the start of a ZSTD frame or skippable frame.
  * `srcSize` must be >= first frame size
  * @return : the compressed size of the first frame starting at `src`,
  *           suitable to pass as `srcSize` to `ZSTD_decompress` or similar,
- *        or an error code if input is invalid */
+ *           or an error code if input is invalid
+ *  Note 1: this method is called _find*() because it's not enough to read the header,
+ *          it may have to scan through the frame's content, to reach its end.
+ *  Note 2: this method also works with Skippable Frames. In which case,
+ *          it returns the size of the complete skippable frame,
+ *          which is always equal to its content size + 8 bytes for headers. */
 ZSTDLIB_API size_t ZSTD_findFrameCompressedSize(const void* src, size_t srcSize);
 
 
-    /*======  Compression helper functions  ======*/
+/*======  Compression helper functions  ======*/
 
-    /*! ZSTD_compressBound() :
+/*! ZSTD_compressBound() :
  * maximum compressed size in worst case single-pass scenario.
  * When invoking `ZSTD_compress()`, or any other one-pass compression function,
  * it's recommended to provide @dstCapacity >= ZSTD_compressBound(srcSize)
@@ -240,20 +251,19 @@ ZSTDLIB_API size_t ZSTD_findFrameCompressedSize(const void* src, size_t srcSize)
  * for example to size a static array on stack.
  * Will produce constant value 0 if srcSize is too large.
  */
-    #define ZSTD_MAX_INPUT_SIZE ((sizeof(size_t) == 8) ? 0xFF00FF00FF00FF00ULL : 0xFF00FF00U)
-    #define ZSTD_COMPRESSBOUND(srcSize) \
-        (((size_t) (srcSize) >= ZSTD_MAX_INPUT_SIZE) \
-           ? 0 \
-           : (srcSize) + ((srcSize) >> 8) \
-               + (((srcSize) < (128 << 10)) \
-                    ? (((128 << 10) - (srcSize)) >> 11) /* margin, from 64 to 0 */ \
-                    : 0)) /* this formula ensures that bound(A) + bound(B) <= bound(A+B) as long as A and B >= 128 KB */
+#define ZSTD_MAX_INPUT_SIZE ((sizeof(size_t) == 8) ? 0xFF00FF00FF00FF00ULL : 0xFF00FF00U)
+#define ZSTD_COMPRESSBOUND(srcSize) \
+    (((size_t) (srcSize) >= ZSTD_MAX_INPUT_SIZE) \
+       ? 0 \
+       : (srcSize) + ((srcSize) >> 8) \
+           + (((srcSize) < (128 << 10)) \
+                ? (((128 << 10) - (srcSize)) >> 11) /* margin, from 64 to 0 */ \
+                : 0)) /* this formula ensures that bound(A) + bound(B) <= bound(A+B) as long as A and B >= 128 KB */
 ZSTDLIB_API size_t ZSTD_compressBound(
   size_t srcSize); /*!< maximum compressed size in worst case single-pass scenario */
 
 
-    /*======  Error helper functions  ======*/
-    #include "zstd_errors.h" /* list of errors */
+/*======  Error helper functions  ======*/
 /* ZSTD_isError() :
  * Most ZSTD_* functions returning a size_t value can be tested for error,
  * using ZSTD_isError().
@@ -1243,6 +1253,10 @@ ZSTDLIB_API size_t ZSTD_sizeof_DStream(const ZSTD_DStream* zds);
 ZSTDLIB_API size_t ZSTD_sizeof_CDict(const ZSTD_CDict* cdict);
 ZSTDLIB_API size_t ZSTD_sizeof_DDict(const ZSTD_DDict* ddict);
 
+#if defined(__cplusplus)
+}
+#endif
+
 #endif /* ZSTD_H_235446 */
 
 
@@ -1256,20 +1270,22 @@ ZSTDLIB_API size_t ZSTD_sizeof_DDict(const ZSTD_DDict* ddict);
  * ***************************************************************************************/
 
 #if defined(ZSTD_STATIC_LINKING_ONLY) && !defined(ZSTD_H_ZSTD_STATIC_LINKING_ONLY)
-    #define ZSTD_H_ZSTD_STATIC_LINKING_ONLY
+#define ZSTD_H_ZSTD_STATIC_LINKING_ONLY
 
-    #include <limits.h> /* INT_MAX */
+#if defined(__cplusplus)
+extern "C" {
+#endif
 
-    /* This can be overridden externally to hide static symbols. */
-    #ifndef ZSTDLIB_STATIC_API
-        #if defined(ZSTD_DLL_EXPORT) && (ZSTD_DLL_EXPORT == 1)
-            #define ZSTDLIB_STATIC_API __declspec(dllexport) ZSTDLIB_VISIBLE
-        #elif defined(ZSTD_DLL_IMPORT) && (ZSTD_DLL_IMPORT == 1)
-            #define ZSTDLIB_STATIC_API __declspec(dllimport) ZSTDLIB_VISIBLE
-        #else
-            #define ZSTDLIB_STATIC_API ZSTDLIB_VISIBLE
-        #endif
+/* This can be overridden externally to hide static symbols. */
+#ifndef ZSTDLIB_STATIC_API
+    #if defined(ZSTD_DLL_EXPORT) && (ZSTD_DLL_EXPORT == 1)
+        #define ZSTDLIB_STATIC_API __declspec(dllexport) ZSTDLIB_VISIBLE
+    #elif defined(ZSTD_DLL_IMPORT) && (ZSTD_DLL_IMPORT == 1)
+        #define ZSTDLIB_STATIC_API __declspec(dllimport) ZSTDLIB_VISIBLE
+    #else
+        #define ZSTDLIB_STATIC_API ZSTDLIB_VISIBLE
     #endif
+#endif
 
 /****************************************************************************************
  *   experimental API (static linking only)
@@ -1281,68 +1297,66 @@ ZSTDLIB_API size_t ZSTD_sizeof_DDict(const ZSTD_DDict* ddict);
  * Some of them might be removed in the future (especially when redundant with existing stable functions)
  * ***************************************************************************************/
 
-    #define ZSTD_FRAMEHEADERSIZE_PREFIX(format) \
-        ((format) == ZSTD_f_zstd1 \
-           ? 5 \
-           : 1) /* minimum input size required to query frame header size */
-    #define ZSTD_FRAMEHEADERSIZE_MIN(format) ((format) == ZSTD_f_zstd1 ? 6 : 2)
-    #define ZSTD_FRAMEHEADERSIZE_MAX 18 /* can be useful for static allocation */
-    #define ZSTD_SKIPPABLEHEADERSIZE 8
+#define ZSTD_FRAMEHEADERSIZE_PREFIX(format) \
+    ((format) == ZSTD_f_zstd1 ? 5 : 1) /* minimum input size required to query frame header size */
+#define ZSTD_FRAMEHEADERSIZE_MIN(format) ((format) == ZSTD_f_zstd1 ? 6 : 2)
+#define ZSTD_FRAMEHEADERSIZE_MAX 18 /* can be useful for static allocation */
+#define ZSTD_SKIPPABLEHEADERSIZE 8
 
-    /* compression parameter bounds */
-    #define ZSTD_WINDOWLOG_MAX_32 30
-    #define ZSTD_WINDOWLOG_MAX_64 31
-    #define ZSTD_WINDOWLOG_MAX \
-        ((int) (sizeof(size_t) == 4 ? ZSTD_WINDOWLOG_MAX_32 : ZSTD_WINDOWLOG_MAX_64))
-    #define ZSTD_WINDOWLOG_MIN 10
-    #define ZSTD_HASHLOG_MAX ((ZSTD_WINDOWLOG_MAX < 30) ? ZSTD_WINDOWLOG_MAX : 30)
-    #define ZSTD_HASHLOG_MIN 6
-    #define ZSTD_CHAINLOG_MAX_32 29
-    #define ZSTD_CHAINLOG_MAX_64 30
-    #define ZSTD_CHAINLOG_MAX \
-        ((int) (sizeof(size_t) == 4 ? ZSTD_CHAINLOG_MAX_32 : ZSTD_CHAINLOG_MAX_64))
-    #define ZSTD_CHAINLOG_MIN ZSTD_HASHLOG_MIN
-    #define ZSTD_SEARCHLOG_MAX (ZSTD_WINDOWLOG_MAX - 1)
-    #define ZSTD_SEARCHLOG_MIN 1
-    #define ZSTD_MINMATCH_MAX 7 /* only for ZSTD_fast, other strategies are limited to 6 */
-    #define ZSTD_MINMATCH_MIN 3 /* only for ZSTD_btopt+, faster strategies are limited to 4 */
-    #define ZSTD_TARGETLENGTH_MAX ZSTD_BLOCKSIZE_MAX
-    #define ZSTD_TARGETLENGTH_MIN \
-        0 /* note : comparing this constant to an unsigned results in a tautological test */
-    #define ZSTD_STRATEGY_MIN ZSTD_fast
-    #define ZSTD_STRATEGY_MAX ZSTD_btultra2
-    #define ZSTD_BLOCKSIZE_MAX_MIN \
-        (1 \
-         << 10) /* The minimum valid max blocksize. Maximum blocksizes smaller than this make compressBound() inaccurate. */
+/* compression parameter bounds */
+#define ZSTD_WINDOWLOG_MAX_32 30
+#define ZSTD_WINDOWLOG_MAX_64 31
+#define ZSTD_WINDOWLOG_MAX \
+    ((int) (sizeof(size_t) == 4 ? ZSTD_WINDOWLOG_MAX_32 : ZSTD_WINDOWLOG_MAX_64))
+#define ZSTD_WINDOWLOG_MIN 10
+#define ZSTD_HASHLOG_MAX ((ZSTD_WINDOWLOG_MAX < 30) ? ZSTD_WINDOWLOG_MAX : 30)
+#define ZSTD_HASHLOG_MIN 6
+#define ZSTD_CHAINLOG_MAX_32 29
+#define ZSTD_CHAINLOG_MAX_64 30
+#define ZSTD_CHAINLOG_MAX \
+    ((int) (sizeof(size_t) == 4 ? ZSTD_CHAINLOG_MAX_32 : ZSTD_CHAINLOG_MAX_64))
+#define ZSTD_CHAINLOG_MIN ZSTD_HASHLOG_MIN
+#define ZSTD_SEARCHLOG_MAX (ZSTD_WINDOWLOG_MAX - 1)
+#define ZSTD_SEARCHLOG_MIN 1
+#define ZSTD_MINMATCH_MAX 7 /* only for ZSTD_fast, other strategies are limited to 6 */
+#define ZSTD_MINMATCH_MIN 3 /* only for ZSTD_btopt+, faster strategies are limited to 4 */
+#define ZSTD_TARGETLENGTH_MAX ZSTD_BLOCKSIZE_MAX
+#define ZSTD_TARGETLENGTH_MIN \
+    0 /* note : comparing this constant to an unsigned results in a tautological test */
+#define ZSTD_STRATEGY_MIN ZSTD_fast
+#define ZSTD_STRATEGY_MAX ZSTD_btultra2
+#define ZSTD_BLOCKSIZE_MAX_MIN \
+    (1 \
+     << 10) /* The minimum valid max blocksize. Maximum blocksizes smaller than this make compressBound() inaccurate. */
 
 
-    #define ZSTD_OVERLAPLOG_MIN 0
-    #define ZSTD_OVERLAPLOG_MAX 9
+#define ZSTD_OVERLAPLOG_MIN 0
+#define ZSTD_OVERLAPLOG_MAX 9
 
-    #define ZSTD_WINDOWLOG_LIMIT_DEFAULT \
-        27 /* by default, the streaming decoder will refuse any frame
+#define ZSTD_WINDOWLOG_LIMIT_DEFAULT \
+    27 /* by default, the streaming decoder will refuse any frame
                                            * requiring larger than (1<<ZSTD_WINDOWLOG_LIMIT_DEFAULT) window size,
                                            * to preserve host's memory from unreasonable requirements.
                                            * This limit can be overridden using ZSTD_DCtx_setParameter(,ZSTD_d_windowLogMax,).
                                            * The limit does not apply for one-pass decoders (such as ZSTD_decompress()), since no additional memory is allocated */
 
 
-    /* LDM parameter bounds */
-    #define ZSTD_LDM_HASHLOG_MIN ZSTD_HASHLOG_MIN
-    #define ZSTD_LDM_HASHLOG_MAX ZSTD_HASHLOG_MAX
-    #define ZSTD_LDM_MINMATCH_MIN 4
-    #define ZSTD_LDM_MINMATCH_MAX 4096
-    #define ZSTD_LDM_BUCKETSIZELOG_MIN 1
-    #define ZSTD_LDM_BUCKETSIZELOG_MAX 8
-    #define ZSTD_LDM_HASHRATELOG_MIN 0
-    #define ZSTD_LDM_HASHRATELOG_MAX (ZSTD_WINDOWLOG_MAX - ZSTD_HASHLOG_MIN)
+/* LDM parameter bounds */
+#define ZSTD_LDM_HASHLOG_MIN ZSTD_HASHLOG_MIN
+#define ZSTD_LDM_HASHLOG_MAX ZSTD_HASHLOG_MAX
+#define ZSTD_LDM_MINMATCH_MIN 4
+#define ZSTD_LDM_MINMATCH_MAX 4096
+#define ZSTD_LDM_BUCKETSIZELOG_MIN 1
+#define ZSTD_LDM_BUCKETSIZELOG_MAX 8
+#define ZSTD_LDM_HASHRATELOG_MIN 0
+#define ZSTD_LDM_HASHRATELOG_MAX (ZSTD_WINDOWLOG_MAX - ZSTD_HASHLOG_MIN)
 
-    /* Advanced parameter bounds */
-    #define ZSTD_TARGETCBLOCKSIZE_MIN \
-        1340 /* suitable to fit into an ethernet / wifi / 4G transport frame */
-    #define ZSTD_TARGETCBLOCKSIZE_MAX ZSTD_BLOCKSIZE_MAX
-    #define ZSTD_SRCSIZEHINT_MIN 0
-    #define ZSTD_SRCSIZEHINT_MAX INT_MAX
+/* Advanced parameter bounds */
+#define ZSTD_TARGETCBLOCKSIZE_MIN \
+    1340 /* suitable to fit into an ethernet / wifi / 4G transport frame */
+#define ZSTD_TARGETCBLOCKSIZE_MAX ZSTD_BLOCKSIZE_MAX
+#define ZSTD_SRCSIZEHINT_MIN 0
+#define ZSTD_SRCSIZEHINT_MAX INT_MAX
 
 
 /* ---  Advanced types  --- */
@@ -1381,7 +1395,7 @@ typedef struct {
                                *
                                * Note: This field is optional. ZSTD_generateSequences() will calculate the value of
                                * 'rep', but repeat offsets do not necessarily need to be calculated from an external
-                               * sequence provider's perspective. For example, ZSTD_compressSequences() does not
+                               * sequence provider perspective. For example, ZSTD_compressSequences() does not
                                * use this 'rep' field at all (as of now).
                                */
 } ZSTD_Sequence;
@@ -1499,15 +1513,16 @@ typedef enum {
 } ZSTD_literalCompressionMode_e;
 
 typedef enum {
-    /* Note: This enum controls features which are conditionally beneficial. Zstd typically will make a final
-   * decision on whether or not to enable the feature (ZSTD_ps_auto), but setting the switch to ZSTD_ps_enable
-   * or ZSTD_ps_disable allow for a force enable/disable the feature.
+    /* Note: This enum controls features which are conditionally beneficial.
+   * Zstd can take a decision on whether or not to enable the feature (ZSTD_ps_auto),
+   * but setting the switch to ZSTD_ps_enable or ZSTD_ps_disable force enable/disable the feature.
    */
     ZSTD_ps_auto =
       0, /* Let the library automatically determine whether the feature shall be enabled */
     ZSTD_ps_enable  = 1, /* Force-enable the feature */
     ZSTD_ps_disable = 2  /* Do not use the feature */
-} ZSTD_paramSwitch_e;
+} ZSTD_ParamSwitch_e;
+#define ZSTD_paramSwitch_e ZSTD_ParamSwitch_e /* old name */
 
 /***************************************
 *  Frame header and size functions
@@ -1552,7 +1567,7 @@ ZSTDLIB_STATIC_API unsigned long long ZSTD_findDecompressedSize(const void* src,
 ZSTDLIB_STATIC_API unsigned long long ZSTD_decompressBound(const void* src, size_t srcSize);
 
 /*! ZSTD_frameHeaderSize() :
- *  srcSize must be >= ZSTD_FRAMEHEADERSIZE_PREFIX.
+ *  srcSize must be large enough, aka >= ZSTD_FRAMEHEADERSIZE_PREFIX.
  * @return : size of the Frame Header,
  *           or an error code (if srcSize is too small) */
 ZSTDLIB_STATIC_API size_t ZSTD_frameHeaderSize(const void* src, size_t srcSize);
@@ -1560,33 +1575,35 @@ ZSTDLIB_STATIC_API size_t ZSTD_frameHeaderSize(const void* src, size_t srcSize);
 typedef enum {
     ZSTD_frame,
     ZSTD_skippableFrame
-} ZSTD_frameType_e;
+} ZSTD_FrameType_e;
+#define ZSTD_frameType_e ZSTD_FrameType_e /* old name */
 typedef struct {
     unsigned long long
       frameContentSize; /* if == ZSTD_CONTENTSIZE_UNKNOWN, it means this field is not available. 0 means "empty" */
     unsigned long long windowSize; /* can be very large, up to <= frameContentSize */
     unsigned           blockSizeMax;
-    ZSTD_frameType_e
+    ZSTD_FrameType_e
       frameType; /* if == ZSTD_skippableFrame, frameContentSize is the size of skippable content */
     unsigned headerSize;
-    unsigned dictID;
+    unsigned dictID; /* for ZSTD_skippableFrame, contains the skippable magic variant [0-15] */
     unsigned checksumFlag;
     unsigned _reserved1;
     unsigned _reserved2;
-} ZSTD_frameHeader;
+} ZSTD_FrameHeader;
+#define ZSTD_frameHeader ZSTD_FrameHeader /* old name */
 
 /*! ZSTD_getFrameHeader() :
- *  decode Frame Header, or requires larger `srcSize`.
- * @return : 0, `zfhPtr` is correctly filled,
- *          >0, `srcSize` is too small, value is wanted `srcSize` amount,
+ *  decode Frame Header into `zfhPtr`, or requires larger `srcSize`.
+ * @return : 0 => header is complete, `zfhPtr` is correctly filled,
+ *          >0 => `srcSize` is too small, @return value is the wanted `srcSize` amount, `zfhPtr` is not filled,
  *           or an error code, which can be tested using ZSTD_isError() */
-ZSTDLIB_STATIC_API size_t ZSTD_getFrameHeader(ZSTD_frameHeader* zfhPtr,
+ZSTDLIB_STATIC_API size_t ZSTD_getFrameHeader(ZSTD_FrameHeader* zfhPtr,
                                               const void*       src,
-                                              size_t srcSize); /**< doesn't consume input */
+                                              size_t            srcSize);
 /*! ZSTD_getFrameHeader_advanced() :
  *  same as ZSTD_getFrameHeader(),
  *  with added capability to select a format (like ZSTD_f_zstd1_magicless) */
-ZSTDLIB_STATIC_API size_t ZSTD_getFrameHeader_advanced(ZSTD_frameHeader* zfhPtr,
+ZSTDLIB_STATIC_API size_t ZSTD_getFrameHeader_advanced(ZSTD_FrameHeader* zfhPtr,
                                                        const void*       src,
                                                        size_t            srcSize,
                                                        ZSTD_format_e     format);
@@ -1616,7 +1633,7 @@ ZSTDLIB_STATIC_API size_t ZSTD_getFrameHeader_advanced(ZSTD_frameHeader* zfhPtr,
  */
 ZSTDLIB_STATIC_API size_t ZSTD_decompressionMargin(const void* src, size_t srcSize);
 
-    /*! ZSTD_DECOMPRESS_MARGIN() :
+/*! ZSTD_DECOMPRESS_MARGIN() :
  * Similar to ZSTD_decompressionMargin(), but instead of computing the margin from
  * the compressed frame, compute it from the original size and the blockSizeLog.
  * See ZSTD_decompressionMargin() for details.
@@ -1629,21 +1646,20 @@ ZSTDLIB_STATIC_API size_t ZSTD_decompressionMargin(const void* src, size_t srcSi
  *                     Unless you explicitly set the windowLog smaller than
  *                     ZSTD_BLOCKSIZELOG_MAX you can just use ZSTD_BLOCKSIZE_MAX.
  */
-    #define ZSTD_DECOMPRESSION_MARGIN(originalSize, blockSize) \
-        ((size_t) (ZSTD_FRAMEHEADERSIZE_MAX /* Frame header */ + 4 /* checksum */ \
-                   + ((originalSize) == 0 ? 0 \
-                                          : 3 \
-                                              * (((originalSize) + (blockSize) - 1) \
-                                                 / blockSize)) /* 3 bytes per block */ \
-                   + (blockSize)                               /* One block of margin */ \
-                   ))
+#define ZSTD_DECOMPRESSION_MARGIN(originalSize, blockSize) \
+    ((size_t) (ZSTD_FRAMEHEADERSIZE_MAX /* Frame header */ + 4 /* checksum */ \
+               + ((originalSize) == 0 ? 0 \
+                                      : 3 \
+                                          * (((originalSize) + (blockSize) - 1) \
+                                             / blockSize)) /* 3 bytes per block */ \
+               + (blockSize)                               /* One block of margin */ \
+               ))
 
 typedef enum {
-    ZSTD_sf_noBlockDelimiters =
-      0, /* Representation of ZSTD_Sequence has no block delimiters, sequences only */
-    ZSTD_sf_explicitBlockDelimiters =
-      1 /* Representation of ZSTD_Sequence contains explicit block delimiters */
-} ZSTD_sequenceFormat_e;
+    ZSTD_sf_noBlockDelimiters = 0, /* ZSTD_Sequence[] has no block delimiters, just sequences */
+    ZSTD_sf_explicitBlockDelimiters = 1 /* ZSTD_Sequence[] contains explicit block delimiters */
+} ZSTD_SequenceFormat_e;
+#define ZSTD_sequenceFormat_e ZSTD_SequenceFormat_e /* old name */
 
 /*! ZSTD_sequenceBound() :
  * `srcSize` : size of the input buffer
@@ -1667,7 +1683,7 @@ ZSTDLIB_STATIC_API size_t ZSTD_sequenceBound(size_t srcSize);
  * @param zc The compression context to be used for ZSTD_compress2(). Set any
  *           compression parameters you need on this context.
  * @param outSeqs The output sequences buffer of size @p outSeqsSize
- * @param outSeqsSize The size of the output sequences buffer.
+ * @param outSeqsCapacity The size of the output sequences buffer.
  *                    ZSTD_sequenceBound(srcSize) is an upper bound on the number
  *                    of sequences that can be generated.
  * @param src The source buffer to generate sequences from of size @p srcSize.
@@ -1684,7 +1700,7 @@ ZSTDLIB_STATIC_API size_t ZSTD_sequenceBound(size_t srcSize);
  */
 ZSTD_DEPRECATED("For debugging only, will be replaced by ZSTD_extractSequences()")
 ZSTDLIB_STATIC_API size_t ZSTD_generateSequences(
-  ZSTD_CCtx* zc, ZSTD_Sequence* outSeqs, size_t outSeqsSize, const void* src, size_t srcSize);
+  ZSTD_CCtx* zc, ZSTD_Sequence* outSeqs, size_t outSeqsCapacity, const void* src, size_t srcSize);
 
 /*! ZSTD_mergeBlockDelimiters() :
  * Given an array of ZSTD_Sequence, remove all sequences that represent block delimiters/last literals
@@ -1703,7 +1719,7 @@ ZSTDLIB_STATIC_API size_t ZSTD_mergeBlockDelimiters(ZSTD_Sequence* sequences, si
  * Compress an array of ZSTD_Sequence, associated with @src buffer, into dst.
  * @src contains the entire input (not just the literals).
  * If @srcSize > sum(sequence.length), the remaining bytes are considered all literals
- * If a dictionary is included, then the cctx should reference the dict. (see: ZSTD_CCtx_refCDict(), ZSTD_CCtx_loadDictionary(), etc.)
+ * If a dictionary is included, then the cctx should reference the dict (see: ZSTD_CCtx_refCDict(), ZSTD_CCtx_loadDictionary(), etc.).
  * The entire source is compressed into a single frame.
  *
  * The compression behavior changes based on cctx params. In particular:
@@ -1712,11 +1728,17 @@ ZSTDLIB_STATIC_API size_t ZSTD_mergeBlockDelimiters(ZSTD_Sequence* sequences, si
  *    the block size derived from the cctx, and sequences may be split. This is the default setting.
  *
  *    If ZSTD_c_blockDelimiters == ZSTD_sf_explicitBlockDelimiters, the array of ZSTD_Sequence is expected to contain
- *    block delimiters (defined in ZSTD_Sequence). Behavior is undefined if no block delimiters are provided.
+ *    valid block delimiters (defined in ZSTD_Sequence). Behavior is undefined if no block delimiters are provided.
  *
- *    If ZSTD_c_validateSequences == 0, this function will blindly accept the sequences provided. Invalid sequences cause undefined
- *    behavior. If ZSTD_c_validateSequences == 1, then if sequence is invalid (see doc/zstd_compression_format.md for
- *    specifics regarding offset/matchlength requirements) then the function will bail out and return an error.
+ *    When ZSTD_c_blockDelimiters == ZSTD_sf_explicitBlockDelimiters, it's possible to decide generating repcodes
+ *    using the advanced parameter ZSTD_c_repcodeResolution. Repcodes will improve compression ratio, though the benefit
+ *    can vary greatly depending on Sequences. On the other hand, repcode resolution is an expensive operation.
+ *    By default, it's disabled at low (<10) compression levels, and enabled above the threshold (>=10).
+ *    ZSTD_c_repcodeResolution makes it possible to directly manage this processing in either direction.
+ *
+ *    If ZSTD_c_validateSequences == 0, this function blindly accepts the Sequences provided. Invalid Sequences cause undefined
+ *    behavior. If ZSTD_c_validateSequences == 1, then the function will detect invalid Sequences (see doc/zstd_compression_format.md for
+ *    specifics regarding offset/matchlength requirements) and then bail out and return an error.
  *
  *    In addition to the two adjustable experimental params, there are other important cctx params.
  *    - ZSTD_c_minMatch MUST be set as less than or equal to the smallest match generated by the match finder. It has a minimum value of ZSTD_MINMATCH_MIN.
@@ -1724,18 +1746,47 @@ ZSTDLIB_STATIC_API size_t ZSTD_mergeBlockDelimiters(ZSTD_Sequence* sequences, si
  *    - ZSTD_c_windowLog affects offset validation: this function will return an error at higher debug levels if a provided offset
  *      is larger than what the spec allows for a given window log and dictionary (if present). See: doc/zstd_compression_format.md
  *
- * Note: Repcodes are, as of now, always re-calculated within this function, so ZSTD_Sequence::rep is unused.
- * Note 2: Once we integrate ability to ingest repcodes, the explicit block delims mode must respect those repcodes exactly,
- *         and cannot emit an RLE block that disagrees with the repcode history
+ * Note: Repcodes are, as of now, always re-calculated within this function, ZSTD_Sequence.rep is effectively unused.
+ * Dev Note: Once ability to ingest repcodes become available, the explicit block delims mode must respect those repcodes exactly,
+ *         and cannot emit an RLE block that disagrees with the repcode history.
  * @return : final compressed size, or a ZSTD error code.
  */
 ZSTDLIB_STATIC_API size_t ZSTD_compressSequences(ZSTD_CCtx*           cctx,
                                                  void*                dst,
-                                                 size_t               dstSize,
+                                                 size_t               dstCapacity,
                                                  const ZSTD_Sequence* inSeqs,
                                                  size_t               inSeqsSize,
                                                  const void*          src,
                                                  size_t               srcSize);
+
+
+/*! ZSTD_compressSequencesAndLiterals() :
+ * This is a variant of ZSTD_compressSequences() which,
+ * instead of receiving (src,srcSize) as input parameter, receives (literals,litSize),
+ * aka all the literals, already extracted and laid out into a single continuous buffer.
+ * This can be useful if the process generating the sequences also happens to generate the buffer of literals,
+ * thus skipping an extraction + caching stage.
+ * It's a speed optimization, useful when the right conditions are met,
+ * but it also features the following limitations:
+ * - Only supports explicit delimiter mode
+ * - Currently does not support Sequences validation (so input Sequences are trusted)
+ * - Not compatible with frame checksum, which must be disabled
+ * - If any block is incompressible, will fail and return an error
+ * - @litSize must be == sum of all @.litLength fields in @inSeqs. Any discrepancy will generate an error.
+ * - @litBufCapacity is the size of the underlying buffer into which literals are written, starting at address @literals.
+ *   @litBufCapacity must be at least 8 bytes larger than @litSize.
+ * - @decompressedSize must be correct, and correspond to the sum of all Sequences. Any discrepancy will generate an error.
+ * @return : final compressed size, or a ZSTD error code.
+ */
+ZSTDLIB_STATIC_API size_t ZSTD_compressSequencesAndLiterals(ZSTD_CCtx*           cctx,
+                                                            void*                dst,
+                                                            size_t               dstCapacity,
+                                                            const ZSTD_Sequence* inSeqs,
+                                                            size_t               nbSequences,
+                                                            const void*          literals,
+                                                            size_t               litSize,
+                                                            size_t               litBufCapacity,
+                                                            size_t               decompressedSize);
 
 
 /*! ZSTD_writeSkippableFrame() :
@@ -1743,8 +1794,8 @@ ZSTDLIB_STATIC_API size_t ZSTD_compressSequences(ZSTD_CCtx*           cctx,
  *
  * Skippable frames begin with a 4-byte magic number. There are 16 possible choices of magic number,
  * ranging from ZSTD_MAGIC_SKIPPABLE_START to ZSTD_MAGIC_SKIPPABLE_START+15.
- * As such, the parameter magicVariant controls the exact skippable frame magic number variant used, so
- * the magic number used will be ZSTD_MAGIC_SKIPPABLE_START + magicVariant.
+ * As such, the parameter magicVariant controls the exact skippable frame magic number variant used,
+ * so the magic number used will be ZSTD_MAGIC_SKIPPABLE_START + magicVariant.
  *
  * Returns an error if destination buffer is not large enough, if the source size is not representable
  * with a 4-byte unsigned int, or if the parameter magicVariant is greater than 15 (and therefore invalid).
@@ -1755,23 +1806,23 @@ ZSTDLIB_STATIC_API size_t ZSTD_writeSkippableFrame(
   void* dst, size_t dstCapacity, const void* src, size_t srcSize, unsigned magicVariant);
 
 /*! ZSTD_readSkippableFrame() :
- * Retrieves a zstd skippable frame containing data given by src, and writes it to dst buffer.
+ * Retrieves the content of a zstd skippable frame starting at @src, and writes it to @dst buffer.
  *
- * The parameter magicVariant will receive the magicVariant that was supplied when the frame was written,
- * i.e. magicNumber - ZSTD_MAGIC_SKIPPABLE_START.  This can be NULL if the caller is not interested
- * in the magicVariant.
+ * The parameter @magicVariant will receive the magicVariant that was supplied when the frame was written,
+ * i.e. magicNumber - ZSTD_MAGIC_SKIPPABLE_START.
+ * This can be NULL if the caller is not interested in the magicVariant.
  *
  * Returns an error if destination buffer is not large enough, or if the frame is not skippable.
  *
  * @return : number of bytes written or a ZSTD error.
  */
-ZSTDLIB_API size_t ZSTD_readSkippableFrame(
+ZSTDLIB_STATIC_API size_t ZSTD_readSkippableFrame(
   void* dst, size_t dstCapacity, unsigned* magicVariant, const void* src, size_t srcSize);
 
 /*! ZSTD_isSkippableFrame() :
  *  Tells if the content of `buffer` starts with a valid Frame Identifier for a skippable frame.
  */
-ZSTDLIB_API unsigned ZSTD_isSkippableFrame(const void* buffer, size_t size);
+ZSTDLIB_STATIC_API unsigned ZSTD_isSkippableFrame(const void* buffer, size_t size);
 
 
 /***************************************
@@ -1906,19 +1957,19 @@ typedef struct {
     void*              opaque;
 } ZSTD_customMem;
 static
-    #ifdef __GNUC__
+#ifdef __GNUC__
   __attribute__((__unused__))
-    #endif
+#endif
 
-    #if defined(__clang__) && __clang_major__ >= 5
-        #pragma clang diagnostic push
-        #pragma clang diagnostic ignored "-Wzero-as-null-pointer-constant"
-    #endif
+#if defined(__clang__) && __clang_major__ >= 5
+    #pragma clang diagnostic push
+    #pragma clang diagnostic ignored "-Wzero-as-null-pointer-constant"
+#endif
   ZSTD_customMem const ZSTD_defaultCMem = {NULL, NULL,
                                            NULL}; /**< this constant defers to stdlib's functions */
-    #if defined(__clang__) && __clang_major__ >= 5
-        #pragma clang diagnostic pop
-    #endif
+#if defined(__clang__) && __clang_major__ >= 5
+    #pragma clang diagnostic pop
+#endif
 
 ZSTDLIB_STATIC_API ZSTD_CCtx*    ZSTD_createCCtx_advanced(ZSTD_customMem customMem);
 ZSTDLIB_STATIC_API ZSTD_CStream* ZSTD_createCStream_advanced(ZSTD_customMem customMem);
@@ -2087,7 +2138,7 @@ ZSTDLIB_STATIC_API size_t ZSTD_CCtx_refPrefix_advanced(ZSTD_CCtx*             cc
 /* these parameters can be used with ZSTD_setParameter()
  * they are not guaranteed to remain supported in the future */
 
-    /* Enables rsyncable mode,
+/* Enables rsyncable mode,
   * which makes compressed files more rsync friendly
   * by adding periodic synchronization points to the compressed data.
   * The target average block size is ZSTD_c_jobSize / 2.
@@ -2103,24 +2154,24 @@ ZSTDLIB_STATIC_API size_t ZSTD_CCtx_refPrefix_advanced(ZSTD_CCtx*             cc
   * If the selected compression level is already running significantly slower,
   * the overall speed won't be significantly impacted.
   */
-    #define ZSTD_c_rsyncable ZSTD_c_experimentalParam1
+#define ZSTD_c_rsyncable ZSTD_c_experimentalParam1
 
-    /* Select a compression format.
+/* Select a compression format.
  * The value must be of type ZSTD_format_e.
  * See ZSTD_format_e enum definition for details */
-    #define ZSTD_c_format ZSTD_c_experimentalParam2
+#define ZSTD_c_format ZSTD_c_experimentalParam2
 
-    /* Force back-reference distances to remain < windowSize,
+/* Force back-reference distances to remain < windowSize,
  * even when referencing into Dictionary content (default:0) */
-    #define ZSTD_c_forceMaxWindow ZSTD_c_experimentalParam3
+#define ZSTD_c_forceMaxWindow ZSTD_c_experimentalParam3
 
-    /* Controls whether the contents of a CDict
+/* Controls whether the contents of a CDict
  * are used in place, or copied into the working context.
  * Accepts values from the ZSTD_dictAttachPref_e enum.
  * See the comments on that enum for an explanation of the feature. */
-    #define ZSTD_c_forceAttachDict ZSTD_c_experimentalParam4
+#define ZSTD_c_forceAttachDict ZSTD_c_experimentalParam4
 
-    /* Controlled with ZSTD_paramSwitch_e enum.
+/* Controlled with ZSTD_ParamSwitch_e enum.
  * Default is ZSTD_ps_auto.
  * Set to ZSTD_ps_disable to never compress literals.
  * Set to ZSTD_ps_enable to always compress literals. (Note: uncompressed literals
@@ -2130,15 +2181,15 @@ ZSTDLIB_STATIC_API size_t ZSTD_CCtx_refPrefix_advanced(ZSTD_CCtx*             cc
  * literals compression based on the compression parameters - specifically,
  * negative compression levels do not use literal compression.
  */
-    #define ZSTD_c_literalCompressionMode ZSTD_c_experimentalParam5
+#define ZSTD_c_literalCompressionMode ZSTD_c_experimentalParam5
 
-    /* User's best guess of source size.
+/* User's best guess of source size.
  * Hint is not valid when srcSizeHint == 0.
  * There is no guarantee that hint is close to actual source size,
  * but compression ratio may regress significantly if guess considerably underestimates */
-    #define ZSTD_c_srcSizeHint ZSTD_c_experimentalParam7
+#define ZSTD_c_srcSizeHint ZSTD_c_experimentalParam7
 
-    /* Controls whether the new and experimental "dedicated dictionary search
+/* Controls whether the new and experimental "dedicated dictionary search
  * structure" can be used. This feature is still rough around the edges, be
  * prepared for surprising behavior!
  *
@@ -2192,9 +2243,9 @@ ZSTDLIB_STATIC_API size_t ZSTD_CCtx_refPrefix_advanced(ZSTD_CCtx*             cc
  * so--and CDict creation to be slightly slower. Eventually, we will probably
  * make this mode the default.
  */
-    #define ZSTD_c_enableDedicatedDictSearch ZSTD_c_experimentalParam8
+#define ZSTD_c_enableDedicatedDictSearch ZSTD_c_experimentalParam8
 
-    /* ZSTD_c_stableInBuffer
+/* ZSTD_c_stableInBuffer
  * Experimental parameter.
  * Default is 0 == disabled. Set to 1 to enable.
  *
@@ -2225,9 +2276,9 @@ ZSTDLIB_STATIC_API size_t ZSTD_CCtx_refPrefix_advanced(ZSTD_CCtx*             cc
  * matches. Normally zstd maintains its own window buffer for this purpose,
  * but passing this flag tells zstd to rely on user provided buffer instead.
  */
-    #define ZSTD_c_stableInBuffer ZSTD_c_experimentalParam9
+#define ZSTD_c_stableInBuffer ZSTD_c_experimentalParam9
 
-    /* ZSTD_c_stableOutBuffer
+/* ZSTD_c_stableOutBuffer
  * Experimental parameter.
  * Default is 0 == disabled. Set to 1 to enable.
  *
@@ -2245,9 +2296,9 @@ ZSTDLIB_STATIC_API size_t ZSTD_CCtx_refPrefix_advanced(ZSTD_CCtx*             cc
  * Zstd will check that (out.size - out.pos) never grows and return an error
  * if it does. While not strictly necessary, this should prevent surprises.
  */
-    #define ZSTD_c_stableOutBuffer ZSTD_c_experimentalParam10
+#define ZSTD_c_stableOutBuffer ZSTD_c_experimentalParam10
 
-    /* ZSTD_c_blockDelimiters
+/* ZSTD_c_blockDelimiters
  * Default is 0 == ZSTD_sf_noBlockDelimiters.
  *
  * For use with sequence compression API: ZSTD_compressSequences().
@@ -2256,26 +2307,26 @@ ZSTDLIB_STATIC_API size_t ZSTD_CCtx_refPrefix_advanced(ZSTD_CCtx*             cc
  * and last literals, which are defined as sequences with offset == 0 and matchLength == 0.
  * See the definition of ZSTD_Sequence for more specifics.
  */
-    #define ZSTD_c_blockDelimiters ZSTD_c_experimentalParam11
+#define ZSTD_c_blockDelimiters ZSTD_c_experimentalParam11
 
-    /* ZSTD_c_validateSequences
+/* ZSTD_c_validateSequences
  * Default is 0 == disabled. Set to 1 to enable sequence validation.
  *
- * For use with sequence compression API: ZSTD_compressSequences().
- * Designates whether or not we validate sequences provided to ZSTD_compressSequences()
+ * For use with sequence compression API: ZSTD_compressSequences*().
+ * Designates whether or not provided sequences are validated within ZSTD_compressSequences*()
  * during function execution.
  *
- * Without validation, providing a sequence that does not conform to the zstd spec will cause
- * undefined behavior, and may produce a corrupted block.
+ * When Sequence validation is disabled (default), Sequences are compressed as-is,
+ * so they must correct, otherwise it would result in a corruption error.
  *
- * With validation enabled, if sequence is invalid (see doc/zstd_compression_format.md for
+ * Sequence validation adds some protection, by ensuring that all values respect boundary conditions.
+ * If a Sequence is detected invalid (see doc/zstd_compression_format.md for
  * specifics regarding offset/matchlength requirements) then the function will bail out and
  * return an error.
- *
  */
-    #define ZSTD_c_validateSequences ZSTD_c_experimentalParam12
+#define ZSTD_c_validateSequences ZSTD_c_experimentalParam12
 
-    /* ZSTD_c_blockSplitterLevel
+/* ZSTD_c_blockSplitterLevel
  * note: this parameter only influences the first splitter stage,
  *       which is active before producing the sequences.
  *       ZSTD_c_splitAfterSequences controls the next splitter stage,
@@ -2289,10 +2340,10 @@ ZSTDLIB_STATIC_API size_t ZSTD_CCtx_refPrefix_advanced(ZSTD_CCtx*             cc
  * Note that currently the first block is never split,
  * to ensure expansion guarantees in presence of incompressible data.
  */
-    #define ZSTD_BLOCKSPLITTER_LEVEL_MAX 6
-    #define ZSTD_c_blockSplitterLevel ZSTD_c_experimentalParam20
+#define ZSTD_BLOCKSPLITTER_LEVEL_MAX 6
+#define ZSTD_c_blockSplitterLevel ZSTD_c_experimentalParam20
 
-    /* ZSTD_c_splitAfterSequences
+/* ZSTD_c_splitAfterSequences
  * This is a stronger splitter algorithm,
  * based on actual sequences previously produced by the selected parser.
  * It's also slower, and as a consequence, mostly used for high compression levels.
@@ -2308,10 +2359,10 @@ ZSTDLIB_STATIC_API size_t ZSTD_CCtx_refPrefix_advanced(ZSTD_CCtx*             cc
  * By default, in ZSTD_ps_auto, the library will decide at runtime whether to use
  * block splitting based on the compression parameters.
  */
-    #define ZSTD_c_splitAfterSequences ZSTD_c_experimentalParam13
+#define ZSTD_c_splitAfterSequences ZSTD_c_experimentalParam13
 
-    /* ZSTD_c_useRowMatchFinder
- * Controlled with ZSTD_paramSwitch_e enum.
+/* ZSTD_c_useRowMatchFinder
+ * Controlled with ZSTD_ParamSwitch_e enum.
  * Default is ZSTD_ps_auto.
  * Set to ZSTD_ps_disable to never use row-based matchfinder.
  * Set to ZSTD_ps_enable to force usage of row-based matchfinder.
@@ -2320,9 +2371,9 @@ ZSTDLIB_STATIC_API size_t ZSTD_CCtx_refPrefix_advanced(ZSTD_CCtx*             cc
  * the row-based matchfinder based on support for SIMD instructions and the window log.
  * Note that this only pertains to compression strategies: greedy, lazy, and lazy2
  */
-    #define ZSTD_c_useRowMatchFinder ZSTD_c_experimentalParam14
+#define ZSTD_c_useRowMatchFinder ZSTD_c_experimentalParam14
 
-    /* ZSTD_c_deterministicRefPrefix
+/* ZSTD_c_deterministicRefPrefix
  * Default is 0 == disabled. Set to 1 to enable.
  *
  * Zstd produces different results for prefix compression when the prefix is
@@ -2340,10 +2391,10 @@ ZSTDLIB_STATIC_API size_t ZSTD_CCtx_refPrefix_advanced(ZSTD_CCtx*             cc
  * intentionally making the dictionary and data contiguous will be worth the
  * cost to memcpy() the data.
  */
-    #define ZSTD_c_deterministicRefPrefix ZSTD_c_experimentalParam15
+#define ZSTD_c_deterministicRefPrefix ZSTD_c_experimentalParam15
 
-    /* ZSTD_c_prefetchCDictTables
- * Controlled with ZSTD_paramSwitch_e enum. Default is ZSTD_ps_auto.
+/* ZSTD_c_prefetchCDictTables
+ * Controlled with ZSTD_ParamSwitch_e enum. Default is ZSTD_ps_auto.
  *
  * In some situations, zstd uses CDict tables in-place rather than copying them
  * into the working context. (See docs on ZSTD_dictAttachPref_e above for details).
@@ -2363,9 +2414,9 @@ ZSTDLIB_STATIC_API size_t ZSTD_CCtx_refPrefix_advanced(ZSTD_CCtx*             cc
  * heuristic for cold CDicts.
  * Use ZSTD_ps_disable to opt out of prefetching under any circumstances.
  */
-    #define ZSTD_c_prefetchCDictTables ZSTD_c_experimentalParam16
+#define ZSTD_c_prefetchCDictTables ZSTD_c_experimentalParam16
 
-    /* ZSTD_c_enableSeqProducerFallback
+/* ZSTD_c_enableSeqProducerFallback
  * Allowed values are 0 (disable) and 1 (enable). The default setting is 0.
  *
  * Controls whether zstd will fall back to an internal sequence producer if an
@@ -2377,9 +2428,9 @@ ZSTDLIB_STATIC_API size_t ZSTD_CCtx_refPrefix_advanced(ZSTD_CCtx*             cc
  *
  * The user is strongly encouraged to read the full Block-Level Sequence Producer API
  * documentation (below) before setting this parameter. */
-    #define ZSTD_c_enableSeqProducerFallback ZSTD_c_experimentalParam17
+#define ZSTD_c_enableSeqProducerFallback ZSTD_c_experimentalParam17
 
-    /* ZSTD_c_maxBlockSize
+/* ZSTD_c_maxBlockSize
  * Allowed values are between 1KB and ZSTD_BLOCKSIZE_MAX (128KB).
  * The default is ZSTD_BLOCKSIZE_MAX, and setting to 0 will set to the default.
  *
@@ -2388,17 +2439,20 @@ ZSTDLIB_STATIC_API size_t ZSTD_CCtx_refPrefix_advanced(ZSTD_CCtx*             cc
  * bounds greater than ZSTD_BLOCKSIZE_MAX or bounds lower than 1KB (will make
  * compressBound() inaccurate). Only currently meant to be used for testing.
  */
-    #define ZSTD_c_maxBlockSize ZSTD_c_experimentalParam18
+#define ZSTD_c_maxBlockSize ZSTD_c_experimentalParam18
 
-    /* ZSTD_c_searchForExternalRepcodes
- * This parameter affects how zstd parses external sequences, such as sequences
- * provided through the compressSequences() API or from an external block-level
- * sequence producer.
+/* ZSTD_c_repcodeResolution
+ * This parameter only has an effect if ZSTD_c_blockDelimiters is
+ * set to ZSTD_sf_explicitBlockDelimiters (may change in the future).
  *
- * If set to ZSTD_ps_enable, the library will check for repeated offsets in
+ * This parameter affects how zstd parses external sequences,
+ * provided via the ZSTD_compressSequences*() API
+ * or from an external block-level sequence producer.
+ *
+ * If set to ZSTD_ps_enable, the library will check for repeated offsets within
  * external sequences, even if those repcodes are not explicitly indicated in
  * the "rep" field. Note that this is the only way to exploit repcode matches
- * while using compressSequences() or an external sequence producer, since zstd
+ * while using compressSequences*() or an external sequence producer, since zstd
  * currently ignores the "rep" field of external sequences.
  *
  * If set to ZSTD_ps_disable, the library will not exploit repeated offsets in
@@ -2407,12 +2461,10 @@ ZSTDLIB_STATIC_API size_t ZSTD_CCtx_refPrefix_advanced(ZSTD_CCtx*             cc
  * compression ratio.
  *
  * The default value is ZSTD_ps_auto, for which the library will enable/disable
- * based on compression level.
- *
- * Note: for now, this param only has an effect if ZSTD_c_blockDelimiters is
- * set to ZSTD_sf_explicitBlockDelimiters. That may change in the future.
+ * based on compression level (currently: level<10 disables, level>=10 enables).
  */
-    #define ZSTD_c_searchForExternalRepcodes ZSTD_c_experimentalParam19
+#define ZSTD_c_repcodeResolution ZSTD_c_experimentalParam19
+#define ZSTD_c_searchForExternalRepcodes ZSTD_c_experimentalParam19 /* older name */
 
 
 /*! ZSTD_CCtx_getParameter() :
@@ -2575,12 +2627,12 @@ ZSTDLIB_STATIC_API size_t ZSTD_DCtx_getParameter(ZSTD_DCtx*      dctx,
                                                  ZSTD_dParameter param,
                                                  int*            value);
 
-    /* ZSTD_d_format
+/* ZSTD_d_format
  * experimental parameter,
  * allowing selection between ZSTD_format_e input compression formats
  */
-    #define ZSTD_d_format ZSTD_d_experimentalParam1
-    /* ZSTD_d_stableOutBuffer
+#define ZSTD_d_format ZSTD_d_experimentalParam1
+/* ZSTD_d_stableOutBuffer
  * Experimental parameter.
  * Default is 0 == disabled. Set to 1 to enable.
  *
@@ -2610,9 +2662,9 @@ ZSTDLIB_STATIC_API size_t ZSTD_DCtx_getParameter(ZSTD_DCtx*      dctx,
  * matches. Normally zstd maintains its own buffer for this purpose, but passing
  * this flag tells zstd to use the user provided buffer.
  */
-    #define ZSTD_d_stableOutBuffer ZSTD_d_experimentalParam2
+#define ZSTD_d_stableOutBuffer ZSTD_d_experimentalParam2
 
-    /* ZSTD_d_forceIgnoreChecksum
+/* ZSTD_d_forceIgnoreChecksum
  * Experimental parameter.
  * Default is 0 == disabled. Set to 1 to enable
  *
@@ -2621,9 +2673,9 @@ ZSTDLIB_STATIC_API size_t ZSTD_DCtx_getParameter(ZSTD_DCtx*      dctx,
  * slight performance benefits, and may be useful for debugging.
  * Param has values of type ZSTD_forceIgnoreChecksum_e
  */
-    #define ZSTD_d_forceIgnoreChecksum ZSTD_d_experimentalParam3
+#define ZSTD_d_forceIgnoreChecksum ZSTD_d_experimentalParam3
 
-    /* ZSTD_d_refMultipleDDicts
+/* ZSTD_d_refMultipleDDicts
  * Experimental parameter.
  * Default is 0 == disabled. Set to 1 to enable
  *
@@ -2644,9 +2696,9 @@ ZSTDLIB_STATIC_API size_t ZSTD_DCtx_getParameter(ZSTD_DCtx*      dctx,
  * Although this function allocates memory for the table, the user is still responsible for
  * memory management of the underlying ZSTD_DDict* themselves.
  */
-    #define ZSTD_d_refMultipleDDicts ZSTD_d_experimentalParam4
+#define ZSTD_d_refMultipleDDicts ZSTD_d_experimentalParam4
 
-    /* ZSTD_d_disableHuffmanAssembly
+/* ZSTD_d_disableHuffmanAssembly
  * Set to 1 to disable the Huffman assembly implementation.
  * The default value is 0, which allows zstd to use the Huffman assembly
  * implementation if available.
@@ -2655,9 +2707,9 @@ ZSTDLIB_STATIC_API size_t ZSTD_DCtx_getParameter(ZSTD_DCtx*      dctx,
  * If you want to disable it at compile time you can define the macro
  * ZSTD_DISABLE_ASM.
  */
-    #define ZSTD_d_disableHuffmanAssembly ZSTD_d_experimentalParam5
+#define ZSTD_d_disableHuffmanAssembly ZSTD_d_experimentalParam5
 
-    /* ZSTD_d_maxBlockSize
+/* ZSTD_d_maxBlockSize
  * Allowed values are between 1KB and ZSTD_BLOCKSIZE_MAX (128KB).
  * The default is ZSTD_BLOCKSIZE_MAX, and setting to 0 will set to the default.
  *
@@ -2671,7 +2723,7 @@ ZSTDLIB_STATIC_API size_t ZSTD_DCtx_getParameter(ZSTD_DCtx*      dctx,
  * WARNING: This causes the decoder to reject otherwise valid frames
  * that have block sizes larger than the configured maxBlockSize.
  */
-    #define ZSTD_d_maxBlockSize ZSTD_d_experimentalParam6
+#define ZSTD_d_maxBlockSize ZSTD_d_experimentalParam6
 
 
 /*! ZSTD_DCtx_setFormat() :
@@ -3015,7 +3067,7 @@ ZSTDLIB_STATIC_API size_t ZSTD_resetDStream(ZSTD_DStream* zds);
  * overcoming them. It is purely a question of engineering effort.
  */
 
-    #define ZSTD_SEQUENCE_PRODUCER_ERROR ((size_t) (-1))
+#define ZSTD_SEQUENCE_PRODUCER_ERROR ((size_t) (-1))
 
 typedef size_t (*ZSTD_sequenceProducer_F)(void*          sequenceProducerState,
                                           ZSTD_Sequence* outSeqs,
@@ -3167,7 +3219,7 @@ size_t ZSTD_compressBegin_usingCDict_advanced(
            >0 : `srcSize` is too small, please provide at least result bytes on next attempt.
            errorCode, which can be tested using ZSTD_isError().
 
-  It fills a ZSTD_frameHeader structure with important information to correctly decode the frame,
+  It fills a ZSTD_FrameHeader structure with important information to correctly decode the frame,
   such as the dictionary ID, content size, or maximum back-reference distance (`windowSize`).
   Note that these values could be wrong, either because of data corruption, or because a 3rd party deliberately spoofs false information.
   As a consequence, check that values remain within valid application range.
@@ -3257,6 +3309,19 @@ typedef enum {
 ZSTDLIB_STATIC_API ZSTD_nextInputType_e ZSTD_nextInputType(ZSTD_DCtx* dctx);
 
 
+/*! ZSTD_isDeterministicBuild() :
+ * Returns 1 if the library is built using standard compilation flags,
+ * and participates in determinism guarantees with other builds of the
+ * same version.
+ * If this function returns 0, it means the library was compiled with
+ * non-standard compilation flags that change the output of the
+ * compressor.
+ * This is mainly used for Zstd's determinism test suite, which is only
+ * run when this function returns 1.
+ */
+ZSTDLIB_API int ZSTD_isDeterministicBuild(void);
+
+
 /* ========================================= */
 /**       Block level API (DEPRECATED)       */
 /* ========================================= */
@@ -3315,8 +3380,8 @@ ZSTDLIB_STATIC_API size_t ZSTD_insertBlock(
   size_t
     blockSize); /**< insert uncompressed block into `dctx` history. Useful for multi-blocks decompression. */
 
-#endif /* ZSTD_H_ZSTD_STATIC_LINKING_ONLY */
-
 #if defined(__cplusplus)
 }
 #endif
+
+#endif /* ZSTD_H_ZSTD_STATIC_LINKING_ONLY */

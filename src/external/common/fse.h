@@ -11,47 +11,41 @@
  * in the COPYING file in the root directory of this source tree).
  * You may select, at your option, one of the above-listed licenses.
 ****************************************************************** */
-
-#if defined(__cplusplus)
-extern "C" {
-#endif
-
 #ifndef FSE_H
-    #define FSE_H
+#define FSE_H
 
 
-    /*-*****************************************
+/*-*****************************************
 *  Dependencies
 ******************************************/
-    #include "zstd_deps.h" /* size_t, ptrdiff_t */
+#include "zstd_deps.h" /* size_t, ptrdiff_t */
 
-
-    /*-*****************************************
+/*-*****************************************
 *  FSE_PUBLIC_API : control library symbols visibility
 ******************************************/
-    #if defined(FSE_DLL_EXPORT) && (FSE_DLL_EXPORT == 1) && defined(__GNUC__) && (__GNUC__ >= 4)
-        #define FSE_PUBLIC_API __attribute__((visibility("default")))
-    #elif defined(FSE_DLL_EXPORT) && (FSE_DLL_EXPORT == 1) /* Visual expected */
-        #define FSE_PUBLIC_API __declspec(dllexport)
-    #elif defined(FSE_DLL_IMPORT) && (FSE_DLL_IMPORT == 1)
-        #define FSE_PUBLIC_API \
-            __declspec(dllimport) /* It isn't required but allows to generate better code, saving a function pointer load from the IAT and an indirect jump.*/
-    #else
-        #define FSE_PUBLIC_API
-    #endif
+#if defined(FSE_DLL_EXPORT) && (FSE_DLL_EXPORT == 1) && defined(__GNUC__) && (__GNUC__ >= 4)
+    #define FSE_PUBLIC_API __attribute__((visibility("default")))
+#elif defined(FSE_DLL_EXPORT) && (FSE_DLL_EXPORT == 1) /* Visual expected */
+    #define FSE_PUBLIC_API __declspec(dllexport)
+#elif defined(FSE_DLL_IMPORT) && (FSE_DLL_IMPORT == 1)
+    #define FSE_PUBLIC_API \
+        __declspec(dllimport) /* It isn't required but allows to generate better code, saving a function pointer load from the IAT and an indirect jump.*/
+#else
+    #define FSE_PUBLIC_API
+#endif
 
-    /*------   Version   ------*/
-    #define FSE_VERSION_MAJOR 0
-    #define FSE_VERSION_MINOR 9
-    #define FSE_VERSION_RELEASE 0
+/*------   Version   ------*/
+#define FSE_VERSION_MAJOR 0
+#define FSE_VERSION_MINOR 9
+#define FSE_VERSION_RELEASE 0
 
-    #define FSE_LIB_VERSION FSE_VERSION_MAJOR.FSE_VERSION_MINOR.FSE_VERSION_RELEASE
-    #define FSE_QUOTE(str) #str
-    #define FSE_EXPAND_AND_QUOTE(str) FSE_QUOTE(str)
-    #define FSE_VERSION_STRING FSE_EXPAND_AND_QUOTE(FSE_LIB_VERSION)
+#define FSE_LIB_VERSION FSE_VERSION_MAJOR.FSE_VERSION_MINOR.FSE_VERSION_RELEASE
+#define FSE_QUOTE(str) #str
+#define FSE_EXPAND_AND_QUOTE(str) FSE_QUOTE(str)
+#define FSE_VERSION_STRING FSE_EXPAND_AND_QUOTE(FSE_LIB_VERSION)
 
-    #define FSE_VERSION_NUMBER \
-        (FSE_VERSION_MAJOR * 100 * 100 + FSE_VERSION_MINOR * 100 + FSE_VERSION_RELEASE)
+#define FSE_VERSION_NUMBER \
+    (FSE_VERSION_MAJOR * 100 * 100 + FSE_VERSION_MINOR * 100 + FSE_VERSION_RELEASE)
 FSE_PUBLIC_API unsigned
 FSE_versionNumber(void); /**< library version number; to be used when checking dll version */
 
@@ -253,31 +247,28 @@ If there is an error, the function will return an error code, which can be teste
 
 
 #if defined(FSE_STATIC_LINKING_ONLY) && !defined(FSE_H_FSE_STATIC_LINKING_ONLY)
-    #define FSE_H_FSE_STATIC_LINKING_ONLY
+#define FSE_H_FSE_STATIC_LINKING_ONLY
+#include "bitstream.h"
 
-    /* *** Dependency *** */
-    #include "bitstream.h"
-
-
-    /* *****************************************
+/* *****************************************
 *  Static allocation
 *******************************************/
-    /* FSE buffer bounds */
-    #define FSE_NCOUNTBOUND 512
-    #define FSE_BLOCKBOUND(size) \
-        ((size) + ((size) >> 7) + 4 /* fse states */ + sizeof(size_t) /* bitContainer */)
-    #define FSE_COMPRESSBOUND(size) \
-        (FSE_NCOUNTBOUND + FSE_BLOCKBOUND(size)) /* Macro version, useful for static allocation */
+/* FSE buffer bounds */
+#define FSE_NCOUNTBOUND 512
+#define FSE_BLOCKBOUND(size) \
+    ((size) + ((size) >> 7) + 4 /* fse states */ + sizeof(size_t) /* bitContainer */)
+#define FSE_COMPRESSBOUND(size) \
+    (FSE_NCOUNTBOUND + FSE_BLOCKBOUND(size)) /* Macro version, useful for static allocation */
 
-    /* It is possible to statically allocate FSE CTable/DTable as a table of FSE_CTable/FSE_DTable using below macros */
-    #define FSE_CTABLE_SIZE_U32(maxTableLog, maxSymbolValue) \
-        (1 + (1 << ((maxTableLog) - 1)) + (((maxSymbolValue) + 1) * 2))
-    #define FSE_DTABLE_SIZE_U32(maxTableLog) (1 + (1 << (maxTableLog)))
+/* It is possible to statically allocate FSE CTable/DTable as a table of FSE_CTable/FSE_DTable using below macros */
+#define FSE_CTABLE_SIZE_U32(maxTableLog, maxSymbolValue) \
+    (1 + (1 << ((maxTableLog) - 1)) + (((maxSymbolValue) + 1) * 2))
+#define FSE_DTABLE_SIZE_U32(maxTableLog) (1 + (1 << (maxTableLog)))
 
-    /* or use the size to malloc() space directly. Pay attention to alignment restrictions though */
-    #define FSE_CTABLE_SIZE(maxTableLog, maxSymbolValue) \
-        (FSE_CTABLE_SIZE_U32(maxTableLog, maxSymbolValue) * sizeof(FSE_CTable))
-    #define FSE_DTABLE_SIZE(maxTableLog) (FSE_DTABLE_SIZE_U32(maxTableLog) * sizeof(FSE_DTable))
+/* or use the size to malloc() space directly. Pay attention to alignment restrictions though */
+#define FSE_CTABLE_SIZE(maxTableLog, maxSymbolValue) \
+    (FSE_CTABLE_SIZE_U32(maxTableLog, maxSymbolValue) * sizeof(FSE_CTable))
+#define FSE_DTABLE_SIZE(maxTableLog) (FSE_DTABLE_SIZE_U32(maxTableLog) * sizeof(FSE_DTable))
 
 
 /* *****************************************
@@ -291,18 +282,18 @@ unsigned FSE_optimalTableLog_internal(unsigned maxTableLog,
 /**< same as FSE_optimalTableLog(), which used `minus==2` */
 
 size_t FSE_buildCTable_rle(FSE_CTable* ct, unsigned char symbolValue);
-    /**< build a fake FSE_CTable, designed to compress always the same symbolValue */
+/**< build a fake FSE_CTable, designed to compress always the same symbolValue */
 
-    /* FSE_buildCTable_wksp() :
+/* FSE_buildCTable_wksp() :
  * Same as FSE_buildCTable(), but using an externally allocated scratch buffer (`workSpace`).
  * `wkspSize` must be >= `FSE_BUILD_CTABLE_WORKSPACE_SIZE_U32(maxSymbolValue, tableLog)` of `unsigned`.
  * See FSE_buildCTable_wksp() for breakdown of workspace usage.
  */
-    #define FSE_BUILD_CTABLE_WORKSPACE_SIZE_U32(maxSymbolValue, tableLog) \
-        (((maxSymbolValue + 2) + (1ull << (tableLog))) / 2 \
-         + sizeof(U64) / sizeof(U32) /* additional 8 bytes for potential table overwrite */)
-    #define FSE_BUILD_CTABLE_WORKSPACE_SIZE(maxSymbolValue, tableLog) \
-        (sizeof(unsigned) * FSE_BUILD_CTABLE_WORKSPACE_SIZE_U32(maxSymbolValue, tableLog))
+#define FSE_BUILD_CTABLE_WORKSPACE_SIZE_U32(maxSymbolValue, tableLog) \
+    (((maxSymbolValue + 2) + (1ull << (tableLog))) / 2 \
+     + sizeof(U64) / sizeof(U32) /* additional 8 bytes for potential table overwrite */)
+#define FSE_BUILD_CTABLE_WORKSPACE_SIZE(maxSymbolValue, tableLog) \
+    (sizeof(unsigned) * FSE_BUILD_CTABLE_WORKSPACE_SIZE_U32(maxSymbolValue, tableLog))
 size_t FSE_buildCTable_wksp(FSE_CTable*  ct,
                             const short* normalizedCounter,
                             unsigned     maxSymbolValue,
@@ -310,11 +301,11 @@ size_t FSE_buildCTable_wksp(FSE_CTable*  ct,
                             void*        workSpace,
                             size_t       wkspSize);
 
-    #define FSE_BUILD_DTABLE_WKSP_SIZE(maxTableLog, maxSymbolValue) \
-        (sizeof(short) * (maxSymbolValue + 1) + (1ULL << maxTableLog) + 8)
-    #define FSE_BUILD_DTABLE_WKSP_SIZE_U32(maxTableLog, maxSymbolValue) \
-        ((FSE_BUILD_DTABLE_WKSP_SIZE(maxTableLog, maxSymbolValue) + sizeof(unsigned) - 1) \
-         / sizeof(unsigned))
+#define FSE_BUILD_DTABLE_WKSP_SIZE(maxTableLog, maxSymbolValue) \
+    (sizeof(short) * (maxSymbolValue + 1) + (1ULL << maxTableLog) + 8)
+#define FSE_BUILD_DTABLE_WKSP_SIZE_U32(maxTableLog, maxSymbolValue) \
+    ((FSE_BUILD_DTABLE_WKSP_SIZE(maxTableLog, maxSymbolValue) + sizeof(unsigned) - 1) \
+     / sizeof(unsigned))
 FSE_PUBLIC_API size_t FSE_buildDTable_wksp(FSE_DTable*  dt,
                                            const short* normalizedCounter,
                                            unsigned     maxSymbolValue,
@@ -323,12 +314,12 @@ FSE_PUBLIC_API size_t FSE_buildDTable_wksp(FSE_DTable*  dt,
                                            size_t       wkspSize);
 /**< Same as FSE_buildDTable(), using an externally allocated `workspace` produced with `FSE_BUILD_DTABLE_WKSP_SIZE_U32(maxSymbolValue)` */
 
-    #define FSE_DECOMPRESS_WKSP_SIZE_U32(maxTableLog, maxSymbolValue) \
-        (FSE_DTABLE_SIZE_U32(maxTableLog) + 1 \
-         + FSE_BUILD_DTABLE_WKSP_SIZE_U32(maxTableLog, maxSymbolValue) \
-         + (FSE_MAX_SYMBOL_VALUE + 1) / 2 + 1)
-    #define FSE_DECOMPRESS_WKSP_SIZE(maxTableLog, maxSymbolValue) \
-        (FSE_DECOMPRESS_WKSP_SIZE_U32(maxTableLog, maxSymbolValue) * sizeof(unsigned))
+#define FSE_DECOMPRESS_WKSP_SIZE_U32(maxTableLog, maxSymbolValue) \
+    (FSE_DTABLE_SIZE_U32(maxTableLog) + 1 \
+     + FSE_BUILD_DTABLE_WKSP_SIZE_U32(maxTableLog, maxSymbolValue) \
+     + (FSE_MAX_SYMBOL_VALUE + 1) / 2 + 1)
+#define FSE_DECOMPRESS_WKSP_SIZE(maxTableLog, maxSymbolValue) \
+    (FSE_DECOMPRESS_WKSP_SIZE_U32(maxTableLog, maxSymbolValue) * sizeof(unsigned))
 size_t FSE_decompress_wksp_bmi2(void*       dst,
                                 size_t      dstCapacity,
                                 const void* cSrc,
@@ -521,12 +512,12 @@ MEM_STATIC void FSE_encodeSymbol(BIT_CStream_t* bitC, FSE_CState_t* statePtr, un
       ((const FSE_symbolCompressionTransform*) (statePtr->symbolTT))[symbol];
     const U16* const stateTable = (const U16*) (statePtr->stateTable);
     U32 const        nbBitsOut  = (U32) ((statePtr->value + symbolTT.deltaNbBits) >> 16);
-    BIT_addBits(bitC, (size_t) statePtr->value, nbBitsOut);
+    BIT_addBits(bitC, (BitContainerType) statePtr->value, nbBitsOut);
     statePtr->value = stateTable[(statePtr->value >> nbBitsOut) + symbolTT.deltaFindState];
 }
 
 MEM_STATIC void FSE_flushCState(BIT_CStream_t* bitC, const FSE_CState_t* statePtr) {
-    BIT_addBits(bitC, (size_t) statePtr->value, statePtr->stateLog);
+    BIT_addBits(bitC, (BitContainerType) statePtr->value, statePtr->stateLog);
     BIT_flushBits(bitC);
 }
 
@@ -628,64 +619,58 @@ MEM_STATIC BYTE FSE_decodeSymbolFast(FSE_DState_t* DStatePtr, BIT_DStream_t* bit
 MEM_STATIC unsigned FSE_endOfDState(const FSE_DState_t* DStatePtr) { return DStatePtr->state == 0; }
 
 
-    #ifndef FSE_COMMONDEFS_ONLY
+#ifndef FSE_COMMONDEFS_ONLY
 
-        /* **************************************************************
+    /* **************************************************************
 *  Tuning parameters
 ****************************************************************/
-        /*!MEMORY_USAGE :
+    /*!MEMORY_USAGE :
 *  Memory usage formula : N->2^N Bytes (examples : 10 -> 1KB; 12 -> 4KB ; 16 -> 64KB; 20 -> 1MB; etc.)
 *  Increasing memory usage improves compression ratio
 *  Reduced memory usage can improve speed, due to cache effect
 *  Recommended max value is 14, for 16KB, which nicely fits into Intel x86 L1 cache */
-        #ifndef FSE_MAX_MEMORY_USAGE
-            #define FSE_MAX_MEMORY_USAGE 14
-        #endif
-        #ifndef FSE_DEFAULT_MEMORY_USAGE
-            #define FSE_DEFAULT_MEMORY_USAGE 13
-        #endif
-        #if (FSE_DEFAULT_MEMORY_USAGE > FSE_MAX_MEMORY_USAGE)
-            #error "FSE_DEFAULT_MEMORY_USAGE must be <= FSE_MAX_MEMORY_USAGE"
-        #endif
-
-        /*!FSE_MAX_SYMBOL_VALUE :
-*  Maximum symbol value authorized.
-*  Required for proper stack allocation */
-        #ifndef FSE_MAX_SYMBOL_VALUE
-            #define FSE_MAX_SYMBOL_VALUE 255
-        #endif
-
-        /* **************************************************************
-*  template functions type & suffix
-****************************************************************/
-        #define FSE_FUNCTION_TYPE BYTE
-        #define FSE_FUNCTION_EXTENSION
-        #define FSE_DECODE_TYPE FSE_decode_t
-
-
-    #endif /* !FSE_COMMONDEFS_ONLY */
-
-
-    /* ***************************************************************
-*  Constants
-*****************************************************************/
-    #define FSE_MAX_TABLELOG (FSE_MAX_MEMORY_USAGE - 2)
-    #define FSE_MAX_TABLESIZE (1U << FSE_MAX_TABLELOG)
-    #define FSE_MAXTABLESIZE_MASK (FSE_MAX_TABLESIZE - 1)
-    #define FSE_DEFAULT_TABLELOG (FSE_DEFAULT_MEMORY_USAGE - 2)
-    #define FSE_MIN_TABLELOG 5
-
-    #define FSE_TABLELOG_ABSOLUTE_MAX 15
-    #if FSE_MAX_TABLELOG > FSE_TABLELOG_ABSOLUTE_MAX
-        #error "FSE_MAX_TABLELOG > FSE_TABLELOG_ABSOLUTE_MAX is not supported"
+    #ifndef FSE_MAX_MEMORY_USAGE
+        #define FSE_MAX_MEMORY_USAGE 14
+    #endif
+    #ifndef FSE_DEFAULT_MEMORY_USAGE
+        #define FSE_DEFAULT_MEMORY_USAGE 13
+    #endif
+    #if (FSE_DEFAULT_MEMORY_USAGE > FSE_MAX_MEMORY_USAGE)
+        #error "FSE_DEFAULT_MEMORY_USAGE must be <= FSE_MAX_MEMORY_USAGE"
     #endif
 
-    #define FSE_TABLESTEP(tableSize) (((tableSize) >> 1) + ((tableSize) >> 3) + 3)
+    /*!FSE_MAX_SYMBOL_VALUE :
+*  Maximum symbol value authorized.
+*  Required for proper stack allocation */
+    #ifndef FSE_MAX_SYMBOL_VALUE
+        #define FSE_MAX_SYMBOL_VALUE 255
+    #endif
 
+    /* **************************************************************
+*  template functions type & suffix
+****************************************************************/
+    #define FSE_FUNCTION_TYPE BYTE
+    #define FSE_FUNCTION_EXTENSION
+    #define FSE_DECODE_TYPE FSE_decode_t
+
+
+#endif /* !FSE_COMMONDEFS_ONLY */
+
+
+/* ***************************************************************
+*  Constants
+*****************************************************************/
+#define FSE_MAX_TABLELOG (FSE_MAX_MEMORY_USAGE - 2)
+#define FSE_MAX_TABLESIZE (1U << FSE_MAX_TABLELOG)
+#define FSE_MAXTABLESIZE_MASK (FSE_MAX_TABLESIZE - 1)
+#define FSE_DEFAULT_TABLELOG (FSE_DEFAULT_MEMORY_USAGE - 2)
+#define FSE_MIN_TABLELOG 5
+
+#define FSE_TABLELOG_ABSOLUTE_MAX 15
+#if FSE_MAX_TABLELOG > FSE_TABLELOG_ABSOLUTE_MAX
+    #error "FSE_MAX_TABLELOG > FSE_TABLELOG_ABSOLUTE_MAX is not supported"
+#endif
+
+#define FSE_TABLESTEP(tableSize) (((tableSize) >> 1) + ((tableSize) >> 3) + 3)
 
 #endif /* FSE_STATIC_LINKING_ONLY */
-
-
-#if defined(__cplusplus)
-}
-#endif

@@ -146,7 +146,7 @@ struct ZSTD_DCtx_s {
       virtualStart; /* virtual start of previous segment if it was just before current one */
     const void*      dictEnd; /* end of previous segment */
     size_t           expected;
-    ZSTD_frameHeader fParams;
+    ZSTD_FrameHeader fParams;
     U64              processedCSize;
     U64              decodedSize;
     blockType_e
@@ -167,7 +167,7 @@ struct ZSTD_DCtx_s {
     size_t         rleSize;
     size_t         staticSize;
     int            isFrameDecompression;
-#if DYNAMIC_BMI2 != 0
+#if DYNAMIC_BMI2
     int
       bmi2; /* == 1 if the CPU supports BMI2 and 0 otherwise. CPU support is determined dynamically once per context lifetime. */
 #endif
@@ -229,7 +229,7 @@ struct ZSTD_DCtx_s {
 }; /* typedef'd to ZSTD_DCtx within "zstd.h" */
 
 MEM_STATIC int ZSTD_DCtx_get_bmi2(const struct ZSTD_DCtx_s* dctx) {
-#if DYNAMIC_BMI2 != 0
+#if DYNAMIC_BMI2
     return dctx->bmi2;
 #else
     (void) dctx;
