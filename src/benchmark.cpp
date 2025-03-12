@@ -74,7 +74,7 @@ const std::vector<std::string> Defaults = {
     "4ka3/4a4/N8/p8/C8/9/9/8B/3p2ppc/4K4 w",
     "9/4k4/3aba3/3P5/1cb6/2BC5/n3N4/B2A5/9/3AK4 w",
     "3ak4/3Pa4/4b3b/5r3/1R3N3/9/9/B8/2p1A4/2B1KA3 w",
-    "4k1b2/4a4/5a3/6P1C/9/p4Nn2/2n6/9/4K4/5AB2 b"
+    "4k1b2/4a4/5a3/6P1C/9/p4Nn2/2n6/9/4K4/5AB2 b",
 
     // Positions with complicated checks and evasions
     "CRN1k1b2/3ca4/4ba3/9/2nr5/9/9/4B4/4A4/4KA3 w",
