@@ -761,8 +761,8 @@ Value Search::Worker::search(
 
     // Step 8. Null move search with verification search
     if (cutNode && (ss - 1)->currentMove != Move::null() && eval >= beta
-        && ss->staticEval >= beta - 8 * depth + 179 - 20 * improving && !excludedMove
-        && pos.major_material(us) && ss->ply >= thisThread->nmpMinPly && !is_loss(beta))
+        && ss->staticEval >= beta - 8 * depth + 189 && !excludedMove && pos.major_material(us)
+        && ss->ply >= thisThread->nmpMinPly && !is_loss(beta))
     {
         assert(eval - beta >= 0);
 
