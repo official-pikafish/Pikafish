@@ -324,8 +324,7 @@ class SIMDTiling {
 
 
 // Input feature converter
-template<IndexType                                 TransformedFeatureDimensions,
-         Accumulator<TransformedFeatureDimensions> AccumulatorState::* accPtr>
+template<IndexType TransformedFeatureDimensions>
 class FeatureTransformer {
 
     // Number of output dimensions for one side
@@ -430,12 +429,12 @@ class FeatureTransformer {
         const auto& accumulatorState = accumulatorStack.latest();
 
         const Color perspectives[2]  = {pos.side_to_move(), ~pos.side_to_move()};
-        const auto& psqtAccumulation = (accumulatorState.*accPtr).psqtAccumulation;
+        const auto& psqtAccumulation = (accumulatorState.acc<HalfDimensions>()).psqtAccumulation;
         const auto  psqt =
           (psqtAccumulation[perspectives[0]][bucket] - psqtAccumulation[perspectives[1]][bucket])
           / 2;
 
-        const auto& accumulation = (accumulatorState.*accPtr).accumulation;
+        const auto& accumulation = (accumulatorState.acc<HalfDimensions>()).accumulation;
 
         for (IndexType p = 0; p < 2; ++p)
         {
