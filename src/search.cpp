@@ -89,9 +89,8 @@ int risk_tolerance(const Position& pos, Value v) {
         return 644800 * x / ((x * x + 3 * y * y) * y);
     };
 
-    int m = (640 * pos.count<ROOK>() + 320 * pos.count<KNIGHT>() + 320 * pos.count<CANNON>()
-             + 192 * pos.count<BISHOP>() + 128 * pos.count<ADVISOR>() + 64 * pos.count<PAWN>())
-          / 64;
+    int m =
+      pos.count<PAWN>() + pos.count<ADVISOR>() + pos.count<BISHOP>() + pos.major_material() / 300;
 
     // a and b are the crude approximation of the wdl model.
     // The win rate is: 1/(1+exp((a-v)/b))
