@@ -193,9 +193,54 @@ class HalfKAv2_hm {
         return v;
     }();
 
+    // Encoding related to mid mirror
+    static constexpr auto MidMirrorEncoding = [] {
+        std::array<std::array<uint64_t, static_cast<size_t>(SQUARE_NB)>,
+                   static_cast<size_t>(PIECE_NB)>
+                          encodings{};
+        constexpr uint8_t shifts[8][2]{{0, 0},   {39, 0},  {55, 28}, {42, 7},
+                                       {48, 21}, {45, 14}, {52, 28}, {0, 0}};
+        for (const auto& c : {WHITE, BLACK})
+            for (uint8_t pt = ROOK; pt <= KING; ++pt)
+                for (uint8_t r = RANK_0; r < RANK_NB; ++r)
+                    for (uint8_t f = FILE_A; f < FILE_NB; ++f)
+                    {
+                        uint64_t encoding = 0;
+                        if (f != FILE_E && pt != KING)
+                        {
+                            uint8_t  r_     = c == WHITE ? r : RANK_9 - r;
+                            uint8_t  f_     = f < FILE_E ? f : FILE_I - f;
+                            uint64_t factor = 10;
+                            if (pt == ADVISOR || pt == BISHOP)
+                                factor = 5;
+                            else if (pt == PAWN)
+                            {
+                                r_     = r_ >= RANK_3 ? r_ - RANK_3 : r_;
+                                factor = 7;
+                            }
+                            const auto& [s1, s2] = shifts[pt];
+                            encoding =
+                              (1ULL << 58) | (1ULL << s1)
+                              | ((uint64_t(File::FILE_D - f_) * factor + uint64_t(r_)) << s2);
+                            encoding = f < FILE_E ? encoding : uint64_t(-int64_t(encoding));
+                        }
+                        else if (f != FILE_E && pt == KING)
+                            encoding = 1ULL << 63;
+                        uint8_t p        = static_cast<uint8_t>(make_piece(c, PieceType(pt)));
+                        uint8_t sq       = static_cast<uint8_t>(make_square(File(f), Rank(r)));
+                        encodings[p][sq] = encoding;
+                    }
+        return encodings;
+    }();
+
+    static constexpr uint64_t BalanceEncoding{0xbd25497ce609d3a7};
+
     // Maximum number of simultaneously active features.
     static constexpr IndexType MaxActiveDimensions = 32;
     using IndexList                                = ValueList<IndexType, MaxActiveDimensions>;
+
+    // Returns whether the middle mirror is required.
+    static bool requires_mid_mirror(const Position& pos, Color c);
 
     // Get attack bucket
     static IndexType make_attack_bucket(const Position& pos, Color c);

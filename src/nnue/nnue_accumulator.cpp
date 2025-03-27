@@ -166,11 +166,12 @@ void AccumulatorStack::forward_update_incremental(
     assert(begin < m_accumulators.size());
     assert((m_accumulators[begin].*accPtr).computed[Perspective]);
 
-    const Square ksq           = pos.king_square(Perspective);
-    const Square oksq          = pos.king_square(~Perspective);
-    auto [king_bucket, mirror] = FeatureSet::KingBuckets[ksq][oksq][pos.mid_mirror(Perspective)];
-    auto attack_bucket         = FeatureSet::make_attack_bucket(pos, Perspective);
-    auto bucket                = king_bucket * 6 + attack_bucket;
+    const Square ksq  = pos.king_square(Perspective);
+    const Square oksq = pos.king_square(~Perspective);
+    auto [king_bucket, mirror] =
+      FeatureSet::KingBuckets[ksq][oksq][FeatureSet::requires_mid_mirror(pos, Perspective)];
+    auto attack_bucket = FeatureSet::make_attack_bucket(pos, Perspective);
+    auto bucket        = king_bucket * 6 + attack_bucket;
 
     for (std::size_t next = begin + 1; next < m_current_idx; next++)
         update_accumulator_incremental<Perspective>(featureTransformer, bucket, mirror,
@@ -191,11 +192,12 @@ void AccumulatorStack::backward_update_incremental(
     assert(end < m_current_idx);
     assert((latest().*accPtr).computed[Perspective]);
 
-    const Square ksq           = pos.king_square(Perspective);
-    const Square oksq          = pos.king_square(~Perspective);
-    auto [king_bucket, mirror] = FeatureSet::KingBuckets[ksq][oksq][pos.mid_mirror(Perspective)];
-    auto attack_bucket         = FeatureSet::make_attack_bucket(pos, Perspective);
-    auto bucket                = king_bucket * 6 + attack_bucket;
+    const Square ksq  = pos.king_square(Perspective);
+    const Square oksq = pos.king_square(~Perspective);
+    auto [king_bucket, mirror] =
+      FeatureSet::KingBuckets[ksq][oksq][FeatureSet::requires_mid_mirror(pos, Perspective)];
+    auto attack_bucket = FeatureSet::make_attack_bucket(pos, Perspective);
+    auto bucket        = king_bucket * 6 + attack_bucket;
 
     for (std::size_t next = m_current_idx - 2; next >= end; next--)
         update_accumulator_incremental<Perspective, BACKWARD>(
@@ -364,17 +366,18 @@ void update_accumulator_refresh_cache(
   AccumulatorCaches::Cache<Dimensions>&         cache) {
     using Tiling [[maybe_unused]] = SIMDTiling<Dimensions, Dimensions>;
 
-    const Square ksq           = pos.king_square(Perspective);
-    const Square oksq          = pos.king_square(~Perspective);
-    auto [king_bucket, mirror] = FeatureSet::KingBuckets[ksq][oksq][pos.mid_mirror(Perspective)];
-    auto attack_bucket         = FeatureSet::make_attack_bucket(pos, Perspective);
-    auto bucket                = king_bucket * 6 + attack_bucket;
+    const Square ksq  = pos.king_square(Perspective);
+    const Square oksq = pos.king_square(~Perspective);
+    auto [king_bucket, mirror] =
+      FeatureSet::KingBuckets[ksq][oksq][FeatureSet::requires_mid_mirror(pos, Perspective)];
+    auto attack_bucket = FeatureSet::make_attack_bucket(pos, Perspective);
+    auto bucket        = king_bucket * 6 + attack_bucket;
 
     auto cache_index = AccumulatorCaches::KingCacheMaps[ksq];
     if (cache_index < 3 && mirror)
     {
         cache_index += 9;
-        if (pos.mid_mirror(Perspective))
+        if (FeatureSet::requires_mid_mirror(pos, Perspective))
             cache_index += 3;
     }
 

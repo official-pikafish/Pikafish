@@ -29,6 +29,7 @@
 #include <utility>
 
 #include "bitboard.h"
+#include "nnue/features/half_ka_v2_hm.h"
 #include "types.h"
 
 namespace Stockfish {
@@ -70,7 +71,6 @@ struct StateInfo {
 // elements are not invalidated upon list resizing.
 using StateListPtr = std::unique_ptr<std::deque<StateInfo>>;
 
-
 // Position class stores information regarding the board representation as
 // pieces, side to move, hash keys, etc. Important methods are
 // do_move() and undo_move(), used by the search to update node info when
@@ -100,9 +100,9 @@ class Position {
     template<PieceType Pt>
     int count(Color c) const;
     template<PieceType Pt>
-    int    count() const;
-    Square king_square(Color c) const;
-    bool   mid_mirror(Color c) const;
+    int      count() const;
+    Square   king_square(Color c) const;
+    uint64_t mid_encoding(Color c) const;
 
     // Checking
     Bitboard checkers() const;
@@ -184,7 +184,7 @@ class Position {
     Bitboard   byColorBB[COLOR_NB];
     Square     kingSquare[COLOR_NB];
     int        pieceCount[PIECE_NB];
-    int        flankPCDiff[COLOR_NB];
+    uint64_t   midEncoding[COLOR_NB];
     StateInfo* st;
     int        gamePly;
     Color      sideToMove;
@@ -235,10 +235,7 @@ inline int Position::count() const {
 
 inline Square Position::king_square(Color c) const { return kingSquare[c]; }
 
-inline bool Position::mid_mirror(Color c) const {
-    return file_of(king_square(WHITE)) == FILE_E && file_of(king_square(BLACK)) == FILE_E
-        && (flankPCDiff[c] < 0 || (flankPCDiff[c] == 0 && flankPCDiff[~c] < 0));
-}
+inline uint64_t Position::mid_encoding(Color c) const { return midEncoding[c]; }
 
 inline Bitboard Position::attackers_to(Square s) const { return attackers_to(s, pieces()); }
 
@@ -305,10 +302,7 @@ inline void Position::put_piece(Piece pc, Square s) {
     byColorBB[color_of(pc)] |= s;
     pieceCount[pc]++;
     pieceCount[make_piece(color_of(pc), ALL_PIECES)]++;
-    if (file_of(s) < FILE_E)
-        flankPCDiff[color_of(pc)]++;
-    else if (file_of(s) > FILE_E)
-        flankPCDiff[color_of(pc)]--;
+    midEncoding[color_of(pc)] += Eval::NNUE::Features::HalfKAv2_hm::MidMirrorEncoding[pc][s];
 }
 
 inline void Position::remove_piece(Square s) {
@@ -320,10 +314,7 @@ inline void Position::remove_piece(Square s) {
     board[s] = NO_PIECE;
     pieceCount[pc]--;
     pieceCount[make_piece(color_of(pc), ALL_PIECES)]--;
-    if (file_of(s) < FILE_E)
-        flankPCDiff[color_of(pc)]--;
-    else if (file_of(s) > FILE_E)
-        flankPCDiff[color_of(pc)]++;
+    midEncoding[color_of(pc)] -= Eval::NNUE::Features::HalfKAv2_hm::MidMirrorEncoding[pc][s];
 }
 
 inline void Position::move_piece(Square from, Square to) {
@@ -337,14 +328,8 @@ inline void Position::move_piece(Square from, Square to) {
     board[to]   = pc;
     if (type_of(pc) == KING)
         kingSquare[color_of(pc)] = to;
-    if (file_of(from) < FILE_E)
-        flankPCDiff[color_of(pc)]--;
-    else if (file_of(from) > FILE_E)
-        flankPCDiff[color_of(pc)]++;
-    if (file_of(to) < FILE_E)
-        flankPCDiff[color_of(pc)]++;
-    else if (file_of(to) > FILE_E)
-        flankPCDiff[color_of(pc)]--;
+    midEncoding[color_of(pc)] -= Eval::NNUE::Features::HalfKAv2_hm::MidMirrorEncoding[pc][from];
+    midEncoding[color_of(pc)] += Eval::NNUE::Features::HalfKAv2_hm::MidMirrorEncoding[pc][to];
 }
 
 inline void Position::do_move(Move m, StateInfo& newSt, const TranspositionTable* tt = nullptr) {

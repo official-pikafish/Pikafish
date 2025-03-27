@@ -53,7 +53,6 @@ static constexpr Piece Pieces[] = {W_ROOK, W_ADVISOR, W_CANNON, W_PAWN, W_KNIGHT
                                    B_ROOK, B_ADVISOR, B_CANNON, B_PAWN, B_KNIGHT, B_BISHOP, B_KING};
 }  // namespace
 
-
 // Returns an ASCII representation of the position
 std::ostream& operator<<(std::ostream& os, const Position& pos) {
 
@@ -126,6 +125,9 @@ Position& Position::set(const string& fenStr, StateInfo* si) {
     std::istringstream ss(fenStr);
 
     std::memset(this, 0, sizeof(Position));
+
+    midEncoding[WHITE] = midEncoding[BLACK] = Eval::NNUE::Features::HalfKAv2_hm::BalanceEncoding;
+
     std::memset(si, 0, sizeof(StateInfo));
     st = si;
 
@@ -497,7 +499,8 @@ DirtyPiece Position::do_move(Move                      m,
     else
         dp.requires_refresh[us] = dp.requires_refresh[them] = false;
 
-    bool mid_mirror_before[2] = {mid_mirror(us), mid_mirror(them)};
+    bool mid_mirror_before[2] = {Eval::NNUE::FeatureSet::requires_mid_mirror(*this, us),
+                                 Eval::NNUE::FeatureSet::requires_mid_mirror(*this, them)};
 
     if (captured)
     {
@@ -562,8 +565,10 @@ DirtyPiece Position::do_move(Move                      m,
 
     move_piece(from, to);
 
-    dp.requires_refresh[us] |= (mid_mirror_before[0] != mid_mirror(us));
-    dp.requires_refresh[them] |= (mid_mirror_before[1] != mid_mirror(them));
+    dp.requires_refresh[us] |=
+      (mid_mirror_before[0] != Eval::NNUE::FeatureSet::requires_mid_mirror(*this, us));
+    dp.requires_refresh[them] |=
+      (mid_mirror_before[1] != Eval::NNUE::FeatureSet::requires_mid_mirror(*this, them));
 
     // Update the key with the final value
     st->key = k;
