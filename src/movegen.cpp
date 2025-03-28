@@ -39,7 +39,7 @@ ExtMove* generate_moves(const Position& pos, ExtMove* moveList, Bitboard target)
         Square   from = pop_lsb(bb);
         Bitboard b    = 0;
         if constexpr (Pt != CANNON)
-            b = (Pt != PAWN ? attacks_bb<Pt>(from, pos.pieces()) : pawn_attacks_bb(Us, from))
+            b = (Pt != PAWN ? attacks_bb<Pt>(from, pos.pieces()) : attacks_bb<PAWN>(from, Us))
               & target;
         else
         {
@@ -159,7 +159,7 @@ ExtMove* generate<EVASIONS>(const Position& pos, ExtMove* moveList) {
             Square hurdleSq = pop_lsb(hurdle);
             pt              = type_of(pos.piece_on(hurdleSq));
             if (pt == PAWN)
-                b = pawn_attacks_bb(us, hurdleSq) & ~line_bb(checksq, hurdleSq) & ~pos.pieces(us);
+                b = attacks_bb<PAWN>(hurdleSq, us) & ~line_bb(checksq, hurdleSq) & ~pos.pieces(us);
             else if (pt == CANNON)
                 b = (attacks_bb<ROOK>(hurdleSq, pos.pieces()) & ~line_bb(checksq, hurdleSq)
                      & ~pos.pieces())

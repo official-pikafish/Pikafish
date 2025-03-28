@@ -187,7 +187,7 @@ void Position::set_check_info() const {
     st->needSlowCheck =
       checkers() || (attacks_bb<ROOK>(king_square(sideToMove)) & pieces(~sideToMove, CANNON));
 
-    st->checkSquares[PAWN]   = pawn_attacks_to_bb(sideToMove, ksq);
+    st->checkSquares[PAWN]   = attacks_bb<PAWN_TO>(ksq, sideToMove);
     st->checkSquares[KNIGHT] = attacks_bb<KNIGHT_TO>(ksq, pieces());
     st->checkSquares[CANNON] = attacks_bb<CANNON>(ksq, pieces());
     st->checkSquares[ROOK]   = attacks_bb<ROOK>(ksq, pieces());
@@ -318,8 +318,8 @@ void Position::update_blockers() const {
 // Slider attacks use the occupied bitboard to indicate occupancy.
 Bitboard Position::attackers_to(Square s, Bitboard occupied) const {
 
-    return (pawn_attacks_to_bb(WHITE, s) & pieces(WHITE, PAWN))
-         | (pawn_attacks_to_bb(BLACK, s) & pieces(BLACK, PAWN))
+    return (attacks_bb<PAWN_TO>(s, WHITE) & pieces(WHITE, PAWN))
+         | (attacks_bb<PAWN_TO>(s, BLACK) & pieces(BLACK, PAWN))
          | (attacks_bb<KNIGHT_TO>(s, occupied) & pieces(KNIGHT))
          | (attacks_bb<ROOK>(s, occupied) & pieces(ROOK))
          | (attacks_bb<CANNON>(s, occupied) & pieces(CANNON))
@@ -333,7 +333,7 @@ Bitboard Position::attackers_to(Square s, Bitboard occupied) const {
 // to indicate occupancy.
 Bitboard Position::checkers_to(Color c, Square s, Bitboard occupied) const {
 
-    return ((pawn_attacks_to_bb(c, s) & pieces(PAWN))
+    return ((attacks_bb<PAWN_TO>(s, c) & pieces(PAWN))
             | (attacks_bb<KNIGHT_TO>(s, occupied) & pieces(KNIGHT))
             | (attacks_bb<ROOK>(s, occupied) & pieces(KING, ROOK))
             | (attacks_bb<CANNON>(s, occupied) & pieces(CANNON)))
@@ -395,7 +395,7 @@ bool Position::pseudo_legal(const Move m) const {
 
     // Handle the special cases
     if (type_of(pc) == PAWN)
-        return bool(pawn_attacks_bb(us, from) & to);
+        return bool(attacks_bb<PAWN>(from, us) & to);
     else if (type_of(pc) == CANNON && !capture(m))
         return bool(attacks_bb<ROOK>(from, pieces()) & to);
     else

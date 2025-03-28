@@ -169,7 +169,7 @@ constexpr Value BishopValue  = 187;
 
 // clang-format off
 enum PieceType {
-    NO_PIECE_TYPE, ROOK, ADVISOR, CANNON, PAWN, KNIGHT, BISHOP, KING, KNIGHT_TO,
+    NO_PIECE_TYPE, ROOK, ADVISOR, CANNON, PAWN, KNIGHT, BISHOP, KING, KNIGHT_TO, PAWN_TO,
     ALL_PIECES = 0,
     PIECE_TYPE_NB = 8
 };

@@ -80,9 +80,7 @@ extern uint8_t SquareDistance[SQUARE_NB][SQUARE_NB];
 extern Bitboard SquareBB[SQUARE_NB];
 extern Bitboard BetweenBB[SQUARE_NB][SQUARE_NB];
 extern Bitboard LineBB[SQUARE_NB][SQUARE_NB];
-extern Bitboard PseudoAttacks[PIECE_TYPE_NB][SQUARE_NB];
-extern Bitboard PawnAttacks[COLOR_NB][SQUARE_NB];
-extern Bitboard PawnAttacksTo[COLOR_NB][SQUARE_NB];
+extern Bitboard PseudoAttacks[PIECE_TYPE_NB + 2][SQUARE_NB];
 
 int popcount(Bitboard b);  // required for 128 bit pext
 
@@ -174,12 +172,6 @@ constexpr Bitboard pawn_attacks_bb(Square s) {
     return attack;
 }
 
-inline Bitboard pawn_attacks_bb(Color c, Square s) {
-
-    assert(is_ok(s));
-    return PawnAttacks[c][s];
-}
-
 
 // Returns the squares that if there is a pawn
 // of the given color in there, it can attack the square s
@@ -190,12 +182,6 @@ constexpr Bitboard pawn_attacks_to_bb(Square s) {
     if ((C == WHITE && rank_of(s) > RANK_4) || (C == BLACK && rank_of(s) < RANK_5))
         attack |= shift<WEST>(b) | shift<EAST>(b);
     return attack;
-}
-
-inline Bitboard pawn_attacks_to_bb(Color c, Square s) {
-
-    assert(is_ok(s));
-    return PawnAttacksTo[c][s];
 }
 
 
@@ -257,10 +243,15 @@ inline int edge_distance(Rank r) { return std::min(r, Rank(RANK_9 - r)); }
 // Returns the pseudo attacks of the given piece type
 // assuming an empty board.
 template<PieceType Pt>
-inline Bitboard attacks_bb(Square s) {
+inline Bitboard attacks_bb(Square s, Color c = COLOR_NB) {
 
-    assert((Pt != PAWN) && (is_ok(s)));
-    return PseudoAttacks[Pt][s];
+    assert(((Pt != PAWN && Pt != PAWN_TO) || c < COLOR_NB) && (is_ok(s)));
+    if constexpr (Pt != PAWN && Pt != PAWN_TO)
+        return PseudoAttacks[Pt][s];
+    else if constexpr (Pt == PAWN)
+        return PseudoAttacks[c == WHITE ? NO_PIECE_TYPE : PAWN][s];
+    else  // if constexpr (Pt == PAWN_TO)
+        return PseudoAttacks[c == WHITE ? KNIGHT_TO : PAWN_TO][s];
 }
 
 
@@ -270,7 +261,7 @@ inline Bitboard attacks_bb(Square s) {
 template<PieceType Pt>
 inline Bitboard attacks_bb(Square s, Bitboard occupied) {
 
-    assert((Pt != PAWN) && (is_ok(s)));
+    assert((Pt != PAWN) && (Pt != PAWN_TO) && (is_ok(s)));
 
     switch (Pt)
     {
@@ -294,7 +285,7 @@ inline Bitboard attacks_bb(Square s, Bitboard occupied) {
 // Sliding piece attacks do not continue passed an occupied square.
 inline Bitboard attacks_bb(PieceType pt, Square s, Bitboard occupied) {
 
-    assert((pt != PAWN) && (pt != KNIGHT_TO) && (is_ok(s)));
+    assert((pt != PAWN) && (pt < KNIGHT_TO) && (is_ok(s)));
 
     switch (pt)
     {
