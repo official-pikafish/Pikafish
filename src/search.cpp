@@ -458,7 +458,8 @@ void Search::Worker::iterative_deepening() {
         // Do we have time for the next iteration? Can we stop searching now?
         if (limits.use_time_management() && !threads.stop && !mainThread->stopOnPonderhit)
         {
-            int nodesEffort = rootMoves[0].effort * 100000 / std::max(size_t(1), size_t(nodes));
+            uint64_t nodesEffort =
+              rootMoves[0].effort * 100000 / std::max(size_t(1), size_t(nodes));
 
             double fallingEval =
               (15.171 + 2.470 * (mainThread->bestPreviousAverageScore - bestValue)
@@ -840,10 +841,7 @@ Value Search::Worker::search(
         {
             assert(move.is_ok());
 
-            if (move == excludedMove)
-                continue;
-
-            if (!pos.legal(move))
+            if (move == excludedMove || !pos.legal(move))
                 continue;
 
             assert(pos.capture(move));
@@ -1494,12 +1492,13 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
         return ttData.value;
 
     // Step 4. Static evaluation of the position
-    Value      unadjustedStaticEval = VALUE_NONE;
-    const auto correctionValue      = correction_value(*thisThread, pos, ss);
+    Value unadjustedStaticEval = VALUE_NONE;
     if (ss->inCheck)
         bestValue = futilityBase = -VALUE_INFINITE;
     else
     {
+        const auto correctionValue = correction_value(*thisThread, pos, ss);
+
         if (ss->ttHit)
         {
             // Never assume anything about values stored in TT
