@@ -260,6 +260,8 @@ class Worker {
     CorrectionHistory<NonPawn>      nonPawnCorrectionHistory;
     CorrectionHistory<Continuation> continuationCorrectionHistory;
 
+    TTMoveHistory ttMoveHistory;
+
    private:
     void iterative_deepening();
 
