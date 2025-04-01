@@ -536,7 +536,7 @@ void Search::Worker::clear() {
     minorPieceCorrectionHistory.fill(0);
     nonPawnCorrectionHistory.fill(0);
 
-    ttMoveHistory.fill(0);
+    ttMoveHistory = 0;
 
     for (auto& to : continuationCorrectionHistory)
         for (auto& h : to)
@@ -1051,10 +1051,10 @@ moves_loop:  // When in check, search starts here
 
                 if (value < singularBeta)
                 {
-                    int corrValAdj1  = std::abs(correctionValue) / 265083;
-                    int corrValAdj2  = std::abs(correctionValue) / 253680;
-                    int doubleMargin = 267 * PvNode - 181 * !ttCapture - corrValAdj1
-                                     - ttMoveHistory[pawn_structure_index(pos)][us] / 128;
+                    int corrValAdj1 = std::abs(correctionValue) / 265083;
+                    int corrValAdj2 = std::abs(correctionValue) / 253680;
+                    int doubleMargin =
+                      267 * PvNode - 181 * !ttCapture - corrValAdj1 - ttMoveHistory / 128;
                     int tripleMargin =
                       96 + 282 * PvNode - 250 * !ttCapture + 103 * ss->ttPv - corrValAdj2;
 
@@ -1350,8 +1350,8 @@ moves_loop:  // When in check, search starts here
                          bestMove == ttData.move, moveCount);
         if (!PvNode)
         {
-            int bonus = (ttData.move == move) ? 800 : -600 * moveCount;
-            ttMoveHistory[pawn_structure_index(pos)][us] << bonus;
+            int bonus = (ttData.move == move) ? 800 : -870;
+            ttMoveHistory << bonus;
         }
     }
 
