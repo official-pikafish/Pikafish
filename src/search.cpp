@@ -98,6 +98,7 @@ int risk_tolerance(const Position& pos, Value v) {
     // The loss rate is 1/(1+exp((v+a)/b))
     int a = 391;
     int b = ((25 * m - 5287) * m + 61279) / 2048;
+    b     = b == 0 ? 1 : b;
 
     // guard against overflow
     assert(abs(v) + a <= std::numeric_limits<int>::max() / 644800);
