@@ -27,28 +27,9 @@
 namespace Stockfish::Eval::NNUE::Features {
 
 bool HalfKAv2_hm::requires_mid_mirror(const Position& pos, Color c) {
-    if (!((1ULL << 63) & pos.mid_encoding(c) & pos.mid_encoding(~c)))
-        return false;
-
-    // Extract all bits from the piece count part
-    uint64_t balance = 30ULL << 58;
-    uint64_t e1      = pos.mid_encoding(c) & (0b011111ULL << 58);
-    uint64_t e2      = pos.mid_encoding(~c) & (0b011111ULL << 58);
-    // if (e1 + e2 < balance)
-    //     return true;
-    // else if (e1 + e2 > balance)
-    //     return false;
-
-    // Check piece counts for each side
-    balance = 15ULL << 58;
-    if (e1 < balance || (e1 == balance && e2 < balance))
-        return true;
-    else  // if (e1 > balance || e2 > balance)
-        return false;
-
-    // // Check piece squares for each side
-    // return pos.mid_encoding(c) < BalanceEncoding
-    //     || (pos.mid_encoding(c) == BalanceEncoding && pos.mid_encoding(~c) < BalanceEncoding);
+    return ((1ULL << 63) & pos.mid_encoding(c) & pos.mid_encoding(~c))
+        && (pos.mid_encoding(c) < BalanceEncoding
+            || (pos.mid_encoding(c) == BalanceEncoding && pos.mid_encoding(~c) < BalanceEncoding));
 }
 
 // Get attack bucket
