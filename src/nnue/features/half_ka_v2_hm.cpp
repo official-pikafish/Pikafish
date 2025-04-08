@@ -34,21 +34,21 @@ bool HalfKAv2_hm::requires_mid_mirror(const Position& pos, Color c) {
     uint64_t balance = 30ULL << 58;
     uint64_t e1      = pos.mid_encoding(c) & (0b011111ULL << 58);
     uint64_t e2      = pos.mid_encoding(~c) & (0b011111ULL << 58);
-    // if (e1 + e2 < balance)
-    //     return true;
-    // else if (e1 + e2 > balance)
-    //     return false;
+    if (e1 + e2 < balance)
+        return true;
+    else if (e1 + e2 > balance)
+        return false;
 
     // Check piece counts for each side
     balance = 15ULL << 58;
     if (e1 < balance || (e1 == balance && e2 < balance))
         return true;
-    else  // if (e1 > balance || e2 > balance)
+    else if (e1 > balance || e2 > balance)
         return false;
 
-    // // Check piece squares for each side
-    // return pos.mid_encoding(c) < BalanceEncoding
-    //     || (pos.mid_encoding(c) == BalanceEncoding && pos.mid_encoding(~c) < BalanceEncoding);
+    // Check piece squares for each side
+    return pos.mid_encoding(c) < BalanceEncoding
+        || (pos.mid_encoding(c) == BalanceEncoding && pos.mid_encoding(~c) < BalanceEncoding);
 }
 
 // Get attack bucket
