@@ -277,17 +277,12 @@ struct BloomFilter {
 
 // Keep track of what a move changes on the board (used by NNUE)
 struct DirtyPiece {
+    Piece  pc;  // this is never allowed to be NO_PIECE
+    Square from, to;
 
-    // Number of changed pieces
-    int dirty_num;
-
-    // Max 2 pieces can change in one move. A capture moves the captured
-    // piece to SQ_NONE and the piece to the capture square.
-    Piece piece[2];
-
-    // From and to squares, which may be SQ_NONE
-    Square from[2];
-    Square to[2];
+    // if remove_sq is SQ_NONE, remove_pc is allowed to be uninitialized
+    Square remove_sq;
+    Piece  remove_pc;
 
     bool requires_refresh[2];
 };

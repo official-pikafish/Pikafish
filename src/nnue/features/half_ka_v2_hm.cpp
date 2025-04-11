@@ -61,13 +61,13 @@ template IndexType HalfKAv2_hm::make_index<BLACK>(Square s, Piece pc, int bucket
 template<Color Perspective>
 void HalfKAv2_hm::append_changed_indices(
   int bucket, bool mirror, const DirtyPiece& dp, IndexList& removed, IndexList& added) {
-    for (int i = 0; i < dp.dirty_num; ++i)
-    {
-        if (dp.from[i] != SQ_NONE)
-            removed.push_back(make_index<Perspective>(dp.from[i], dp.piece[i], bucket, mirror));
-        if (dp.to[i] != SQ_NONE)
-            added.push_back(make_index<Perspective>(dp.to[i], dp.piece[i], bucket, mirror));
-    }
+    removed.push_back(make_index<Perspective>(dp.from, dp.pc, bucket, mirror));
+
+    if (dp.to != SQ_NONE)
+        added.push_back(make_index<Perspective>(dp.to, dp.pc, bucket, mirror));
+
+    if (dp.remove_sq != SQ_NONE)
+        removed.push_back(make_index<Perspective>(dp.remove_sq, dp.remove_pc, bucket, mirror));
 }
 
 // Explicit template instantiations

@@ -474,15 +474,17 @@ DirtyPiece Position::do_move(Move                      m,
     }
     ++st->pliesFromNull;
 
-    DirtyPiece dp;
-    dp.dirty_num = 1;
-
     Color  us       = sideToMove;
     Color  them     = ~us;
     Square from     = m.from_sq();
     Square to       = m.to_sq();
     Piece  pc       = piece_on(from);
     Piece  captured = piece_on(to);
+
+    DirtyPiece dp;
+    dp.pc   = pc;
+    dp.from = from;
+    dp.to   = to;
 
     assert(color_of(pc) == us);
     assert(captured == NO_PIECE || color_of(captured) == them);
@@ -522,10 +524,8 @@ DirtyPiece Position::do_move(Move                      m,
             }
         }
 
-        dp.dirty_num = 2;  // 1 piece moved, 1 piece captured
-        dp.piece[1]  = captured;
-        dp.from[1]   = capsq;
-        dp.to[1]     = SQ_NONE;
+        dp.remove_pc = captured;
+        dp.remove_sq = capsq;
 
         auto attack_bucket_before = Eval::NNUE::FeatureSet::make_attack_bucket(*this, them);
 
@@ -543,6 +543,8 @@ DirtyPiece Position::do_move(Move                      m,
         // Reset rule 60 counter
         st->check10[WHITE] = st->check10[BLACK] = st->rule60 = 0;
     }
+    else
+        dp.remove_sq = SQ_NONE;
 
     // Update hash key
     k ^= Zobrist::psq[pc][from] ^ Zobrist::psq[pc][to];
@@ -558,10 +560,6 @@ DirtyPiece Position::do_move(Move                      m,
     }
 
     // Move the piece.
-    dp.piece[0] = pc;
-    dp.from[0]  = from;
-    dp.to[0]    = to;
-
     move_piece(from, to);
 
     dp.requires_refresh[us] |=
@@ -588,6 +586,9 @@ DirtyPiece Position::do_move(Move                      m,
 
     assert(pos_is_ok());
 
+    assert(dp.pc != NO_PIECE);
+    assert(!bool(captured) ^ (dp.remove_sq != SQ_NONE));
+    assert(dp.from != SQ_NONE && dp.to != SQ_NONE);
     return dp;
 }
 
