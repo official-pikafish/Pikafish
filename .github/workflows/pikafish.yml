@@ -19,7 +19,7 @@ jobs:
       matrix:
         config:
           - name: Linux
-            os: ubuntu-20.04 
+            os: ubuntu-22.04 
             shell: bash
             sde: /home/runner/work/Pikafish/Pikafish/.output/sde-temp-files/sde-external-9.27.0-2023-09-13-lin/sde -future --
           - name: Windows
