@@ -459,7 +459,6 @@ DirtyPiece Position::do_move(Move                      m,
     // our state pointer to point to the new (ready to be updated) state.
     std::memcpy(&newSt, st, offsetof(StateInfo, key));
     newSt.previous = st;
-    st->next       = &newSt;
     st             = &newSt;
     st->move       = m;
 
@@ -640,7 +639,6 @@ void Position::do_null_move(StateInfo& newSt, const TranspositionTable& tt) {
     std::memcpy(&newSt, st, sizeof(StateInfo));
 
     newSt.previous = st;
-    st->next       = &newSt;
     st             = &newSt;
 
     st->key ^= Zobrist::side;
