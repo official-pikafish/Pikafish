@@ -983,7 +983,19 @@ moves_loop:  // When in check, search starts here
                 // SEE based pruning for captures and checks
                 int seeHist = std::clamp(captHist / 28, -243 * depth, 179 * depth);
                 if (!pos.see_ge(move, -275 * depth - seeHist))
-                    continue;
+                {
+                    bool skip = true;
+                    if (depth > 2 && !capture && givesCheck && alpha < 0
+                        && pos.major_material(us) == PieceValue[movedPiece]
+                        && PieceValue[movedPiece] >= KnightValue
+                        && !(PseudoAttacks[KING][pos.king_square(us)] & move.from_sq()))
+                        skip = mp.otherPieceTypesMobile(
+                          type_of(movedPiece),
+                          capturesSearched);  // if the opponent captures last mobile piece it might be stalemate
+
+                    if (skip)
+                        continue;
+                }
             }
             else
             {
