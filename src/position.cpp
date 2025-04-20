@@ -1025,11 +1025,11 @@ bool Position::rule_judge(Value& result, int ply) {
                     if (st->rule60 < 120 && st->previous->key == stp->previous->key)
                     {
                         // Even if we entering this loop again, it will not lead to a 3 fold repetition
-                        StateInfo* next = stp;
-                        while ((next = next->next) != st->previous)
-                            if (filter[next->key] > 1)
+                        StateInfo* prev = st->previous;
+                        while ((prev = prev->previous) != stp)
+                            if (filter[prev->key] > 1)
                                 break;
-                        if (next == st->previous)
+                        if (prev == stp)
                             return true;
                     }
                     // We know there can't be another fold

@@ -83,33 +83,6 @@ int correction_value(const Worker& w, const Position& pos, const Stack* const ss
     return 4590 * pcv + 3739 * micv + 7456 * (wnpcv + bnpcv) + 8578 * cntcv;
 }
 
-int risk_tolerance(const Position& pos, Value v) {
-    // Returns (some constant of) second derivative of sigmoid.
-    static constexpr auto sigmoid_d2 = [](int x, int y) {
-        return 644800 * x / ((x * x + 3 * y * y) * y);
-    };
-
-    int m =
-      pos.count<PAWN>() + pos.count<ADVISOR>() + pos.count<BISHOP>() + pos.major_material() / 300;
-
-    // a and b are the crude approximation of the wdl model.
-    // The win rate is: 1/(1+exp((a-v)/b))
-    // The loss rate is 1/(1+exp((v+a)/b))
-    int a = 391;
-    int b = ((25 * m - 5287) * m + 61279) / 2048;
-    b     = b == 0 ? 1 : b;
-
-    // guard against overflow
-    assert(abs(v) + a <= std::numeric_limits<int>::max() / 644800);
-
-    // The risk utility is therefore d/dv^2 (1/(1+exp(-(v-a)/b)) -1/(1+exp(-(-v-a)/b)))
-    // -115200x/(x^2+3) = -345600(ab) / (a^2+3b^2) (multiplied by some constant) (second degree pade approximant)
-    int winning_risk = sigmoid_d2(v - a, b);
-    int losing_risk  = sigmoid_d2(v + a, b);
-
-    return -(winning_risk + losing_risk) * 32;
-}
-
 // Add correctionHistory value to raw staticEval and guarantee evaluation
 // does not hit the tablebase range.
 Value to_corrected_static_eval(const Value v, const int cv) {
@@ -136,6 +109,29 @@ void update_correction_history(const Position& pos,
     if (m.is_ok())
         (*(ss - 2)->continuationCorrectionHistory)[pos.piece_on(m.to_sq())][m.to_sq()]
           << bonus * 128 / 128;
+}
+
+int risk_tolerance(Value v) {
+    // Returns (some constant of) second derivative of sigmoid.
+    static constexpr auto sigmoid_d2 = [](int x, int y) {
+        return 644800 * x / ((x * x + 3 * y * y) * y);
+    };
+
+    // a and b are the crude approximation of the wdl model.
+    // The win rate is: 1/(1+exp((a-v)/b))
+    // The loss rate is 1/(1+exp((v+a)/b))
+    int a = 356;
+    int b = 123;
+
+    // guard against overflow
+    assert(abs(v) + a <= std::numeric_limits<int>::max() / 644800);
+
+    // The risk utility is therefore d/dv^2 (1/(1+exp(-(v-a)/b)) -1/(1+exp(-(-v-a)/b)))
+    // -115200x/(x^2+3) = -345600(ab) / (a^2+3b^2) (multiplied by some constant) (second degree pade approximant)
+    int winning_risk = sigmoid_d2(v - a, b);
+    int losing_risk  = sigmoid_d2(v + a, b);
+
+    return -(winning_risk + losing_risk) * 32;
 }
 
 // Add a small random component to draw evaluations to avoid 3-fold blindness
@@ -1118,7 +1114,7 @@ moves_loop:  // When in check, search starts here
         r -= std::abs(correctionValue) / 32768;
 
         if (PvNode && std::abs(bestValue) <= 2000)
-            r -= risk_tolerance(pos, bestValue);
+            r -= risk_tolerance(bestValue);
 
         // Increase reduction for cut nodes
         if (cutNode)
