@@ -89,6 +89,18 @@ Value to_corrected_static_eval(const Value v, const int cv) {
     return std::clamp(v + cv / 131072, VALUE_MATED_IN_MAX_PLY + 1, VALUE_MATE_IN_MAX_PLY - 1);
 }
 
+int adaptive_probcut_margin(Depth depth) {
+    // Base margin
+    constexpr int base = 180;
+
+    // Approximate log2(depth) using a fast lookup table
+    static constexpr int logTable[32] = {0, 0, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3,
+                                         4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4};
+
+    int logDepth = logTable[std::min(depth, 31)];
+    return base + logDepth * 60 + std::min(10, (depth - 16) * 2);
+};
+
 void update_correction_history(const Position& pos,
                                Stack* const    ss,
                                Search::Worker& workerThread,
@@ -824,7 +836,7 @@ Value Search::Worker::search(
     // If we have a good enough capture and a reduced search
     // returns a value much above beta, we can (almost) safely prune the previous move.
     probCutBeta = beta + 234 - 66 * improving;
-    if (depth >= 4
+    if (depth >= 3
         && !is_decisive(beta)
         // If value from transposition table is lower than probCutBeta, don't attempt
         // probCut there and in further interactions with transposition table cutoff
@@ -882,8 +894,8 @@ Value Search::Worker::search(
 moves_loop:  // When in check, search starts here
 
     // Step 11. A small Probcut idea
-    probCutBeta = beta + 441;
-    if ((ttData.bound & BOUND_LOWER) && ttData.depth >= depth - 3 && ttData.value >= probCutBeta
+    probCutBeta = beta + adaptive_probcut_margin(depth);
+    if ((ttData.bound & BOUND_LOWER) && ttData.depth >= depth - 4 && ttData.value >= probCutBeta
         && !is_decisive(beta) && is_valid(ttData.value) && !is_decisive(ttData.value))
         return probCutBeta;
 
