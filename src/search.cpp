@@ -749,7 +749,8 @@ Value Search::Worker::search(
     }
 
     // Use static evaluation difference to improve quiet move ordering
-    if (((ss - 1)->currentMove).is_ok() && !(ss - 1)->inCheck && !priorCapture)
+    if (((ss - 1)->currentMove).is_ok() && !(ss - 1)->inCheck && !priorCapture
+        && (ttData.depth - 2) <= depth)
     {
         int bonus = std::clamp(-17 * int((ss - 1)->staticEval + ss->staticEval), -1024, 2058) + 332;
         thisThread->mainHistory[~us][((ss - 1)->currentMove).from_to()] << bonus * 1340 / 1024;
