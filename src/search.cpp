@@ -26,7 +26,6 @@
 #include <cstdint>
 #include <cstdlib>
 #include <initializer_list>
-#include <limits>
 #include <string>
 #include <utility>
 
@@ -100,29 +99,6 @@ void update_correction_history(const Position& pos,
     if (m.is_ok())
         (*(ss - 2)->continuationCorrectionHistory)[pos.piece_on(m.to_sq())][m.to_sq()]
           << bonus * 128 / 128;
-}
-
-int risk_tolerance(Value v) {
-    // Returns (some constant of) second derivative of sigmoid.
-    static constexpr auto sigmoid_d2 = [](int x, int y) {
-        return 644800 * x / ((x * x + 3 * y * y) * y);
-    };
-
-    // a and b are the crude approximation of the wdl model.
-    // The win rate is: 1/(1+exp((a-v)/b))
-    // The loss rate is 1/(1+exp((v+a)/b))
-    int a = 356;
-    int b = 123;
-
-    // guard against overflow
-    assert(abs(v) + a <= std::numeric_limits<int>::max() / 644800);
-
-    // The risk utility is therefore d/dv^2 (1/(1+exp(-(v-a)/b)) -1/(1+exp(-(-v-a)/b)))
-    // -115200x/(x^2+3) = -345600(ab) / (a^2+3b^2) (multiplied by some constant) (second degree pade approximant)
-    int winning_risk = sigmoid_d2(v - a, b);
-    int losing_risk  = sigmoid_d2(v + a, b);
-
-    return -(winning_risk + losing_risk) * 32;
 }
 
 // Add a small random component to draw evaluations to avoid 3-fold blindness
@@ -1115,9 +1091,6 @@ moves_loop:  // When in check, search starts here
         r += 330;  // Base reduction offset to compensate for other tweaks
         r -= moveCount * 64;
         r -= std::abs(correctionValue) / 32768;
-
-        if (PvNode && std::abs(bestValue) <= 2000)
-            r -= risk_tolerance(bestValue);
 
         // Increase reduction for cut nodes
         if (cutNode)
