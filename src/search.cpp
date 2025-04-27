@@ -959,8 +959,6 @@ moves_loop:  // When in check, search starts here
 
         Depth r = reduction(improving, depth, moveCount, delta);
 
-        r -= 32 * moveCount;
-
         // Increase reduction for ttPv nodes (*Scaler)
         // Smaller or even negative value is better for short time controls
         // Bigger value is better for long time controls
@@ -1128,7 +1126,7 @@ moves_loop:  // When in check, search starts here
         // These reduction adjustments have no proven non-linear scaling
 
         r += 330;  // Base reduction offset to compensate for other tweaks
-        r -= moveCount * 32;
+        r -= moveCount * 64;
         r -= std::abs(correctionValue) / 32768;
 
         if (PvNode && std::abs(bestValue) <= 2000)
