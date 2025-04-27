@@ -97,12 +97,6 @@ Value to_corrected_static_eval(const Value v, const int cv) {
     return std::clamp(v + cv / 131072, VALUE_MATED_IN_MAX_PLY + 1, VALUE_MATE_IN_MAX_PLY - 1);
 }
 
-
-constexpr int adaptiveProbcutMargin[32] = {148, 150, 212, 214, 276, 278, 280, 282, 344, 346, 348,
-                                           350, 352, 354, 356, 358, 420, 422, 424, 426, 428, 430,
-                                           430, 430, 430, 430, 430, 430, 430, 430, 430, 430};
-
-
 void update_correction_history(const Position& pos,
                                Stack* const    ss,
                                Search::Worker& workerThread,
@@ -834,7 +828,7 @@ Value Search::Worker::search(
     // Step 9. Internal iterative reductions
     // For PV nodes without a ttMove as well as for deep enough cutNodes, we decrease depth.
     // (*Scaler) Especially if they make IIR less aggressive.
-    if (depth >= 7 - 3 * PvNode && !allNode && !ttData.move)
+    if ((!allNode && depth >= (PvNode ? 5 : 7)) && !ttData.move)
         depth--;
 
     // Step 10. ProbCut
@@ -899,7 +893,7 @@ Value Search::Worker::search(
 moves_loop:  // When in check, search starts here
 
     // Step 11. A small Probcut idea
-    probCutBeta = beta + adaptiveProbcutMargin[std::min(depth, 31)];
+    probCutBeta = beta + 180 + depth * 20;
     if ((ttData.bound & BOUND_LOWER) && ttData.depth >= depth - 4 && ttData.value >= probCutBeta
         && !is_decisive(beta) && is_valid(ttData.value) && !is_decisive(ttData.value))
         return probCutBeta;
@@ -1063,10 +1057,10 @@ moves_loop:  // When in check, search starts here
 
                 if (value < singularBeta)
                 {
-                    int corrValAdj1 = std::abs(correctionValue) / 265083;
-                    int corrValAdj2 = std::abs(correctionValue) / 253680;
-                    int doubleMargin =
-                      267 * PvNode - 181 * !ttCapture - corrValAdj1 - ttMoveHistory / 128;
+                    int corrValAdj1  = std::abs(correctionValue) / 265083;
+                    int corrValAdj2  = std::abs(correctionValue) / 253680;
+                    int doubleMargin = -4 + 267 * PvNode - 181 * !ttCapture - corrValAdj1
+                                     - 1024 * ttMoveHistory / 131072;
                     int tripleMargin =
                       96 + 282 * PvNode - 250 * !ttCapture + 103 * ss->ttPv - corrValAdj2;
 
@@ -1162,7 +1156,7 @@ moves_loop:  // When in check, search starts here
                           + (*contHist[1])[movedPiece][move.to_sq()] - 4241;
 
         // Decrease/increase reduction for moves with a good/bad history
-        r -= ss->statScore * 2652 / 18912;
+        r -= ss->statScore * 1326 / 9456;
 
         // Step 16. Late moves reduction / extension (LMR)
         if (depth >= 2 && moveCount > 1)
@@ -1194,12 +1188,12 @@ moves_loop:  // When in check, search starts here
                     value = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, newDepth, !cutNode);
 
                 // Post LMR continuation history updates
-                update_continuation_histories(ss, movedPiece, move.to_sq(), 1600);
+                update_continuation_histories(ss, movedPiece, move.to_sq(), 1508);
             }
             else if (value > alpha && value < bestValue + 9)
             {
                 newDepth--;
-                if (value < bestValue + 3)
+                if (value < bestValue + 4)
                     newDepth--;
             }
         }
@@ -1376,7 +1370,7 @@ moves_loop:  // When in check, search starts here
     else if (!priorCapture && prevSq != SQ_NONE)
     {
         int bonusScale = std::min(-(ss - 1)->statScore / 79, 234);
-        bonusScale += std::min(78 * depth - 312, 194);
+        bonusScale += std::min(73 * depth - 347, 184);
         bonusScale += 80 * !allNode;
         bonusScale += 152 * ((ss - 1)->moveCount > 11);
         bonusScale += 80 * (ss - 1)->isTTMove;
@@ -1819,7 +1813,7 @@ void update_all_stats(const Position&      pos,
 // at ply -1, -2, -3, -4, and -6 with current move.
 void update_continuation_histories(Stack* ss, Piece pc, Square to, int bonus) {
     static constexpr std::array<ConthistBonus, 6> conthist_bonuses = {
-      {{1, 1103}, {2, 659}, {3, 323}, {4, 533}, {5, 121}, {6, 474}}};
+      {{1, 1092}, {2, 631}, {3, 294}, {4, 517}, {5, 126}, {6, 445}}};
 
     for (const auto [i, weight] : conthist_bonuses)
     {
