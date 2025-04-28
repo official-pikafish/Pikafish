@@ -124,21 +124,21 @@ void MovePicker::score() {
 
     static_assert(Type == CAPTURES || Type == QUIETS || Type == EVASIONS, "Wrong type");
 
-    [[maybe_unused]] Bitboard threatenedPieces, threatByLesser[3];
+    [[maybe_unused]] Bitboard threatenedPieces, threatByLesser[BISHOP + 1];
     if constexpr (Type == QUIETS)
     {
         Color us = pos.side_to_move();
 
-        threatByLesser[0] = pos.attacks_by<PAWN>(~us);
-        threatByLesser[1] =
-          pos.attacks_by<ADVISOR>(~us) | pos.attacks_by<BISHOP>(~us) | threatByLesser[0];
-        threatByLesser[2] =
-          pos.attacks_by<KNIGHT>(~us) | pos.attacks_by<CANNON>(~us) | threatByLesser[1];
+        threatByLesser[ADVISOR] = threatByLesser[BISHOP] = pos.attacks_by<PAWN>(~us);
+        threatByLesser[KNIGHT]                           = threatByLesser[CANNON] =
+          pos.attacks_by<ADVISOR>(~us) | pos.attacks_by<BISHOP>(~us) | threatByLesser[ADVISOR];
+        threatByLesser[ROOK] =
+          pos.attacks_by<KNIGHT>(~us) | pos.attacks_by<CANNON>(~us) | threatByLesser[KNIGHT];
 
         // Pieces threatened by pieces of lesser material value
-        threatenedPieces = (pos.pieces(us, ROOK) & threatByLesser[2])
-                         | (pos.pieces(us, KNIGHT, CANNON) & threatByLesser[1])
-                         | (pos.pieces(us, ADVISOR, BISHOP) & threatByLesser[0]);
+        threatenedPieces = (pos.pieces(us, ROOK) & threatByLesser[ROOK])
+                         | (pos.pieces(us, KNIGHT, CANNON) & threatByLesser[KNIGHT])
+                         | (pos.pieces(us, ADVISOR, BISHOP) & threatByLesser[ADVISOR]);
     }
 
     for (auto& m : *this)
@@ -184,13 +184,11 @@ void MovePicker::score() {
 
             // penalty for moving to a square threatened by a lesser piece
             // or bonus for escaping an attack by a lesser piece.
-            constexpr int maps[6]  = {2, 0, 1, -1, 1, 0};
-            constexpr int bonus[3] = {144, 256, 517};
             if (pt != PAWN && pt <= BISHOP)
             {
-                auto i = maps[pt - 1];
-                int  v = (threatByLesser[i] & to ? -95 : 100 * bool(threatByLesser[i] & from));
-                m.value += bonus[i] * v;
+                static constexpr int bonus[BISHOP + 1] = {0, 517, 144, 256, 0, 256, 144};
+                int v = (threatByLesser[pt] & to ? -95 : 100 * bool(threatByLesser[pt] & from));
+                m.value += bonus[pt] * v;
             }
 
             if (ply < LOW_PLY_HISTORY_SIZE)
