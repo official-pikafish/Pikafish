@@ -56,23 +56,6 @@ namespace {
 // so changing them or adding conditions that are similar requires
 // tests at these types of time controls.
 
-// Futility margin
-Value futility_margin(Depth d,
-                      bool  noTtCutNode,
-                      bool  improving,
-                      bool  oppWorsening,
-                      int   statScore,
-                      int   correctionValue) {
-    Value futilityMult       = 140 - 33 * noTtCutNode;
-    Value improvingDeduction = improving * futilityMult * 2;
-    Value worseningDeduction = oppWorsening * futilityMult / 3;
-    Value statScoreAddition  = statScore / 159;
-    Value correctionAddition = correctionValue / 131072;
-
-    return futilityMult * d - improvingDeduction - worseningDeduction + statScoreAddition
-         + correctionAddition;
-}
-
 constexpr int futility_move_count(bool improving, Depth depth) {
     return (3 + depth * depth) / (2 - improving);
 }
@@ -774,13 +757,23 @@ Value Search::Worker::search(
 
     // Step 7. Futility pruning: child node
     // The depth condition is important for mate finding.
-    if (!ss->ttPv && depth < 16
-        && eval
-               - futility_margin(depth, cutNode && !ss->ttHit, improving, opponentWorsening,
-                                 (ss - 1)->statScore, std::abs(correctionValue))
-             >= beta
-        && eval >= beta && (!ttData.move || ttCapture) && !is_loss(beta) && !is_win(eval))
-        return beta + (eval - beta) / 3;
+    {
+        auto futility_margin = [&](Depth d) {
+            Value futilityMult       = 140 - 33 * (cutNode && !ss->ttHit);
+            Value improvingDeduction = improving * futilityMult * 2;
+            Value worseningDeduction = opponentWorsening * futilityMult / 3;
+
+            return futilityMult * d           //
+                 - improvingDeduction         //
+                 - worseningDeduction         //
+                 + (ss - 1)->statScore / 159  //
+                 + std::abs(correctionValue) / 131072;
+        };
+
+        if (!ss->ttPv && depth < 16 && eval + (eval - beta) / 8 - futility_margin(depth) >= beta
+            && eval >= beta && (!ttData.move || ttCapture) && !is_loss(beta) && !is_win(eval))
+            return beta + (eval - beta) / 3;
+    }
 
     // Step 8. Null move search with verification search
     if (cutNode && (ss - 1)->currentMove != Move::null() && eval >= beta
