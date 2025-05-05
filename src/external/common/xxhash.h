@@ -3536,7 +3536,7 @@ static XXH_PUREF xxh_u64 XXH64_finalize(xxh_u64       hash,
     }
     if (len >= 4)
     {
-        hash ^= (xxh_u64) (XXH_get32bits(ptr)) *XXH_PRIME64_1;
+        hash ^= (xxh_u64) (XXH_get32bits(ptr)) * XXH_PRIME64_1;
         ptr += 4;
         hash = XXH_rotl64(hash, 23) * XXH_PRIME64_2 + XXH_PRIME64_3;
         len -= 4;
