@@ -830,7 +830,6 @@ Value Search::Worker::search(
             do_move(pos, move, st);
 
             ss->currentMove = move;
-            ss->isTTMove    = (move == ttData.move);
             ss->continuationHistory =
               &this->continuationHistory[ss->inCheck][true][movedPiece][move.to_sq()];
             ss->continuationCorrectionHistory =
@@ -1067,7 +1066,6 @@ moves_loop:  // When in check, search starts here
 
         // Update the current move (this must be done after singular extension search)
         ss->currentMove = move;
-        ss->isTTMove    = (move == ttData.move);
         ss->continuationHistory =
           &thisThread->continuationHistory[ss->inCheck][capture][movedPiece][move.to_sq()];
         ss->continuationCorrectionHistory =
@@ -1098,7 +1096,7 @@ moves_loop:  // When in check, search starts here
             r += 1251 + allNode * 875;
 
         // For first picked move (ttMove) reduce reduction
-        else if (ss->isTTMove)
+        else if (move == ttData.move)
             r -= 2845;
 
         if (capture)
@@ -1180,7 +1178,7 @@ moves_loop:  // When in check, search starts here
             (ss + 1)->pv[0] = Move::none();
 
             // Extend move from transposition table if we are about to dive into qsearch.
-            if (ss->isTTMove && thisThread->rootDepth > 8)
+            if (move == ttData.move && thisThread->rootDepth > 8)
                 newDepth = std::max(newDepth, 1);
 
             value = -search<PV>(pos, ss + 1, -beta, -alpha, newDepth, false);
@@ -1318,7 +1316,7 @@ moves_loop:  // When in check, search starts here
                          ttData.move, moveCount);
         if (!PvNode)
         {
-            int bonus = ss->isTTMove ? 774 : -844;
+            int bonus = bestMove == ttData.move ? 774 : -844;
             ttMoveHistory << bonus;
         }
     }
@@ -1326,11 +1324,11 @@ moves_loop:  // When in check, search starts here
     // Bonus for prior quiet countermove that caused the fail low
     else if (!priorCapture && prevSq != SQ_NONE)
     {
-        int bonusScale = std::min(-(ss - 1)->statScore / 76, 237);
-        bonusScale += std::min(63 * depth - 380, 175);
+        int bonusScale = -380;
+        bonusScale += std::min(-(ss - 1)->statScore / 76, 237);
+        bonusScale += std::min(63 * depth, 555);
         bonusScale += 72 * !allNode;
         bonusScale += 151 * ((ss - 1)->moveCount > 11);
-        bonusScale += 83 * (ss - 1)->isTTMove;
         bonusScale += 94 * (ss->cutoffCnt <= 3);
         bonusScale += 74 * (!ss->inCheck && bestValue <= ss->staticEval - 162);
         bonusScale += 160 * (!(ss - 1)->inCheck && bestValue <= -(ss - 1)->staticEval - 103);
