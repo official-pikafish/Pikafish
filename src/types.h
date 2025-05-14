@@ -120,13 +120,13 @@ using Bitboard = __uint128_t;
 constexpr int MAX_MOVES = 128;
 constexpr int MAX_PLY   = 246;
 
-enum Color {
+enum Color : int8_t {
     WHITE,
     BLACK,
     COLOR_NB = 2
 };
 
-enum Bound {
+enum Bound : int8_t {
     BOUND_NONE,
     BOUND_UPPER,
     BOUND_LOWER,
@@ -169,13 +169,13 @@ constexpr Value KnightValue  = 720;
 constexpr Value BishopValue  = 187;
 
 // clang-format off
-enum PieceType {
+enum PieceType : std::int8_t {
     NO_PIECE_TYPE, ROOK, ADVISOR, CANNON, PAWN, KNIGHT, BISHOP, KING, KNIGHT_TO, PAWN_TO,
     ALL_PIECES = 0,
     PIECE_TYPE_NB = 8
 };
 
-enum Piece {
+enum Piece : std::int8_t {
     NO_PIECE,
     W_ROOK           , W_ADVISOR, W_CANNON, W_PAWN, W_KNIGHT, W_BISHOP, W_KING,
     B_ROOK = ROOK + 8, B_ADVISOR, B_CANNON, B_PAWN, B_KNIGHT, B_BISHOP, B_KING,
@@ -189,26 +189,24 @@ constexpr Value PieceValue[PIECE_NB] = {
 
 using Depth = int;
 
-enum : int {
-    // The following DEPTH_ constants are used for transposition table entries
-    // and quiescence search move generation stages. In regular search, the
-    // depth stored in the transposition table is literal: the search depth
-    // (effort) used to make the corresponding transposition table value. In
-    // quiescence search, however, the transposition table entries only store
-    // the current quiescence move generation stage (which should thus compare
-    // lower than any regular search depth).
-    DEPTH_QS = 0,
-    // For transposition table entries where no searching at all was done
-    // (whether regular or qsearch) we use DEPTH_UNSEARCHED, which should thus
-    // compare lower than any quiescence or regular depth. DEPTH_ENTRY_OFFSET
-    // is used only for the transposition table entry occupancy check (see tt.cpp),
-    // and should thus be lower than DEPTH_UNSEARCHED.
-    DEPTH_UNSEARCHED   = -2,
-    DEPTH_ENTRY_OFFSET = -3
-};
+// The following DEPTH_ constants are used for transposition table entries
+// and quiescence search move generation stages. In regular search, the
+// depth stored in the transposition table is literal: the search depth
+// (effort) used to make the corresponding transposition table value. In
+// quiescence search, however, the transposition table entries only store
+// the current quiescence move generation stage (which should thus compare
+// lower than any regular search depth).
+constexpr Depth DEPTH_QS = 0;
+// For transposition table entries where no searching at all was done
+// (whether regular or qsearch) we use DEPTH_UNSEARCHED, which should thus
+// compare lower than any quiescence or regular depth. DEPTH_ENTRY_OFFSET
+// is used only for the transposition table entry occupancy check (see tt.cpp),
+// and should thus be lower than DEPTH_UNSEARCHED.
+constexpr Depth DEPTH_UNSEARCHED   = -2;
+constexpr Depth DEPTH_ENTRY_OFFSET = -3;
 
 // clang-format off
-enum Square : int {
+enum Square : int8_t {
     SQ_A0, SQ_B0, SQ_C0, SQ_D0, SQ_E0, SQ_F0, SQ_G0, SQ_H0, SQ_I0,
     SQ_A1, SQ_B1, SQ_C1, SQ_D1, SQ_E1, SQ_F1, SQ_G1, SQ_H1, SQ_I1,
     SQ_A2, SQ_B2, SQ_C2, SQ_D2, SQ_E2, SQ_F2, SQ_G2, SQ_H2, SQ_I2,
@@ -226,7 +224,7 @@ enum Square : int {
 };
 // clang-format on
 
-enum Direction : int {
+enum Direction : int8_t {
     NORTH = 9,
     EAST  = 1,
     SOUTH = -NORTH,
@@ -238,7 +236,7 @@ enum Direction : int {
     NORTH_WEST = NORTH + WEST
 };
 
-enum File : int {
+enum File : int8_t {
     FILE_A,
     FILE_B,
     FILE_C,
@@ -251,7 +249,7 @@ enum File : int {
     FILE_NB
 };
 
-enum Rank : int {
+enum Rank : int8_t {
     RANK_0,
     RANK_1,
     RANK_2,
