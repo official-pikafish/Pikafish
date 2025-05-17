@@ -1120,7 +1120,7 @@ moves_loop:  // When in check, search starts here
             r += (ss->quietMoveStreak - 1) * 50;
 
         // For first picked move (ttMove) reduce reduction
-        else if (move == ttData.move)
+        if (move == ttData.move)
             r -= 2845;
 
         if (capture)
