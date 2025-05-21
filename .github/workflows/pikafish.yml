@@ -135,7 +135,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       ARCH: ${{ matrix.arch }}
-      COMPCXX: aarch64-linux-android21-clang++
+      COMPCXX: aarch64-linux-android29-clang++
       COMP: ndk
       EXE: pikafish-${{ matrix.arch }}
       LDFLAGS: "-static -Wno-unused-command-line-argument"
@@ -156,7 +156,7 @@ jobs:
 
       - name: Install NDK
         run: |
-          NDKV="21.4.7075529"
+          NDKV="27.2.12479018"
           ANDROID_ROOT=/usr/local/lib/android
           ANDROID_SDK_ROOT=$ANDROID_ROOT/sdk
           SDKMANAGER=$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager
