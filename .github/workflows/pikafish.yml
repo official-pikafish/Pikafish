@@ -21,12 +21,12 @@ jobs:
           - name: Linux
             os: ubuntu-22.04 
             shell: bash
-            sde: /home/runner/work/Pikafish/Pikafish/.output/sde-temp-files/sde-external-9.27.0-2023-09-13-lin/sde -future --
+            sde: /home/runner/work/Pikafish/Pikafish/.output/sde-temp-files/sde-external-9.33.0-2024-01-07-lin/sde -future --
           - name: Windows
             os: windows-latest
             shell: msys2 {0}
             ext: .exe
-            sde: /d/a/Pikafish/Pikafish/.output/sde-temp-files/sde-external-9.27.0-2023-09-13-win/sde.exe -future --
+            sde: /d/a/Pikafish/Pikafish/.output/sde-temp-files/sde-external-9.33.0-2024-01-07-win/sde.exe -future --
         arch: ["-vnni512", "-avx512", "-avx512f", "-avxvnni", "-bmi2", "-avx2", "-sse41-popcnt"]
     defaults:
       run:
@@ -57,10 +57,10 @@ jobs:
 
       - name: Download SDE package
         if: runner.os == 'Linux' || runner.os == 'Windows'
-        uses: petarpetrovt/setup-sde@91a1a03434384e064706634125a15f7446d2aafb  # @v2.3
+        uses: petarpetrovt/setup-sde@v2.4
         with:
           environmentVariableName: SDE_DIR
-          sdeVersion: 9.27.0
+          sdeVersion: 9.33.0
 
       - name: Compile ${{ matrix.arch }} build
         run: |

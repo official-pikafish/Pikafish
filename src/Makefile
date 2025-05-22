@@ -155,8 +155,8 @@ lsx = no
 lasx = no
 STRIP = strip
 
-ifneq ($(shell which clang-format-17 2> /dev/null),)
-	CLANG-FORMAT = clang-format-17
+ifneq ($(shell which clang-format-20 2> /dev/null),)
+	CLANG-FORMAT = clang-format-20
 else
 	CLANG-FORMAT = clang-format
 endif
