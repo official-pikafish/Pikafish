@@ -124,11 +124,11 @@ void MovePicker::score() {
 
     static_assert(Type == CAPTURES || Type == QUIETS || Type == EVASIONS, "Wrong type");
 
+    Color us = pos.side_to_move();
+
     [[maybe_unused]] Bitboard threatenedPieces, threatByLesser[BISHOP + 1];
     if constexpr (Type == QUIETS)
     {
-        Color us = pos.side_to_move();
-
         threatByLesser[ADVISOR] = threatByLesser[BISHOP] = pos.attacks_by<PAWN>(~us);
         threatByLesser[KNIGHT]                           = threatByLesser[CANNON] =
           pos.attacks_by<ADVISOR>(~us) | pos.attacks_by<BISHOP>(~us) | threatByLesser[ADVISOR];
@@ -143,29 +143,25 @@ void MovePicker::score() {
 
     for (auto& m : *this)
     {
+        const Square    from          = m.from_sq();
+        const Square    to            = m.to_sq();
+        const Piece     pc            = pos.moved_piece(m);
+        const PieceType pt            = type_of(pc);
+        const Piece     capturedPiece = pos.piece_on(to);
+
         if constexpr (Type == CAPTURES)
-        {
-            Piece     pc = pos.moved_piece(m);
-            PieceType pt = type_of(pc);
-            m.value      = 7 * int(PieceValue[pos.piece_on(m.to_sq())])
+            m.value = (*captureHistory)[pc][to][type_of(capturedPiece)]
+                    + 7 * int(PieceValue[capturedPiece])
                     + 1024
                         * bool((pt == CANNON
-                                  ? pos.check_squares(pt)
-                                      & ~line_bb(m.from_sq(), pos.king_square(~pos.side_to_move()))
+                                  ? pos.check_squares(pt) & ~line_bb(from, pos.king_square(~us))
                                   : pos.check_squares(pt))
-                               & m.to_sq())
-                    + (*captureHistory)[pc][m.to_sq()][type_of(pos.piece_on(m.to_sq()))];
-        }
+                               & to);
 
         else if constexpr (Type == QUIETS)
         {
-            Piece     pc   = pos.moved_piece(m);
-            PieceType pt   = type_of(pc);
-            Square    from = m.from_sq();
-            Square    to   = m.to_sq();
-
             // histories
-            m.value = 2 * (*mainHistory)[pos.side_to_move()][m.from_to()];
+            m.value = 2 * (*mainHistory)[us][m.from_to()];
             m.value += 2 * (*pawnHistory)[pawn_structure_index(pos)][pc][to];
             m.value += (*continuationHistory[0])[pc][to];
             m.value += (*continuationHistory[1])[pc][to];
@@ -175,8 +171,7 @@ void MovePicker::score() {
 
             // bonus for checks
             m.value +=
-              (bool((pt == CANNON ? pos.check_squares(pt)
-                                      & ~line_bb(from, pos.king_square(~pos.side_to_move()))
+              (bool((pt == CANNON ? pos.check_squares(pt) & ~line_bb(from, pos.king_square(~us))
                                   : pos.check_squares(pt))
                     & to)
                && pos.see_ge(m, -75))
@@ -198,11 +193,10 @@ void MovePicker::score() {
         else  // Type == EVASIONS
         {
             if (pos.capture(m))
-                m.value = PieceValue[pos.piece_on(m.to_sq())] + (1 << 28);
+                m.value = PieceValue[capturedPiece] + (1 << 28);
             else
             {
-                m.value = (*mainHistory)[pos.side_to_move()][m.from_to()]
-                        + (*continuationHistory[0])[pos.moved_piece(m)][m.to_sq()];
+                m.value = (*mainHistory)[us][m.from_to()] + (*continuationHistory[0])[pc][to];
                 if (ply < LOW_PLY_HISTORY_SIZE)
                     m.value += 2 * (*lowPlyHistory)[ply][m.from_to()] / (1 + ply);
             }
