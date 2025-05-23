@@ -182,7 +182,7 @@ void MovePicker::score() {
             if (pt != PAWN && pt <= BISHOP)
             {
                 static constexpr int bonus[BISHOP + 1] = {0, 517, 144, 256, 0, 256, 144};
-                int v = (threatByLesser[pt] & to ? -95 : 100 * bool(threatByLesser[pt] & from));
+                int v = threatByLesser[pt] & to ? -95 : 100 * bool(threatByLesser[pt] & from);
                 m.value += bonus[pt] * v;
             }
 
@@ -209,7 +209,7 @@ void MovePicker::score() {
 template<typename Pred>
 Move MovePicker::select(Pred filter) {
 
-    for (; cur < endMoves; ++cur)
+    for (; cur < endCur; ++cur)
         if (*cur != ttMove && filter())
             return *cur++;
 
@@ -236,18 +236,20 @@ top:
     case PROBCUT_INIT :
     case QCAPTURE_INIT :
         cur = endBadCaptures = moves;
-        endMoves             = generate<CAPTURES>(pos, cur);
+        endCur               = generate<CAPTURES>(pos, cur);
 
         score<CAPTURES>();
-        partial_insertion_sort(cur, endMoves, std::numeric_limits<int>::min());
+        partial_insertion_sort(cur, endCur, std::numeric_limits<int>::min());
         ++stage;
         goto top;
 
     case GOOD_CAPTURE :
         if (select([&]() {
                 // Move losing capture to endBadCaptures to be tried later
-                return pos.see_ge(*cur, -cur->value / 18) ? true
-                                                          : (*endBadCaptures++ = *cur, false);
+                if (pos.see_ge(*cur, -cur->value / 18))
+                    return true;
+                *endBadCaptures++ = *cur;
+                return false;
             }))
             return *(cur - 1);
 
@@ -258,10 +260,10 @@ top:
         if (!skipQuiets)
         {
             cur = endBadQuiets = endBadCaptures;
-            endMoves           = generate<QUIETS>(pos, cur);
+            endCur             = generate<QUIETS>(pos, cur);
 
             score<QUIETS>();
-            partial_insertion_sort(cur, endMoves, -3330 * depth);
+            partial_insertion_sort(cur, endCur, -3330 * depth);
         }
 
         ++stage;
@@ -269,13 +271,16 @@ top:
 
     case GOOD_QUIET :
         if (!skipQuiets && select([&]() {
-                return cur->value > -14000 ? true : (*endBadQuiets++ = *cur, false);
+                if (cur->value > -14000)
+                    return true;
+                *endBadQuiets++ = *cur;
+                return false;
             }))
             return *(cur - 1);
 
         // Prepare the pointers to loop over the bad captures
-        cur      = moves;
-        endMoves = endBadCaptures;
+        cur    = moves;
+        endCur = endBadCaptures;
 
         ++stage;
         [[fallthrough]];
@@ -285,8 +290,8 @@ top:
             return *(cur - 1);
 
         // Prepare the pointers to loop over the bad quiets
-        cur      = endBadCaptures;
-        endMoves = endBadQuiets;
+        cur    = endBadCaptures;
+        endCur = endBadQuiets;
 
         ++stage;
         [[fallthrough]];
@@ -298,11 +303,11 @@ top:
         return Move::none();
 
     case EVASION_INIT :
-        cur      = moves;
-        endMoves = generate<EVASIONS>(pos, cur);
+        cur    = moves;
+        endCur = generate<EVASIONS>(pos, cur);
 
         score<EVASIONS>();
-        partial_insertion_sort(cur, endMoves, std::numeric_limits<int>::min());
+        partial_insertion_sort(cur, endCur, std::numeric_limits<int>::min());
         ++stage;
         [[fallthrough]];
 
