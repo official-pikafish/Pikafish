@@ -126,7 +126,7 @@ void MovePicker::score() {
 
     Color us = pos.side_to_move();
 
-    [[maybe_unused]] Bitboard threatenedPieces, threatByLesser[BISHOP + 1];
+    [[maybe_unused]] Bitboard threatByLesser[BISHOP + 1];
     if constexpr (Type == QUIETS)
     {
         threatByLesser[ADVISOR] = threatByLesser[BISHOP] = pos.attacks_by<PAWN>(~us);
@@ -134,11 +134,6 @@ void MovePicker::score() {
           pos.attacks_by<ADVISOR>(~us) | pos.attacks_by<BISHOP>(~us) | threatByLesser[ADVISOR];
         threatByLesser[ROOK] =
           pos.attacks_by<KNIGHT>(~us) | pos.attacks_by<CANNON>(~us) | threatByLesser[KNIGHT];
-
-        // Pieces threatened by pieces of lesser material value
-        threatenedPieces = (pos.pieces(us, ROOK) & threatByLesser[ROOK])
-                         | (pos.pieces(us, KNIGHT, CANNON) & threatByLesser[KNIGHT])
-                         | (pos.pieces(us, ADVISOR, BISHOP) & threatByLesser[ADVISOR]);
     }
 
     for (auto& m : *this)
