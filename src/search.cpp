@@ -980,7 +980,7 @@ moves_loop:  // When in check, search starts here
 
                 lmrDepth += history / 3654;
 
-                Value baseFutility = (bestMove ? 101 : 193 + std::abs(history / 311));
+                Value baseFutility = (bestMove ? 46 : 282);
                 Value futilityValue =
                   ss->staticEval + baseFutility + 124 * lmrDepth + 104 * (ss->staticEval > alpha);
 
