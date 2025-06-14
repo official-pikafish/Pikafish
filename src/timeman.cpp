@@ -86,16 +86,13 @@ void TimeManagement::init(Search::LimitsType& limits,
     // with constants are involved.
     const int64_t   scaleFactor = useNodesTime ? npmsec : 1;
     const TimePoint scaledTime  = limits.time[us] / scaleFactor;
-    const TimePoint scaledInc   = limits.inc[us] / scaleFactor;
 
     // Maximum move horizon
     int centiMTG = limits.movestogo ? std::min(limits.movestogo * 100, 6000) : 6000;
 
     // If less than one second, gradually reduce mtg
-    if (scaledTime < 1000 && double(centiMTG) / scaledInc > 6.000)
-    {
+    if (scaledTime < 1000)
         centiMTG = scaledTime * 6.000;
-    }
 
     // Make sure timeLeft is > 0 since we may use it as a divisor
     TimePoint timeLeft =
