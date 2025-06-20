@@ -49,7 +49,7 @@ PREFIX = /usr/local
 BINDIR = $(PREFIX)/bin
 
 ### Built-in benchmark for pgo-builds
-PGOBENCH = $(WINE_PATH) ./$(EXE) bench
+PGOBENCH = printf "speedtest\nbench\n" | $(WINE_PATH) ./$(EXE)
 
 ### Source and object files
 SRCS = $(shell find . -name '*.cpp') $(shell find . -name '*.S')

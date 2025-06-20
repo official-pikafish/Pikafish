@@ -56,7 +56,7 @@ jobs:
           install: mingw-w64-clang-x86_64-clang make git expect
 
       - name: Download SDE package
-        if: runner.os == 'Linux' || runner.os == 'Windows'
+        if: "!(matrix.arch == '-bmi2' || matrix.arch == '-avx2' || matrix.arch == '-sse41-popcnt')"
         uses: petarpetrovt/setup-sde@v2.4
         with:
           environmentVariableName: SDE_DIR
@@ -64,6 +64,9 @@ jobs:
 
       - name: Compile ${{ matrix.arch }} build
         run: |
+          if [[ "${{ matrix.arch }}" == "-bmi2" || "${{ matrix.arch }}" == "-avx2" || "${{ matrix.arch }}" == "-sse41-popcnt" ]]; then
+            SDE=""
+          fi
           make -j profile-build EXE=$EXE WINE_PATH="$SDE"
           make strip EXE=$EXE
           cp $EXE ../
