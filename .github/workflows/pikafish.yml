@@ -27,7 +27,7 @@ jobs:
             shell: msys2 {0}
             ext: .exe
             sde: /d/a/Pikafish/Pikafish/.output/sde-temp-files/sde-external-9.33.0-2024-01-07-win/sde.exe -future --
-        arch: ["-vnni512", "-avx512", "-avx512f", "-avxvnni", "-bmi2", "-avx2", "-sse41-popcnt"]
+        arch: ["-vnni512", "-bw512", "-avx512", "-avxvnni", "-bmi2", "-avx2", "-sse41-popcnt"]
     defaults:
       run:
         working-directory: src

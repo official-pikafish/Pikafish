@@ -188,7 +188,7 @@ class AffineTransform {
 
         if constexpr (OutputDimensions > 1)
         {
-    #if defined(USE_AVX512) || defined(USE_AVX512F)
+    #if defined(USE_AVX512)
             using vec_t = __m512i;
         #define vec_set_32 _mm512_set1_epi32
         #define vec_add_dpbusd_32 SIMD::m512_add_dpbusd_epi32
