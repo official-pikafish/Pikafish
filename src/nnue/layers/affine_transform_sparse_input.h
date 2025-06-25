@@ -36,20 +36,12 @@
 namespace Stockfish::Eval::NNUE::Layers {
 
 #if (USE_SSSE3 | (USE_NEON >= 8))
-constexpr int constexpr_lsb(uint64_t bb) {
-    // clang-format off
-    constexpr int lsb_index64[64] = {
-       0, 47,  1, 56, 48, 27,  2, 60,
-      57, 49, 41, 37, 28, 16,  3, 61,
-      54, 58, 35, 52, 50, 42, 21, 44,
-      38, 32, 29, 23, 17, 11,  4, 62,
-      46, 55, 26, 59, 40, 36, 15, 53,
-      34, 51, 20, 43, 31, 22, 10, 45,
-      25, 39, 14, 33, 19, 30,  9, 24,
-      13, 18,  8, 12,  7,  6,  5, 63
-    };
-    // clang-format on
+static constexpr int lsb_index64[64] = {
+  0,  47, 1,  56, 48, 27, 2,  60, 57, 49, 41, 37, 28, 16, 3,  61, 54, 58, 35, 52, 50, 42,
+  21, 44, 38, 32, 29, 23, 17, 11, 4,  62, 46, 55, 26, 59, 40, 36, 15, 53, 34, 51, 20, 43,
+  31, 22, 10, 45, 25, 39, 14, 33, 19, 30, 9,  24, 13, 18, 8,  12, 7,  6,  5,  63};
 
+constexpr int constexpr_lsb(uint64_t bb) {
     assert(bb != 0);
     constexpr uint64_t debruijn64 = 0x03F79D71B4CB0A89ULL;
     return lsb_index64[((bb ^ (bb - 1)) * debruijn64) >> 58];
@@ -76,22 +68,50 @@ alignas(CacheLineSize) static constexpr struct OffsetIndices {
 
 } Lookup;
 
+    #if defined(__GNUC__) || defined(__clang__)
+        #define RESTRICT __restrict__
+    #elif defined(_MSC_VER)
+        #define RESTRICT __restrict
+    #else
+        #define RESTRICT
+    #endif
+
 // Find indices of nonzero numbers in an int32_t array
 template<const IndexType InputDimensions>
-void find_nnz(const std::int32_t* input, std::uint16_t* out, IndexType& count_out) {
+void find_nnz(const std::int32_t* RESTRICT input,
+              std::uint16_t* RESTRICT      out,
+              IndexType&                   count_out) {
     using namespace SIMD;
 
     constexpr IndexType InputSimdWidth = sizeof(vec_uint_t) / sizeof(std::int32_t);
+    const auto          inputVector    = reinterpret_cast<const vec_uint_t*>(input);
+    IndexType           count          = 0;
+
+    #ifdef USE_AVX512
+    constexpr IndexType NumChunks = InputDimensions / InputSimdWidth;
+
+    vec_t       base      = _mm512_set_epi32(15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0);
+    const vec_t increment = _mm512_set1_epi32(InputSimdWidth);
+    for (IndexType i = 0; i < NumChunks; ++i)
+    {
+        const vec_t inputChunk = inputVector[i];
+
+        // Get a bitmask and gather non zero indices
+        const __mmask16 nnzMask = _mm512_test_epi32_mask(inputChunk, inputChunk);
+        const vec_t     nnzV    = _mm512_maskz_compress_epi32(nnzMask, base);
+        _mm512_mask_cvtepi32_storeu_epi16(out + count, 0xFFFF, nnzV);
+        count += popcount(nnzMask);
+        base = _mm512_add_epi32(base, increment);
+    }
+    #else
     // Inputs are processed InputSimdWidth at a time and outputs are processed 8 at a time so we process in chunks of max(InputSimdWidth, 8)
     constexpr IndexType ChunkSize       = std::max<IndexType>(InputSimdWidth, 8);
     constexpr IndexType NumChunks       = InputDimensions / ChunkSize;
     constexpr IndexType InputsPerChunk  = ChunkSize / InputSimdWidth;
     constexpr IndexType OutputsPerChunk = ChunkSize / 8;
 
-    const auto     inputVector = reinterpret_cast<const vec_uint_t*>(input);
-    IndexType      count       = 0;
-    vec128_t       base        = vec128_zero;
-    const vec128_t increment   = vec128_set_16(8);
+    vec128_t       base      = vec128_zero;
+    const vec128_t increment = vec128_set_16(8);
     for (IndexType i = 0; i < NumChunks; ++i)
     {
         // bitmask of nonzero values in this chunk
@@ -111,6 +131,8 @@ void find_nnz(const std::int32_t* input, std::uint16_t* out, IndexType& count_ou
             base = vec128_add(base, increment);
         }
     }
+    #endif
+
     count_out = count;
 }
 

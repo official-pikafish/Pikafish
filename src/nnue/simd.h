@@ -47,7 +47,6 @@ namespace Stockfish::Eval::NNUE::SIMD {
 
 #ifdef USE_AVX512
 using vec_t      = __m512i;
-using vec128_t   = __m128i;
 using psqt_vec_t = __m512i;
 using vec_uint_t = __m512i;
     #define vec_load(a) _mm512_load_si512(a)
@@ -89,16 +88,6 @@ using vec_uint_t = __m512i;
         // Inverse permuted at load time
         #define vec_packus_16(a, b) vec_op(_mm256_packus_epi16, a, b)
     #endif
-
-    #ifdef USE_SSSE3
-        #define vec_nnz(a) _mm512_cmpgt_epi32_mask(a, _mm512_setzero_si512())
-    #endif
-
-    #define vec128_zero _mm_setzero_si128()
-    #define vec128_set_16(a) _mm_set1_epi16(a)
-    #define vec128_load(a) _mm_load_si128(a)
-    #define vec128_storeu(a, b) _mm_storeu_si128(a, b)
-    #define vec128_add(a, b) _mm_add_epi16(a, b)
 
     #define NumRegistersSIMD 16
     #define MaxChunkSize 64
