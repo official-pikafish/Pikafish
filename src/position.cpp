@@ -63,7 +63,7 @@ std::ostream& operator<<(std::ostream& os, const Position& pos) {
         for (File f = FILE_A; f <= FILE_I; ++f)
             os << " | " << PieceToChar[pos.piece_on(make_square(f, r))];
 
-        os << " | " << r << "\n +---+---+---+---+---+---+---+---+---+\n";
+        os << " | " << int(r) << "\n +---+---+---+---+---+---+---+---+---+\n";
     }
 
     os << "   a   b   c   d   e   f   g   h   i\n"
