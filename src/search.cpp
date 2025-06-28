@@ -490,7 +490,6 @@ void Search::Worker::undo_null_move(Position& pos) { pos.undo_null_move(); }
 // Reset histories, usually before a new game
 void Search::Worker::clear() {
     mainHistory.fill(61);
-    lowPlyHistory.fill(106);
     captureHistory.fill(-596);
     pawnHistory.fill(-1234);
     pawnCorrectionHistory.fill(5);
