@@ -187,11 +187,12 @@ enum Piece : std::int8_t {
     B_ROOK = ROOK + 8, B_ADVISOR, B_CANNON, B_PAWN, B_KNIGHT, B_BISHOP, B_KING,
     PIECE_NB
 };
-
-constexpr Value PieceValue[PIECE_NB] = {
-  VALUE_ZERO, RookValue,   AdvisorValue, CannonValue, PawnValue,  KnightValue, BishopValue,  VALUE_ZERO,
-  VALUE_ZERO, RookValue,   AdvisorValue, CannonValue, PawnValue,  KnightValue, BishopValue,  VALUE_ZERO};
 // clang-format on
+
+constexpr Value PieceValue[PIECE_NB] = {VALUE_ZERO, RookValue,   AdvisorValue, CannonValue,
+                                        PawnValue,  KnightValue, BishopValue,  VALUE_ZERO,
+                                        VALUE_ZERO, RookValue,   AdvisorValue, CannonValue,
+                                        PawnValue,  KnightValue, BishopValue,  VALUE_ZERO};
 
 using Depth = int;
 

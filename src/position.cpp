@@ -789,8 +789,10 @@ bool Position::see_ge(Move m, int threshold) const {
 }
 
 
-// Like do_move(), but a little lighter
-std::pair<Piece, int> Position::light_do_move(Move m) {
+// A lighter version of do_move(), used in chasing detection
+std::pair<Piece, int> Position::do_move(Move m) {
+
+    assert(capture(m));
 
     Square from     = m.from_sq();
     Square to       = m.to_sq();
@@ -801,10 +803,8 @@ std::pair<Piece, int> Position::light_do_move(Move m) {
     idBoard[to]   = idBoard[from];
     idBoard[from] = 0;
 
-    if (captured)
-        // Update board and piece lists
-        remove_piece(to);
-
+    // Update board and piece lists
+    remove_piece(to);
     move_piece(from, to);
 
     sideToMove = ~sideToMove;
@@ -813,8 +813,8 @@ std::pair<Piece, int> Position::light_do_move(Move m) {
 }
 
 
-// Like undo_move(), but a little lighter
-void Position::light_undo_move(Move m, Piece captured, int id) {
+// A lighter version of undo_move(), used in chasing detection
+void Position::undo_move(Move m, Piece captured, int id) {
 
     sideToMove = ~sideToMove;
 
@@ -828,11 +828,7 @@ void Position::light_undo_move(Move m, Piece captured, int id) {
     move_piece(to, from);  // Put the piece back at the source square
 
     if (captured)
-    {
-        Square capsq = to;
-
-        put_piece(captured, capsq);  // Restore the captured piece
-    }
+        put_piece(captured, to);  // Restore the captured piece
 }
 
 
@@ -899,7 +895,7 @@ uint16_t Position::chased(Color c) {
                 else
                 {
                     bool trueChase             = true;
-                    const auto& [captured, id] = light_do_move(m);
+                    const auto& [captured, id] = do_move(m);
                     Bitboard recaptures        = attackers_to(to) & pieces(sideToMove);
                     while (recaptures)
                     {
@@ -910,7 +906,7 @@ uint16_t Position::chased(Color c) {
                             break;
                         }
                     }
-                    light_undo_move(m, captured, id);
+                    undo_move(m, captured, id);
 
                     if (trueChase)
                     {
@@ -959,13 +955,13 @@ Value Position::detect_chases(int d, int ply) {
         {
             if (!chase[sideToMove])
                 break;
-            light_undo_move(st->move, st->capturedPiece);
+            undo_move(st->move, st->capturedPiece);
             st = st->previous;
         }
         else
         {
             uint16_t after = chased(~sideToMove);
-            light_undo_move(st->move, st->capturedPiece);
+            undo_move(st->move, st->capturedPiece);
             st = st->previous;
             // Take the exact diff to detect the chase
             chase[sideToMove] &= after & ~chased(sideToMove);

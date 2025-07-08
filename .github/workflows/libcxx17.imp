@@ -10,6 +10,7 @@
     { include: [ "<__math/logarithms.h>", private, "<cmath>", public ] },
     { include: [ "<__ostream/basic_ostream.h>", private, "<ostream>", public ] },
     { include: [ "<__system_error/errc.h>", private, "<system_error>", public ] },
+    { include: [ "<__vector/vector.h>", private, "<vector>", public ] },
 
     # Mappings for includes between public headers
     { include: [ "<ios>", public, "<iostream>", public ] },

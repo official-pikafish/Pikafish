@@ -169,8 +169,8 @@ class Position {
 
     // Other helpers
     void                  move_piece(Square from, Square to);
-    std::pair<Piece, int> light_do_move(Move m);
-    void                  light_undo_move(Move m, Piece captured, int id = 0);
+    std::pair<Piece, int> do_move(Move m);
+    void                  undo_move(Move m, Piece captured, int id = 0);
     Value                 detect_chases(int d, int ply = 0);
     bool                  chase_legal(Move m) const;
     template<bool AfterMove>
