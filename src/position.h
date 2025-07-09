@@ -43,13 +43,12 @@ class TranspositionTable;
 struct StateInfo {
 
     // Copied when making a move
-    Key     pawnKey;
-    Key     minorPieceKey;
-    Key     nonPawnKey[COLOR_NB];
-    Value   majorMaterial[COLOR_NB];
-    int16_t check10[COLOR_NB];
-    int     rule60;
-    int     pliesFromNull;
+    Key   pawnKey;
+    Key   minorPieceKey;
+    Key   nonPawnKey[COLOR_NB];
+    Value majorMaterial[COLOR_NB];
+    int   rule40;
+    int   pliesFromNull;
 
     // Not copied when making a move (will be recomputed anyhow)
     Key        key;
@@ -61,6 +60,7 @@ struct StateInfo {
     bool       needSlowCheck;
     Piece      capturedPiece;
     Move       move;
+    bool       captureDark;
 };
 
 
@@ -99,9 +99,9 @@ class Position {
     template<PieceType Pt>
     int count(Color c) const;
     template<PieceType Pt>
-    int      count() const;
-    Square   king_square(Color c) const;
-    uint64_t mid_encoding(Color c) const;
+    int    count() const;
+    Square king_square(Color c) const;
+    bool   is_dark(Square s) const;
 
     // Checking
     Bitboard checkers() const;
@@ -126,6 +126,7 @@ class Position {
     bool  gives_check(Move m) const;
     Piece moved_piece(Move m) const;
     Piece captured_piece() const;
+    bool  move_dark(Move m) const;
 
     // Doing and undoing moves
     void       do_move(Move m, StateInfo& newSt, const TranspositionTable* tt);
@@ -133,6 +134,9 @@ class Position {
     void       undo_move(Move m);
     void       do_null_move(StateInfo& newSt, const TranspositionTable& tt);
     void       undo_null_move();
+    Piece
+    do_flip(Square s, Piece pc, DirtyPiece* dp = nullptr, const TranspositionTable* tt = nullptr);
+    void undo_flip(Square s, Piece fromPc);
 
     // Static Exchange Evaluation
     bool see_ge(Move m, int threshold = 0) const;
@@ -148,10 +152,14 @@ class Position {
     Color    side_to_move() const;
     int      game_ply() const;
     bool     rule_judge(Value& result, int ply = 0);
-    int      rule60_count() const;
+    int      rule40_count() const;
     uint16_t chased(Color c);
     Value    major_material(Color c) const;
     Value    major_material() const;
+
+    const int&                         rest_piece(Piece pc) const;
+    int&                               rest_piece(Piece pc);
+    std::vector<std::pair<Piece, int>> rest_pieces(Color c) const;
 
     // Position consistency check, for debugging
     bool pos_is_ok() const;
@@ -173,19 +181,20 @@ class Position {
     void                  undo_move(Move m, Piece captured, int id = 0);
     Value                 detect_chases(int d, int ply = 0);
     bool                  chase_legal(Move m) const;
+
     template<bool AfterMove>
-    Key adjust_key60(Key k) const;
+    Key adjust_key40(Key k) const;
 
     // Data members
     Piece      board[SQUARE_NB];
-    Bitboard   byTypeBB[PIECE_TYPE_NB];
+    Bitboard   byTypeBB[PIECE_TYPE_NB + 1];
     Bitboard   byColorBB[COLOR_NB];
     Square     kingSquare[COLOR_NB];
     int        pieceCount[PIECE_NB];
-    uint64_t   midEncoding[COLOR_NB];
     StateInfo* st;
     int        gamePly;
     Color      sideToMove;
+    int        restPieces[PIECE_NB];
 
     // Bloom filter for fast repetition filtering
     BloomFilter filter;
@@ -233,7 +242,7 @@ inline int Position::count() const {
 
 inline Square Position::king_square(Color c) const { return kingSquare[c]; }
 
-inline uint64_t Position::mid_encoding(Color c) const { return midEncoding[c]; }
+inline bool Position::is_dark(Square s) const { return pieces(DARK) & s; }
 
 inline Bitboard Position::attackers_to(Square s) const { return attackers_to(s, pieces()); }
 
@@ -262,11 +271,11 @@ inline Bitboard Position::pinners(Color c) const { return st->pinners[c]; }
 
 inline Bitboard Position::check_squares(PieceType pt) const { return st->checkSquares[pt]; }
 
-inline Key Position::key() const { return adjust_key60<false>(st->key); }
+inline Key Position::key() const { return adjust_key40<false>(st->key); }
 
 template<bool AfterMove>
-inline Key Position::adjust_key60(Key k) const {
-    return (st->rule60 < 14 - AfterMove ? k : k ^ make_key((st->rule60 - (14 - AfterMove)) / 8))
+inline Key Position::adjust_key40(Key k) const {
+    return (st->rule40 < 14 - AfterMove ? k : k ^ make_key((st->rule40 - (14 - AfterMove)) / 8))
          ^ (filter[st->key] ? make_key(14) : 0);
 }
 
@@ -282,9 +291,24 @@ inline Value Position::major_material() const {
     return major_material(WHITE) + major_material(BLACK);
 }
 
+inline const int& Position::rest_piece(Piece pc) const { return restPieces[pc]; }
+
+inline int& Position::rest_piece(Piece pc) { return restPieces[pc]; }
+
+inline std::vector<std::pair<Piece, int>> Position::rest_pieces(Color c) const {
+    std::vector<std::pair<Piece, int>> pieces;
+    for (PieceType pt = ROOK; pt < KING; ++pt)
+    {
+        Piece pc = make_piece(c, pt);
+        if (restPieces[pc])
+            pieces.emplace_back(pc, restPieces[pc]);
+    }
+    return pieces;
+}
+
 inline int Position::game_ply() const { return gamePly; }
 
-inline int Position::rule60_count() const { return st->rule60; }
+inline int Position::rule40_count() const { return st->rule40; }
 
 inline bool Position::capture(Move m) const {
     assert(m.is_ok());
@@ -293,6 +317,8 @@ inline bool Position::capture(Move m) const {
 
 inline Piece Position::captured_piece() const { return st->capturedPiece; }
 
+inline bool Position::move_dark(Move m) const { return pieces(DARK) & m.from_sq(); }
+
 inline void Position::put_piece(Piece pc, Square s) {
 
     board[s] = pc;
@@ -300,7 +326,6 @@ inline void Position::put_piece(Piece pc, Square s) {
     byColorBB[color_of(pc)] |= s;
     pieceCount[pc]++;
     pieceCount[make_piece(color_of(pc), ALL_PIECES)]++;
-    midEncoding[color_of(pc)] += Eval::NNUE::Features::HalfKAv2_hm::MidMirrorEncoding[pc][s];
 }
 
 inline void Position::remove_piece(Square s) {
@@ -312,7 +337,6 @@ inline void Position::remove_piece(Square s) {
     board[s] = NO_PIECE;
     pieceCount[pc]--;
     pieceCount[make_piece(color_of(pc), ALL_PIECES)]--;
-    midEncoding[color_of(pc)] -= Eval::NNUE::Features::HalfKAv2_hm::MidMirrorEncoding[pc][s];
 }
 
 inline void Position::move_piece(Square from, Square to) {
@@ -326,8 +350,6 @@ inline void Position::move_piece(Square from, Square to) {
     board[to]   = pc;
     if (type_of(pc) == KING)
         kingSquare[color_of(pc)] = to;
-    midEncoding[color_of(pc)] -= Eval::NNUE::Features::HalfKAv2_hm::MidMirrorEncoding[pc][from];
-    midEncoding[color_of(pc)] += Eval::NNUE::Features::HalfKAv2_hm::MidMirrorEncoding[pc][to];
 }
 
 inline void Position::do_move(Move m, StateInfo& newSt, const TranspositionTable* tt = nullptr) {

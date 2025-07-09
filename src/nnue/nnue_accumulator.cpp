@@ -138,12 +138,9 @@ void AccumulatorStack::forward_update_incremental(
     assert(begin < accumulators.size());
     assert((accumulators[begin].acc<Dimensions>()).computed[Perspective]);
 
-    const Square ksq  = pos.king_square(Perspective);
-    const Square oksq = pos.king_square(~Perspective);
-    auto [king_bucket, mirror] =
-      FeatureSet::KingBuckets[ksq][oksq][FeatureSet::requires_mid_mirror(pos, Perspective)];
-    auto attack_bucket = FeatureSet::make_attack_bucket(pos, Perspective);
-    auto bucket        = king_bucket * 6 + attack_bucket;
+    const Square ksq      = pos.king_square(Perspective);
+    const Square oksq     = pos.king_square(~Perspective);
+    auto [bucket, mirror] = FeatureSet::KingBuckets[ksq][oksq];
 
     for (std::size_t next = begin + 1; next < size; next++)
     {
@@ -152,7 +149,7 @@ void AccumulatorStack::forward_update_incremental(
             DirtyPiece& dp1 = accumulators[next].dirtyPiece;
             DirtyPiece& dp2 = accumulators[next + 1].dirtyPiece;
 
-            if (dp1.to == dp2.remove_sq)
+            if (dp1.to != SQ_NONE && dp1.to == dp2.remove_sq)
             {
                 const Square captureSq = dp1.to;
                 dp1.to = dp2.remove_sq = SQ_NONE;
@@ -182,12 +179,9 @@ void AccumulatorStack::backward_update_incremental(
     assert(end < size);
     assert((latest().acc<Dimensions>()).computed[Perspective]);
 
-    const Square ksq  = pos.king_square(Perspective);
-    const Square oksq = pos.king_square(~Perspective);
-    auto [king_bucket, mirror] =
-      FeatureSet::KingBuckets[ksq][oksq][FeatureSet::requires_mid_mirror(pos, Perspective)];
-    auto attack_bucket = FeatureSet::make_attack_bucket(pos, Perspective);
-    auto bucket        = king_bucket * 6 + attack_bucket;
+    const Square ksq      = pos.king_square(Perspective);
+    const Square oksq     = pos.king_square(~Perspective);
+    auto [bucket, mirror] = FeatureSet::KingBuckets[ksq][oksq];
 
     for (std::int64_t next = std::int64_t(size) - 2; next >= std::int64_t(end); next--)
         update_accumulator_incremental<Perspective, false>(
@@ -383,33 +377,43 @@ void update_accumulator_refresh_cache(const FeatureTransformer<Dimensions>& feat
 
     using Tiling [[maybe_unused]] = SIMDTiling<Dimensions, Dimensions, PSQTBuckets>;
 
-    const Square ksq  = pos.king_square(Perspective);
-    const Square oksq = pos.king_square(~Perspective);
-    auto [king_bucket, mirror] =
-      FeatureSet::KingBuckets[ksq][oksq][FeatureSet::requires_mid_mirror(pos, Perspective)];
-    auto attack_bucket = FeatureSet::make_attack_bucket(pos, Perspective);
-    auto bucket        = king_bucket * 6 + attack_bucket;
+    const Square ksq      = pos.king_square(Perspective);
+    const Square oksq     = pos.king_square(~Perspective);
+    auto [bucket, mirror] = FeatureSet::KingBuckets[ksq][oksq];
 
     auto cache_index = AccumulatorCaches::KingCacheMaps[ksq];
     if (cache_index < 3 && mirror)
-    {
         cache_index += 9;
-        if (FeatureSet::requires_mid_mirror(pos, Perspective))
-            cache_index += 3;
-    }
 
-    auto&                 entry = cache[cache_index * 6 + attack_bucket][Perspective];
+    auto&                 entry = cache[cache_index][Perspective];
     FeatureSet::IndexList removed, added;
 
     for (Color c : {WHITE, BLACK})
     {
-        for (PieceType pt = ROOK; pt <= KING; ++pt)
+        for (PieceType pt = ROOK; pt <= DARK; ++pt)
         {
-            const Piece    piece    = make_piece(c, pt);
-            const Bitboard oldBB    = entry.byColorBB[c] & entry.byTypeBB[pt];
-            const Bitboard newBB    = pos.pieces(c, pt);
-            Bitboard       toRemove = oldBB & ~newBB;
-            Bitboard       toAdd    = newBB & ~oldBB;
+            const Piece piece = pt == DARK ? DARK_PIECE : make_piece(c, pt);
+            Bitboard    oldBB = entry.byColorBB[c] & entry.byTypeBB[pt];
+            Bitboard    newBB = pos.pieces(c, pt);
+            if (pt != DARK)
+            {
+                oldBB &= ~entry.byTypeBB[DARK];
+                newBB &= ~pos.pieces(DARK);
+
+                while (entry.restPieces[piece] > pos.rest_piece(piece))
+                {
+                    removed.push_back(FeatureSet::make_dark_rest_index<Perspective>(piece, bucket));
+                    --entry.restPieces[piece];
+                }
+
+                while (entry.restPieces[piece] < pos.rest_piece(piece))
+                {
+                    added.push_back(FeatureSet::make_dark_rest_index<Perspective>(piece, bucket));
+                    ++entry.restPieces[piece];
+                }
+            }
+            Bitboard toRemove = oldBB & ~newBB;
+            Bitboard toAdd    = newBB & ~oldBB;
 
             while (toRemove)
             {
@@ -549,7 +553,7 @@ void update_accumulator_refresh_cache(const FeatureTransformer<Dimensions>& feat
     for (Color c : {WHITE, BLACK})
         entry.byColorBB[c] = pos.pieces(c);
 
-    for (PieceType pt = ROOK; pt <= KING; ++pt)
+    for (PieceType pt = ROOK; pt <= DARK; ++pt)
         entry.byTypeBB[pt] = pos.pieces(pt);
 }
 

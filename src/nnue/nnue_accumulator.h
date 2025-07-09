@@ -87,7 +87,8 @@ struct AccumulatorCaches {
             BiasType       accumulation[Size];
             PSQTWeightType psqtAccumulation[PSQTBuckets];
             Bitboard       byColorBB[COLOR_NB];
-            Bitboard       byTypeBB[PIECE_TYPE_NB];
+            Bitboard       byTypeBB[PIECE_TYPE_NB + 1];
+            int            restPieces[PIECE_NB];
 
             // To initialize a refresh entry, we set all its bitboards empty,
             // so we put the biases in the accumulation, without any weights on top
@@ -108,7 +109,7 @@ struct AccumulatorCaches {
 
         std::array<Entry, COLOR_NB>& operator[](int index) { return entries[index]; }
 
-        std::array<std::array<Entry, COLOR_NB>, (9 + 6) * 2 * 3> entries;
+        std::array<std::array<Entry, COLOR_NB>, 9 + 3> entries;
     };
 
     template<typename Networks>

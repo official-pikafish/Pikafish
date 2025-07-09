@@ -115,7 +115,8 @@ trace(Position& pos, const Eval::NNUE::Networks& networks, Eval::NNUE::Accumulat
             board[y + i][x] = board[y + i][x + 8] = '|';
         board[y][x] = board[y][x + 8] = board[y + 3][x + 8] = board[y + 3][x] = '+';
         if (pc != NO_PIECE)
-            board[y + 1][x + 4] = PieceToChar[pc];
+            board[y + 1][x + 4] =
+              pos.is_dark(make_square(file, rank)) ? "Xx"[color_of(pc)] : PieceToChar[pc];
         if (is_valid(value))
             format_cp_compact(value, &board[y + 2][x + 2], pos);
     };
