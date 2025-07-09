@@ -41,13 +41,24 @@ namespace Stockfish {
 
 namespace Zobrist {
 
-Key psq[PIECE_NB][SQUARE_NB];
+Key psq[PIECE_NB + 1][SQUARE_NB];
 Key side, noPawns;
 }
 
 namespace {
 
-constexpr std::string_view PieceToChar(" RACPNBK racpnbk");
+constexpr std::string_view PieceToChar(" RACPNBK racpnbkXx");
+
+constexpr std::string_view DarkPieces("RNBAKABNR"
+                                      "........."
+                                      ".C.....C."
+                                      "P.P.P.P.P"
+                                      "........."
+                                      "........."
+                                      "p.p.p.p.p"
+                                      ".c.....c."
+                                      "........."
+                                      "rnbakabnr");
 
 static constexpr Piece Pieces[] = {W_ROOK, W_ADVISOR, W_CANNON, W_PAWN, W_KNIGHT, W_BISHOP, W_KING,
                                    B_ROOK, B_ADVISOR, B_CANNON, B_PAWN, B_KNIGHT, B_BISHOP, B_KING};
@@ -61,7 +72,11 @@ std::ostream& operator<<(std::ostream& os, const Position& pos) {
     for (Rank r = RANK_9; r >= RANK_0; --r)
     {
         for (File f = FILE_A; f <= FILE_I; ++f)
-            os << " | " << PieceToChar[pos.piece_on(make_square(f, r))];
+        {
+            Square sq = make_square(f, r);
+            Piece  pc = pos.piece_on(sq);
+            os << " | " << ((pos.pieces(DARK) & sq) ? "Xx"[color_of(pc)] : PieceToChar[pc]);
+        }
 
         os << " | " << int(r) << "\n +---+---+---+---+---+---+---+---+---+\n";
     }
@@ -85,6 +100,9 @@ void Position::init() {
     for (Piece pc : Pieces)
         for (Square s = SQ_A0; s <= SQ_I9; ++s)
             Zobrist::psq[pc][s] = rng.rand<Key>();
+
+    for (Square s = SQ_A0; s <= SQ_I9; ++s)
+        Zobrist::psq[DARK_PIECE][s] = rng.rand<Key>();
 
     Zobrist::side    = rng.rand<Key>();
     Zobrist::noPawns = rng.rand<Key>();
@@ -126,8 +144,6 @@ Position& Position::set(const string& fenStr, StateInfo* si) {
 
     std::memset(this, 0, sizeof(Position));
 
-    midEncoding[WHITE] = midEncoding[BLACK] = Eval::NNUE::Features::HalfKAv2_hm::BalanceEncoding;
-
     std::memset(si, 0, sizeof(StateInfo));
     st = si;
 
@@ -144,6 +160,11 @@ Position& Position::set(const string& fenStr, StateInfo* si) {
 
         else if ((idx = PieceToChar.find(token)) != string::npos)
         {
+            if (tolower(token) == 'x')
+            {
+                idx = PieceToChar.find(DarkPieces[sq]);
+                byTypeBB[DARK] |= sq;
+            }
             put_piece(Piece(idx), sq);
             if (type_of(Piece(idx)) == KING)
                 kingSquare[color_of(Piece(idx))] = sq;
@@ -151,7 +172,18 @@ Position& Position::set(const string& fenStr, StateInfo* si) {
         }
     }
 
-    // 2. Active color
+    // 2. Rest pieces
+    while ((ss >> token) && !isspace(token))
+    {
+        if (tolower(token) == 'x')
+            continue;
+
+        Piece pc = Piece(PieceToChar.find(token));
+        ss >> token;
+        restPieces[pc] = token - '0';
+    }
+
+    // 3. Active color
     ss >> token;
     sideToMove = (token == 'w' ? WHITE : BLACK);
     ss >> token;
@@ -162,8 +194,8 @@ Position& Position::set(const string& fenStr, StateInfo* si) {
     while ((ss >> token) && !isspace(token))
         ;
 
-    // 3-4. Halfmove clock and fullmove number
-    ss >> std::skipws >> st->rule60 >> gamePly;
+    // 4-5. Halfmove clock and fullmove number
+    ss >> std::skipws >> st->rule40 >> gamePly;
 
     // Convert from fullmove starting from 1 to gamePly starting from 0,
     // handle also common incorrect FEN with fullmove = 0.
@@ -189,11 +221,13 @@ void Position::set_check_info() const {
     st->needSlowCheck =
       checkers() || (attacks_bb<ROOK>(king_square(sideToMove)) & pieces(~sideToMove, CANNON));
 
-    st->checkSquares[PAWN]   = attacks_bb<PAWN_TO>(ksq, sideToMove);
-    st->checkSquares[KNIGHT] = attacks_bb<KNIGHT_TO>(ksq, pieces());
-    st->checkSquares[CANNON] = attacks_bb<CANNON>(ksq, pieces());
-    st->checkSquares[ROOK]   = attacks_bb<ROOK>(ksq, pieces());
-    st->checkSquares[KING] = st->checkSquares[ADVISOR] = st->checkSquares[BISHOP] = 0;
+    st->checkSquares[PAWN]    = attacks_bb<PAWN_TO>(ksq, sideToMove);
+    st->checkSquares[KNIGHT]  = attacks_bb<KNIGHT_TO>(ksq, pieces());
+    st->checkSquares[CANNON]  = attacks_bb<CANNON>(ksq, pieces());
+    st->checkSquares[ROOK]    = attacks_bb<ROOK>(ksq, pieces());
+    st->checkSquares[ADVISOR] = attacks_bb<ADVISOR>(ksq);
+    st->checkSquares[BISHOP]  = attacks_bb<BISHOP>(ksq, pieces());
+    st->checkSquares[KING]    = 0;
 
     Bitboard hollowCannons = st->checkSquares[ROOK] & pieces(sideToMove, CANNON);
     if (hollowCannons)
@@ -227,7 +261,8 @@ void Position::set_state() const {
         Square    s  = pop_lsb(b);
         Piece     pc = piece_on(s);
         PieceType pt = type_of(pc);
-        st->key ^= Zobrist::psq[pc][s];
+
+        st->key ^= Zobrist::psq[(pieces(DARK) & s) ? DARK_PIECE : pc][s];
 
         if (pt == PAWN)
             st->pawnKey ^= Zobrist::psq[pc][s];
@@ -267,18 +302,29 @@ string Position::fen() const {
                 ss << emptyCnt;
 
             if (f <= FILE_I)
-                ss << PieceToChar[piece_on(make_square(f, r))];
+            {
+                Piece pc = piece_on(make_square(f, r));
+                ss << ((pieces(DARK) & make_square(f, r)) ? "Xx"[color_of(pc)] : PieceToChar[pc]);
+            }
         }
 
         if (r > RANK_0)
             ss << '/';
     }
 
+    ss << ' ';
+    for (Color c : {WHITE, BLACK})
+        for (PieceType pt = ROOK; pt < KING; ++pt)
+        {
+            Piece pc = make_piece(c, pt);
+            ss << PieceToChar[pc] << restPieces[pc];
+        }
+
     ss << (sideToMove == WHITE ? " w " : " b ");
 
     ss << '-';
 
-    ss << " - " << st->rule60 << " " << 1 + (gamePly - (sideToMove == BLACK)) / 2;
+    ss << " - " << st->rule40 << " " << 1 + (gamePly - (sideToMove == BLACK)) / 2;
 
     return ss.str();
 }
@@ -295,9 +341,10 @@ void Position::update_blockers() const {
     st->pinners[~c]        = 0;
 
     // Snipers are pieces that attack 's' when a piece and other pieces are removed
-    Bitboard snipers = ((attacks_bb<ROOK>(ksq) & (pieces(ROOK) | pieces(CANNON) | pieces(KING)))
-                        | (attacks_bb<KNIGHT>(ksq) & pieces(KNIGHT)))
-                     & pieces(~c);
+    Bitboard snipers =
+      ((attacks_bb<ROOK>(ksq) & (pieces(ROOK) | pieces(CANNON) | pieces(KING)))
+       | (attacks_bb<KNIGHT>(ksq) & pieces(KNIGHT)) | (attacks_bb<BISHOP>(ksq) & pieces(BISHOP)))
+      & pieces(~c);
     Bitboard occupancy = pieces() ^ (snipers & ~pieces(CANNON));
 
     while (snipers)
@@ -338,7 +385,9 @@ Bitboard Position::checkers_to(Color c, Square s, Bitboard occupied) const {
     return ((attacks_bb<PAWN_TO>(s, c) & pieces(PAWN))
             | (attacks_bb<KNIGHT_TO>(s, occupied) & pieces(KNIGHT))
             | (attacks_bb<ROOK>(s, occupied) & pieces(KING, ROOK))
-            | (attacks_bb<CANNON>(s, occupied) & pieces(CANNON)))
+            | (attacks_bb<CANNON>(s, occupied) & pieces(CANNON))
+            | (attacks_bb<BISHOP>(s, occupied) & pieces(BISHOP))
+            | (attacks_bb<ADVISOR>(s, occupied) & pieces(ADVISOR)))
          & pieces(c);
 }
 
@@ -355,6 +404,11 @@ bool Position::legal(Move m) const {
 
     assert(color_of(moved_piece(m)) == us);
     assert(piece_on(king_square(us)) == make_piece(us, KING));
+
+    // If the moving piece is a dark advisor, make sure the destination square
+    // is within the palace
+    if (type_of(piece_on(from)) == ADVISOR && move_dark(m) && !(Palace & to))
+        return false;
 
     // If the moving piece is a king, check whether the destination square is
     // attacked by the opponent.
@@ -436,6 +490,95 @@ bool Position::gives_check(Move m) const {
 }
 
 
+Piece Position::do_flip(Move m, Piece pc, DirtyPiece* dp, const TranspositionTable* tt) {
+
+    assert(m.is_ok());
+
+    Color  us     = ~sideToMove;
+    Color  them   = ~us;
+    Square from   = m.from_sq();
+    Square to     = m.to_sq();
+    Piece  fromPc = piece_on(to);
+
+    if (dp)
+    {
+        dp->add_pc = pc;
+        dp->add_sq = to;
+    }
+
+    assert(color_of(pc) == us);
+
+    // Flip the piece
+    remove_piece(to);
+    put_piece(pc, to);
+    byTypeBB[DARK] ^= from;
+    restPieces[pc]--;
+
+    // Recalculate checkersBB
+    st->checkersBB = checkers_to(us, king_square(them));
+
+    // Update hash key
+    st->key ^= Zobrist::psq[pc][to];
+    // If the moving piece is a pawn, update pawn hash key.
+    if (type_of(pc) == PAWN)
+        st->pawnKey ^= Zobrist::psq[pc][to];
+    else
+    {
+        st->nonPawnKey[us] ^= Zobrist::psq[pc][to];
+
+        if (type_of(pc) == KNIGHT || type_of(pc) == CANNON)
+            st->minorPieceKey ^= Zobrist::psq[pc][to];
+
+        if (type_of(pc) != KING && (type_of(pc) & 1))
+            st->majorMaterial[us] += PieceValue[pc];
+    }
+
+    if (tt)
+        prefetch(tt->first_entry(key()));
+
+    // Update king attacks used for fast check detection
+    set_check_info();
+
+    assert(pos_is_ok());
+
+    return fromPc;
+}
+
+
+void Position::undo_flip(Move m, Piece fromPc) {
+
+    assert(m.is_ok());
+
+    Color  us   = ~sideToMove;
+    Square from = m.from_sq();
+    Square to   = m.to_sq();
+    Piece  pc   = piece_on(to);
+
+    restPieces[pc]++;
+    remove_piece(to);
+    put_piece(fromPc, to);
+    byTypeBB[DARK] ^= from;
+
+    // Update hash key
+    st->key ^= Zobrist::psq[pc][to];
+    // If the moving piece is a pawn, update pawn hash key.
+    if (type_of(pc) == PAWN)
+        st->pawnKey ^= Zobrist::psq[pc][to];
+    else
+    {
+        st->nonPawnKey[us] ^= Zobrist::psq[pc][to];
+
+        if (type_of(pc) == KNIGHT || type_of(pc) == CANNON)
+            st->minorPieceKey ^= Zobrist::psq[pc][to];
+
+        if (type_of(pc) != KING && (type_of(pc) & 1))
+            st->majorMaterial[us] -= PieceValue[pc];
+    }
+
+    assert(pos_is_ok());
+}
+
+
 // Makes a move, and saves all information necessary
 // to a StateInfo object. The move is assumed to be legal. Pseudo-legal
 // moves should be filtered out before this function is called.
@@ -462,50 +605,45 @@ DirtyPiece Position::do_move(Move                      m,
     st             = &newSt;
     st->move       = m;
 
-    // Increment ply counters. Clamp to 10 checks for each side in rule 60
-    // In particular, rule60 will be reset to zero later on in case of a capture.
-    ++gamePly;
-    if (!givesCheck || ++st->check10[sideToMove] <= 10)
-    {
-        if (st->check10[~sideToMove] > 10 && st->previous->checkersBB)
-            ++st->check10[~sideToMove];
-        else
-            ++st->rule60;
-    }
-    ++st->pliesFromNull;
-
     Color  us       = sideToMove;
     Color  them     = ~us;
     Square from     = m.from_sq();
     Square to       = m.to_sq();
     Piece  pc       = piece_on(from);
     Piece  captured = piece_on(to);
+    bool   moveDark = move_dark(m);
 
     DirtyPiece dp;
-    dp.pc   = pc;
-    dp.from = from;
-    dp.to   = to;
+    dp.pc     = pc;
+    dp.from   = from;
+    dp.to     = moveDark ? SQ_NONE : to;
+    dp.add_sq = SQ_NONE;
 
     assert(color_of(pc) == us);
     assert(captured == NO_PIECE || color_of(captured) == them);
     assert(type_of(captured) != KING);
 
+    // Increment ply counters.
+    // In particular, rule40 will be reset to zero later on in case of a capture.
+    ++gamePly;
+    ++st->rule40;
+    ++st->pliesFromNull;
+
     if (pc == make_piece(us, KING))
     {
         dp.requires_refresh[us] = true;
-        bool mirror_before = Eval::NNUE::FeatureSet::KingBuckets[king_square(them)][from][0].second;
-        bool mirror_after  = Eval::NNUE::FeatureSet::KingBuckets[king_square(them)][to][0].second;
+        bool mirror_before = Eval::NNUE::FeatureSet::KingBuckets[king_square(them)][from].second;
+        bool mirror_after  = Eval::NNUE::FeatureSet::KingBuckets[king_square(them)][to].second;
         dp.requires_refresh[them] = (mirror_before != mirror_after);
     }
     else
         dp.requires_refresh[us] = dp.requires_refresh[them] = false;
 
-    bool mid_mirror_before[2] = {Eval::NNUE::FeatureSet::requires_mid_mirror(*this, us),
-                                 Eval::NNUE::FeatureSet::requires_mid_mirror(*this, them)};
-
     if (captured)
     {
         Square capsq = to;
+
+        st->captureDark = pieces(DARK) & to;
 
         // If the captured piece is a pawn, update pawn hash key, otherwise
         // update major material.
@@ -524,71 +662,70 @@ DirtyPiece Position::do_move(Move                      m,
             }
         }
 
-        dp.remove_pc = captured;
+        dp.remove_pc = st->captureDark ? DARK_PIECE : captured;
         dp.remove_sq = capsq;
 
-        auto attack_bucket_before = Eval::NNUE::FeatureSet::make_attack_bucket(*this, them);
+        if (st->captureDark)
+            byTypeBB[DARK] ^= to;
 
         // Update board and piece lists
         remove_piece(capsq);
 
-        auto attack_bucket_after = Eval::NNUE::FeatureSet::make_attack_bucket(*this, them);
-
-        if (attack_bucket_before != attack_bucket_after)
-            dp.requires_refresh[them] = true;
-
         // Update hash key
-        k ^= Zobrist::psq[captured][capsq];
+        k ^= Zobrist::psq[st->captureDark ? DARK_PIECE : captured][capsq];
 
-        // Reset rule 60 counter
-        st->check10[WHITE] = st->check10[BLACK] = st->rule60 = 0;
+        // Reset rule 40 counter
+        st->rule40 = 0;
     }
     else
-        dp.remove_sq = SQ_NONE;
+    {
+        st->captureDark = false;
+        dp.remove_sq    = SQ_NONE;
+    }
 
     // Update hash key
-    k ^= Zobrist::psq[pc][from] ^ Zobrist::psq[pc][to];
+    k ^= moveDark ? Zobrist::psq[DARK_PIECE][from] : Zobrist::psq[pc][from] ^ Zobrist::psq[pc][to];
     // If the moving piece is a pawn, update pawn hash key.
     if (type_of(pc) == PAWN)
-        st->pawnKey ^= Zobrist::psq[pc][from] ^ Zobrist::psq[pc][to];
+        st->pawnKey ^= Zobrist::psq[pc][from] ^ (moveDark ? 0 : Zobrist::psq[pc][to]);
     else
     {
-        st->nonPawnKey[us] ^= Zobrist::psq[pc][from] ^ Zobrist::psq[pc][to];
+        st->nonPawnKey[us] ^= Zobrist::psq[pc][from] ^ (moveDark ? 0 : Zobrist::psq[pc][to]);
 
         if (type_of(pc) == KNIGHT || type_of(pc) == CANNON)
-            st->minorPieceKey ^= Zobrist::psq[pc][from] ^ Zobrist::psq[pc][to];
+            st->minorPieceKey ^= Zobrist::psq[pc][from] ^ (moveDark ? 0 : Zobrist::psq[pc][to]);
+
+        if (moveDark && type_of(pc) != KING && (type_of(pc) & 1))
+            st->majorMaterial[us] -= PieceValue[pc];
     }
 
     // Move the piece.
     move_piece(from, to);
 
-    dp.requires_refresh[us] |=
-      (mid_mirror_before[0] != Eval::NNUE::FeatureSet::requires_mid_mirror(*this, us));
-    dp.requires_refresh[them] |=
-      (mid_mirror_before[1] != Eval::NNUE::FeatureSet::requires_mid_mirror(*this, them));
-
     // Update the key with the final value
     st->key = k;
-    if (tt)
+    if (!moveDark && tt)
         prefetch(tt->first_entry(key()));
 
     // Set capture piece
     st->capturedPiece = captured;
 
     // Calculate checkers bitboard (if move gives check)
-    st->checkersBB = givesCheck ? checkers_to(us, king_square(them)) : Bitboard(0);
-    assert(givesCheck == bool(st->checkersBB));
+    st->checkersBB = !moveDark && givesCheck ? checkers_to(us, king_square(them)) : Bitboard(0);
+    assert(moveDark || givesCheck == bool(st->checkersBB));
 
     sideToMove = ~sideToMove;
 
     // Update king attacks used for fast check detection
-    set_check_info();
+    if (!moveDark)
+        set_check_info();
 
     assert(pos_is_ok());
 
     assert(dp.pc != NO_PIECE);
     assert(!bool(captured) ^ (dp.remove_sq != SQ_NONE));
-    assert(dp.from != SQ_NONE && dp.to != SQ_NONE);
+    assert(dp.from != SQ_NONE && (moveDark || dp.to != SQ_NONE));
+    assert(dp.add_sq == SQ_NONE);
     return dp;
 }
 
@@ -614,6 +751,9 @@ void Position::undo_move(Move m) {
         Square capsq = to;
 
         put_piece(st->capturedPiece, capsq);  // Restore the captured piece
+
+        if (st->captureDark)
+            byTypeBB[DARK] ^= capsq;
     }
 
     // Finally point our state pointer back to the previous state
@@ -977,10 +1117,7 @@ Value Position::detect_chases(int d, int ply) {
 // perpetual check repetition or perpetual chase repetition that allows a player to claim a game result.
 bool Position::rule_judge(Value& result, int ply) {
 
-    // Restore rule 60 by adding back the checks
-    int end = std::min(st->rule60 + std::max(0, st->check10[WHITE] - 10)
-                         + std::max(0, st->check10[BLACK] - 10),
-                       st->pliesFromNull);
+    int end = std::min(st->rule40, st->pliesFromNull);
 
     if (end >= 4 && filter[st->key] >= 1)
     {
@@ -1018,8 +1155,8 @@ bool Position::rule_judge(Value& result, int ply) {
                 // 2 fold mates need further investigations
                 if (filter[st->key] <= 1)
                 {
-                    // Not exceeding rule 60 and have the same previous step
-                    if (st->rule60 < 120 && st->previous->key == stp->previous->key)
+                    // Not exceeding rule 40 and have the same previous step
+                    if (st->rule40 < 80 && st->previous->key == stp->previous->key)
                     {
                         // Even if we entering this loop again, it will not lead to a 3 fold repetition
                         StateInfo* prev = st->previous;
@@ -1039,79 +1176,11 @@ bool Position::rule_judge(Value& result, int ply) {
         }
     }
 
-    // 60 move rule
-    if (st->rule60 >= 120)
+    // 40 move rule
+    if (st->rule40 >= 80)
     {
         result = MoveList<LEGAL>(*this).size() ? VALUE_DRAW : mated_in(ply);
         return true;
-    }
-
-    // Draw by insufficient material
-    if (count<PAWN>() == 0)
-    {
-        enum DrawLevel : int {
-            NO_DRAW,      // There is no drawing situation exists
-            DIRECT_DRAW,  // A draw can be directly yielded without any checks
-            MATE_DRAW     // We need to check for mate before yielding a draw
-        };
-
-        int level = [&]() {
-            // No cannons left on the board
-            if (!major_material())
-                return DIRECT_DRAW;
-
-            // One cannon left on the board
-            if (major_material() == CannonValue)
-            {
-                // See which side is holding this cannon, and this side must not possess any advisors
-                Color cannonSide = major_material(WHITE) == CannonValue ? WHITE : BLACK;
-                if (count<ADVISOR>(cannonSide) == 0)
-                {
-                    // No advisors left on the board
-                    if (count<ADVISOR>(~cannonSide) == 0)
-                        return DIRECT_DRAW;
-
-                    // One advisor left on the board
-                    if (count<ADVISOR>(~cannonSide) == 1)
-                        return count<BISHOP>(cannonSide) == 0 ? DIRECT_DRAW : MATE_DRAW;
-
-                    // Two advisors left on the board
-                    if (count<BISHOP>(cannonSide) == 0)
-                        return MATE_DRAW;
-                }
-            }
-
-            // Two cannons left on the board, one for each side, and no advisors left on the board
-            if (major_material(WHITE) == CannonValue && major_material(BLACK) == CannonValue
-                && count<ADVISOR>() == 0)
-                return count<BISHOP>() == 0 ? DIRECT_DRAW : MATE_DRAW;
-
-            return NO_DRAW;
-        }();
-
-        if (level != NO_DRAW)
-        {
-            if (level == MATE_DRAW)
-            {
-                MoveList<LEGAL> moves(*this);
-                if (moves.size() == 0)
-                {
-                    result = mated_in(ply);
-                    return true;
-                }
-                for (const auto& move : moves)
-                {
-                    StateInfo tempSt;
-                    do_move(move, tempSt);
-                    bool mate = MoveList<LEGAL>(*this).size() == 0;
-                    undo_move(move);
-                    if (mate)
-                        return false;
-                }
-            }
-            result = VALUE_DRAW;
-            return true;
-        }
     }
 
     return false;

@@ -60,7 +60,7 @@ Value Eval::evaluate(const Eval::NNUE::Networks&    networks,
     int v        = (nnue * (17720 + material) + optimism * (3040 + material)) / 20120;
 
     // Damp down the evaluation linearly when shuffling
-    v -= (v * pos.rule60_count()) / 267;
+    v -= (v * pos.rule40_count()) / 267;
 
     // Guarantee evaluation does not hit the mate range
     v = std::clamp(v, VALUE_MATED_IN_MAX_PLY + 1, VALUE_MATE_IN_MAX_PLY - 1);

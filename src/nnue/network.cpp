@@ -162,7 +162,7 @@ Network<Arch, Transformer>::evaluate(const Position&                         pos
 
     ASSERT_ALIGNED(transformedFeatures, alignment);
 
-    const int  bucket = FeatureSet::make_layer_stack_bucket(pos);
+    const int  bucket = popcount(pos.pieces(pos.side_to_move(), DARK));
     const auto psqt =
       featureTransformer->transform(pos, accumulatorStack, cache, transformedFeatures, bucket);
     const auto positional = network[bucket].propagate(transformedFeatures);
@@ -226,7 +226,7 @@ Network<Arch, Transformer>::trace_evaluate(const Position&                      
     ASSERT_ALIGNED(transformedFeatures, alignment);
 
     NnueEvalTrace t{};
-    t.correctBucket = FeatureSet::make_layer_stack_bucket(pos);
+    t.correctBucket = popcount(pos.pieces(pos.side_to_move(), DARK));
     for (IndexType bucket = 0; bucket < LayerStacks; ++bucket)
     {
         const auto materialist =

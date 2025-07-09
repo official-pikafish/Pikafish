@@ -41,7 +41,8 @@ namespace Stockfish {
 
 constexpr auto BenchmarkCommand = "speedtest";
 
-constexpr auto StartFEN = "rnbakabnr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C5C1/9/RNBAKABNR w";
+constexpr auto StartFEN =
+  "xxxxkxxxx/9/1x5x1/x1x1x1x1x/9/9/X1X1X1X1X/1X5X1/9/XXXXKXXXX R2A2C2P5N2B2r2a2c2p5n2b2 w - - 0 1";
 template<typename... Ts>
 struct overload: Ts... {
     using Ts::operator()...;
@@ -585,7 +586,7 @@ std::string UCIEngine::move(Move m) {
 
 Move UCIEngine::to_move(const Position& pos, std::string str) {
     for (const auto& m : MoveList<LEGAL>(pos))
-        if (str == move(m))
+        if (str.substr(0, 4) == move(m))
             return m;
 
     return Move::none();

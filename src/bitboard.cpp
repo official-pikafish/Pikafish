@@ -48,7 +48,7 @@ namespace {
 
 Bitboard RookTable[0x108000];    // To store rook attacks
 Bitboard CannonTable[0x108000];  // To store cannon attacks
-Bitboard BishopTable[0x228];     // To store bishop attacks
+Bitboard BishopTable[0x2B0];     // To store bishop attacks
 Bitboard KnightTable[0x380];     // To store knight attacks
 Bitboard KnightToTable[0x3E0];   // To store by knight attacks
 
@@ -125,17 +125,14 @@ void Bitboards::init() {
         PseudoAttacks[BISHOP][s1] = attacks_bb<BISHOP>(s1, 0);
         PseudoAttacks[KNIGHT][s1] = attacks_bb<KNIGHT>(s1, 0);
 
-        // Only generate pseudo attacks in the palace squares for king and advisor
+        // Only generate pseudo attacks in the palace squares for king
         if (Palace & s1)
-        {
             for (int step : {NORTH, SOUTH, WEST, EAST})
                 PseudoAttacks[KING][s1] |= safe_destination(s1, step);
-            PseudoAttacks[KING][s1] &= Palace;
+        PseudoAttacks[KING][s1] &= Palace;
 
-            for (int step : {NORTH_WEST, NORTH_EAST, SOUTH_WEST, SOUTH_EAST})
-                PseudoAttacks[ADVISOR][s1] |= safe_destination(s1, step);
-            PseudoAttacks[ADVISOR][s1] &= Palace;
-        }
+        for (int step : {NORTH_WEST, NORTH_EAST, SOUTH_WEST, SOUTH_EAST})
+            PseudoAttacks[ADVISOR][s1] |= safe_destination(s1, step);
 
         for (Square s2 = SQ_A0; s2 <= SQ_I9; ++s2)
         {
@@ -148,6 +145,9 @@ void Bitboards::init() {
 
             if (PseudoAttacks[KNIGHT][s1] & s2)
                 BetweenBB[s1][s2] |= lame_leaper_path<KNIGHT_TO>(Direction(s2 - s1), s1);
+
+            if (PseudoAttacks[BISHOP][s1] & s2)
+                BetweenBB[s1][s2] |= lame_leaper_path<BISHOP>(Direction(s2 - s1), s1);
 
             BetweenBB[s1][s2] |= s2;
         }
@@ -216,8 +216,6 @@ Bitboard lame_leaper_path(Square s) {
     Bitboard b = 0;
     for (const auto& d : pt == BISHOP ? BishopDirections : KnightDirections)
         b |= lame_leaper_path<pt>(d, s);
-    if (pt == BISHOP)
-        b &= HalfBB[rank_of(s) > RANK_4];
     return b;
 }
 
@@ -230,8 +228,6 @@ Bitboard lame_leaper_attack(Square s, Bitboard occupied) {
         if (is_ok(to) && distance(s, to) < 4 && !(lame_leaper_path<pt>(d, s) & occupied))
             b |= to;
     }
-    if (pt == BISHOP)
-        b &= HalfBB[rank_of(s) > RANK_4];
     return b;
 }
 
