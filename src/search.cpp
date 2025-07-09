@@ -103,7 +103,7 @@ void update_correction_history(const Position& pos,
 // Add a small random component to draw evaluations to avoid 3-fold blindness
 Value value_draw(size_t nodes) { return VALUE_DRAW - 1 + Value(nodes & 0x2); }
 Value value_to_tt(Value v, int ply);
-Value value_from_tt(Value v, int ply, int r60c);
+Value value_from_tt(Value v, int ply, int r40c);
 void  update_pv(Move* pv, Move move, const Move* childPv);
 void  update_continuation_histories(Stack* ss, Piece pc, Square to, int bonus);
 void  update_quiet_histories(
@@ -534,6 +534,13 @@ Value Search::Worker::search(
         return qsearch<nt>(pos, ss, alpha, beta);
     }
 
+    // Dive into flip search when the last move is moving a dark pieces
+    if ((ss - 1)->currentMove.is_ok() && pos.is_dark((ss - 1)->currentMove.to_sq()))
+    {
+        constexpr auto nt = PvNode ? PV : NonPV;
+        return flip_search<nt>(pos, ss, alpha, beta, false, depth, cutNode);
+    }
+
     // Limit the depth if extensions made it too large
     depth = std::min(depth, MAX_PLY - 1);
 
@@ -629,7 +636,7 @@ Value Search::Worker::search(
     ttData.move  = rootNode ? thisThread->rootMoves[thisThread->pvIdx].pv[0]
                  : ttHit    ? ttData.move
                             : Move::none();
-    ttData.value = ttHit ? value_from_tt(ttData.value, ss->ply, pos.rule60_count()) : VALUE_NONE;
+    ttData.value = ttHit ? value_from_tt(ttData.value, ss->ply, pos.rule40_count()) : VALUE_NONE;
     ss->ttPv     = excludedMove ? ss->ttPv : PvNode || (ttHit && ttData.is_pv);
     ttCapture    = ttData.move && pos.capture(ttData.move);
 
@@ -656,11 +663,11 @@ Value Search::Worker::search(
         }
 
         // Partial workaround for the graph history interaction problem
-        // For high rule60 counts don't produce transposition table cutoffs.
-        if (pos.rule60_count() < 110)
+        // For high rule40 counts don't produce transposition table cutoffs.
+        if (pos.rule40_count() < 70)
         {
             if (depth >= 8 && ttData.move && pos.pseudo_legal(ttData.move) && pos.legal(ttData.move)
-                && !is_decisive(ttData.value))
+                && !is_decisive(ttData.value) && !pos.move_dark(ttData.move))
             {
                 do_move(pos, ttData.move, st);
                 Key nextPosKey                             = pos.key();
@@ -1402,6 +1409,13 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
     static_assert(nodeType != Root);
     constexpr bool PvNode = nodeType == PV;
 
+    // Dive into flip search when the last move is moving a dark pieces
+    if ((ss - 1)->currentMove.is_ok() && pos.is_dark((ss - 1)->currentMove.to_sq()))
+    {
+        constexpr auto nt = PvNode ? PV : NonPV;
+        return flip_search<nt>(pos, ss, alpha, beta);
+    }
+
     assert(alpha >= -VALUE_INFINITE && alpha < beta && beta <= VALUE_INFINITE);
     assert(PvNode || (alpha == beta - 1));
 
@@ -1462,7 +1476,7 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
     // Need further processing of the saved data
     ss->ttHit    = ttHit;
     ttData.move  = ttHit ? ttData.move : Move::none();
-    ttData.value = ttHit ? value_from_tt(ttData.value, ss->ply, pos.rule60_count()) : VALUE_NONE;
+    ttData.value = ttHit ? value_from_tt(ttData.value, ss->ply, pos.rule40_count()) : VALUE_NONE;
     pvHit        = ttHit && ttData.is_pv;
 
     // At non-PV nodes we check for an early TT cutoff
@@ -1650,6 +1664,60 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
     return bestValue;
 }
 
+
+template<NodeType nodeType>
+Value Search::Worker::flip_search(
+  Position& pos, Stack* ss, Value alpha, Value beta, bool isQsearch, Depth depth, bool cutNode) {
+    constexpr double scaling          = 416.11539129;
+    constexpr auto   score_to_winrate = [&](Value v) { return 1.0 / (1.0 + exp(-v / scaling)); };
+    constexpr auto   winrate_to_score = [&](double winrate) {
+        constexpr double epsilon = 1e-9;
+        winrate                  = std::clamp(winrate, epsilon, 1.0 - epsilon);
+        double q                 = log(winrate / (1.0 - winrate));
+        return std::clamp(static_cast<Value>(q * scaling), VALUE_MATED_IN_MAX_PLY + 1,
+                            VALUE_MATE_IN_MAX_PLY - 1);
+    };
+
+    std::vector<double> winrates;
+    auto                restPieces = pos.rest_pieces(~pos.side_to_move());
+    int                 total      = 0;
+
+    DirtyPiece dp = accumulatorStack.latest().dirtyPiece;
+
+    for (auto& [piece, num] : restPieces)
+    {
+        total += num;
+
+        accumulatorStack.pop();
+        piece = pos.do_flip((ss - 1)->currentMove.to_sq(), piece, &dp, &tt);
+        accumulatorStack.push(dp);
+
+        Value value;
+
+        if (isQsearch)
+            value = qsearch<nodeType>(pos, ss, alpha, beta);
+        else
+            value = search<nodeType>(pos, ss, alpha, beta, depth, cutNode);
+
+        pos.undo_flip((ss - 1)->currentMove.to_sq(), piece);
+
+        if (std::size(restPieces) == 1)
+            return value;
+
+        winrates.emplace_back(score_to_winrate(value) * num);
+    }
+
+    assert(total != 0);
+
+    double expectedWinrate = 0;
+    for (const auto& winrate : winrates)
+        expectedWinrate += winrate;
+    expectedWinrate /= total;
+
+    return winrate_to_score(expectedWinrate);
+}
+
+
 Depth Search::Worker::reduction(bool i, Depth d, int mn, int delta) const {
     int reductionScale = reductions[d] * reductions[mn];
     return reductionScale - delta * 1177 / rootDelta + !i * reductionScale * 102 / 297 + 1975;
@@ -1686,7 +1754,7 @@ Value value_to_tt(Value v, int ply) { return is_win(v) ? v + ply : is_loss(v) ? 
 // "plies to mate/be mated from the root". However, to avoid potentially false
 // mate scores related to the 60 moves rule and the graph history interaction,
 // we return the highest non-mate score instead.
-Value value_from_tt(Value v, int ply, int r60c) {
+Value value_from_tt(Value v, int ply, int r40c) {
 
     if (!is_valid(v))
         return VALUE_NONE;
@@ -1694,12 +1762,12 @@ Value value_from_tt(Value v, int ply, int r60c) {
     // Handle win
     if (is_win(v))
         // Downgrade a potentially false mate score
-        return VALUE_MATE - v > 120 - r60c ? VALUE_MATE_IN_MAX_PLY - 1 : v - ply;
+        return VALUE_MATE - v > 80 - r40c ? VALUE_MATE_IN_MAX_PLY - 1 : v - ply;
 
     // Handle loss
     if (is_loss(v))
         // Downgrade a potentially false mate score.
-        return VALUE_MATE + v > 120 - r60c ? VALUE_MATED_IN_MAX_PLY + 1 : v + ply;
+        return VALUE_MATE + v > 80 - r40c ? VALUE_MATED_IN_MAX_PLY + 1 : v + ply;
 
     return v;
 }
@@ -1903,7 +1971,7 @@ bool RootMove::extract_ponder_from_tt(const TranspositionTable& tt, Position& po
     StateInfo st;
 
     assert(pv.size() == 1);
-    if (pv[0] == Move::none())
+    if (pv[0] == Move::none() || pos.move_dark(pv[0]))
         return false;
 
     pos.do_move(pv[0], st, &tt);

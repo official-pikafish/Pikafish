@@ -138,12 +138,9 @@ void AccumulatorStack::forward_update_incremental(
     assert(begin < accumulators.size());
     assert((accumulators[begin].acc<Dimensions>()).computed[Perspective]);
 
-    const Square ksq  = pos.king_square(Perspective);
-    const Square oksq = pos.king_square(~Perspective);
-    auto [king_bucket, mirror] =
-      FeatureSet::KingBuckets[ksq][oksq][FeatureSet::requires_mid_mirror(pos, Perspective)];
-    auto attack_bucket = FeatureSet::make_attack_bucket(pos, Perspective);
-    auto bucket        = king_bucket * 6 + attack_bucket;
+    const Square ksq      = pos.king_square(Perspective);
+    const Square oksq     = pos.king_square(~Perspective);
+    auto [bucket, mirror] = FeatureSet::KingBuckets[ksq][oksq];
 
     for (std::size_t next = begin + 1; next < size; next++)
     {
@@ -152,7 +149,7 @@ void AccumulatorStack::forward_update_incremental(
             DirtyPiece& dp1 = accumulators[next].dirtyPiece;
             DirtyPiece& dp2 = accumulators[next + 1].dirtyPiece;
 
-            if (dp1.to == dp2.remove_sq)
+            if (dp1.pc != DARK_PIECE && dp1.to == dp2.remove_sq)
             {
                 const Square captureSq = dp1.to;
                 dp1.to = dp2.remove_sq = SQ_NONE;
@@ -160,6 +157,19 @@ void AccumulatorStack::forward_update_incremental(
                                                accumulators[next], accumulators[next + 1],
                                                accumulators[next - 1]);
                 dp1.to = dp2.remove_sq = captureSq;
+
+                next++;
+                continue;
+            }
+
+            if (dp1.pc == DARK_PIECE && dp1.add_sq == dp2.remove_sq)
+            {
+                const Square captureSq = dp1.add_sq;
+                dp1.add_sq = dp2.remove_sq = SQ_NONE;
+                double_inc_update<Perspective>(featureTransformer, bucket, mirror,
+                                               accumulators[next], accumulators[next + 1],
+                                               accumulators[next - 1]);
+                dp1.add_sq = dp2.remove_sq = captureSq;
 
                 next++;
                 continue;
@@ -182,12 +192,9 @@ void AccumulatorStack::backward_update_incremental(
     assert(end < size);
     assert((latest().acc<Dimensions>()).computed[Perspective]);
 
-    const Square ksq  = pos.king_square(Perspective);
-    const Square oksq = pos.king_square(~Perspective);
-    auto [king_bucket, mirror] =
-      FeatureSet::KingBuckets[ksq][oksq][FeatureSet::requires_mid_mirror(pos, Perspective)];
-    auto attack_bucket = FeatureSet::make_attack_bucket(pos, Perspective);
-    auto bucket        = king_bucket * 6 + attack_bucket;
+    const Square ksq      = pos.king_square(Perspective);
+    const Square oksq     = pos.king_square(~Perspective);
+    auto [bucket, mirror] = FeatureSet::KingBuckets[ksq][oksq];
 
     for (std::int64_t next = std::int64_t(size) - 2; next >= std::int64_t(end); next--)
         update_accumulator_incremental<Perspective, false>(
@@ -287,13 +294,15 @@ void double_inc_update(const FeatureTransformer<TransformedFeatureDimensions>& f
                                                     removed, added);
 
     assert(added.size() == 1);
-    assert(removed.size() == 2 || removed.size() == 3);
+    assert(removed.size() == 2 || removed.size() == 3 || removed.size() == 4
+           || removed.size() == 5);
 
     // Workaround compiler warning for uninitialized variables, replicated on
     // profile builds on windows with gcc 14.2.0.
     // TODO remove once unneeded
     sf_assume(added.size() == 1);
-    sf_assume(removed.size() == 2 || removed.size() == 3);
+    sf_assume(removed.size() == 2 || removed.size() == 3 || removed.size() == 4
+              || removed.size() == 5);
 
     auto updateContext =
       make_accumulator_update_context<Perspective>(featureTransformer, computed, target_state);
@@ -302,10 +311,20 @@ void double_inc_update(const FeatureTransformer<TransformedFeatureDimensions>& f
     {
         updateContext.template apply<Add, Sub, Sub>(added[0], removed[0], removed[1]);
     }
-    else
+    else if (removed.size() == 3)
     {
         updateContext.template apply<Add, Sub, Sub, Sub>(added[0], removed[0], removed[1],
                                                          removed[2]);
+    }
+    else if (removed.size() == 4)
+    {
+        updateContext.template apply<Add, Sub, Sub, Sub, Sub>(added[0], removed[0], removed[1],
+                                                              removed[2], removed[3]);
+    }
+    else if (removed.size() == 5)
+    {
+        updateContext.template apply<Add, Sub, Sub, Sub, Sub, Sub>(
+          added[0], removed[0], removed[1], removed[2], removed[3], removed[4]);
     }
 
     target_state.acc<TransformedFeatureDimensions>().computed[Perspective] = true;
@@ -336,16 +355,16 @@ void update_accumulator_incremental(
         FeatureSet::append_changed_indices<Perspective>(bucket, mirror, computed.dirtyPiece, added,
                                                         removed);
 
-    assert(added.size() == 1 || added.size() == 2);
-    assert(removed.size() == 1 || removed.size() == 2);
+    assert(added.size() == 1 || added.size() == 2 || added.size() == 3);
+    assert(removed.size() == 1 || removed.size() == 2 || removed.size() == 3);
     assert((Forward && added.size() <= removed.size())
            || (!Forward && added.size() >= removed.size()));
 
     // Workaround compiler warning for uninitialized variables, replicated on
     // profile builds on windows with gcc 14.2.0.
     // TODO remove once unneeded
-    sf_assume(added.size() == 1 || added.size() == 2);
-    sf_assume(removed.size() == 1 || removed.size() == 2);
+    sf_assume(added.size() == 1 || added.size() == 2 || added.size() == 3);
+    sf_assume(removed.size() == 1 || removed.size() == 2 || removed.size() == 3);
 
     auto updateContext =
       make_accumulator_update_context<Perspective>(featureTransformer, computed, target_state);
@@ -355,15 +374,22 @@ void update_accumulator_incremental(
         assert(added.size() == 1 && removed.size() == 1);
         updateContext.template apply<Add, Sub>(added[0], removed[0]);
     }
-    else if (Forward && added.size() == 1)
+    else if (Forward && added.size() == 1 && removed.size() == 2)
     {
-        assert(removed.size() == 2);
         updateContext.template apply<Add, Sub, Sub>(added[0], removed[0], removed[1]);
     }
-    else if (!Forward && removed.size() == 1)
+    else if (Forward && added.size() == 1 && removed.size() == 3)
     {
-        assert(added.size() == 2);
+        updateContext.template apply<Add, Sub, Sub, Sub>(added[0], removed[0], removed[1],
+                                                         removed[2]);
+    }
+    else if (!Forward && removed.size() == 1 && added.size() == 2)
+    {
         updateContext.template apply<Add, Add, Sub>(added[0], added[1], removed[0]);
+    }
+    else if (!Forward && removed.size() == 1 && added.size() == 3)
+    {
+        updateContext.template apply<Add, Add, Add, Sub>(added[0], added[1], added[2], removed[0]);
     }
     else
     {
@@ -383,33 +409,43 @@ void update_accumulator_refresh_cache(const FeatureTransformer<Dimensions>& feat
 
     using Tiling [[maybe_unused]] = SIMDTiling<Dimensions, Dimensions, PSQTBuckets>;
 
-    const Square ksq  = pos.king_square(Perspective);
-    const Square oksq = pos.king_square(~Perspective);
-    auto [king_bucket, mirror] =
-      FeatureSet::KingBuckets[ksq][oksq][FeatureSet::requires_mid_mirror(pos, Perspective)];
-    auto attack_bucket = FeatureSet::make_attack_bucket(pos, Perspective);
-    auto bucket        = king_bucket * 6 + attack_bucket;
+    const Square ksq      = pos.king_square(Perspective);
+    const Square oksq     = pos.king_square(~Perspective);
+    auto [bucket, mirror] = FeatureSet::KingBuckets[ksq][oksq];
 
     auto cache_index = AccumulatorCaches::KingCacheMaps[ksq];
     if (cache_index < 3 && mirror)
-    {
         cache_index += 9;
-        if (FeatureSet::requires_mid_mirror(pos, Perspective))
-            cache_index += 3;
-    }
 
-    auto&                 entry = cache[cache_index * 6 + attack_bucket][Perspective];
+    auto&                 entry = cache[cache_index][Perspective];
     FeatureSet::IndexList removed, added;
 
     for (Color c : {WHITE, BLACK})
     {
-        for (PieceType pt = ROOK; pt <= KING; ++pt)
+        for (PieceType pt = ROOK; pt <= DARK; ++pt)
         {
-            const Piece    piece    = make_piece(c, pt);
-            const Bitboard oldBB    = entry.byColorBB[c] & entry.byTypeBB[pt];
-            const Bitboard newBB    = pos.pieces(c, pt);
-            Bitboard       toRemove = oldBB & ~newBB;
-            Bitboard       toAdd    = newBB & ~oldBB;
+            const Piece piece = pt == DARK ? DARK_PIECE : make_piece(c, pt);
+            Bitboard    oldBB = entry.byColorBB[c] & entry.byTypeBB[pt];
+            Bitboard    newBB = pos.pieces(c, pt);
+            if (pt != DARK)
+            {
+                oldBB &= ~entry.byTypeBB[DARK];
+                newBB &= ~pos.pieces(DARK);
+
+                while (entry.restPieces[piece] > pos.rest_piece(piece))
+                {
+                    removed.push_back(FeatureSet::make_dark_rest_index<Perspective>(piece, bucket));
+                    --entry.restPieces[piece];
+                }
+
+                while (entry.restPieces[piece] < pos.rest_piece(piece))
+                {
+                    added.push_back(FeatureSet::make_dark_rest_index<Perspective>(piece, bucket));
+                    ++entry.restPieces[piece];
+                }
+            }
+            Bitboard toRemove = oldBB & ~newBB;
+            Bitboard toAdd    = newBB & ~oldBB;
 
             while (toRemove)
             {
@@ -549,7 +585,7 @@ void update_accumulator_refresh_cache(const FeatureTransformer<Dimensions>& feat
     for (Color c : {WHITE, BLACK})
         entry.byColorBB[c] = pos.pieces(c);
 
-    for (PieceType pt = ROOK; pt <= KING; ++pt)
+    for (PieceType pt = ROOK; pt <= DARK; ++pt)
         entry.byTypeBB[pt] = pos.pieces(pt);
 }
 

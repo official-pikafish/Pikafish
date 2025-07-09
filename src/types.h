@@ -176,7 +176,7 @@ constexpr Value BishopValue  = 187;
 
 // clang-format off
 enum PieceType : std::int8_t {
-    NO_PIECE_TYPE, ROOK, ADVISOR, CANNON, PAWN, KNIGHT, BISHOP, KING, KNIGHT_TO, PAWN_TO,
+    NO_PIECE_TYPE, ROOK, ADVISOR, CANNON, PAWN, KNIGHT, BISHOP, KING, DARK, KNIGHT_TO = 8, PAWN_TO,
     ALL_PIECES = 0,
     PIECE_TYPE_NB = 8
 };
@@ -185,7 +185,7 @@ enum Piece : std::int8_t {
     NO_PIECE,
     W_ROOK           , W_ADVISOR, W_CANNON, W_PAWN, W_KNIGHT, W_BISHOP, W_KING,
     B_ROOK = ROOK + 8, B_ADVISOR, B_CANNON, B_PAWN, B_KNIGHT, B_BISHOP, B_KING,
-    PIECE_NB
+    DARK_PIECE, PIECE_NB = DARK_PIECE
 };
 // clang-format on
 
@@ -285,9 +285,10 @@ struct DirtyPiece {
     Piece  pc;  // this is never allowed to be NO_PIECE
     Square from, to;
 
-    // if remove_sq is SQ_NONE, remove_pc is allowed to be uninitialized
-    Square remove_sq;
-    Piece  remove_pc;
+    // if {add,remove}_sq is SQ_NONE, {add,remove}_pc is allowed to be
+    // uninitialized
+    Square remove_sq, add_sq;
+    Piece  remove_pc, add_pc;
 
     bool requires_refresh[2];
 };

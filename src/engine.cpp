@@ -45,9 +45,10 @@ namespace Stockfish {
 
 namespace NN = Eval::NNUE;
 
-constexpr auto StartFEN   = "rnbakabnr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C5C1/9/RNBAKABNR w";
-constexpr int  MaxHashMB  = Is64Bit ? 33554432 : 2048;
-int            MaxThreads = std::max(1024, 4 * int(get_hardware_concurrency()));
+constexpr auto StartFEN =
+  "xxxxkxxxx/9/1x5x1/x1x1x1x1x/9/9/X1X1X1X1X/1X5X1/9/XXXXKXXXX w R2A2C2P5N2B2r2a2c2p5n2b2 0 1";
+constexpr int MaxHashMB  = Is64Bit ? 33554432 : 2048;
+int           MaxThreads = std::max(1024, 4 * int(get_hardware_concurrency()));
 
 Engine::Engine(std::optional<std::string> path) :
     binaryDirectory(path ? CommandLine::get_binary_directory(*path) : ""),
@@ -155,6 +156,8 @@ void Engine::set_on_verify_networks(std::function<void(std::string_view)>&& f) {
 void Engine::wait_for_search_finished() { threads.main_thread()->wait_for_search_finished(); }
 
 void Engine::set_position(const std::string& fen, const std::vector<std::string>& moves) {
+    constexpr std::string_view PieceToChar(" RACPNBK racpnbkXx");
+
     // Drop the old state and create a new one
     states = StateListPtr(new std::deque<StateInfo>(1));
     pos.set(fen, &states->back());
@@ -168,6 +171,18 @@ void Engine::set_position(const std::string& fen, const std::vector<std::string>
 
         states->emplace_back();
         pos.do_move(m, states->back());
+        if (move.length() == 5)
+        {
+            if (pos.is_dark(m.to_sq()))
+                pos.do_flip(m.to_sq(), Piece(PieceToChar.find(move[4])));
+            else
+                pos.rest_piece(Piece(PieceToChar.find(move[4])))--;
+        }
+        else if (move.length() == 6)
+        {
+            pos.do_flip(m.to_sq(), Piece(PieceToChar.find(move[4])));
+            pos.rest_piece(Piece(PieceToChar.find(move[5])))--;
+        }
     }
 }
 
