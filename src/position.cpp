@@ -555,7 +555,7 @@ DirtyPiece Position::do_move(Move                      m,
     {
         st->nonPawnKey[us] ^= Zobrist::psq[pc][from] ^ Zobrist::psq[pc][to];
 
-        if (type_of(pc) == KNIGHT && type_of(pc) == CANNON)
+        if (type_of(pc) == KNIGHT || type_of(pc) == CANNON)
             st->minorPieceKey ^= Zobrist::psq[pc][from] ^ Zobrist::psq[pc][to];
     }
 
