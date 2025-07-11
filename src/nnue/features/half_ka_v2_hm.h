@@ -170,7 +170,7 @@ class HalfKAv2_hm {
     }();
 
     // LayerStack buckets
-    static constexpr auto LayerStackBuckets = [] {
+    static inline auto LayerStackBuckets = [] {
         std::array<std::array<std::array<std::array<uint8_t, 5>, 5>, 3>, 3> v{};
         for (uint8_t us_rook = 0; us_rook <= 2; ++us_rook)
             for (uint8_t opp_rook = 0; opp_rook <= 2; ++opp_rook)
@@ -178,17 +178,46 @@ class HalfKAv2_hm {
                     for (uint8_t opp_knight_cannon = 0; opp_knight_cannon <= 4; ++opp_knight_cannon)
                         v[us_rook][opp_rook][us_knight_cannon][opp_knight_cannon] = [&] {
                             if (us_rook == opp_rook)
-                                return us_rook * 4
-                                     + int(us_knight_cannon + opp_knight_cannon >= 4) * 2
-                                     + int(us_knight_cannon == opp_knight_cannon);
-                            else if (us_rook == 2 && opp_rook == 1)
-                                return 12;
-                            else if (us_rook == 1 && opp_rook == 2)
-                                return 13;
-                            else if (us_rook > 0 && opp_rook == 0)
-                                return 14;
-                            else  // us_rook == 0 && opp_rook > 0
-                                return 15;
+                            {
+                                // === 均势车力局面 (12个桶) ===
+                                // 我们用马炮数量差值的绝对值来衡量不平衡的程度
+                                int minor_imbalance =
+                                  std::abs(static_cast<int>(us_knight_cannon)
+                                           - static_cast<int>(opp_knight_cannon));
+
+                                uint8_t sub_bucket;
+                                if (minor_imbalance == 0)
+                                {
+                                    sub_bucket = 0;  // 完全平衡
+                                }
+                                else if (minor_imbalance == 1)
+                                {
+                                    sub_bucket = 1;  // 轻度不平衡
+                                }
+                                else if (minor_imbalance == 2)
+                                {
+                                    sub_bucket = 2;  // 中度不平衡
+                                }
+                                else
+                                {                    // >= 3
+                                    sub_bucket = 3;  // 高度不平衡
+                                }
+
+                                return us_rook * 4 + sub_bucket;
+                            }
+                            else
+                            {
+                                // === 非均势车力局面 (4个桶) ===
+                                // 完全保留基线的逻辑
+                                if (us_rook == 2 && opp_rook == 1)
+                                    return 12;
+                                else if (us_rook == 1 && opp_rook == 2)
+                                    return 13;
+                                else if (us_rook > 0 && opp_rook == 0)
+                                    return 14;
+                                else  // us_rook == 0 && opp_rook > 0
+                                    return 15;
+                            }
                         }();
         return v;
     }();
