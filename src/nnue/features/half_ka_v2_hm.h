@@ -179,44 +179,57 @@ class HalfKAv2_hm {
                         v[us_rook][opp_rook][us_knight_cannon][opp_knight_cannon] = [&] {
                             if (us_rook == opp_rook)
                             {
-                                // === 均势车力局面 (12个桶) ===
-                                // 我们用马炮数量差值的绝对值来衡量不平衡的程度
-                                int minor_imbalance =
-                                  std::abs(static_cast<int>(us_knight_cannon)
-                                           - static_cast<int>(opp_knight_cannon));
+                                // === 均势车力局面 (8个桶) ===
+                                int minor_adv = static_cast<int>(us_knight_cannon)
+                                              - static_cast<int>(opp_knight_cannon);
 
-                                uint8_t sub_bucket;
-                                if (minor_imbalance == 0)
+                                if (us_rook == 2)  // 双方双车，最复杂，值得细分优势 (4个桶)
                                 {
-                                    sub_bucket = 0;  // 完全平衡
+                                    if (minor_adv == 0)
+                                        return 0;  // 均势
+                                    if (minor_adv == 1)
+                                        return 1;  // 我方稍优
+                                    if (minor_adv == -1)
+                                        return 2;  // 对方稍优
+                                    return 3;      // 其他不平衡
                                 }
-                                else if (minor_imbalance == 1)
+                                else if (us_rook == 1)  // 双方单车，只分平衡与否 (2个桶)
                                 {
-                                    sub_bucket = 1;  // 轻度不平衡
+                                    return (minor_adv == 0) ? 4 : 5;
                                 }
-                                else if (minor_imbalance == 2)
+                                else  // 双方无车，只分平衡与否 (2个桶)
                                 {
-                                    sub_bucket = 2;  // 中度不平衡
+                                    return (minor_adv == 0) ? 6 : 7;
                                 }
-                                else
-                                {                    // >= 3
-                                    sub_bucket = 3;  // 高度不平衡
-                                }
-
-                                return us_rook * 4 + sub_bucket;
                             }
                             else
                             {
-                                // === 非均势车力局面 (4个桶) ===
-                                // 完全保留基线的逻辑
+                                // === 非均势车力局面 (8个桶) ===
+                                // 与我第一次给出的方案一的这部分逻辑相同，但现在它是一个混合模型的一部分
                                 if (us_rook == 2 && opp_rook == 1)
-                                    return 12;
+                                {
+                                    return (us_knight_cannon >= opp_knight_cannon) ? 8 : 9;
+                                }
                                 else if (us_rook == 1 && opp_rook == 2)
+                                {
+                                    return (us_knight_cannon <= opp_knight_cannon) ? 10 : 11;
+                                }
+                                else if (us_rook == 2 && opp_rook == 0)
+                                {
+                                    return 12;
+                                }
+                                else if (us_rook == 0 && opp_rook == 2)
+                                {
                                     return 13;
-                                else if (us_rook > 0 && opp_rook == 0)
+                                }
+                                else if (us_rook == 1 && opp_rook == 0)
+                                {
                                     return 14;
-                                else  // us_rook == 0 && opp_rook > 0
+                                }
+                                else  // us_rook == 0 && opp_rook == 1
+                                {
                                     return 15;
+                                }
                             }
                         }();
         return v;
