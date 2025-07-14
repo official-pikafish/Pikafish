@@ -224,7 +224,7 @@ class HalfKAv2_hm {
     *      Guarding bits : | 0|
     *      Piece squares : | 0| 0| 0| 0| 0|33|)
     *
-    *  Encoding for piece at FILE_E of the board is all zero, for example, the encoding of the same piece on square 'E3'
+    *  Encoding for piece at FILE_E of the board is all zero, for example, the encoding of some piece on square 'E3'
     *  is:
     *    Middle king   : | 0| (| 1| if the piece is king)
     *    Piece counts  : | 0| 0| 0| 0| 0| 0|
