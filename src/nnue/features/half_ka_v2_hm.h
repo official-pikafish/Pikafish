@@ -193,13 +193,13 @@ class HalfKAv2_hm {
         return v;
     }();
 
-    /* 64 bit encoding related to mid mirror, which is devided into two parts, pieces counts and squares except for king
+    /* 64 bit encoding related to mid mirror, which is divided into two parts, piece counts and squares except for king
     *
     *  Encoding representations:
     *    Middle king   : | 1 bit | -> Active when king in FILE_E
     *    Piece types   : |advisor|bishop| pawn |knight|cannon| rook |
     *    Piece counts  : | 3 bits|3 bits|4 bits|3 bits|3 bits|3 bits| -> 19 bits
-    *    Guarding bit  : | 1 bits| -> Set to one to prevent overflow from piece squares part into piece counts part
+    *    Guarding bit  : | 1 bit | -> Set to one to prevent overflow from piece squares part into piece counts part
     *    Piece squares : | 7 bits|7 bits|8 bits|7 bits|7 bits|7 bits| -> 43 bits
     *
     *  Piece counts for the left flank (i.e. FILE_A to FILE_D) of the board are 1, for the right flank (i.e. FILE_F to
@@ -224,14 +224,14 @@ class HalfKAv2_hm {
     *      Guarding bits : | 0|
     *      Piece squares : | 0| 0| 0| 0| 0|33|)
     *
-    *  Encoding for piece at FILE_E of the board is all zero, for example, the encoding of the some piece on square 'E3'
+    *  Encoding for piece at FILE_E of the board is all zero, for example, the encoding of some piece on square 'E3'
     *  is:
     *    Middle king   : | 0| (| 1| if the piece is king)
     *    Piece counts  : | 0| 0| 0| 0| 0| 0|
     *    Guarding bits : | 0|
     *    Piece squares : | 0| 0| 0| 0| 0| 0|
     *
-    *  The overall encoding of a balance position is (with the concept of complement numbers being used):
+    *  The overall encoding of a balanced position is (with the concept of complement numbers being used):
     *    Middle king   : | 1|
     *    Piece counts  : | 2| 2| 5| 2| 2| 2|
     *    Guarding bits : | 1|
@@ -241,10 +241,10 @@ class HalfKAv2_hm {
     *
     *  Each piece placed will add its encoding to the overall representation, and removing a piece will do a subtraction.
     *
-    *  Now we just need to test if the encoding of the board is smaller than balance position to see if we need mirroring:
-    *    If the piece count is imbalance for both flanks, the result will be fully decided by the first part of the
+    *  Now we just need to test if the encoding of the board is smaller than balanced position to see if we need mirroring:
+    *    If the piece count is imbalanced for both flanks, the result will be fully decided by the first part of the
     *    encoding, regardless of the second part and overflows.
-    *    If the piece count is balance, the first part of the encoding must be the same, and the result will be decided
+    *    If the piece count is balanced, the first part of the encoding must be the same, and the result will be decided
     *    by the second part, and all overflows of the second part will be automatically resolved at this time.
     */
     static constexpr auto MidMirrorEncoding = [] {
