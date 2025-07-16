@@ -179,57 +179,39 @@ class HalfKAv2_hm {
                         v[us_rook][opp_rook][us_knight_cannon][opp_knight_cannon] = [&] {
                             if (us_rook == opp_rook)
                             {
-                                // === 均势车力局面 (8个桶) ===
-                                int minor_adv = static_cast<int>(us_knight_cannon)
-                                              - static_cast<int>(opp_knight_cannon);
+                                // === 均势车力局面 (10个桶) ===
+                                bool is_complex = (us_knight_cannon + opp_knight_cannon >= 4);
+                                bool is_equal   = (us_knight_cannon == opp_knight_cannon);
 
-                                if (us_rook == 2)  // 双方双车，最复杂，值得细分优势 (4个桶)
+                                if (us_rook == 0)  // 双方无车 (2个桶)
                                 {
-                                    if (minor_adv == 0)
-                                        return 0;  // 均势
-                                    if (minor_adv == 1)
-                                        return 1;  // 我方稍优
-                                    if (minor_adv == -1)
-                                        return 2;  // 对方稍优
-                                    return 3;      // 其他不平衡
+                                    return is_equal ? 0 : 1;
                                 }
-                                else if (us_rook == 1)  // 双方单车，只分平衡与否 (2个桶)
+                                else  // 双方有车 (8个桶)
                                 {
-                                    return (minor_adv == 0) ? 4 : 5;
-                                }
-                                else  // 双方无车，只分平衡与否 (2个桶)
-                                {
-                                    return (minor_adv == 0) ? 6 : 7;
+                                    // 逻辑与基线相同，但桶号需要偏移
+                                    // us_rook=1 -> group 1 (桶 2-5)
+                                    // us_rook=2 -> group 2 (桶 6-9)
+                                    uint8_t sub_bucket = is_complex * 2 + is_equal;
+                                    return (us_rook - 1) * 4 + 2 + sub_bucket;
                                 }
                             }
                             else
                             {
-                                // === 非均势车力局面 (8个桶) ===
-                                // 与我第一次给出的方案一的这部分逻辑相同，但现在它是一个混合模型的一部分
+                                // === 非均势车力局面 (6个桶) ===
+                                // 每个组合一个桶，桶号从10开始
                                 if (us_rook == 2 && opp_rook == 1)
-                                {
-                                    return (us_knight_cannon >= opp_knight_cannon) ? 8 : 9;
-                                }
-                                else if (us_rook == 1 && opp_rook == 2)
-                                {
-                                    return (us_knight_cannon <= opp_knight_cannon) ? 10 : 11;
-                                }
-                                else if (us_rook == 2 && opp_rook == 0)
-                                {
+                                    return 10;
+                                if (us_rook == 1 && opp_rook == 2)
+                                    return 11;
+                                if (us_rook == 2 && opp_rook == 0)
                                     return 12;
-                                }
-                                else if (us_rook == 0 && opp_rook == 2)
-                                {
+                                if (us_rook == 0 && opp_rook == 2)
                                     return 13;
-                                }
-                                else if (us_rook == 1 && opp_rook == 0)
-                                {
+                                if (us_rook == 1 && opp_rook == 0)
                                     return 14;
-                                }
-                                else  // us_rook == 0 && opp_rook == 1
-                                {
-                                    return 15;
-                                }
+                                // else us_rook == 0 && opp_rook == 1
+                                return 15;
                             }
                         }();
         return v;
