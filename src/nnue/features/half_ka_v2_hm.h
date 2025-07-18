@@ -179,39 +179,73 @@ class HalfKAv2_hm {
                         v[us_rook][opp_rook][us_knight_cannon][opp_knight_cannon] = [&] {
                             if (us_rook == opp_rook)
                             {
-                                // === 均势车力局面 (10个桶) ===
-                                bool is_complex = (us_knight_cannon + opp_knight_cannon >= 4);
-                                bool is_equal   = (us_knight_cannon == opp_knight_cannon);
+                                // === 均势车力局面 (12个桶) ===
+                                bool    is_complex = (us_knight_cannon + opp_knight_cannon >= 4);
+                                uint8_t sub_bucket;
 
-                                if (us_rook == 0)  // 双方无车 (2个桶)
+                                if (is_complex)
                                 {
-                                    return is_equal ? 0 : 1;
+                                    // 复杂局面，完全沿用基线逻辑
+                                    sub_bucket = 2 + (us_knight_cannon == opp_knight_cannon);
                                 }
-                                else  // 双方有车 (8个桶)
+                                else
                                 {
-                                    // 逻辑与基线相同，但桶号需要偏移
-                                    // us_rook=1 -> group 1 (桶 2-5)
-                                    // us_rook=2 -> group 2 (桶 6-9)
-                                    uint8_t sub_bucket = is_complex * 2 + is_equal;
-                                    return (us_rook - 1) * 4 + 2 + sub_bucket;
+                                    // 简单局面，区分优势方向
+                                    if (us_knight_cannon == opp_knight_cannon)
+                                    {
+                                        sub_bucket = 1;  // 基线的 bucket 1 和 3 (... + 1)
+                                    }
+                                    else if (us_knight_cannon > opp_knight_cannon)
+                                    {
+                                        sub_bucket = 0;  // 我方优势
+                                    }
+                                    else
+                                    {                    // us_knight_cannon < opp_knight_cannon
+                                        sub_bucket = 2;  // 对方优势, 为了凑够4个桶, 我们用2而不是3
+                                    }
                                 }
+
+                                // 最终的桶号计算
+                                // 我们的sub_bucket现在是0,1,2。为了填满4个桶，需要调整。
+                                // 不如这样:
+                                if (us_knight_cannon == opp_knight_cannon)
+                                {
+                                    sub_bucket = is_complex * 2 + 1;
+                                }
+                                else
+                                {
+                                    sub_bucket = is_complex * 2
+                                               + ((us_knight_cannon > opp_knight_cannon) ? 0 : 2);
+                                }
+                                // 上面太复杂了，坚持简单原则。
+                                if (is_complex)
+                                {
+                                    sub_bucket = 2 + (us_knight_cannon == opp_knight_cannon);
+                                }
+                                else
+                                {
+                                    if (us_knight_cannon > opp_knight_cannon)
+                                        sub_bucket = 0;
+                                    else if (us_knight_cannon == opp_knight_cannon)
+                                        sub_bucket = 1;
+                                    else
+                                        sub_bucket = 3;  // 用3来填满空位
+                                }
+
+                                return us_rook * 4 + sub_bucket;
                             }
                             else
                             {
-                                // === 非均势车力局面 (6个桶) ===
-                                // 每个组合一个桶，桶号从10开始
+                                // === 非均势车力局面 (4个桶) ===
+                                // 完全保留基线的逻辑
                                 if (us_rook == 2 && opp_rook == 1)
-                                    return 10;
-                                if (us_rook == 1 && opp_rook == 2)
-                                    return 11;
-                                if (us_rook == 2 && opp_rook == 0)
                                     return 12;
-                                if (us_rook == 0 && opp_rook == 2)
+                                if (us_rook == 1 && opp_rook == 2)
                                     return 13;
-                                if (us_rook == 1 && opp_rook == 0)
+                                if (us_rook > 0 && opp_rook == 0)
                                     return 14;
-                                // else us_rook == 0 && opp_rook == 1
-                                return 15;
+                                else
+                                    return 15;
                             }
                         }();
         return v;
