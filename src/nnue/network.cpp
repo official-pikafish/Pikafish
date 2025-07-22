@@ -25,7 +25,6 @@
 #include <optional>
 #include <vector>
 
-#include "../memory.h"
 #include "../misc.h"
 #include "../types.h"
 #include "nnue_architecture.h"
@@ -50,48 +49,13 @@ bool read_parameters(std::istream& stream, T& reference) {
 
 // Write evaluation function parameters
 template<typename T>
-bool write_parameters(std::ostream& stream, T& reference) {
+bool write_parameters(std::ostream& stream, const T& reference) {
 
     write_little_endian<std::uint32_t>(stream, T::get_hash_value());
     return reference.write_parameters(stream);
 }
 
 }  // namespace Detail
-
-template<typename Arch, typename Transformer>
-Network<Arch, Transformer>::Network(const Network<Arch, Transformer>& other) :
-    evalFile(other.evalFile) {
-
-    if (other.featureTransformer)
-        featureTransformer = make_unique_large_page<Transformer>(*other.featureTransformer);
-
-    network = make_unique_aligned<Arch[]>(LayerStacks);
-
-    if (!other.network)
-        return;
-
-    for (std::size_t i = 0; i < LayerStacks; ++i)
-        network[i] = other.network[i];
-}
-
-template<typename Arch, typename Transformer>
-Network<Arch, Transformer>&
-Network<Arch, Transformer>::operator=(const Network<Arch, Transformer>& other) {
-    evalFile = other.evalFile;
-
-    if (other.featureTransformer)
-        featureTransformer = make_unique_large_page<Transformer>(*other.featureTransformer);
-
-    network = make_unique_aligned<Arch[]>(LayerStacks);
-
-    if (!other.network)
-        return *this;
-
-    for (std::size_t i = 0; i < LayerStacks; ++i)
-        network[i] = other.network[i];
-
-    return *this;
-}
 
 template<typename Arch, typename Transformer>
 void Network<Arch, Transformer>::load(const std::string& rootDirectory, std::string evalfilePath) {
@@ -106,7 +70,7 @@ void Network<Arch, Transformer>::load(const std::string& rootDirectory, std::str
 
     for (const auto& directory : dirs)
     {
-        if (evalFile.current != evalfilePath)
+        if (std::string(evalFile.current) != evalfilePath)
         {
             load_user_net(directory, evalfilePath);
         }
@@ -123,7 +87,7 @@ bool Network<Arch, Transformer>::save(const std::optional<std::string>& filename
         actualFilename = filename.value();
     else
     {
-        if (evalFile.current != evalFile.defaultName)
+        if (std::string(evalFile.current) != std::string(evalFile.defaultName))
         {
             msg = "Failed to export a net. "
                   "A non-embedded net can only be saved if the filename is specified";
@@ -160,7 +124,7 @@ Network<Arch, Transformer>::evaluate(const Position&                         pos
 
     const int  bucket = FeatureSet::make_layer_stack_bucket(pos);
     const auto psqt =
-      featureTransformer->transform(pos, accumulatorStack, cache, transformedFeatures, bucket);
+      featureTransformer.transform(pos, accumulatorStack, cache, transformedFeatures, bucket);
     const auto positional = network[bucket].propagate(transformedFeatures);
     return {static_cast<Value>(psqt / OutputScale), static_cast<Value>(positional / OutputScale)};
 }
@@ -172,7 +136,7 @@ void Network<Arch, Transformer>::verify(std::string                             
     if (evalfilePath.empty())
         evalfilePath = evalFile.defaultName;
 
-    if (evalFile.current != evalfilePath)
+    if (std::string(evalFile.current) != evalfilePath)
     {
         if (f)
         {
@@ -184,7 +148,7 @@ void Network<Arch, Transformer>::verify(std::string                             
             std::string msg4 =
               "The default net can be downloaded from: "
               "https://github.com/official-pikafish/Networks/releases/download/master-net/"
-              + evalFile.defaultName;
+              + std::string(evalFile.defaultName);
             std::string msg5 = "The engine will be terminated now.";
 
             std::string msg = "ERROR: " + msg1 + '\n' + "ERROR: " + msg2 + '\n' + "ERROR: " + msg3
@@ -198,9 +162,9 @@ void Network<Arch, Transformer>::verify(std::string                             
 
     if (f)
     {
-        size_t size = sizeof(*featureTransformer) + sizeof(Arch) * LayerStacks;
+        size_t size = sizeof(featureTransformer) + sizeof(Arch) * LayerStacks;
         f("NNUE evaluation using " + evalfilePath + " (" + std::to_string(size / (1024 * 1024))
-          + "MiB, (" + std::to_string(featureTransformer->InputDimensions) + ", "
+          + "MiB, (" + std::to_string(featureTransformer.InputDimensions) + ", "
           + std::to_string(network[0].TransformedFeatureDimensions) + ", "
           + std::to_string(network[0].FC_0_OUTPUTS) + ", " + std::to_string(network[0].FC_1_OUTPUTS)
           + ", 1))");
@@ -226,7 +190,7 @@ Network<Arch, Transformer>::trace_evaluate(const Position&                      
     for (IndexType bucket = 0; bucket < LayerStacks; ++bucket)
     {
         const auto materialist =
-          featureTransformer->transform(pos, accumulatorStack, cache, transformedFeatures, bucket);
+          featureTransformer.transform(pos, accumulatorStack, cache, transformedFeatures, bucket);
         const auto positional = network[bucket].propagate(transformedFeatures);
 
         t.psqt[bucket]       = static_cast<Value>(materialist / OutputScale);
@@ -253,8 +217,7 @@ void Network<Arch, Transformer>::load_user_net(const std::string& dir,
 
 template<typename Arch, typename Transformer>
 void Network<Arch, Transformer>::initialize() {
-    featureTransformer = make_unique_large_page<Transformer>();
-    network            = make_unique_aligned<Arch[]>(LayerStacks);
+    initialized = true;
 }
 
 
@@ -277,6 +240,19 @@ std::optional<std::string> Network<Arch, Transformer>::load(std::istream& stream
     return read_parameters(stream, description) ? std::make_optional(description) : std::nullopt;
 }
 
+
+template<typename Arch, typename Transformer>
+std::size_t Network<Arch, Transformer>::get_content_hash() const {
+    if (!initialized)
+        return 0;
+
+    std::size_t h = 0;
+    hash_combine(h, featureTransformer);
+    for (auto&& layerstack : network)
+        hash_combine(h, layerstack);
+    hash_combine(h, evalFile);
+    return h;
+}
 
 // Read network header
 template<typename Arch, typename Transformer>
@@ -311,13 +287,13 @@ bool Network<Arch, Transformer>::write_header(std::ostream&      stream,
 
 template<typename Arch, typename Transformer>
 bool Network<Arch, Transformer>::read_parameters(std::istream& stream,
-                                                 std::string&  netDescription) const {
+                                                 std::string&  netDescription) {
     std::uint32_t hashValue;
     if (!read_header(stream, &hashValue, &netDescription))
         return false;
     if (hashValue != Network::hash)
         return false;
-    if (!Detail::read_parameters(stream, *featureTransformer))
+    if (!Detail::read_parameters(stream, featureTransformer))
         return false;
     for (std::size_t i = 0; i < LayerStacks; ++i)
     {
@@ -333,7 +309,7 @@ bool Network<Arch, Transformer>::write_parameters(std::ostream&      stream,
                                                   const std::string& netDescription) const {
     if (!write_header(stream, Network::hash, netDescription))
         return false;
-    if (!Detail::write_parameters(stream, *featureTransformer))
+    if (!Detail::write_parameters(stream, featureTransformer))
         return false;
     for (std::size_t i = 0; i < LayerStacks; ++i)
     {
