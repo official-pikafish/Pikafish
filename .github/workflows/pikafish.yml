@@ -68,6 +68,48 @@ jobs:
         with:
           name: pikafish-linux${{ matrix.arch }}
           path: |
+          
+  Pikafish-MacOS:
+    name: MacOS-apple-silicon
+    runs-on: macos-latest
+    env:
+      ARCH: apple-silicon
+      COMPCXX: clang++
+      COMP: clang
+      EXE: pikafish-apple-silicon
+    defaults:
+      run:
+        working-directory: src
+        shell: bash
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compile apple-silicon build
+        run: |
+          make -j profile-build EXE=$EXE
+          make strip EXE=$EXE
+          cp $EXE ../
+
+      - name: Download wiki
+        run: |
+          git clone https://github.com/official-pikafish/Pikafish.wiki.git ../Wiki
+          cd ../Wiki
+          rm -rf .git
+
+      # Artifacts automatically get zipped.
+      # To avoid double-zipping, we use the unzipped directory
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Pikafish-MacOS-apple-silicon
+          path: |
+            ${{ env.EXE }}
+            Wiki
+            AUTHORS
+            CONTRIBUTING.md
+            Copying.txt
+            README.md
+            Top CPU Contributors.txt
             linux/pikafish${{ matrix.arch }}
             AUTHORS
             Copying.txt
