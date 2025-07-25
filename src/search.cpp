@@ -469,14 +469,22 @@ void Search::Worker::iterative_deepening() {
 }
 
 
-void Search::Worker::do_move(Position& pos, const Move move, StateInfo& st) {
-    do_move(pos, move, st, pos.gives_check(move));
+void Search::Worker::do_move(Position& pos, const Move move, StateInfo& st, Stack* const ss) {
+    do_move(pos, move, st, pos.gives_check(move), ss);
 }
 
-void Search::Worker::do_move(Position& pos, const Move move, StateInfo& st, const bool givesCheck) {
-    DirtyPiece dp = pos.do_move(move, st, givesCheck, &tt);
+void Search::Worker::do_move(
+  Position& pos, const Move move, StateInfo& st, const bool givesCheck, Stack* const ss) {
+    bool       capture = pos.capture(move);
+    DirtyPiece dp      = pos.do_move(move, st, givesCheck, &tt);
     nodes.fetch_add(1, std::memory_order_relaxed);
     accumulatorStack.push(dp);
+    if (ss != nullptr)
+    {
+        ss->currentMove         = move;
+        ss->continuationHistory = &continuationHistory[ss->inCheck][capture][dp.pc][move.to_sq()];
+        ss->continuationCorrectionHistory = &continuationCorrectionHistory[dp.pc][move.to_sq()];
+    }
 }
 
 void Search::Worker::do_null_move(Position& pos, StateInfo& st) { pos.do_null_move(st, tt); }
@@ -827,13 +835,7 @@ Value Search::Worker::search(
 
             movedPiece = pos.moved_piece(move);
 
-            do_move(pos, move, st);
-
-            ss->currentMove = move;
-            ss->continuationHistory =
-              &continuationHistory[ss->inCheck][true][movedPiece][move.to_sq()];
-            ss->continuationCorrectionHistory =
-              &continuationCorrectionHistory[movedPiece][move.to_sq()];
+            do_move(pos, move, st, ss);
 
             // Perform a preliminary qsearch to verify that the move holds
             value = -qsearch<NonPV>(pos, ss + 1, -probCutBeta, -probCutBeta + 1);
@@ -1055,17 +1057,10 @@ moves_loop:  // When in check, search starts here
         }
 
         // Step 15. Make the move
-        do_move(pos, move, st, givesCheck);
+        do_move(pos, move, st, givesCheck, ss);
 
         // Add extension to new depth
         newDepth += extension;
-
-        // Update the current move (this must be done after singular extension search)
-        ss->currentMove = move;
-        ss->continuationHistory =
-          &continuationHistory[ss->inCheck][capture][movedPiece][move.to_sq()];
-        ss->continuationCorrectionHistory =
-          &continuationCorrectionHistory[movedPiece][move.to_sq()];
         uint64_t nodeCount = rootNode ? uint64_t(nodes) : 0;
 
         // Decrease reduction for PvNodes (*Scaler)
@@ -1565,16 +1560,7 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
         }
 
         // Step 7. Make and search the move
-        Piece movedPiece = pos.moved_piece(move);
-
-        do_move(pos, move, st, givesCheck);
-
-        // Update the current move
-        ss->currentMove = move;
-        ss->continuationHistory =
-          &continuationHistory[ss->inCheck][capture][movedPiece][move.to_sq()];
-        ss->continuationCorrectionHistory =
-          &continuationCorrectionHistory[movedPiece][move.to_sq()];
+        do_move(pos, move, st, givesCheck, ss);
 
         value = -qsearch<nodeType>(pos, ss + 1, -beta, -alpha);
         undo_move(pos, move);
