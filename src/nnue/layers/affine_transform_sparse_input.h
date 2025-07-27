@@ -81,37 +81,71 @@ template<const IndexType InputDimensions>
 void find_nnz(const std::int32_t* RESTRICT input,
               std::uint16_t* RESTRICT      out,
               IndexType&                   count_out) {
-    using namespace SIMD;
 
-    constexpr IndexType InputSimdWidth = sizeof(vec_uint_t) / sizeof(std::int32_t);
-    const auto          inputVector    = reinterpret_cast<const vec_uint_t*>(input);
-    IndexType           count          = 0;
+    #if defined(USE_AVX512ICL)
 
-    #ifdef USE_AVX512
-    constexpr IndexType NumChunks = InputDimensions / InputSimdWidth;
+    constexpr IndexType SimdWidthIn  = 16;  // 512 bits / 32 bits
+    constexpr IndexType SimdWidthOut = 32;  // 512 bits / 16 bits
+    constexpr IndexType NumChunks    = InputDimensions / SimdWidthOut;
+    const __m512i       increment    = _mm512_set1_epi16(SimdWidthOut);
+    __m512i base = _mm512_set_epi16(31, 30, 29, 28, 27, 26, 25, 24, 23, 22, 21, 20, 19, 18, 17, 16,
+                                    15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0);
 
-    vec_t       base      = _mm512_set_epi32(15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0);
-    const vec_t increment = _mm512_set1_epi32(InputSimdWidth);
+    IndexType count = 0;
     for (IndexType i = 0; i < NumChunks; ++i)
     {
-        const vec_t inputChunk = inputVector[i];
+        const __m512i inputV0 = _mm512_load_si512(input + i * 2 * SimdWidthIn);
+        const __m512i inputV1 = _mm512_load_si512(input + i * 2 * SimdWidthIn + SimdWidthIn);
 
         // Get a bitmask and gather non zero indices
-        const __mmask16 nnzMask = _mm512_test_epi32_mask(inputChunk, inputChunk);
-        const vec_t     nnzV    = _mm512_maskz_compress_epi32(nnzMask, base);
+        const __mmask32 nnzMask = _mm512_kunpackw(_mm512_test_epi32_mask(inputV1, inputV1),
+                                                  _mm512_test_epi32_mask(inputV0, inputV0));
+
+        // Avoid _mm512_mask_compressstoreu_epi16() as it's 256 uOps on Zen4
+        __m512i nnz = _mm512_maskz_compress_epi16(nnzMask, base);
+        _mm512_storeu_epi16(out + count, nnz);
+
+        count += popcount(nnzMask);
+        base = _mm512_add_epi16(base, increment);
+    }
+    count_out = count;
+
+    #elif defined(USE_AVX512)
+
+    constexpr IndexType SimdWidth = 16;  // 512 bits / 32 bits
+    constexpr IndexType NumChunks = InputDimensions / SimdWidth;
+    const __m512i       increment = _mm512_set1_epi32(SimdWidth);
+    __m512i base = _mm512_set_epi32(15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0);
+
+    IndexType count = 0;
+    for (IndexType i = 0; i < NumChunks; ++i)
+    {
+        const __m512i inputV = _mm512_load_si512(input + i * SimdWidth);
+
+        // Get a bitmask and gather non zero indices
+        const __mmask16 nnzMask = _mm512_test_epi32_mask(inputV, inputV);
+        const __m512i   nnzV    = _mm512_maskz_compress_epi32(nnzMask, base);
         _mm512_mask_cvtepi32_storeu_epi16(out + count, 0xFFFF, nnzV);
         count += popcount(nnzMask);
         base = _mm512_add_epi32(base, increment);
     }
+    count_out = count;
+
     #else
+
+    using namespace SIMD;
+
+    constexpr IndexType InputSimdWidth = sizeof(vec_uint_t) / sizeof(std::int32_t);
     // Inputs are processed InputSimdWidth at a time and outputs are processed 8 at a time so we process in chunks of max(InputSimdWidth, 8)
     constexpr IndexType ChunkSize       = std::max<IndexType>(InputSimdWidth, 8);
     constexpr IndexType NumChunks       = InputDimensions / ChunkSize;
     constexpr IndexType InputsPerChunk  = ChunkSize / InputSimdWidth;
     constexpr IndexType OutputsPerChunk = ChunkSize / 8;
 
-    vec128_t       base      = vec128_zero;
-    const vec128_t increment = vec128_set_16(8);
+    const auto     inputVector = reinterpret_cast<const vec_uint_t*>(input);
+    IndexType      count       = 0;
+    vec128_t       base        = vec128_zero;
+    const vec128_t increment   = vec128_set_16(8);
     for (IndexType i = 0; i < NumChunks; ++i)
     {
         // bitmask of nonzero values in this chunk
@@ -131,9 +165,8 @@ void find_nnz(const std::int32_t* RESTRICT input,
             base = vec128_add(base, increment);
         }
     }
-    #endif
-
     count_out = count;
+    #endif
 }
 
 #endif
