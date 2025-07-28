@@ -763,9 +763,11 @@ Value Search::Worker::search(
     }
 
     // Step 8. Null move search with verification search
-    if (cutNode && (ss - 1)->currentMove != Move::null() && ss->staticEval >= beta - 8 * depth + 188
-        && !excludedMove && pos.major_material(us) && ss->ply >= nmpMinPly && !is_loss(beta))
+    if (cutNode && ss->staticEval >= beta - 8 * depth + 188 && !excludedMove
+        && pos.major_material(us) && ss->ply >= nmpMinPly && !is_loss(beta))
     {
+        assert((ss - 1)->currentMove != Move::null());
+
         // Null move dynamic reduction based on depth
         Depth R = 7 + depth / 3;
 
