@@ -946,7 +946,8 @@ moves_loop:  // When in check, search starts here
                 if (!givesCheck && lmrDepth < 19 && !ss->inCheck)
                 {
                     Value futilityValue = ss->staticEval + 318 + 350 * lmrDepth
-                                        + PieceValue[capturedPiece] + 233 * captHist / 1024;
+                                        + 275 * (move.to_sq() == prevSq) + PieceValue[capturedPiece]
+                                        + 233 * captHist / 1024;
 
                     if (futilityValue <= alpha)
                         continue;
