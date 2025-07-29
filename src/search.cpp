@@ -714,7 +714,7 @@ Value Search::Worker::search(
     {
         int bonus = std::clamp(-18 * int((ss - 1)->staticEval + ss->staticEval), -1056, 2024) + 341;
         mainHistory[~us][((ss - 1)->currentMove).from_to()] << bonus * 1284 / 1024;
-        if (type_of(pos.piece_on(prevSq)) != PAWN)
+        if (!ttHit && type_of(pos.piece_on(prevSq)) != PAWN)
             pawnHistory[pawn_structure_index(pos)][pos.piece_on(prevSq)][prevSq]
               << bonus * 1254 / 1024;
     }
