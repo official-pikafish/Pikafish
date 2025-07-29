@@ -501,7 +501,7 @@ bool Position::pseudo_legal(const Move m) const {
 
 /// Position::gives_check() tests whether a pseudo-legal move gives a check
 
-bool Position::gives_check(Move m) {
+bool Position::gives_check(Move m, PieceType flipped) {
 
   assert(is_ok(m));
   assert(color_of(moved_piece(m)) == sideToMove);
@@ -512,7 +512,12 @@ bool Position::gives_check(Move m) {
   PieceType pt;
 
   if (isDark(from)) {
-      return false;
+      if (flipped) {
+          pt = flipped;
+      }
+      else {
+          return false;
+      }
       //pt = type_of(restPieces[sideToMove].peek());
   }
   else

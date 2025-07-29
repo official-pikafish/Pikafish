@@ -105,7 +105,7 @@ namespace {
             pGet = NO_PIECE;
         }
         states->emplace_back();
-        pos.do_move(make_move(m, pGet, pCaptured), states->back());
+        pos.do_move_temp(make_move(m, pGet, pCaptured), states->back(), type_of(pGet));
     }
   }
 

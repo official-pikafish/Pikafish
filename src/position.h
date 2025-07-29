@@ -145,14 +145,14 @@ public:
   bool legal(Move m) const;
   bool pseudo_legal(const Move m) const;
   bool capture(Move m) const;
-  bool gives_check(Move m);
+  bool gives_check(Move m, PieceType flipped = NO_PIECE_TYPE);
   Piece moved_piece(Move m) const;
   Piece captured_piece() const;
 
   // Doing and undoing moves
   bool getDark(StateInfo& newSt, int& typecount, bool& isDarkDepth);
   void setDark();
-  bool do_move(Move m, StateInfo& newSt);
+  bool do_move_temp(Move m, StateInfo& newSt, PieceType flipped = NO_PIECE_TYPE);
   bool do_move(Move m, StateInfo& newSt, bool givesCheck);
   void undo_move(Move m);
   void do_null_move(StateInfo& newSt);
@@ -447,8 +447,8 @@ inline void Position::move_piece(Square from, Square to) {
   psq += PSQT::psq[pc][to] - PSQT::psq[pc][from];
 }
 
-inline bool Position::do_move(Move m, StateInfo& newSt) {
-    return do_move(m, newSt, gives_check(m));
+inline bool Position::do_move_temp(Move m, StateInfo& newSt, PieceType flipped) {
+    return do_move(m, newSt, gives_check(m, flipped));
 }
 
 inline StateInfo* Position::state() const {
