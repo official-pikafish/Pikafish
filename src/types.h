@@ -104,12 +104,8 @@ constexpr bool Is64Bit = false;
 #endif
 
 #define USE_NNUEEVAL 0
-#if USE_NNUEEVAL
-constexpr int VALRATE = 1;
-#else
-constexpr int VALRATE = 1;
-#endif
-
+constexpr int DARKVALRATE = 2862;//5000-10000
+constexpr int DARKMAXDIFF = 4812;//500-5000
 
 // For chasing detection
 union ChaseMap {
@@ -301,20 +297,19 @@ enum Value : int {
   VALUE_MATE_IN_MAX_PLY  =  VALUE_MATE - MAX_PLY,
   VALUE_MATED_IN_MAX_PLY = -VALUE_MATE_IN_MAX_PLY,
 
-  RookValueMg    = 1462,  RookValueEg    = 1268,
-  AdvisorValueMg = 200 ,  AdvisorValueEg = 180 ,
-  CannonValueMg  = 515 ,  CannonValueEg  = 674 ,
-  PawnValueMg    = 72  ,  PawnValueEg    = 135 ,
-  KnightValueMg  = 554 ,  KnightValueEg  = 744 ,
-  BishopValueMg  = 202 ,  BishopValueEg  = 173 ,
+  RookValueMg    = 1284,  RookValueEg    = 2102,
+  AdvisorValueMg = 218 ,  AdvisorValueEg = 170 ,
+  CannonValueMg  = 650 ,  CannonValueEg  = 1020 ,
+  PawnValueMg    = 164 ,  PawnValueEg    = 141 ,
+  KnightValueMg  = 707 ,  KnightValueEg  = 733 ,
+  BishopValueMg  = 271 ,  BishopValueEg  = 191 ,
 
-  rate = VALRATE,
-  B_RookValueMg = 700 / rate, B_RookValueEg = 700 / rate,
-  B_AdvisorValueMg = 200 / rate, B_AdvisorValueEg = 200 / rate,
-  B_CannonValueMg = 515 / rate, B_CannonValueEg = 574 / rate,
-  B_PawnValueMg = 200 / rate, B_PawnValueEg = 200 / rate,
-  B_KnightValueMg = 300 / rate, B_KnightValueEg = 300 / rate,
-  B_BishopValueMg = 200 / rate, B_BishopValueEg = 200 / rate,
+  B_RookValueMg = 844, B_RookValueEg = 700,
+  B_AdvisorValueMg = 139, B_AdvisorValueEg = 200,
+  B_CannonValueMg = 647, B_CannonValueEg = 574,
+  B_PawnValueMg = 305, B_PawnValueEg = 200,
+  B_KnightValueMg = 750, B_KnightValueEg = 300,
+  B_BishopValueMg = 427, B_BishopValueEg = 200,
 };
 
 enum PieceType {
@@ -333,7 +328,7 @@ enum Piece {
   PIECE_NB = 32
 };
 
-constexpr Value PieceValue[PHASE_NB][PIECE_NB] = {
+inline Value PieceValue[PHASE_NB][PIECE_NB] = {
   { VALUE_ZERO, RookValueMg, AdvisorValueMg, CannonValueMg, PawnValueMg, KnightValueMg, BishopValueMg, VALUE_ZERO,
     VALUE_ZERO, RookValueMg, AdvisorValueMg, CannonValueMg, PawnValueMg, KnightValueMg, BishopValueMg, VALUE_ZERO,
     VALUE_ZERO, B_RookValueMg, B_AdvisorValueMg, B_CannonValueMg, B_PawnValueMg, B_KnightValueMg, B_BishopValueMg, VALUE_ZERO,
@@ -421,6 +416,7 @@ struct DirtyPiece {
 enum Score : int { SCORE_ZERO };
 
 constexpr Score make_score(int mg, int eg) {
+    assert(mg < 1 << 17 && eg < 1 << 17);
   return Score((int)((unsigned int)eg << 16) + mg);
 }
 
@@ -512,6 +508,9 @@ constexpr Dark operator~(Dark d) {
     return Dark(d ^ UNKNOWN); // Toggle dark
 }
 
+constexpr Square flip_rank(Square s) { // Swap A1 <-> A9
+  return Square(SQ_A9 - s + s % 9 * 2);
+}
 
 constexpr Value mate_in(int ply) {
   return VALUE_MATE - ply;
@@ -559,7 +558,7 @@ constexpr Square to_sq(Move m) {
 }
 
 constexpr int from_to(Move m) {
-    return m & 0x3FFF;
+  return m & 0x3FFF;
 }
 
 constexpr Move make_move(Square from, Square to) {
@@ -567,15 +566,15 @@ constexpr Move make_move(Square from, Square to) {
 }
 
 constexpr Move make_move(Move m,Piece pGet, Piece pCaptured) {
-    return Move(from_to(m) | ((pGet & 0xF) << 14) | ((pCaptured & 0xF) << 18));//b15-18 19-22
+  return Move(from_to(m) | ((pGet & 0xF) << 14) | ((pCaptured & 0xF) << 18));//b15-18 19-22
 }
 
 constexpr Piece get_Piece(Move m) {
-    return Piece((m >> 14) & 0xF);
+  return Piece((m >> 14) & 0xF);
 }
 
 constexpr Piece cap_Piece(Move m) {
-    return Piece((m >> 18) & 0xF);
+  return Piece((m >> 18) & 0xF);
 }
 
 constexpr int make_chase(int piece1, int piece2) {

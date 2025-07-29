@@ -27,7 +27,7 @@
 
 namespace Stockfish {
 
-#define SEARCHDEBUG 1
+#define SEARCHDEBUG 0
 
 class Position;
 

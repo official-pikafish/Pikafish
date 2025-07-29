@@ -56,8 +56,8 @@ else
 endif
 
 ### Source and object files
-SRCS = benchmark.cpp bitboard.cpp evaluate.cpp main.cpp \
-	misc.cpp movegen.cpp movepick.cpp position.cpp \
+SRCS = benchmark.cpp bitboard.cpp evaluate.cpp main.cpp material.cpp \
+	misc.cpp movegen.cpp movepick.cpp position.cpp psqt.cpp \
 	search.cpp thread.cpp timeman.cpp tt.cpp uci.cpp ucioption.cpp tune.cpp \
 	nnue/evaluate_nnue.cpp nnue/features/half_ka_v2_hm.cpp \
 	compression/zip.cpp
@@ -574,10 +574,6 @@ ifeq ($(optimize),yes)
 				CXXFLAGS += -mdynamic-no-pic
 			endif
 		endif
-	endif
-
-	ifeq ($(comp),clang)
-		CXXFLAGS += -fexperimental-new-pass-manager
 	endif
 endif
 

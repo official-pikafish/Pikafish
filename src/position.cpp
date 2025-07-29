@@ -37,18 +37,19 @@ namespace Stockfish {
 namespace Zobrist {
 
   Key psq[PIECE_NB][SQUARE_NB];
+  Key psqDark[PIECE_NB][5];
   Key side;
 }
 
-namespace{
+namespace {
 
-    const string PieceToChar(" RACPNBK racpnbk XXXXXX  xxxxxx ");
+const string PieceToChar(" RACPNBK racpnbk XXXXXX  xxxxxx ");
 
-    constexpr Piece Pieces[] = { W_ROOK, W_ADVISOR, W_CANNON, W_PAWN, W_KNIGHT, W_BISHOP, W_KING,
-                                 B_ROOK, B_ADVISOR, B_CANNON, B_PAWN, B_KNIGHT, B_BISHOP, B_KING,
-                                 BW_ROOK, BW_ADVISOR, BW_CANNON, BW_PAWN, BW_KNIGHT, BW_BISHOP,
-                                 BB_ROOK, BB_ADVISOR, BB_CANNON, BB_PAWN, BB_KNIGHT, BB_BISHOP };
-}// namespace
+constexpr Piece Pieces[] = { W_ROOK, W_ADVISOR, W_CANNON, W_PAWN, W_KNIGHT, W_BISHOP, W_KING,
+                             B_ROOK, B_ADVISOR, B_CANNON, B_PAWN, B_KNIGHT, B_BISHOP, B_KING,
+                             BW_ROOK, BW_ADVISOR, BW_CANNON, BW_PAWN, BW_KNIGHT, BW_BISHOP,
+                             BB_ROOK, BB_ADVISOR, BB_CANNON, BB_PAWN, BB_KNIGHT, BB_BISHOP };
+} // namespace
 
 namespace PieceExchange {
     Piece charToPiece(unsigned char token) {
@@ -98,9 +99,13 @@ void Position::init() {
 
   PRNG rng(1070372);
 
-  for (Piece pc : Pieces)
+  for (Piece pc : Pieces) {
       for (Square s = SQ_A0; s <= SQ_I9; ++s)
           Zobrist::psq[pc][s] = rng.rand<Key>();
+      for (int i = 0; i <= 6; ++i)
+          Zobrist::psqDark[pc][i] = rng.rand<Key>();
+  }
+
 
   Zobrist::side = rng.rand<Key>();
 }
@@ -147,6 +152,7 @@ Position& Position::set(const string& fenStr, StateInfo* si, Thread* th) {
   ss >> std::noskipws;
 
   // 1. Piece placement
+  std::vector<std::pair<Piece, Square>> putPieces;
   while ((ss >> token) && !isspace(token))
   {
       if (isdigit(token))
@@ -159,12 +165,14 @@ Position& Position::set(const string& fenStr, StateInfo* si, Thread* th) {
           if (token == 'x') {
               int s = sq;
               if (s > SQ_I4)s = SQ_I9 - s;
-              put_piece(Piece(BPiece[s]|8|16), sq);
+              putPieces.push_back(std::make_pair(Piece(BPiece[s] | 8 | 16), sq));
+              //put_piece(Piece(BPiece[s]|8|16), sq);
           }
           else if (token == 'X') {
               int s = sq;
               if (s > SQ_I4)s = SQ_I9 - s;
-              put_piece(Piece(BPiece[s]|16 ), sq);
+              //put_piece(Piece(BPiece[s]|16 ), sq);
+              putPieces.push_back(std::make_pair(Piece(BPiece[s] | 16), sq));
           }
           else {
               put_piece(Piece(idx), sq);
@@ -173,6 +181,10 @@ Position& Position::set(const string& fenStr, StateInfo* si, Thread* th) {
       }
   }
 
+    // 2. Active color
+    ss >> token;
+    sideToMove = (token == 'w' ? WHITE : BLACK);
+    ss >> token;
 
   //2.rest
   Piece pt = NO_PIECE;
@@ -194,38 +206,26 @@ Position& Position::set(const string& fenStr, StateInfo* si, Thread* th) {
       }
 
       if (isdigit(token)) {
-          for (int i = 0; i < (token - '0'); i++)
+          for (int i = 0; i < std::min((token - '0'), 5); i++)
           {
               restPieces[color_of(pt)].push_back(pt);
           }
           lastToken = ' ';
       }
   }
-
+  for (size_t i = 0; i < putPieces.size(); i++)
+  {
+      put_piece(putPieces.at(i).first, putPieces.at(i).second);
+  }
   //restPieces[WHITE].shuffle();
   //restPieces[BLACK].shuffle();
   //restPieces[WHITE].print();
   //restPieces[BLACK].print();
 
-
-  // 2. Active color
-  if (lastToken != 'w' && lastToken != 'b') {
-      ss >> token;
-  }
-  else
-  {
-      token = lastToken;
-  }
-
-  firstSideMove = sideToMove = (token == 'w' ? WHITE : BLACK);
-  ss >> token;
-
-  while ((ss >> token) && !isspace(token));
-
-  while ((ss >> token) && !isspace(token));
+  int dummy;
 
   // 3-4. Halfmove clock and fullmove number
-  ss >> std::skipws >> token >> gamePly;
+  ss >> std::skipws >> dummy >> gamePly;
 
   // Convert from fullmove starting from 1 to gamePly starting from 0,
   // handle also common incorrect FEN with fullmove = 0.
@@ -273,7 +273,7 @@ void Position::set_check_info(StateInfo* si) const {
 
 void Position::set_state(StateInfo* si) const {
 
-  si->key = 0;
+  si->key = si->materialKey = 0;
   si->material[WHITE] = si->material[BLACK] = VALUE_ZERO;
   si->checkersBB = checkers_to(~sideToMove, square<KING>(sideToMove));
   si->move = MOVE_NONE;
@@ -289,11 +289,30 @@ void Position::set_state(StateInfo* si) const {
       si->key ^= Zobrist::psq[pc][s];
 
       if (type_of(pc) != KING)
-          si->material[color_of(pc)] += PieceValue[MG][pc];
+          si->material[color_of(pc)] += Darkof(pc) == UNKNOWN ?
+                        restPieces[color_of(pc)].evgValue() :
+                        PieceValue[MG][pc];
+  }
+  for (int t = 0; t < PIECE_TYPE_NB; t++)
+  {
+      PieceType pt = PieceType(t);
+      for (int j = 0; j < restPieces[WHITE].countType(pt); j++)
+      {
+          si->key ^= Zobrist::psqDark[make_piece(WHITE, pt)][j];
+      }
+      for (int j = 0; j < restPieces[BLACK].countType(pt); j++)
+      {
+          si->key ^= Zobrist::psqDark[make_piece(BLACK, pt)][j];
+      }
+        
   }
 
   if (sideToMove == BLACK)
       si->key ^= Zobrist::side;
+
+  for (Piece pc : Pieces)
+      for (int cnt = 0; cnt < pieceCount[pc]; ++cnt)
+          si->materialKey ^= Zobrist::psq[pc][cnt];
 }
 
 
@@ -322,7 +341,8 @@ string Position::fen() const {
           ss << '/';
   }
 
-  ss << ' ';
+  ss << (sideToMove == WHITE ? " w " : " b ");
+
   int DarkNum[PIECE_NB];
   memset(DarkNum, 0, sizeof(DarkNum));
   for (int i = 0; i < restPieces[WHITE].size(); i++) {
@@ -345,12 +365,7 @@ string Position::fen() const {
           ss << PieceToChar[Piece(i)] << DarkNum[i];
       }
   }
-
-  ss << (sideToMove == WHITE ? " w " : " b ");
-
-  ss << '-';
-
-  ss << " - " << 0 << " " << 1 + (gamePly - (sideToMove == BLACK)) / 2;
+  ss << " " << 0 << " " << 1 + (gamePly - (sideToMove == BLACK)) / 2;
 
   return ss.str();
 }
@@ -525,22 +540,25 @@ bool Position::gives_check(Move m) {
 
 bool Position::getDark(StateInfo& newSt, int& typecount, bool& isDarkDepth) {
     assert(&newSt != st);
-    Square from = st->darkSquare;
-    if (from == SQ_NONE)return false;
+    Square ds = st->darkSquare;
+    if (ds == SQ_NONE)return false;
     Color us = ~sideToMove;
     Piece pc = NO_PIECE;
     typecount = 0;
     Value darkV = Value(restPieces[us].evgValue());
     isDarkDepth = st->darkDepth > MAXDARKDEPTH || st->darkTypes > MAXDARKTYPES;
-    if (isDarkDepth>5)return false;
+    if (st->darkDepth - MAXDARKDEPTH > QDARKDEPTH)return false;
     while (st->darkTypeIndex < BISHOP)
     {
         st->darkTypeIndex++;
         PieceType t;
         t = PieceType(st->darkTypeIndex);
+        
         pc = restPieces[us].pop_back(t);
         if (pc == NO_PIECE)continue;
-        typecount = restPieces[us].countType(t) + 1;
+        typecount = restPieces[us].countType(t);
+        st->key ^= Zobrist::psqDark[pc][typecount];
+        typecount++;
         break;
     }
     if (pc == NO_PIECE)return false;
@@ -550,35 +568,36 @@ bool Position::getDark(StateInfo& newSt, int& typecount, bool& isDarkDepth) {
     thisThread->nodes.fetch_add(1, std::memory_order_relaxed);
     Key k = st->key ^ Zobrist::side;
     std::memcpy(&newSt, st, offsetof(StateInfo, key));
-    newSt.previous = st;
+    newSt.previous = st->previous;
+    newSt.previousDark = st;
     st = &newSt;
-    ++gamePly;
-    ++st->pliesFromNull;
+    //++gamePly;
+    //++st->pliesFromNull;
     st->accumulator.computed[WHITE] = false;
     st->accumulator.computed[BLACK] = false;
     auto& dp = st->dirtyPiece;
     Color them = ~us;
 
-    Piece old = piece_on(from);
+    Piece old = piece_on(ds);
     assert(color_of(old) == us);
     {
-        st->material[us] += 50;
+        st->material[us] += 69;
 
         dp.dirty_num = 2;  // 1 piece moved, 1 piece captured
         dp.piece[0] = old;
-        dp.from[0] = from;
+        dp.from[0] = ds;
         dp.to[0] = SQ_NONE;
 
         dp.piece[1] = pc;
         dp.from[1] = SQ_NONE;
-        dp.to[1] = from;
+        dp.to[1] = ds;
 
         // Update hash key
-        k ^= Zobrist::psq[old][from] ^ Zobrist::psq[pc][from];
+        k ^= Zobrist::psq[old][ds] ^ Zobrist::psq[pc][ds];
     }
     //replcae
-    remove_piece(from);
-    put_piece(pc, from);
+    remove_piece(ds,false);
+    put_piece(pc, ds, false);
 
 
     // Update the key with the final value
@@ -597,7 +616,7 @@ bool Position::getDark(StateInfo& newSt, int& typecount, bool& isDarkDepth) {
 
 void Position::setDark() {
     // Finally point our state pointer back to the previous state
-    st = st->previous;
+    st = st->previousDark;
 
     assert(st->darkSquare != SQ_NONE);
     assert(!isDark(st->darkSquare));
@@ -605,13 +624,14 @@ void Position::setDark() {
 
     //update rest
     Piece p = piece_on(st->darkSquare);
+    st->key ^= Zobrist::psqDark[p][restPieces[~sideToMove].countType(type_of(p))];
     restPieces[~sideToMove].push_back(p);
 
     //replcae
-    remove_piece(st->darkSquare);
-    put_piece(st->darkPiece, st->darkSquare);
-
-    --gamePly;
+    remove_piece(st->darkSquare, false);
+    put_piece(st->darkPiece, st->darkSquare, false);
+    st->key ^= Zobrist::psq[st->darkPiece][st->darkSquare];
+    //--gamePly;
 
     // Update the bloom filter
     --filter[st->key];
@@ -634,6 +654,8 @@ bool Position::do_move(Move m, StateInfo& newSt, bool givesCheck) {
   Piece to_pc = get_Piece(m);
   if (to_pc) {
       remove_piece(from);
+      restPieces[sideToMove].pop_back(type_of(to_pc));
+      st->key ^= Zobrist::psqDark[to_pc][restPieces[sideToMove].countType(type_of(to_pc))];
       put_piece(to_pc,from);
   }
 
@@ -683,13 +705,11 @@ bool Position::do_move(Move m, StateInfo& newSt, bool givesCheck) {
       
       if (Darkof(captured) == UNKNOWN)
       {
-          st->material[them] -= restPieces[them].evgValue(PieceType(captured & 7)) - 50;
+          st->material[them] -= restPieces[them].evgValue() + 75;
       }
       else
       {
           st->material[them] -= PieceValue[MG][captured];
-          //PieceType p = PieceType(captured & 7);
-          //if (p == KNIGHT || p == CANNON)st->material[them] -= 200;
       }
 
       dp.dirty_num = 2;  // 1 piece moved, 1 piece captured
@@ -702,10 +722,13 @@ bool Position::do_move(Move m, StateInfo& newSt, bool givesCheck) {
       Piece capPiece = cap_Piece(m);
       if (capPiece) {
           restPieces[them].pop_back(type_of(capPiece));
+          st->key ^= Zobrist::psqDark[capPiece][restPieces[them].countType(type_of(capPiece))];
       }
 
       // Update hash key
       k ^= Zobrist::psq[captured][capsq];
+      st->materialKey ^= Zobrist::psq[captured][pieceCount[captured]];
+      prefetch(thisThread->materialTable[st->materialKey]);
   }
     // Update hash key
     k ^= Zobrist::psq[pc][from] ^ Zobrist::psq[pc][to];
@@ -747,6 +770,7 @@ bool Position::do_move(Move m, StateInfo& newSt, bool givesCheck) {
 
   return dark;
 }
+
 
 /// Position::undo_move() unmakes a move. When it returns, the position should
 /// be restored to exactly the same state as before the move was made.
@@ -865,11 +889,11 @@ bool Position::see_ge(Move m, Value threshold) const {
 
   Square from = from_sq(m), to = to_sq(m);
 
-  int swap = PieceValue[MG][piece_on(to)] - threshold;
+  int swap = value_on(to) - threshold;
   if (swap < 0)
       return false;
 
-  swap = PieceValue[MG][piece_on(from)] - swap;
+  swap = value_on(from) - swap;
   if (swap <= 0)
       return true;
 
@@ -995,7 +1019,7 @@ std::pair<Piece, int> Position::light_do_move(Move m) {
 
     if (captured)
         // Update board and piece lists
-        remove_piece(to);
+        remove_piece(to,false);
 
     move_piece(from, to);
 
@@ -1024,7 +1048,7 @@ void Position::light_undo_move(Move m, Piece captured, int id) {
     {
         Square capsq = to;
 
-        put_piece(captured, capsq); // Restore the captured piece
+        put_piece(captured, capsq,false); // Restore the captured piece
     }
 }
 

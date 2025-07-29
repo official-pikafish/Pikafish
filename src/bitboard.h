@@ -358,6 +358,19 @@ inline Square pop_lsb(Bitboard& b) {
   return s;
 }
 
+/// pawn_attacks_bb() returns the squares attacked by pawns of the given color
+/// from the squares in the given bitboard.
+
+template<Color C>
+constexpr Bitboard pawn_attacks_bb(Bitboard b) {
+    Bitboard attack = 0;
+    while (b) {
+        Square s = pop_lsb(b);
+        attack |= pawn_attacks_bb(C, s);
+    }
+    return attack;
+}
+
 } // namespace Stockfish
 
 #endif // #ifndef BITBOARD_H_INCLUDED

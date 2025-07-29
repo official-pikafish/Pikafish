@@ -28,17 +28,16 @@
 #include <stdlib.h>
 #include <time.h>
 #include "bitboard.h"
+#include "psqt.h"
 #include "types.h"
 
 #include "nnue/nnue_accumulator.h"
 
 namespace Stockfish {
 
-
-#define MINDARKTYPESTOAGV 2
-#define MAXMINIVALUE    500
-#define MAXDARKDEPTH 6
-#define MAXDARKTYPES 15
+#define MAXDARKDEPTH    4
+#define QDARKDEPTH      1
+#define MAXDARKTYPES    43
 
 /// StateInfo struct stores information needed to restore a Position object to
 /// its previous state when we retract a move. Whenever a move is made on the
@@ -49,6 +48,7 @@ namespace PieceExchange {
 struct StateInfo {
 
   // Copied when making a move
+  Key    materialKey;
   Value  material[COLOR_NB];
   int    pliesFromNull;
   int        darkDepth;
@@ -58,6 +58,7 @@ struct StateInfo {
   Key        key;
   Bitboard   checkersBB;
   StateInfo* previous;
+  StateInfo* previousDark;
   Bitboard   blockersForKing[COLOR_NB];
   Bitboard   pinners[COLOR_NB];
   Bitboard   checkSquares[PIECE_TYPE_NB];
@@ -113,6 +114,7 @@ public:
   Bitboard pieces(Color c, PieceType pt1, PieceType pt2) const;
   Bitboard pieces(Color c, PieceType pt1, PieceType pt2, PieceType pt3) const;
   Piece piece_on(Square s) const;
+  int value_on(Square s) const;
   Piece nodarkPiece_on(Square s) const;
   bool isDark(Square s) const;
   Dark Darkof(Square s)const;
@@ -122,6 +124,8 @@ public:
   bool empty(Square s) const;
   template<PieceType Pt> int count(Color c) const;
   template<PieceType Pt> int count() const;
+  template<PieceType Pt> int darkcount(Color c) const;
+  template<PieceType Pt> int darkcount() const;
   template<PieceType Pt> Square square(Color c) const;
 
   // Checking
@@ -160,6 +164,7 @@ public:
   // Accessing hash keys
   Key key() const;
   Key key_after(Move m) const;
+  Key material_key() const;
 
   // Other properties of the position
   bool isFirstSide() const;
@@ -168,6 +173,7 @@ public:
   Thread* this_thread() const;
   bool is_repeated(Value& result, int ply = 0) const;
   ChaseMap chased(Color c);
+  Score psq_score() const;
   Value material_sum() const;
   Value material_diff() const;
 
@@ -178,8 +184,8 @@ public:
   // Used by NNUE
   StateInfo* state() const;
 
-  void put_piece(Piece pc, Square s);
-  void remove_piece(Square s);
+  void put_piece(Piece pc, Square s, bool updatepsq = true);
+  void remove_piece(Square s, bool updatepsq = true);
 
 private:
   // Initialization helpers (used while setting up a position)
@@ -204,6 +210,7 @@ private:
   int gamePly;
   Color sideToMove;
   Color firstSideMove;
+  Score psq;
 
   // Bloom filter for fast repetition filtering
   BloomFilter filter;
@@ -226,6 +233,13 @@ inline Color Position::side_to_move() const {
 inline Piece Position::piece_on(Square s) const {
   assert(is_ok(s));
   return board[s];
+}
+
+inline int Position::value_on(Square s) const {
+    Piece p = piece_on(s);
+    return Darkof(p) == UNKNOWN ? 
+        restPieces[color_of(p)].evgValue() : 
+        PieceValue[MG][piece_on(s)];
 }
 
 inline Piece Position::nodarkPiece_on(Square s) const {
@@ -287,6 +301,14 @@ template<PieceType Pt> inline int Position::count() const {
   return count<Pt>(WHITE) + count<Pt>(BLACK);
 }
 
+template<PieceType Pt> inline int Position::darkcount(Color c) const {
+    return pieceCount[make_piece(c, Pt) ^ 16];
+}
+
+template<PieceType Pt> inline int Position::darkcount() const {
+    return darkcount<Pt>(WHITE) + darkcount<Pt>(BLACK);
+}
+
 template<PieceType Pt> inline Square Position::square(Color c) const {
   assert(count<Pt>(c) == 1);
   return lsb(pieces(c, Pt));
@@ -333,6 +355,14 @@ inline Key Position::key() const {
   return st->key;
 }
 
+inline Key Position::material_key() const {
+    return st->materialKey;
+}
+
+inline Score Position::psq_score() const {
+  return psq;
+}
+
 inline Value Position::material_sum() const {
   return st->material[WHITE] + st->material[BLACK];
 }
@@ -359,16 +389,29 @@ inline Thread* Position::this_thread() const {
   return thisThread;
 }
 
-inline void Position::put_piece(Piece pc, Square s) {
+inline void Position::put_piece(Piece pc, Square s, bool updatepsq) {
 
   board[s] = pc;
   byTypeBB[ALL_PIECES] |= byTypeBB[type_of(pc)] |= s;
   byColorBB[color_of(pc)] |= s;
   pieceCount[pc]++;
   pieceCount[make_piece(color_of(pc), ALL_PIECES)]++;
+  if (!updatepsq)return;
+  if (Darkof(pc) == UNKNOWN) {
+      Color c = color_of(pc);
+      int eg = restPieces[c].evgValue();
+      eg *= (c == BLACK ? -1 : 1);
+      File f = File(edge_distance(file_of(s)));
+      if (f > FILE_E) --f;
+      psq += make_score(eg, eg) + PSQT::psqCap[rank_of(s)][f];
+  }
+  else
+  {
+      psq += PSQT::psq[pc][s];
+  }
 }
 
-inline void Position::remove_piece(Square s) {
+inline void Position::remove_piece(Square s, bool updatepsq) {
 
   Piece pc = board[s];
   byTypeBB[ALL_PIECES] ^= s;
@@ -377,6 +420,19 @@ inline void Position::remove_piece(Square s) {
   board[s] = NO_PIECE;
   pieceCount[pc]--;
   pieceCount[make_piece(color_of(pc), ALL_PIECES)]--;
+  if (!updatepsq)return;
+  if (Darkof(pc) == UNKNOWN) {
+      Color c = color_of(pc);
+      int eg = restPieces[c].evgValue();
+      eg *= (c == BLACK ? -1 : 1);
+      File f = File(edge_distance(file_of(s)));
+      if (f > FILE_E) --f;
+      psq -= make_score(eg, eg) + PSQT::psqCap[rank_of(s)][f];
+  }
+  else
+  {
+      psq -= PSQT::psq[pc][s];
+  }
 }
 
 inline void Position::move_piece(Square from, Square to) {
@@ -388,6 +444,7 @@ inline void Position::move_piece(Square from, Square to) {
   byColorBB[color_of(pc)] ^= fromTo;
   board[from] = NO_PIECE;
   board[to] = pc;
+  psq += PSQT::psq[pc][to] - PSQT::psq[pc][from];
 }
 
 inline bool Position::do_move(Move m, StateInfo& newSt) {

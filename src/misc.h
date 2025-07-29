@@ -205,6 +205,9 @@ public:
             typePos[i].clear();
         }
         RestListTmp<Piece, 15>::clear();
+        //clear sumValue
+        _sumValue = 0;
+        _evgValue = 0;
     }
 
     void push_back(const Piece& value) { 
@@ -213,6 +216,9 @@ public:
         typePos[t].push_back(this->size_);
         typeNum[type_of(value)]++;
         RestListTmp<Piece, 15>::push_back(value);
+        //update sumValue
+        _sumValue += PieceValue[MG][value ^ 16];
+        _evgValue = _sumValue / this->size_;
     }
 
     Piece pop_back() { 
@@ -221,6 +227,9 @@ public:
         PieceType t = type_of(p);
         typePos[t].pop_back();
         typeNum[t]--;
+        //update sumValue
+        _sumValue -= PieceValue[MG][p ^ 16];
+        _evgValue = this->size_ ? _sumValue / this->size_ : 0;
         return p; 
     }
 
@@ -248,27 +257,17 @@ public:
 
         }
         //return pop_back
-        return RestListTmp<Piece, 15>::pop_back();
+        Piece p = RestListTmp<Piece, 15>::pop_back();
+        //update sumValue
+        _sumValue -= PieceValue[MG][p ^ 16];
+        _evgValue = this->size_ ? _sumValue / this->size_ : 0;
+        return p;
     }
 
-    int evgValue() {
+    int evgValue()const {
         assert(this->size_);
-        int sum = 0;
-        for (int i = 0; i < this->size_; i++)
-        {
-            sum += PieceValue[MG][RestListTmp<Piece, 15>::at(i)];
-        }
-        return sum / this->size_ / 2;
-    }
-
-    int evgValue(const PieceType t) {
-        assert(this->size_);
-        int evg = evgValue();
-        int total = notNullTypeCount();
-        int count = countType(t);
-        evg = count * PieceValue[MG][t] + (total - count) * evg;
-        evg = evg / total;
-        return evg;
+        assert(_evgValue < 1500 && _evgValue>0);
+        return _evgValue;
     }
 
     int countType(const PieceType t) const {
@@ -345,6 +344,7 @@ public:
 private:
     int typeNum[PIECE_TYPE_NB] = { 0 };
     RestListTmp<int, 5> typePos[PIECE_TYPE_NB];
+    int _sumValue = 0, _evgValue = 0;
 };
 
 
@@ -353,35 +353,38 @@ public:
     ScoreCalc(int Ldepth, int depth, bool us) :
         _Ldepth(Ldepth), _depth(depth), _us(us){}
 
-    void setUs(bool us) { _us = us; }
+    void setUs(bool us) { _us = !us; }
 
     void append(Piece p, int score, int count) {
+        if (!_us) score *= -1;
         if (_min > score)_min = score;
         if (_max < score)_max = score;
-        //_typeScore[p] = score;
-        //_typecount[p] = count;
+        score = std::clamp(score, -DARKVALRATE, DARKVALRATE);
         _totalScore += score * count;
         _totalCount += count;
-        //_types++;
     }
 
     Value CalcEvg() {
-        int min = _min;
+        int min = std::clamp(_min, -DARKVALRATE, DARKVALRATE);
         int v;
-        if (_us) {
-            _totalScore *= -1;
-            min = _max * -1;
-        }
         int evg = _totalScore / _totalCount;
-
-        if (evg - min > 1000) {
-            v = min;
+        if (evg - min > DARKMAXDIFF) {
+            v = _min;
         }
+        else if(evg == DARKVALRATE)
+        {
+            v = _max;
+        }        
+        else if (evg == -DARKVALRATE)
+        {
+            v = _min;
+        }        
         else
         {
             v = evg;
         }
-        if (_us) v *= -1;
+        if (!_us) v *= -1;
+        assert(v > -VALUE_INFINITE && v < VALUE_INFINITE);
         return Value(v);
     }
 
