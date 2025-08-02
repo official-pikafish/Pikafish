@@ -298,7 +298,7 @@ void Search::Worker::iterative_deepening() {
             beta      = std::min(avg + delta, VALUE_INFINITE);
 
             // Adjust optimism based on root move's averageScore
-            optimism[us]  = 89 * avg / (std::abs(avg) + 91);
+            optimism[us]  = 71 * avg / (std::abs(avg) + 85);
             optimism[~us] = -optimism[us];
 
             // Start with a small aspiration window and, in the case of a fail
@@ -512,7 +512,7 @@ void Search::Worker::clear() {
                     h.fill(-453);
 
     for (size_t i = 1; i < reductions.size(); ++i)
-        reductions[i] = int(1531 / 100.0 * std::log(i));
+        reductions[i] = int(2127 / 100.0 * std::log(i));
 
     refreshTable.clear(networks[numaAccessToken]);
 }
@@ -747,30 +747,30 @@ Value Search::Worker::search(
     // Step 6. Razoring
     // If eval is really low, skip search entirely and return the qsearch value.
     // For PvNodes, we must have a guard against mates being returned.
-    if (!PvNode && eval < alpha - 1408 - 246 * depth * depth)
+    if (!PvNode && eval < alpha - 1266 - 236 * depth * depth)
         return qsearch<NonPV>(pos, ss, alpha, beta);
 
     // Step 7. Futility pruning: child node
     // The depth condition is important for mate finding.
     {
         auto futility_margin = [&](Depth d) {
-            Value futilityMult = 137 - 32 * (cutNode && !ss->ttHit);
+            Value futilityMult = 105 - 35 * (cutNode && !ss->ttHit);
 
             return futilityMult * d                      //
                  - improving * futilityMult * 2          //
                  - opponentWorsening * futilityMult / 3  //
-                 + (ss - 1)->statScore / 149             //
-                 + std::abs(correctionValue) / 130668;
+                 + (ss - 1)->statScore / 145             //
+                 + std::abs(correctionValue) / 125777;
         };
 
-        if (!ss->ttPv && depth < 15 && eval - futility_margin(depth) >= beta && eval >= beta
+        if (!ss->ttPv && depth < 14 && eval - futility_margin(depth) >= beta && eval >= beta
             && (!ttData.move || ttCapture) && !is_loss(beta) && !is_win(eval))
             return beta + (eval - beta) / 3;
     }
 
     // Step 8. Null move search with verification search
     if (cutNode && (ss - 1)->currentMove != Move::null() && eval >= beta
-        && ss->staticEval >= beta - 8 * depth + 188 && !excludedMove && pos.major_material(us)
+        && ss->staticEval >= beta - 9 * depth + 171 && !excludedMove && pos.major_material(us)
         && ss->ply >= thisThread->nmpMinPly && !is_loss(beta))
     {
         assert(eval - beta >= 0);
@@ -791,7 +791,7 @@ Value Search::Worker::search(
         // Do not return unproven mate
         if (nullValue >= beta && !is_win(nullValue))
         {
-            if (thisThread->nmpMinPly || depth < 15)
+            if (thisThread->nmpMinPly || depth < 14)
                 return nullValue;
 
             assert(!thisThread->nmpMinPly);  // Recursive verification is not allowed
@@ -820,7 +820,7 @@ Value Search::Worker::search(
     // Step 10. ProbCut
     // If we have a good enough capture and a reduced search
     // returns a value much above beta, we can (almost) safely prune the previous move.
-    probCutBeta = beta + 246 - 63 * improving;
+    probCutBeta = beta + 233 - 63 * improving;
     if (depth >= 3
         && !is_decisive(beta)
         // If value from transposition table is lower than probCutBeta, don't attempt
@@ -971,7 +971,7 @@ moves_loop:  // When in check, search starts here
 
                 // SEE based pruning for captures and checks
                 int seeHist = std::clamp(captHist / 31, -249 * depth, 193 * depth);
-                if (!pos.see_ge(move, -246 * depth - seeHist))
+                if (!pos.see_ge(move, -229 * depth - seeHist))
                     continue;
             }
             else
@@ -1007,7 +1007,7 @@ moves_loop:  // When in check, search starts here
                 lmrDepth = std::max(lmrDepth, 0);
 
                 // Prune moves with negative SEE
-                if (!pos.see_ge(move, -35 * lmrDepth * lmrDepth))
+                if (!pos.see_ge(move, -38 * lmrDepth * lmrDepth))
                     continue;
             }
         }
@@ -1668,7 +1668,7 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
 template<NodeType nodeType>
 Value Search::Worker::flip_search(
   Position& pos, Stack* ss, Value alpha, Value beta, bool isQsearch, Depth depth, bool cutNode) {
-    constexpr double scaling          = 416.11539129;
+    constexpr double scaling          = 475.51666;
     constexpr auto   score_to_winrate = [&](Value v) { return 1.0 / (1.0 + exp(-v / scaling)); };
     constexpr auto   winrate_to_score = [&](double winrate) {
         constexpr double epsilon = 1e-9;
@@ -1720,7 +1720,7 @@ Value Search::Worker::flip_search(
 
 Depth Search::Worker::reduction(bool i, Depth d, int mn, int delta) const {
     int reductionScale = reductions[d] * reductions[mn];
-    return reductionScale - delta * 1177 / rootDelta + !i * reductionScale * 102 / 297 + 1975;
+    return reductionScale - delta * 1301 / rootDelta + !i * reductionScale * 113 / 249 + 2445;
 }
 
 // elapsed() returns the time elapsed since the search started. If the

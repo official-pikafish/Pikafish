@@ -297,7 +297,8 @@ inline int& Position::rest_piece(Piece pc) { return restPieces[pc]; }
 
 inline std::vector<std::pair<Piece, int>> Position::rest_pieces(Color c) const {
     std::vector<std::pair<Piece, int>> pieces;
-    for (PieceType pt = ROOK; pt < KING; ++pt)
+    const PieceType pieceOrder[] = {ROOK, CANNON, KNIGHT, ADVISOR, BISHOP, PAWN};
+    for (PieceType pt : pieceOrder)
     {
         Piece pc = make_piece(c, pt);
         if (restPieces[pc])
