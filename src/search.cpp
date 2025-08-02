@@ -61,7 +61,7 @@ using SearchedList                  = ValueList<Move, SEARCHEDLIST_CAPACITY>;
 int correction_value(const Worker& w, const Position& pos, const Stack* const ss) {
     const Color us    = pos.side_to_move();
     const auto  m     = (ss - 1)->currentMove;
-    const auto  pcv   = w.pawnCorrectionHistory[pawn_structure_index<Correction>(pos)][us];
+    const auto  pcv   = w.pawnCorrectionHistory[pawn_correction_history_index(pos)][us];
     const auto  micv  = w.minorPieceCorrectionHistory[minor_piece_index(pos)][us];
     const auto  wnpcv = w.nonPawnCorrectionHistory[non_pawn_index<WHITE>(pos)][WHITE][us];
     const auto  bnpcv = w.nonPawnCorrectionHistory[non_pawn_index<BLACK>(pos)][BLACK][us];
@@ -87,9 +87,8 @@ void update_correction_history(const Position& pos,
 
     static constexpr int nonPawnWeight = 137;
 
-    workerThread.pawnCorrectionHistory[pawn_structure_index<Correction>(pos)][us]
-      << bonus * 154 / 128;
-    workerThread.minorPieceCorrectionHistory[minor_piece_index(pos)][us] << bonus * 92 / 128;
+    workerThread.pawnCorrectionHistory[pawn_correction_history_index(pos)][us] << bonus;
+    workerThread.minorPieceCorrectionHistory[minor_piece_index(pos)][us] << bonus * 153 / 128;
     workerThread.nonPawnCorrectionHistory[non_pawn_index<WHITE>(pos)][WHITE][us]
       << bonus * nonPawnWeight / 128;
     workerThread.nonPawnCorrectionHistory[non_pawn_index<BLACK>(pos)][BLACK][us]
@@ -715,7 +714,7 @@ Value Search::Worker::search(
         int bonus = std::clamp(-18 * int((ss - 1)->staticEval + ss->staticEval), -1056, 2024) + 341;
         mainHistory[~us][((ss - 1)->currentMove).from_to()] << bonus * 1284 / 1024;
         if (!ttHit && type_of(pos.piece_on(prevSq)) != PAWN)
-            pawnHistory[pawn_structure_index(pos)][pos.piece_on(prevSq)][prevSq]
+            pawnHistory[pawn_history_index(pos)][pos.piece_on(prevSq)][prevSq]
               << bonus * 1254 / 1024;
     }
 
@@ -723,8 +722,7 @@ Value Search::Worker::search(
     // bigger than the previous static evaluation at our turn (if we were in
     // check at our previous move we go back until we weren't in check) and is
     // false otherwise. The improving flag is used in various pruning heuristics.
-    improving = ss->staticEval > (ss - 2)->staticEval;
-
+    improving         = ss->staticEval > (ss - 2)->staticEval;
     opponentWorsening = ss->staticEval > -(ss - 1)->staticEval;
 
     if (priorReduction >= 3 && !opponentWorsening)
@@ -959,7 +957,7 @@ moves_loop:  // When in check, search starts here
             {
                 int history = (*contHist[0])[movedPiece][move.to_sq()]
                             + (*contHist[1])[movedPiece][move.to_sq()]
-                            + pawnHistory[pawn_structure_index(pos)][movedPiece][move.to_sq()];
+                            + pawnHistory[pawn_history_index(pos)][movedPiece][move.to_sq()];
 
                 // Continuation history based pruning
                 if (history < -3051 * depth)
@@ -1324,7 +1322,7 @@ moves_loop:  // When in check, search starts here
         mainHistory[~us][((ss - 1)->currentMove).from_to()] << scaledBonus * 213 / 32768;
 
         if (type_of(pos.piece_on(prevSq)) != PAWN)
-            pawnHistory[pawn_structure_index(pos)][pos.piece_on(prevSq)][prevSq]
+            pawnHistory[pawn_history_index(pos)][pos.piece_on(prevSq)][prevSq]
               << scaledBonus * 992 / 32768;
     }
 
@@ -1554,7 +1552,7 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
             // Continuation history based pruning
             if (!capture
                 && (*contHist[0])[pos.moved_piece(move)][move.to_sq()]
-                       + pawnHistory[pawn_structure_index(pos)][pos.moved_piece(move)][move.to_sq()]
+                       + pawnHistory[pawn_history_index(pos)][pos.moved_piece(move)][move.to_sq()]
                      <= 2745)
                 continue;
 
@@ -1774,7 +1772,7 @@ void update_quiet_histories(
     update_continuation_histories(ss, pos.moved_piece(move), move.to_sq(),
                                   bonus * (bonus > 0 ? 1033 : 915) / 1024);
 
-    int pIndex = pawn_structure_index(pos);
+    int pIndex = pawn_history_index(pos);
     workerThread.pawnHistory[pIndex][pos.moved_piece(move)][move.to_sq()]
       << (bonus * (bonus > 0 ? 691 : 468) / 1024) + 70;
 }
