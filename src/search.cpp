@@ -1668,7 +1668,7 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
 
 template<NodeType nodeType>
 Value Search::Worker::flip_search(
-  Position& pos, Stack* ss, Value alpha, Value beta, bool isQsearch, Depth depth, bool cutNode) {
+    Position& pos, Stack* ss, Value alpha, Value beta, bool isQsearch, Depth depth, bool cutNode) {
     constexpr double scaling          = 475.51666;
     constexpr auto   score_to_winrate = [&](Value v) { return 1.0 / (1.0 + exp(-v / scaling)); };
     constexpr auto   winrate_to_score = [&](double winrate) {
@@ -1679,18 +1679,23 @@ Value Search::Worker::flip_search(
                             VALUE_MATE_IN_MAX_PLY - 1);
     };
 
-    std::vector<double> winrates;
-    auto                restPieces = pos.rest_pieces(~pos.side_to_move());
-    int                 total      = 0;
+    auto restPieces = pos.rest_pieces(~pos.side_to_move());
+    int  total = 0;
+    for (const auto& [piece, num] : restPieces)
+        total += num;
+
+    assert(total != 0);
 
     DirtyPiece dp = accumulatorStack.latest().dirtyPiece;
 
-    for (auto& [piece, num] : restPieces)
-    {
-        total += num;
+    // Collect per-flip results
+    struct Entry { Value value; int count; };
+    std::vector<Entry> results;
+    results.reserve(restPieces.size());
 
+    for (auto& [piece, num] : restPieces) {
         accumulatorStack.pop();
-        piece = pos.do_flip((ss - 1)->currentMove.to_sq(), piece, &dp, &tt);
+        Piece flipped_piece = pos.do_flip((ss - 1)->currentMove.to_sq(), piece, &dp, &tt);
         accumulatorStack.push(dp);
 
         Value value;
@@ -1700,21 +1705,48 @@ Value Search::Worker::flip_search(
         else
             value = search<nodeType>(pos, ss, alpha, beta, depth, cutNode);
 
-        pos.undo_flip((ss - 1)->currentMove.to_sq(), piece);
+        pos.undo_flip((ss - 1)->currentMove.to_sq(), flipped_piece);
 
         if (std::size(restPieces) == 1)
             return value;
 
-        winrates.emplace_back(score_to_winrate(value) * num);
+        results.push_back({value, num});
     }
 
-    assert(total != 0);
+    bool all_decisive = true;
+    for (const auto& e : results) {
+        if (!is_decisive(e.value)) {
+            all_decisive = false;
+            break;
+        }
+    }
 
-    double expectedWinrate = 0;
-    for (const auto& winrate : winrates)
-        expectedWinrate += winrate;
-    expectedWinrate /= total;
+    if (all_decisive) {
+        Value best_win_mate  = VALUE_MATE;
+        Value best_loss_mate = -VALUE_MATE;
 
+        for (const auto& e : results) {
+            Value v = e.value;
+            if (is_win(v)) {
+                if (v < best_win_mate)
+                    best_win_mate = v;
+            } else if (is_loss(v)) {
+                if (v > best_loss_mate)
+                    best_loss_mate = v;
+            }
+        }
+
+        if (best_win_mate != VALUE_MATE)
+            return best_win_mate;
+        else
+            return best_loss_mate;
+    }
+
+    double winrate_sum = 0.0;
+    for (const auto& e : results)
+        winrate_sum += score_to_winrate(e.value) * e.count;
+
+    double expectedWinrate = winrate_sum / total;
     return winrate_to_score(expectedWinrate);
 }
 
