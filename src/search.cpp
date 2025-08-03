@@ -204,8 +204,9 @@ void Search::Worker::start_searching() {
 
     std::string ponder;
 
-    if (bestThread->rootMoves[0].pv.size() > 1
+    if ((bestThread->rootMoves[0].pv.size() > 1
         || bestThread->rootMoves[0].extract_ponder_from_tt(tt, rootPos))
+        && !rootPos.move_dark(bestThread->rootMoves[0].pv[0]))
         ponder = UCIEngine::move(bestThread->rootMoves[0].pv[1]);
 
     auto bestmove = UCIEngine::move(bestThread->rootMoves[0].pv[0]);
@@ -1927,11 +1928,25 @@ void SearchManager::pv(const Search::Worker&     worker,
             v = VALUE_ZERO;
 
         std::string pv;
+        Position tempPos;
+        StateInfo st;
+        tempPos.set(pos, &st);
+        
         for (Move m : rootMoves[i].pv)
-            pv += UCIEngine::move(m) + " ";
+        {
+            pv += UCIEngine::move(m);
+            
+            if (tempPos.move_dark(m))
+                break;
+            
+            StateInfo moveSt;
+            tempPos.do_move(m, moveSt);
+            
+            pv += " ";
+        }
 
         // Remove last whitespace
-        if (!pv.empty())
+        if (!pv.empty() && pv.back() == ' ')
             pv.pop_back();
 
         auto wdl   = worker.options["UCI_ShowWDL"] ? UCIEngine::wdl(v, pos) : "";
