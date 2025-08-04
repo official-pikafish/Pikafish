@@ -1496,8 +1496,8 @@ dark_undo:
           if (debugPrint) {
               sync_cout << "move[" << __LINE__ << "]" << debugFen << " " << UCI::move(move) << " " << VALUE_ZERO << " " << pos.piece_on(to_sq(move)) << sync_endl;
           }
-          return VALUE_ZERO;
 #endif
+          return VALUE_ZERO;
       }
           
 
