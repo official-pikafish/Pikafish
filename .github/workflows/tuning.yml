@@ -10,7 +10,7 @@ jobs:
     env:
       COMPCXX: clang++
       COMP: clang
-      ARCH: x86-64-bw512
+      ARCH: x86-64-avx512icl
     defaults:
       run:
         working-directory: src

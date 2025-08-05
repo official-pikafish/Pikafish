@@ -71,25 +71,12 @@ jobs:
           make strip EXE=$EXE
           cp $EXE ../
 
-      - name: Download wiki
-        run: |
-          git clone https://github.com/official-pikafish/Pikafish.wiki.git ../Wiki
-          cd ../Wiki
-          rm -rf .git
-
       # Artifacts automatically get zipped.
       # To avoid double-zipping, we use the unzipped directory
       - uses: actions/upload-artifact@v4
         with:	
           name: Pikafish-${{ matrix.config.name }}${{ matrix.arch }}
-          path: |
-            ${{ env.EXE }}
-            Wiki
-            AUTHORS
-            CONTRIBUTING.md
-            Copying.txt
-            README.md
-            Top CPU Contributors.txt
+          path: ${{ env.EXE }}
 
   Pikafish-MacOS:
     name: MacOS-apple-silicon
@@ -113,25 +100,12 @@ jobs:
           make strip EXE=$EXE
           cp $EXE ../
 
-      - name: Download wiki
-        run: |
-          git clone https://github.com/official-pikafish/Pikafish.wiki.git ../Wiki
-          cd ../Wiki
-          rm -rf .git
-
       # Artifacts automatically get zipped.
       # To avoid double-zipping, we use the unzipped directory
       - uses: actions/upload-artifact@v4
         with:
           name: Pikafish-MacOS-apple-silicon
-          path: |
-            ${{ env.EXE }}
-            Wiki
-            AUTHORS
-            CONTRIBUTING.md
-            Copying.txt
-            README.md
-            Top CPU Contributors.txt
+          path: ${{ env.EXE }}
 
   Pikafish-Android:
     name: Android-${{ matrix.arch }}
@@ -180,8 +154,46 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:	
           name: Pikafish-Android-${{ matrix.arch }}
+          path: ${{ env.EXE }}
+
+  Pikafish:
+    name: Pikafish
+    runs-on: ubuntu-latest
+    needs: [Pikafish-x86-64, Pikafish-MacOS, Pikafish-Android]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+      
+      - name: Put binaries into OS-specific directories
+        run: |
+          mkdir Windows
+          mv Pikafish-Windows*/* Windows
+          mkdir Linux
+          mv Pikafish-Linux*/* Linux
+          mkdir MacOS
+          mv Pikafish-MacOS*/* MacOS
+          mkdir Android
+          mv Pikafish-Android*/* Android
+
+      - name: Download wiki
+        run: |
+          git clone https://github.com/official-pikafish/Pikafish.wiki.git Wiki
+          cd Wiki
+          rm -rf .git
+
+      # Artifacts automatically get zipped.
+      # To avoid double-zipping, we use the unzipped directory
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Pikafish
           path: |
-            ${{ env.EXE }}
+            Windows
+            Linux
+            MacOS
+            Android
+            Wiki
             AUTHORS
             CONTRIBUTING.md
             Copying.txt
