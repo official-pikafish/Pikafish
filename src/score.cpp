@@ -19,7 +19,6 @@
 #include "score.h"
 
 #include <cassert>
-#include <cmath>
 #include <cstdlib>
 
 #include "uci.h"

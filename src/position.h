@@ -19,8 +19,9 @@
 #ifndef POSITION_H_INCLUDED
 #define POSITION_H_INCLUDED
 
-#include <stdint.h>
+#include <array>
 #include <cassert>
+#include <cstdint>
 #include <cstring>
 #include <deque>
 #include <iosfwd>

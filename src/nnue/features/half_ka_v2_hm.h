@@ -22,7 +22,9 @@
 #define NNUE_FEATURES_HALF_KA_V2_HM_H_INCLUDED
 
 #include <array>
+#include <cstddef>
 #include <cstdint>
+#include <initializer_list>
 #include <utility>
 
 #include "../../misc.h"

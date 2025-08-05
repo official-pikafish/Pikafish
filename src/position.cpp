@@ -32,6 +32,7 @@
 #include "bitboard.h"
 #include "misc.h"
 #include "movegen.h"
+#include "nnue/nnue_architecture.h"
 #include "tt.h"
 #include "uci.h"
 
@@ -567,11 +568,6 @@ DirtyPiece Position::do_move(Move                      m,
     dp.requires_refresh[them] |=
       (mid_mirror_before[1] != Eval::NNUE::FeatureSet::requires_mid_mirror(*this, them));
 
-    // Update the key with the final value
-    st->key = k;
-    if (tt)
-        prefetch(tt->first_entry(key()));
-
     // Set capture piece
     st->capturedPiece = captured;
 
@@ -583,6 +579,11 @@ DirtyPiece Position::do_move(Move                      m,
 
     // Update king attacks used for fast check detection
     set_check_info();
+
+    // Update the key with the final value
+    st->key = k;
+    if (tt)
+        prefetch(tt->first_entry(key()));
 
     assert(pos_is_ok());
 

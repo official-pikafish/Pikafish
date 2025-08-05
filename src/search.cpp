@@ -27,6 +27,7 @@
 #include <cstdlib>
 #include <initializer_list>
 #include <string>
+#include <tuple>
 #include <utility>
 
 #include "evaluate.h"
