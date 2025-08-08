@@ -531,12 +531,12 @@ int win_rate_model(Value v, const Position& pos) {
     auto [a, b] = win_rate_params(pos);
 
     // Return the win rate in per mille units, rounded to the nearest integer.
-    return std::round(1000 / (1 + std::exp(a * v + b)));
+    return std::round(1000 / (1 + std::exp(-(a * v + b))));
 }
 
 double win_rate_model_double(Value v, const Position& pos) {
     auto [a, b] = win_rate_params(pos);
-    return 1 / (1 + std::exp(a * v + b));
+    return 1 / (1 + std::exp(-(a * v + b)));
 }
 }
 
