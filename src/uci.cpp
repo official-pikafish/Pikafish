@@ -498,22 +498,30 @@ struct WinRateParams {
     double b;
 };
 
-WinRateParams win_rate_params(const Position& pos) {
-
-    int material = 10 * pos.count<ROOK>() + 5 * pos.count<KNIGHT>() + 5 * pos.count<CANNON>()
-                 + 3 * pos.count<BISHOP>() + 2 * pos.count<ADVISOR>() + pos.count<PAWN>();
-
-    // The fitted model only uses data for material counts in [17, 110], and is anchored at count 65.
-    double m = std::clamp(material, 17, 110) / 65.0;
-
-    // Return a = p_a(material) and b = p_b(material), see github.com/official-stockfish/WDL_model
-    constexpr double as[] = {220.59891365, -810.35730430, 928.68185198, 79.83955423};
-    constexpr double bs[] = {61.99287416, -233.72674182, 325.85508322, -68.72720854};
-
-    double a = (((as[0] * m + as[1]) * m + as[2]) * m) + as[3];
-    double b = (((bs[0] * m + bs[1]) * m + bs[2]) * m) + bs[3];
-
-    return {a, b};
+inline WinRateParams win_rate_params(const Position& pos) {
+    const int ply = pos.game_ply();
+    if (ply <= 9)
+        return { 0.00064066, -0.05207866 };
+    else if (ply <= 19)
+        return { 0.00091732, -0.07495616 };
+    else if (ply <= 29)
+        return { 0.00125966, -0.09838683 };
+    else if (ply <= 39)
+        return { 0.00162431, -0.13737944 };
+    else if (ply <= 49)
+        return { 0.00196824, -0.19680290 };
+    else if (ply <= 59)
+        return { 0.00235683, -0.29232929 };
+    else if (ply <= 69)
+        return { 0.00277996, -0.42024359 };
+    else if (ply <= 79)
+        return { 0.00324104, -0.58686233 };
+    else if (ply <= 100)
+        return { 0.00394702, -0.90882361 };
+    else if (ply <= 120)
+        return { 0.00426714, -1.24856114 };
+    else
+        return { 0.00353587, -1.81372732 };
 }
 
 // The win rate model is 1 / (1 + exp((a - eval) / b)), where a = p_a(material) and b = p_b(material).
@@ -523,7 +531,12 @@ int win_rate_model(Value v, const Position& pos) {
     auto [a, b] = win_rate_params(pos);
 
     // Return the win rate in per mille units, rounded to the nearest integer.
-    return int(0.5 + 1000 / (1 + std::exp((a - double(v)) / b)));
+    return std::round(1000 / (1 + std::exp(a * v + b)));
+}
+
+double win_rate_model_double(Value v, const Position& pos) {
+    auto [a, b] = win_rate_params(pos);
+    return 1 / (1 + std::exp(a * v + b));
 }
 }
 
@@ -543,13 +556,12 @@ std::string UCIEngine::format_score(const Score& s) {
 // without treatment of mate and similar special scores.
 int UCIEngine::to_cp(Value v, const Position& pos) {
 
-    // In general, the score can be defined via the WDL as
-    // (log(1/L - 1) - log(1/W - 1)) / (log(1/L - 1) + log(1/W - 1)).
-    // Based on our win_rate_model, this simply yields v / a.
+    long double wdl_w = win_rate_model_double( v, pos);
+    long double wdl_l = win_rate_model_double(-v, pos);
+    long double win_loss_rate = wdl_w - wdl_l;
+    constexpr long double mate = double(VALUE_MATE_IN_MAX_PLY - 1) / 400;
 
-    auto [a, b] = win_rate_params(pos);
-
-    return std::round(100 * int(v) / a);
+    return std::clamp(int(400 * std::clamp(std::log10((1 + win_loss_rate) / (1 - win_loss_rate)), -mate, mate) + 0.5), -9999, 9999);
 }
 
 std::string UCIEngine::wdl(Value v, const Position& pos) {

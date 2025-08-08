@@ -167,12 +167,12 @@ constexpr bool is_loss(Value value) {
 
 constexpr bool is_decisive(Value value) { return is_win(value) || is_loss(value); }
 
-constexpr Value RookValue    = 1305;
-constexpr Value AdvisorValue = 219;
-constexpr Value CannonValue  = 773;
-constexpr Value PawnValue    = 144;
-constexpr Value KnightValue  = 720;
-constexpr Value BishopValue  = 187;
+constexpr Value RookValue    = 1080;
+constexpr Value AdvisorValue = 243;
+constexpr Value CannonValue  = 769;
+constexpr Value PawnValue    = 149;
+constexpr Value KnightValue  = 616;
+constexpr Value BishopValue  = 218;
 
 // clang-format off
 enum PieceType : std::int8_t {
