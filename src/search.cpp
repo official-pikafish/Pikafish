@@ -1076,27 +1076,27 @@ moves_loop:  // When in check, search starts here
 
         // These reduction adjustments have no proven non-linear scaling
 
-        r += 673;  // Base reduction offset to compensate for other tweaks
-        r -= moveCount * 62;
+        r += 679 - 6 * msb(depth);  // Base reduction offset to compensate for other tweaks
+        r -= moveCount * (67 - 2 * msb(depth));
         r -= std::abs(correctionValue) / 31508;
 
         // Increase reduction for cut nodes
         if (cutNode)
-            r += 3504 + 1024 * !ttData.move;
+            r += 3504 + 2 * msb(depth) + (948 + 14 * msb(depth)) * !ttData.move;
 
         // Increase reduction if ttMove is a capture
         if (ttCapture)
-            r += 1571;
+            r += 1571 - 39 * msb(depth);
 
         // Increase reduction if next ply has a lot of fail high
         if ((ss + 1)->cutoffCnt > 2)
-            r += 1227 + allNode * 888;
+            r += 1227 + 33 * msb(depth) + allNode * (888 + 224 * msb(depth));
 
         r += (ss + 1)->quietMoveStreak * 51;
 
         // For first picked move (ttMove) reduce reduction
         if (move == ttData.move)
-            r -= 2890;
+            r -= 2890 + 28 * msb(depth);
 
         if (capture)
             ss->statScore = 722 * int(PieceValue[pos.captured_piece()]) / 105
@@ -1107,7 +1107,7 @@ moves_loop:  // When in check, search starts here
                           + (*contHist[1])[movedPiece][move.to_sq()];
 
         // Decrease/increase reduction for moves with a good/bad history
-        r -= ss->statScore * 1235 / 10022;
+        r -= ss->statScore * (729 - 12 * msb(depth)) / 8192;
 
         // Step 16. Late moves reduction / extension (LMR)
         if (depth >= 2 && moveCount > 1)
@@ -1152,7 +1152,7 @@ moves_loop:  // When in check, search starts here
         {
             // Increase reduction if ttMove is not present
             if (!ttData.move)
-                r += 992;
+                r += 992 + 35 * msb(depth);
 
             const int threshold1 = depth <= 4 ? 2000 : 3641;
             const int threshold2 = depth <= 4 ? 3500 : 5696;

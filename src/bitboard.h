@@ -333,6 +333,7 @@ inline Square lsb(Bitboard b) {
 #if defined(_MSC_VER)  // MSVC
 
     unsigned long idx;
+
     if (b._Word[0])
     {
         _BitScanForward64(&idx, b._Word[0]);
@@ -352,6 +353,36 @@ inline Square lsb(Bitboard b) {
 
 #endif
 }
+
+
+// Returns the most significant bit in a non-zero bitboard.
+inline Square msb(Bitboard b) {
+    assert(b);
+
+#if defined(_MSC_VER)  // MSVC
+
+    unsigned long idx;
+
+    if (b._Word[1])
+    {
+        _BitScanReverse64(&idx, b._Word[1]);
+        return Square(idx + 64);
+    }
+    else
+    {
+        _BitScanReverse64(&idx, b._Word[0]);
+        return Square(idx);
+    }
+
+#else  // Assumed gcc or compatible compiler
+
+    if (uint64_t(b >> 64))
+        return Square(127 ^ __builtin_clzll(b >> 64));
+    return Square(63 ^ __builtin_clzll(b));
+
+#endif
+}
+
 
 // Returns the bitboard of the least significant
 // square of a non-zero bitboard. It is equivalent to square_bb(lsb(bb)).
