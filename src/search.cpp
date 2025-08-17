@@ -68,7 +68,7 @@ int correction_value(const Worker& w, const Position& pos, const Stack* const ss
     const auto  bnpcv = w.nonPawnCorrectionHistory[non_pawn_index<BLACK>(pos)][BLACK][us];
     const auto  cntcv =
       m.is_ok() ? (*(ss - 2)->continuationCorrectionHistory)[pos.piece_on(m.to_sq())][m.to_sq()]
-                 : 0;
+                 : 8;
 
     return 4624 * pcv + 3854 * micv + 7640 * (wnpcv + bnpcv) + 9006 * cntcv;
 }
@@ -86,7 +86,7 @@ void update_correction_history(const Position& pos,
     const Move  m  = (ss - 1)->currentMove;
     const Color us = pos.side_to_move();
 
-    static constexpr int nonPawnWeight = 137;
+    const int nonPawnWeight = 137;
 
     workerThread.pawnCorrectionHistory[pawn_correction_history_index(pos)][us] << bonus;
     workerThread.minorPieceCorrectionHistory[minor_piece_index(pos)][us] << bonus * 153 / 128;
@@ -291,7 +291,7 @@ void Search::Worker::iterative_deepening() {
             selDepth = 0;
 
             // Reset aspiration window starting size
-            delta     = 10 + std::abs(rootMoves[pvIdx].meanSquaredScore) / 43038;
+            delta     = 10 + threadIdx % 8 + std::abs(rootMoves[pvIdx].meanSquaredScore) / 43038;
             Value avg = rootMoves[pvIdx].averageScore;
             alpha     = std::max(avg - delta, -VALUE_INFINITE);
             beta      = std::min(avg + delta, VALUE_INFINITE);
@@ -428,19 +428,19 @@ void Search::Worker::iterative_deepening() {
             fallingEval = std::clamp(fallingEval, 0.6378, 1.8394);
 
             // If the bestMove is stable over several iterations, reduce time accordingly
-            double k      = 0.516;
-            double center = lastBestMoveDepth + 15;
-            timeReduction = 0.8 + 0.85 / (1.089 + std::exp(-k * (completedDepth - center)));
+            double k      = 0.5189;
+            double center = lastBestMoveDepth + 11.57;
+            timeReduction = 0.723 + 0.79 / (1.104 + std::exp(-k * (completedDepth - center)));
             double reduction =
-              (2.0380 + mainThread->previousTimeReduction) / (2.5240 * timeReduction);
-            double bestMoveInstability = 0.9381 + 1.6401 * totBestMoveChanges / threads.size();
+              (2.038 + mainThread->previousTimeReduction) / (2.5240 * timeReduction);
+            double bestMoveInstability = 0.94 + 1.6401 * totBestMoveChanges / threads.size();
 
             double totalTime =
               mainThread->tm.optimum() * fallingEval * reduction * bestMoveInstability;
 
             auto elapsedTime = elapsed();
 
-            if (completedDepth >= 9 && nodesEffort >= 81808 && elapsedTime > totalTime * 0.6519
+            if (completedDepth >= 9 && nodesEffort >= 81808 && elapsedTime > totalTime * 0.652
                 && !mainThread->ponder)
                 threads.stop = true;
 
@@ -645,13 +645,13 @@ Value Search::Worker::search(
                                        std::min(112 * depth - 62, 1525));
 
             // Extra penalty for early quiet moves of the previous ply
-            if (prevSq != SQ_NONE && (ss - 1)->moveCount <= 2 && !priorCapture)
+            if (prevSq != SQ_NONE && (ss - 1)->moveCount < 3 && !priorCapture)
                 update_continuation_histories(ss - 1, pos.piece_on(prevSq), prevSq, -2250);
         }
 
         // Partial workaround for the graph history interaction problem
         // For high rule60 counts don't produce transposition table cutoffs.
-        if (pos.rule60_count() < 110)
+        if (pos.rule60_count() < 117)
         {
             if (depth >= 8 && ttData.move && pos.pseudo_legal(ttData.move) && pos.legal(ttData.move)
                 && !is_decisive(ttData.value))
@@ -725,7 +725,7 @@ Value Search::Worker::search(
     improving         = ss->staticEval > (ss - 2)->staticEval;
     opponentWorsening = ss->staticEval > -(ss - 1)->staticEval;
 
-    if (priorReduction >= 3 && !opponentWorsening)
+    if (priorReduction >= (depth < 10 ? 2 : 3) && !opponentWorsening)
         depth++;
     if (priorReduction >= 1 && depth >= 2 && ss->staticEval + (ss - 1)->staticEval > 200)
         depth--;
@@ -740,12 +740,12 @@ Value Search::Worker::search(
     // The depth condition is important for mate finding.
     {
         auto futility_margin = [&](Depth d) {
-            Value futilityMult = 137 - 32 * (cutNode && !ss->ttHit);
+            Value futilityMult = 137 - 32 * (!ss->ttHit);
 
-            return futilityMult * d                      //
-                 - improving * futilityMult * 2          //
-                 - opponentWorsening * futilityMult / 3  //
-                 + (ss - 1)->statScore / 149             //
+            return futilityMult * d                                //
+                 - 2048 * improving * futilityMult / 1024          //
+                 - 1365 * opponentWorsening * futilityMult / 4096  //
+                 + (ss - 1)->statScore / 149                       //
                  + std::abs(correctionValue) / 130668;
         };
 
@@ -1116,9 +1116,8 @@ moves_loop:  // When in check, search starts here
             // beyond the first move depth.
             // To prevent problems when the max value is less than the min value,
             // std::clamp has been replaced by a more robust implementation.
-            Depth d = std::max(1, std::min(newDepth - r / 1060,
-                                           newDepth + !allNode + (PvNode && !bestMove)))
-                    + PvNode;
+            Depth d =
+              std::max(1, std::min(newDepth - r / 1024, newDepth + (PvNode ? 2 : 1))) + PvNode;
 
             ss->reduction = newDepth - d;
             value         = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, d, true);
@@ -1153,7 +1152,7 @@ moves_loop:  // When in check, search starts here
             if (!ttData.move)
                 r += 992 + 35 * msb(depth);
 
-            if (depth <= 4)
+            if (depth < 5)
                 r += 1150;
 
             // Note that if expected reduction is high, we reduce search depth here
@@ -1747,7 +1746,7 @@ void update_all_stats(const Position& pos,
 // Updates histories of the move pairs formed by moves
 // at ply -1, -2, -3, -4, and -6 with current move.
 void update_continuation_histories(Stack* ss, Piece pc, Square to, int bonus) {
-    static constexpr std::array<ConthistBonus, 6> conthist_bonuses = {
+    const std::array<ConthistBonus, 6> conthist_bonuses = {
       {{1, 1092}, {2, 631}, {3, 294}, {4, 517}, {5, 126}, {6, 445}}};
 
     static constexpr int conthist_offsets[6]{71, 106, -22, -20, 29, -74};
