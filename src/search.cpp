@@ -956,7 +956,7 @@ moves_loop:  // When in check, search starts here
                 }
 
                 // SEE based pruning for captures and checks
-                int margin = std::clamp(246 * depth + captHist / 31, 0, 439 * depth);
+                int margin = std::max(246 * depth + captHist / 31, 0);
                 if (!pos.see_ge(move, -margin))
                     continue;
             }
