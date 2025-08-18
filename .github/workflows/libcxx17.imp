@@ -8,6 +8,7 @@
     { include: [ "<__fwd/streambuf.h>", private, "<iosfwd>", public ] },
     { include: [ "<__fwd/string_view.h>", private, "<string_view>", public ] },
     { include: [ "<__math/logarithms.h>", private, "<cmath>", public ] },
+    { include: [ "<__new/placement_new_delete.h>", private, "<new>", public ] },
     { include: [ "<__ostream/basic_ostream.h>", private, "<ostream>", public ] },
     { include: [ "<__system_error/errc.h>", private, "<system_error>", public ] },
     { include: [ "<__vector/vector.h>", private, "<vector>", public ] },
