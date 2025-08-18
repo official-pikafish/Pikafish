@@ -1148,9 +1148,6 @@ moves_loop:  // When in check, search starts here
             if (!ttData.move)
                 r += 992;
 
-            if (depth < 5)
-                r += 1150;
-
             // Note that if expected reduction is high, we reduce search depth here
             value = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha,
                                    newDepth - (r > 3200) - (r > 4600 && newDepth > 2), !cutNode);
@@ -1733,13 +1730,8 @@ void update_all_stats(const Position& pos,
 // Updates histories of the move pairs formed by moves
 // at ply -1, -2, -3, -4, and -6 with current move.
 void update_continuation_histories(Stack* ss, Piece pc, Square to, int bonus) {
-<<<<<<< HEAD
-    const std::array<ConthistBonus, 6> conthist_bonuses = {
-      {{1, 1092}, {2, 631}, {3, 294}, {4, 517}, {5, 126}, {6, 445}}};
-=======
     static constexpr std::array<ConthistBonus, 6> conthist_bonuses = {
-      {{1, 1157}, {2, 648}, {3, 288}, {4, 576}, {5, 140}, {6, 441}}};
->>>>>>> 176ef577 (Set back static constexpr)
+      {{1, 1092}, {2, 631}, {3, 294}, {4, 517}, {5, 126}, {6, 445}}};
 
     for (const auto [i, weight] : conthist_bonuses)
     {
