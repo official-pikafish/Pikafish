@@ -1302,7 +1302,7 @@ moves_loop:  // When in check, search starts here
     else if (!priorCapture && prevSq != SQ_NONE)
     {
         int bonusScale = -233;
-        bonusScale += std::min(-(ss - 1)->statScore / 74, 238);
+        bonusScale -= (ss - 1)->statScore / 74;
         bonusScale += std::min(60 * depth, 528);
         bonusScale += 150 * ((ss - 1)->moveCount > 12);
         bonusScale += 76 * (!ss->inCheck && bestValue <= ss->staticEval - 165);
