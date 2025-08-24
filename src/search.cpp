@@ -837,8 +837,6 @@ Value Search::Worker::search(
 
             assert(pos.capture(move));
 
-            movedPiece = pos.moved_piece(move);
-
             do_move(pos, move, st, ss);
 
             // Perform a preliminary qsearch to verify that the move holds
@@ -976,9 +974,8 @@ moves_loop:  // When in check, search starts here
 
                 lmrDepth += history / 3654;
 
-                Value baseFutility = (bestMove ? 46 : 282);
-                Value futilityValue =
-                  ss->staticEval + baseFutility + 124 * lmrDepth + 104 * (ss->staticEval > alpha);
+                Value futilityValue = ss->staticEval + 46 + 282 * !bestMove + 124 * lmrDepth
+                                    + 104 * (ss->staticEval > alpha);
 
                 // Futility pruning: parent node
                 // (*Scaler): Generally, more frequent futility pruning
@@ -1250,7 +1247,7 @@ moves_loop:  // When in check, search starts here
 
                 if (value >= beta)
                 {
-                    // (* Scaler) Especially if they make cutoffCnt increment more often.
+                    // (*Scaler) Especially if they make cutoffCnt increment more often.
                     ss->cutoffCnt += (extension < 2) || PvNode;
                     assert(value >= beta);  // Fail high
                     break;
