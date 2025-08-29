@@ -174,8 +174,7 @@ class Position {
     void                  undo_move(Move m, Piece captured, int id = 0);
     Value                 detect_chases(int d, int ply = 0);
     bool                  chase_legal(Move m) const;
-    template<bool AfterMove>
-    Key adjust_key60(Key k) const;
+    Key                   adjust_key60(Key k) const;
 
     // Data members
     Piece      board[SQUARE_NB];
@@ -263,11 +262,10 @@ inline Bitboard Position::pinners(Color c) const { return st->pinners[c]; }
 
 inline Bitboard Position::check_squares(PieceType pt) const { return st->checkSquares[pt]; }
 
-inline Key Position::key() const { return adjust_key60<false>(st->key); }
+inline Key Position::key() const { return adjust_key60(st->key); }
 
-template<bool AfterMove>
 inline Key Position::adjust_key60(Key k) const {
-    return (st->rule60 < 14 - AfterMove ? k : k ^ make_key((st->rule60 - (14 - AfterMove)) / 8))
+    return (st->rule60 < 14 ? k : k ^ make_key((st->rule60 - 14) / 8))
          ^ (filter[st->key] ? make_key(14) : 0);
 }
 

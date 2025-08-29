@@ -643,7 +643,7 @@ Value Search::Worker::search(
         && is_valid(ttData.value)  // Can happen when !ttHit or when access race in probe()
         && (ttData.bound & (ttData.value >= beta ? BOUND_LOWER : BOUND_UPPER))
         && (cutNode == (ttData.value >= beta) || depth > 5)
-        // avoid a TT cutoff if the rule50 count is high and the TT move is zeroing
+        // avoid a TT cutoff if the rule60 count is high and the TT move is zeroing
         && (depth > 8 || ttData.move == Move::none() || pos.rule60_count() < 100 || !ttCapture))
     {
         // If ttMove is quiet, update move sorting heuristics on TT hit

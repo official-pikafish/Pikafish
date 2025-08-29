@@ -281,8 +281,7 @@ void double_inc_update(const FeatureTransformer<TransformedFeatureDimensions>& f
     FeatureSet::IndexList removed, added;
     FeatureSet::append_changed_indices<Perspective>(bucket, mirror, middle_state.dirtyPiece,
                                                     removed, added);
-    // you can't capture a piece that was just involved in castling since the rook ends up
-    // in a square that the king passed
+
     assert(added.size() < 2);
     FeatureSet::append_changed_indices<Perspective>(bucket, mirror, target_state.dirtyPiece,
                                                     removed, added);
