@@ -43,10 +43,16 @@ jobs:
           chmod u+x llvm.sh
           echo | sudo ./llvm.sh 20
           rm llvm.sh
+          # Install BOLT (post-link optimizer)
+          sudo apt-get update
+          sudo apt-get install -y llvm-bolt
+          # Set up alternatives
           sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-20 100
           sudo update-alternatives --install /usr/bin/llvm-profdata llvm-profdata /usr/bin/llvm-profdata-20 100
+          sudo update-alternatives --install /usr/bin/llvm-bolt llvm-bolt /usr/bin/llvm-bolt 100
           sudo update-alternatives --set clang++ /usr/bin/clang++-20
           sudo update-alternatives --set llvm-profdata /usr/bin/llvm-profdata-20
+          sudo update-alternatives --set llvm-bolt /usr/bin/llvm-bolt
 
       - name: Setup msys and install required packages
         if: runner.os == 'Windows'
@@ -71,10 +77,39 @@ jobs:
           make strip EXE=$EXE
           cp $EXE ../
 
+      - name: BOLT optimization
+        if: runner.os == 'Linux'
+        run: |
+          # Create a copy of the original binary for BOLT optimization
+          cp $EXE ${EXE}.original
+          
+          # Create BOLT instrumented binary
+          llvm-bolt ${EXE}.original -instrument -instrumentation-file=profile.fdata -o ${EXE}.bolt.instrumented
+          
+          # Run the instrumented binary to collect profile data (using a quick benchmark)
+          echo "Running instrumented binary to collect profile data..."
+          timeout 30s ./${EXE}.bolt.instrumented bench 16 1 1000 default depth || true
+          
+          # Optimize the original binary using the collected profile data
+          if [ -f profile.fdata ]; then
+            echo "Applying BOLT optimization..."
+            llvm-bolt ${EXE}.original -data=profile.fdata -reorder-blocks=cache+ -reorder-functions=hfsort+ -split-functions -split-all-cold -split-eh -dyno-stats -o $EXE
+            echo "BOLT optimization completed successfully"
+          else
+            echo "No profile data collected, using original binary"
+            cp ${EXE}.original $EXE
+          fi
+          
+          # Clean up temporary files
+          rm -f ${EXE}.original ${EXE}.bolt.instrumented profile.fdata
+          
+          # Update the binary in parent directory
+          cp $EXE ../
+
       # Artifacts automatically get zipped.
       # To avoid double-zipping, we use the unzipped directory
       - uses: actions/upload-artifact@v4
-        with:	
+        with:
           name: Pikafish-${{ matrix.config.name }}${{ matrix.arch }}
           path: ${{ env.EXE }}
 
@@ -152,7 +187,7 @@ jobs:
       # Artifacts automatically get zipped.
       # To avoid double-zipping, we use the unzipped directory
       - uses: actions/upload-artifact@v4
-        with:	
+        with:
           name: Pikafish-Android-${{ matrix.arch }}
           path: ${{ env.EXE }}
 
