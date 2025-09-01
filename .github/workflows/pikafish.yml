@@ -15,6 +15,7 @@ jobs:
       COMP: clang
       EXE: pikafish${{ matrix.arch }}${{ matrix.config.ext }}
       SDE: ${{ matrix.config.sde }}
+      LLVM_VERSION: 20
     strategy:
       matrix:
         config:
@@ -41,12 +42,17 @@ jobs:
         run: |
           wget https://apt.llvm.org/llvm.sh
           chmod u+x llvm.sh
-          echo | sudo ./llvm.sh 20
+          echo | sudo ./llvm.sh $LLVM_VERSION
           rm llvm.sh
-          sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-20 100
-          sudo update-alternatives --install /usr/bin/llvm-profdata llvm-profdata /usr/bin/llvm-profdata-20 100
-          sudo update-alternatives --set clang++ /usr/bin/clang++-20
-          sudo update-alternatives --set llvm-profdata /usr/bin/llvm-profdata-20
+          sudo apt install -y bolt-$LLVM_VERSION
+          sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-$LLVM_VERSION 100
+          sudo update-alternatives --install /usr/bin/llvm-profdata llvm-profdata /usr/bin/llvm-profdata-$LLVM_VERSION 100
+          sudo update-alternatives --install /usr/bin/llvm-bolt llvm-bolt /usr/bin/llvm-bolt-$LLVM_VERSION 100
+          sudo update-alternatives --install /usr/bin/llvm-strip llvm-strip /usr/bin/llvm-strip-$LLVM_VERSION 100
+          sudo update-alternatives --set clang++ /usr/bin/clang++-$LLVM_VERSION
+          sudo update-alternatives --set llvm-profdata /usr/bin/llvm-profdata-$LLVM_VERSION
+          sudo update-alternatives --set llvm-bolt /usr/bin/llvm-bolt-$LLVM_VERSION
+          sudo update-alternatives --set llvm-strip /usr/bin/llvm-strip-$LLVM_VERSION
 
       - name: Setup msys and install required packages
         if: runner.os == 'Windows'
@@ -67,8 +73,28 @@ jobs:
           if [[ "${{ matrix.arch }}" == "-bmi2" || "${{ matrix.arch }}" == "-avx2" || "${{ matrix.arch }}" == "-sse41-popcnt" ]]; then
             SDE=""
           fi
-          make -j profile-build EXE=$EXE WINE_PATH="$SDE"
-          make strip EXE=$EXE
+          if [[ "${{ runner.os }}" == "Linux" ]]; then
+            BOLT_CXXFLAGS="-fno-pie"
+            BOLT_LDFLAGS="-no-pie -Wl,-q"
+          fi
+          make -j profile-build EXE=$EXE WINE_PATH="$SDE" ENV_CXXFLAGS="$BOLT_CXXFLAGS" ENV_LDFLAGS="$BOLT_LDFLAGS"
+          if [[ "${{ runner.os }}" != "Linux" ]]; then
+            make strip EXE=$EXE
+            cp $EXE ../
+          fi
+
+      - name: BOLT optimization
+        if: runner.os == 'Linux'
+        run: |
+          llvm-bolt $EXE -instrument -instrumentation-file=profile.fdata -o ${EXE}.instrumented -relocs
+          if [[ "${{ matrix.arch }}" == "-bmi2" || "${{ matrix.arch }}" == "-avx2" || "${{ matrix.arch }}" == "-sse41-popcnt" ]]; then
+            SDE=""
+          fi
+          ${SDE} ./${EXE}.instrumented speedtest > /dev/null
+          llvm-bolt $EXE -data=profile.fdata -reorder-blocks=ext-tsp -reorder-functions=cdsort -split-functions -split-all-cold -split-eh -dyno-stats -o ${EXE}.optimized -relocs
+          mv ${EXE}.optimized $EXE
+          rm -f ${EXE}.instrumented profile.fdata
+          llvm-strip $EXE
           cp $EXE ../
 
       # Artifacts automatically get zipped.
