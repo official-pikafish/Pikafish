@@ -46,6 +46,8 @@ jobs:
           # Install BOLT (post-link optimizer)
           sudo apt-get update
           sudo apt-get install -y llvm-bolt
+          # Copy BOLT runtime library to expected location for instrumentation
+          sudo cp /usr/lib/llvm-18/lib/libbolt_rt_instr.a /usr/lib/
           # Set up alternatives
           sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-20 100
           sudo update-alternatives --install /usr/bin/llvm-profdata llvm-profdata /usr/bin/llvm-profdata-20 100
@@ -80,28 +82,35 @@ jobs:
       - name: BOLT optimization
         if: runner.os == 'Linux'
         run: |
-          # Create a copy of the original binary for BOLT optimization
-          cp $EXE ${EXE}.original
+          # Build a non-PIE binary specifically for BOLT optimization
+          echo "Building non-PIE binary for BOLT optimization..."
+          make clean
+          make -j profile-build EXE=${EXE}.bolt WINE_PATH="$SDE" EXTRACXXFLAGS="-fno-pie" EXTRALDFLAGS="-no-pie -Wl,-q"
+          
+          # Strip the BOLT-specific binary
+          strip ${EXE}.bolt
           
           # Create BOLT instrumented binary
-          llvm-bolt ${EXE}.original -instrument -instrumentation-file=profile.fdata -o ${EXE}.bolt.instrumented
+          echo "Creating BOLT instrumented binary..."
+          llvm-bolt ${EXE}.bolt -instrument -instrumentation-file=profile.fdata -o ${EXE}.bolt.instrumented -relocs
           
           # Run the instrumented binary to collect profile data (using a quick benchmark)
           echo "Running instrumented binary to collect profile data..."
-          timeout 30s ./${EXE}.bolt.instrumented bench 16 1 1000 default depth || true
+          echo "bench 8 1 10 default depth" | timeout 30s ./${EXE}.bolt.instrumented || true
           
-          # Optimize the original binary using the collected profile data
-          if [ -f profile.fdata ]; then
+          # Optimize the binary using the collected profile data
+          if [ -f profile.fdata ] && [ -s profile.fdata ]; then
             echo "Applying BOLT optimization..."
-            llvm-bolt ${EXE}.original -data=profile.fdata -reorder-blocks=cache+ -reorder-functions=hfsort+ -split-functions -split-all-cold -split-eh -dyno-stats -o $EXE
+            llvm-bolt ${EXE}.bolt -data=profile.fdata -reorder-blocks=ext-tsp -reorder-functions=hfsort+ -split-functions -split-all-cold -split-eh -dyno-stats -o $EXE -relocs
             echo "BOLT optimization completed successfully"
           else
-            echo "No profile data collected, using original binary"
-            cp ${EXE}.original $EXE
+            echo "No profile data collected, using regular PIE binary"
+            # Fall back to the regular binary if BOLT fails
+            mv ${EXE}.bolt $EXE
           fi
           
           # Clean up temporary files
-          rm -f ${EXE}.original ${EXE}.bolt.instrumented profile.fdata
+          rm -f ${EXE}.bolt ${EXE}.bolt.instrumented profile.fdata
           
           # Update the binary in parent directory
           cp $EXE ../
