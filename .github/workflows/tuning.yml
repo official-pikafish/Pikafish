@@ -11,6 +11,7 @@ jobs:
       COMPCXX: clang++
       COMP: clang
       ARCH: x86-64-avx512icl
+      LLVM_VERSION: 20
     defaults:
       run:
         working-directory: src
@@ -24,10 +25,10 @@ jobs:
         run: |
           wget https://apt.llvm.org/llvm.sh
           chmod u+x llvm.sh
-          echo | sudo ./llvm.sh 20
+          echo | sudo ./llvm.sh LLVM_VERSION
           rm llvm.sh
-          sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-20 100
-          sudo update-alternatives --set clang++ /usr/bin/clang++-20
+          sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-LLVM_VERSION 100
+          sudo update-alternatives --set clang++ /usr/bin/clang++-LLVM_VERSION
 
       - name: make
         run: |

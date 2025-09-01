@@ -14,19 +14,17 @@ jobs:
       COMPCXX: clang++
       COMP: clang
       EXE: pikafish${{ matrix.arch }}${{ matrix.config.ext }}
-      SDE: ${{ matrix.config.sde }}
+      LLVM_VERSION: 20
     strategy:
       matrix:
         config:
           - name: Linux
             os: ubuntu-22.04 
             shell: bash
-            sde: /home/runner/work/Pikafish/Pikafish/.output/sde-temp-files/sde-external-9.33.0-2024-01-07-lin/sde -future --
           - name: Windows
             os: windows-latest
             shell: msys2 {0}
             ext: .exe
-            sde: /d/a/Pikafish/Pikafish/.output/sde-temp-files/sde-external-9.33.0-2024-01-07-win/sde.exe -future --
         arch: ["-avx512icl", "-vnni512", "-avx512bw", "-avx512", "-avxvnni", "-bmi2", "-avx2", "-sse41-popcnt"]
     defaults:
       run:
@@ -41,33 +39,21 @@ jobs:
         run: |
           wget https://apt.llvm.org/llvm.sh
           chmod u+x llvm.sh
-          echo | sudo ./llvm.sh 20
+          echo | sudo ./llvm.sh $LLVM_VERSION
           rm llvm.sh
-          sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-20 100
-          sudo update-alternatives --install /usr/bin/llvm-profdata llvm-profdata /usr/bin/llvm-profdata-20 100
-          sudo update-alternatives --set clang++ /usr/bin/clang++-20
-          sudo update-alternatives --set llvm-profdata /usr/bin/llvm-profdata-20
+          sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-$LLVM_VERSION 100
+          sudo update-alternatives --set clang++ /usr/bin/clang++-$LLVM_VERSION
 
       - name: Setup msys and install required packages
         if: runner.os == 'Windows'
         uses: msys2/setup-msys2@v2
         with:
           msystem: clang64
-          install: mingw-w64-clang-x86_64-clang make git expect
-
-      - name: Download SDE package
-        if: "!(matrix.arch == '-bmi2' || matrix.arch == '-avx2' || matrix.arch == '-sse41-popcnt')"
-        uses: petarpetrovt/setup-sde@v2.4
-        with:
-          environmentVariableName: SDE_DIR
-          sdeVersion: 9.33.0
+          install: mingw-w64-clang-x86_64-clang make git
 
       - name: Compile ${{ matrix.arch }} build
         run: |
-          if [[ "${{ matrix.arch }}" == "-bmi2" || "${{ matrix.arch }}" == "-avx2" || "${{ matrix.arch }}" == "-sse41-popcnt" ]]; then
-            SDE=""
-          fi
-          make -j profile-build EXE=$EXE WINE_PATH="$SDE"
+          make -j build EXE=$EXE
           make strip EXE=$EXE
           cp $EXE ../
 
@@ -96,7 +82,7 @@ jobs:
 
       - name: Compile apple-silicon build
         run: |
-          make -j profile-build EXE=$EXE
+          make -j build EXE=$EXE
           make strip EXE=$EXE
           cp $EXE ../
 
@@ -126,11 +112,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Download required linux packages
-        run: |
-          sudo apt update
-          sudo apt install qemu-user
-
       - name: Install NDK
         run: |
           NDKV="27.2.12479018"
@@ -145,7 +126,7 @@ jobs:
       - name: Compile ${{ matrix.arch }} build
         run: |
           export PATH=${{ env.ANDROID_NDK_BIN }}:$PATH
-          make -j profile-build EXE=$EXE WINE_PATH=$EMU
+          make -j build EXE=$EXE
           make strip EXE=$EXE
           cp $EXE ../
 
