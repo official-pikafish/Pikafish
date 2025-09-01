@@ -43,18 +43,18 @@ jobs:
           chmod u+x llvm.sh
           echo | sudo ./llvm.sh 20
           rm llvm.sh
-          # Install BOLT (post-link optimizer)
+          # Install BOLT (post-link optimizer) - use version 20 to match LLVM
           sudo apt-get update
-          sudo apt-get install -y llvm-bolt
-          # Copy BOLT runtime library to expected location for instrumentation
-          sudo cp /usr/lib/llvm-18/lib/libbolt_rt_instr.a /usr/lib/
-          # Set up alternatives
+          sudo apt-get install -y llvm-20-dev llvm-bolt
+          # Copy BOLT runtime library from LLVM 20 installation
+          sudo cp /usr/lib/llvm-20/lib/libbolt_rt_instr.a /usr/lib/
+          # Set up alternatives - use llvm-bolt-20 for consistency
           sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-20 100
           sudo update-alternatives --install /usr/bin/llvm-profdata llvm-profdata /usr/bin/llvm-profdata-20 100
-          sudo update-alternatives --install /usr/bin/llvm-bolt llvm-bolt /usr/bin/llvm-bolt 100
+          sudo update-alternatives --install /usr/bin/llvm-bolt llvm-bolt /usr/bin/llvm-bolt-20 100
           sudo update-alternatives --set clang++ /usr/bin/clang++-20
           sudo update-alternatives --set llvm-profdata /usr/bin/llvm-profdata-20
-          sudo update-alternatives --set llvm-bolt /usr/bin/llvm-bolt
+          sudo update-alternatives --set llvm-bolt /usr/bin/llvm-bolt-20
 
       - name: Setup msys and install required packages
         if: runner.os == 'Windows'
@@ -75,42 +75,42 @@ jobs:
           if [[ "${{ matrix.arch }}" == "-bmi2" || "${{ matrix.arch }}" == "-avx2" || "${{ matrix.arch }}" == "-sse41-popcnt" ]]; then
             SDE=""
           fi
-          make -j profile-build EXE=$EXE WINE_PATH="$SDE"
+          # For Linux builds, use BOLT-compatible flags (non-PIE with relocations)
+          if [[ "${{ runner.os }}" == "Linux" ]]; then
+            make -j profile-build EXE=$EXE WINE_PATH="$SDE" EXTRACXXFLAGS="-fno-pie" EXTRALDFLAGS="-no-pie -Wl,-q"
+          else
+            make -j profile-build EXE=$EXE WINE_PATH="$SDE"
+          fi
           make strip EXE=$EXE
           cp $EXE ../
 
       - name: BOLT optimization
         if: runner.os == 'Linux'
         run: |
-          # Build a non-PIE binary specifically for BOLT optimization
-          echo "Building non-PIE binary for BOLT optimization..."
-          make clean
-          make -j profile-build EXE=${EXE}.bolt WINE_PATH="$SDE" EXTRACXXFLAGS="-fno-pie" EXTRALDFLAGS="-no-pie -Wl,-q"
-          
-          # Strip the BOLT-specific binary
-          strip ${EXE}.bolt
+          # Use the existing binary built with BOLT-compatible flags
+          echo "Applying BOLT optimization to existing binary..."
           
           # Create BOLT instrumented binary
           echo "Creating BOLT instrumented binary..."
-          llvm-bolt ${EXE}.bolt -instrument -instrumentation-file=profile.fdata -o ${EXE}.bolt.instrumented -relocs
+          llvm-bolt $EXE -instrument -instrumentation-file=profile.fdata -o ${EXE}.instrumented -relocs
           
           # Run the instrumented binary to collect profile data (using a quick benchmark)
           echo "Running instrumented binary to collect profile data..."
-          echo "bench 8 1 10 default depth" | timeout 30s ./${EXE}.bolt.instrumented || true
+          echo "bench 8 1 10 default depth" | timeout 30s ./${EXE}.instrumented || true
           
           # Optimize the binary using the collected profile data
           if [ -f profile.fdata ] && [ -s profile.fdata ]; then
             echo "Applying BOLT optimization..."
-            llvm-bolt ${EXE}.bolt -data=profile.fdata -reorder-blocks=ext-tsp -reorder-functions=hfsort+ -split-functions -split-all-cold -split-eh -dyno-stats -o $EXE -relocs
+            llvm-bolt $EXE -data=profile.fdata -reorder-blocks=ext-tsp -reorder-functions=hfsort+ -split-functions -split-all-cold -split-eh -dyno-stats -o ${EXE}.optimized -relocs
+            # Replace the original binary with the optimized one
+            mv ${EXE}.optimized $EXE
             echo "BOLT optimization completed successfully"
           else
-            echo "No profile data collected, using regular PIE binary"
-            # Fall back to the regular binary if BOLT fails
-            mv ${EXE}.bolt $EXE
+            echo "No profile data collected, keeping original binary"
           fi
           
           # Clean up temporary files
-          rm -f ${EXE}.bolt ${EXE}.bolt.instrumented profile.fdata
+          rm -f ${EXE}.instrumented profile.fdata
           
           # Update the binary in parent directory
           cp $EXE ../
