@@ -11,10 +11,8 @@ jobs:
     runs-on: ${{ matrix.config.os }}
     env:
       ARCH: x86-64${{ matrix.arch }}
-      COMPCXX: clang++
       COMP: clang
       EXE: pikafish${{ matrix.arch }}${{ matrix.config.ext }}
-      LLVM_VERSION: 20
     strategy:
       matrix:
         config:
@@ -33,16 +31,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-
-      - name: Install LLVM and Clang
-        if: runner.os == 'Linux'
-        run: |
-          wget https://apt.llvm.org/llvm.sh
-          chmod u+x llvm.sh
-          echo | sudo ./llvm.sh $LLVM_VERSION
-          rm llvm.sh
-          sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-$LLVM_VERSION 100
-          sudo update-alternatives --set clang++ /usr/bin/clang++-$LLVM_VERSION
 
       - name: Setup msys and install required packages
         if: runner.os == 'Windows'
@@ -69,7 +57,6 @@ jobs:
     runs-on: macos-latest
     env:
       ARCH: apple-silicon
-      COMPCXX: clang++
       COMP: clang
       EXE: pikafish-apple-silicon
     defaults:
@@ -98,7 +85,6 @@ jobs:
     runs-on: ubuntu-latest
     env:
       ARCH: ${{ matrix.arch }}
-      COMPCXX: aarch64-linux-android29-clang++
       COMP: ndk
       EXE: pikafish-${{ matrix.arch }}
       LDFLAGS: "-static -Wno-unused-command-line-argument"
