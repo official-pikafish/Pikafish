@@ -47,6 +47,8 @@ set_arch_x86_64() {
     true_arch='x86-64-avx512bw'
   elif check_flags 'avx512f'; then
     true_arch='x86-64-avx512'
+  elif check_flags 'avxvnni'; then
+    true_arch='x86-64-avxvnni'
   elif [ -z "${znver_1_2+1}" ] && check_flags 'bmi2'; then
     true_arch='x86-64-bmi2'
   elif check_flags 'avx2'; then
