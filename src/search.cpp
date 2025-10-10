@@ -444,15 +444,12 @@ void Search::Worker::iterative_deepening() {
             double reduction =
               (2.056 + mainThread->previousTimeReduction) / (2.5240 * timeReduction);
             double bestMoveInstability = 0.95 + 1.6247 * totBestMoveChanges / threads.size();
+            double highBestMoveEffort  = completedDepth >= 9 && nodesEffort >= 81824 ? 0.642 : 1.0;
 
-            double totalTime =
-              mainThread->tm.optimum() * fallingEval * reduction * bestMoveInstability;
+            double totalTime = mainThread->tm.optimum() * fallingEval * reduction
+                             * bestMoveInstability * highBestMoveEffort;
 
             auto elapsedTime = elapsed();
-
-            if (completedDepth >= 9 && nodesEffort >= 81824 && elapsedTime > totalTime * 0.642
-                && !mainThread->ponder)
-                threads.stop = true;
 
             // Stop the search if we have exceeded the totalTime or maximum
             if (elapsedTime > std::min(totalTime, double(mainThread->tm.maximum())))
