@@ -34,7 +34,7 @@ bool HalfKAv2_hm::requires_mid_mirror(const Position& pos, Color c) {
 
 // Get attack bucket
 IndexType HalfKAv2_hm::make_attack_bucket(const Position& pos, Color c) {
-    return AttackBucket[pos.count<ROOK>(c)][pos.count<KNIGHT>(c)][pos.count<CANNON>(c)];
+    return bool(pos.count<ROOK>(c));
 }
 
 // Get layer stack bucket
