@@ -759,7 +759,7 @@ Value Search::Worker::search(
             Value futilityMult = 130 - 32 * !ss->ttHit;
 
             return futilityMult * d                                //
-                 - 2232 * improving * futilityMult / 951          //
+                 - 2232 * improving * futilityMult / 951           //
                  - 1390 * opponentWorsening * futilityMult / 4181  //
                  + (ss - 1)->statScore / 151                       //
                  + std::abs(correctionValue) / 130930;
@@ -777,7 +777,7 @@ Value Search::Worker::search(
         assert((ss - 1)->currentMove != Move::null());
 
         // Null move dynamic reduction based on depth
-        Depth R = 7 + depth / 3;
+        Depth R = 7 + depth / 3 + improving;
 
         ss->currentMove                   = Move::null();
         ss->continuationHistory           = &continuationHistory[0][0][NO_PIECE][0];
@@ -1027,8 +1027,8 @@ moves_loop:  // When in check, search starts here
                 int corrValAdj   = std::abs(correctionValue) / 270516;
                 int doubleMargin = -4 + 231 * PvNode - 173 * !ttCapture - corrValAdj
                                  - 1076 * ttMoveHistory / 134542 - (ss->ply > rootDepth) * 44;
-                int tripleMargin = 104 + 288 * PvNode - 253 * !ttCapture + 96 * ss->ttPv - corrValAdj
-                                 - (ss->ply * 2 > rootDepth * 3) * 59;
+                int tripleMargin = 104 + 288 * PvNode - 253 * !ttCapture + 96 * ss->ttPv
+                                 - corrValAdj - (ss->ply * 2 > rootDepth * 3) * 59;
 
                 extension =
                   1 + (value < singularBeta - doubleMargin) + (value < singularBeta - tripleMargin);
