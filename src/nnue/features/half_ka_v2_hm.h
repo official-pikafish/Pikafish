@@ -76,7 +76,7 @@ class HalfKAv2_hm {
     static constexpr std::uint32_t HashValue = 0xd17b100;
 
     // Number of feature dimensions
-    static constexpr IndexType Dimensions = 6 * 2 * 3 * static_cast<IndexType>(PS_NB);
+    static constexpr IndexType Dimensions = 6 * 4 * static_cast<IndexType>(PS_NB);
 
     // Get king_index and mirror information
     static constexpr auto KingBuckets = []() {
@@ -121,21 +121,7 @@ class HalfKAv2_hm {
         for (uint8_t rook = 0; rook <= 2; ++rook)
             for (uint8_t knight = 0; knight <= 2; ++knight)
                 for (uint8_t cannon = 0; cannon <= 2; ++cannon)
-                    v[rook][knight][cannon] = [&] {
-                        if (rook != 0)
-                            if (knight > 0 && cannon > 0)
-                                return 0;
-                            else if (rook == 2 || knight + cannon > 1)
-                                return 1;
-                            else
-                                return 2;
-                        else if (knight > 0 && cannon > 0)
-                            return 3;
-                        else if (knight + cannon > 1)
-                            return 4;
-                        else
-                            return 5;
-                    }();
+                    v[rook][knight][cannon] = bool(rook) * 2 + bool(knight + cannon);
         return v;
     }();
 

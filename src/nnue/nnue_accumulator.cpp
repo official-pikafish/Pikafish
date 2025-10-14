@@ -144,7 +144,7 @@ void AccumulatorStack::forward_update_incremental(
     auto [king_bucket, mirror] =
       FeatureSet::KingBuckets[ksq][oksq][FeatureSet::requires_mid_mirror(pos, Perspective)];
     auto attack_bucket = FeatureSet::make_attack_bucket(pos, Perspective);
-    auto bucket        = king_bucket * 6 + attack_bucket;
+    auto bucket        = king_bucket * 4 + attack_bucket;
 
     for (std::size_t next = begin + 1; next < size; next++)
     {
@@ -188,7 +188,7 @@ void AccumulatorStack::backward_update_incremental(
     auto [king_bucket, mirror] =
       FeatureSet::KingBuckets[ksq][oksq][FeatureSet::requires_mid_mirror(pos, Perspective)];
     auto attack_bucket = FeatureSet::make_attack_bucket(pos, Perspective);
-    auto bucket        = king_bucket * 6 + attack_bucket;
+    auto bucket        = king_bucket * 4 + attack_bucket;
 
     for (std::int64_t next = std::int64_t(size) - 2; next >= std::int64_t(end); next--)
         update_accumulator_incremental<Perspective, false>(
@@ -388,7 +388,7 @@ void update_accumulator_refresh_cache(const FeatureTransformer<Dimensions>& feat
     auto [king_bucket, mirror] =
       FeatureSet::KingBuckets[ksq][oksq][FeatureSet::requires_mid_mirror(pos, Perspective)];
     auto attack_bucket = FeatureSet::make_attack_bucket(pos, Perspective);
-    auto bucket        = king_bucket * 6 + attack_bucket;
+    auto bucket        = king_bucket * 4 + attack_bucket;
 
     auto cache_index = AccumulatorCaches::KingCacheMaps[ksq];
     if (cache_index < 3 && mirror)
@@ -398,7 +398,7 @@ void update_accumulator_refresh_cache(const FeatureTransformer<Dimensions>& feat
             cache_index += 3;
     }
 
-    auto&                 entry = cache[cache_index * 6 + attack_bucket][Perspective];
+    auto&                 entry = cache[cache_index * 4 + attack_bucket][Perspective];
     FeatureSet::IndexList removed, added;
 
     for (Color c : {WHITE, BLACK})
