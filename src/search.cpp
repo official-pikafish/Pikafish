@@ -124,7 +124,8 @@ void update_all_stats(const Position& pos,
                       SearchedList&   quietsSearched,
                       SearchedList&   capturesSearched,
                       Depth           depth,
-                      Move            TTMove);
+                      Move            TTMove,
+                      int             moveCount);
 
 }  // namespace
 
@@ -1296,7 +1297,7 @@ moves_loop:  // When in check, search starts here
     else if (bestMove)
     {
         update_all_stats(pos, ss, *this, bestMove, prevSq, quietsSearched, capturesSearched, depth,
-                         ttData.move);
+                         ttData.move, moveCount);
         if (!PvNode)
             ttMoveHistory << (bestMove == ttData.move ? 796 : -855);
     }
@@ -1688,14 +1689,15 @@ void update_all_stats(const Position& pos,
                       SearchedList&   quietsSearched,
                       SearchedList&   capturesSearched,
                       Depth           depth,
-                      Move            ttMove) {
+                      Move            ttMove,
+                      int             moveCount) {
 
     CapturePieceToHistory& captureHistory = workerThread.captureHistory;
     Piece                  movedPiece     = pos.moved_piece(bestMove);
     PieceType              capturedPiece;
 
     int bonus = std::min(165 * depth - 87, 1634) + 332 * (bestMove == ttMove);
-    int malus = std::min(907 * depth - 151, 2283) - 32 * quietsSearched.size();
+    int malus = std::min(907 * depth - 151, 2283) - 16 * moveCount;
 
     if (!pos.capture(bestMove))
     {
@@ -1703,13 +1705,13 @@ void update_all_stats(const Position& pos,
 
         // Decrease stats for all non-best quiet moves
         for (Move move : quietsSearched)
-            update_quiet_histories(pos, ss, workerThread, move, -malus);
+            update_quiet_histories(pos, ss, workerThread, move, -malus * 1083 / 1024);
     }
     else
     {
         // Increase stats for the best move in case it was a capture move
         capturedPiece = type_of(pos.piece_on(bestMove.to_sq()));
-        captureHistory[movedPiece][bestMove.to_sq()][capturedPiece] << bonus;
+        captureHistory[movedPiece][bestMove.to_sq()][capturedPiece] << bonus * 1482 / 1024;
     }
 
     // Extra penalty for a quiet early move that was not a TT move in
