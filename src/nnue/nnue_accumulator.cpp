@@ -379,9 +379,7 @@ Bitboard get_changed_pieces(const Piece old[SQUARE_NB], const Piece new_[SQUARE_
 #if defined(USE_AVX512) || defined(USE_AVX2)
     static_assert(sizeof(Piece) == 1);
     Bitboard same_bb = 0;
-    // 6 bytes out of bound access is acceptable because we have at least one Bitboard object
-    // following both arrays and the result mask of these out of bound parts do not matter.
-    for (int i = 0; i < 90; i += 32)
+    for (int i : {0, 32, 58})
     {
         const __m256i       old_v = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(old + i));
         const __m256i       new_v = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(new_ + i));
