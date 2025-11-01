@@ -549,6 +549,9 @@ DirtyPiece Position::do_move(Move                      m,
 
     // Update hash key
     k ^= Zobrist::psq[pc][from] ^ Zobrist::psq[pc][to];
+    if (tt)
+        prefetch(tt->first_entry(adjust_key60(k)));
+
     // If the moving piece is a pawn, update pawn hash key.
     if (type_of(pc) == PAWN)
         st->pawnKey ^= Zobrist::psq[pc][from] ^ Zobrist::psq[pc][to];
@@ -582,8 +585,6 @@ DirtyPiece Position::do_move(Move                      m,
 
     // Update the key with the final value
     st->key = k;
-    if (tt)
-        prefetch(tt->first_entry(key()));
 
     assert(pos_is_ok());
 
