@@ -106,13 +106,12 @@ void init_threat_offsets() {
 }
 
 // Index of a feature for a given king position and another piece on some square
-template<Color Perspective>
-IndexType
-FullThreats::make_index(Piece attacker, Square from, Square to, Piece attacked, bool mirror) {
-    from = (Square) HalfKAv2_hm::IndexMap[mirror][Perspective == BLACK][from];
-    to   = (Square) HalfKAv2_hm::IndexMap[mirror][Perspective == BLACK][to];
+IndexType FullThreats::make_index(
+  Color perspective, Piece attacker, Square from, Square to, Piece attacked, bool mirror) {
+    from = (Square) HalfKAv2_hm::IndexMap[mirror][perspective == BLACK][from];
+    to   = (Square) HalfKAv2_hm::IndexMap[mirror][perspective == BLACK][to];
 
-    if constexpr (Perspective == BLACK)
+    if (perspective == BLACK)
     {
         attacker = ~attacker;
         attacked = ~attacked;
@@ -122,12 +121,11 @@ FullThreats::make_index(Piece attacker, Square from, Square to, Piece attacked, 
 }
 
 // Get a list of indices for active features in ascending order
-template<Color Perspective>
-void FullThreats::append_active_indices(const Position& pos, IndexList& active) {
-    Square ksq  = pos.king_square(Perspective);
-    Square oksq = pos.king_square(~Perspective);
+void FullThreats::append_active_indices(Color perspective, const Position& pos, IndexList& active) {
+    Square ksq  = pos.king_square(perspective);
+    Square oksq = pos.king_square(~perspective);
     auto& [_, mirror] =
-      HalfKAv2_hm::KingBuckets[ksq][oksq][HalfKAv2_hm::requires_mid_mirror(pos, Perspective)];
+      HalfKAv2_hm::KingBuckets[ksq][oksq][HalfKAv2_hm::requires_mid_mirror(pos, perspective)];
     Bitboard occupied = pos.pieces();
 
     Bitboard bb = occupied;
@@ -144,7 +142,7 @@ void FullThreats::append_active_indices(const Position& pos, IndexList& active) 
         {
             Square    to       = pop_lsb(attacks);
             Piece     attacked = pos.piece_on(to);
-            IndexType index    = make_index<Perspective>(attacker, from, to, attacked, mirror);
+            IndexType index    = make_index(perspective, attacker, from, to, attacked, mirror);
 
             if (index < Dimensions)
                 active.push_back(index);
@@ -152,20 +150,9 @@ void FullThreats::append_active_indices(const Position& pos, IndexList& active) 
     }
 }
 
-// Explicit template instantiations
-template void FullThreats::append_active_indices<WHITE>(const Position& pos, IndexList& active);
-template void FullThreats::append_active_indices<BLACK>(const Position& pos, IndexList& active);
-template IndexType
-FullThreats::make_index<WHITE>(Piece attkr, Square from, Square to, Piece attkd, bool mirror);
-template IndexType
-FullThreats::make_index<BLACK>(Piece attkr, Square from, Square to, Piece attkd, bool mirror);
-
 // Get a list of indices for recently changed features
-template<Color Perspective>
-void FullThreats::append_changed_indices(bool            mirror,
-                                         const DiffType& diff,
-                                         IndexList&      removed,
-                                         IndexList&      added) {
+void FullThreats::append_changed_indices(
+  Color perspective, bool mirror, const DiffType& diff, IndexList& removed, IndexList& added) {
     for (const auto dirty : diff.list)
     {
         auto attacker = dirty.pc();
@@ -174,22 +161,12 @@ void FullThreats::append_changed_indices(bool            mirror,
         auto to       = dirty.threatened_sq();
         auto add      = dirty.add();
 
-        IndexType index = make_index<Perspective>(attacker, from, to, attacked, mirror);
+        IndexType index = make_index(perspective, attacker, from, to, attacked, mirror);
 
         if (index < Dimensions)
             (add ? added : removed).push_back(index);
     }
 }
-
-// Explicit template instantiations
-template void FullThreats::append_changed_indices<WHITE>(bool            mirror,
-                                                         const DiffType& diff,
-                                                         IndexList&      removed,
-                                                         IndexList&      added);
-template void FullThreats::append_changed_indices<BLACK>(bool            mirror,
-                                                         const DiffType& diff,
-                                                         IndexList&      removed,
-                                                         IndexList&      added);
 
 bool FullThreats::requires_refresh(const DiffType& diff, Color perspective) {
     return diff.requires_refresh[perspective];

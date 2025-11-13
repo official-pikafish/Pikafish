@@ -266,13 +266,15 @@ class HalfKAv2_hm {
     static IndexType make_layer_stack_bucket(const Position& pos);
 
     // Index of a feature for a given king position and another piece on some square
-    template<Color Perspective>
-    static IndexType make_index(Square s, Piece pc, int bucket, bool mirror);
+    static IndexType make_index(Color perspective, Square s, Piece pc, int bucket, bool mirror);
 
     // Get a list of indices for recently changed features
-    template<Color Perspective>
-    static void append_changed_indices(
-      int bucket, bool mirror, const DiffType& diff, IndexList& removed, IndexList& added);
+    static void append_changed_indices(Color           perspective,
+                                       int             bucket,
+                                       bool            mirror,
+                                       const DiffType& diff,
+                                       IndexList&      removed,
+                                       IndexList&      added);
 
     // Returns whether the change stored in this DirtyPiece means
     // that a full accumulator refresh is required.

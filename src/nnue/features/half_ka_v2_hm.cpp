@@ -57,38 +57,30 @@ IndexType HalfKAv2_hm::make_layer_stack_bucket(const Position& pos) {
 }
 
 // Index of a feature for a given king position and another piece on some square
-template<Color Perspective>
-inline IndexType HalfKAv2_hm::make_index(Square s, Piece pc, int bucket, bool mirror) {
-    s = (Square) HalfKAv2_hm::IndexMap[mirror][Perspective == BLACK][s];
+IndexType HalfKAv2_hm::make_index(Color perspective, Square s, Piece pc, int bucket, bool mirror) {
+    s = (Square) HalfKAv2_hm::IndexMap[mirror][perspective == BLACK][s];
 
-    if constexpr (Perspective == BLACK)
+    if (perspective == BLACK)
         pc = ~pc;
 
     return PSQOffsets[pc][s] + PS_NB * bucket;
 }
 
-// Explicit template instantiations
-template IndexType HalfKAv2_hm::make_index<WHITE>(Square s, Piece pc, int bucket, bool mirror);
-template IndexType HalfKAv2_hm::make_index<BLACK>(Square s, Piece pc, int bucket, bool mirror);
-
 // Get a list of indices for recently changed features
-template<Color Perspective>
-void HalfKAv2_hm::append_changed_indices(
-  int bucket, bool mirror, const DiffType& diff, IndexList& removed, IndexList& added) {
-    removed.push_back(make_index<Perspective>(diff.from, diff.pc, bucket, mirror));
+void HalfKAv2_hm::append_changed_indices(Color           perspective,
+                                         int             bucket,
+                                         bool            mirror,
+                                         const DiffType& diff,
+                                         IndexList&      removed,
+                                         IndexList&      added) {
+    removed.push_back(make_index(perspective, diff.from, diff.pc, bucket, mirror));
 
     if (diff.to != SQ_NONE)
-        added.push_back(make_index<Perspective>(diff.to, diff.pc, bucket, mirror));
+        added.push_back(make_index(perspective, diff.to, diff.pc, bucket, mirror));
 
     if (diff.remove_sq != SQ_NONE)
-        removed.push_back(make_index<Perspective>(diff.remove_sq, diff.remove_pc, bucket, mirror));
+        removed.push_back(make_index(perspective, diff.remove_sq, diff.remove_pc, bucket, mirror));
 }
-
-// Explicit template instantiations
-template void HalfKAv2_hm::append_changed_indices<WHITE>(
-  int bucket, bool mirror, const DiffType& diff, IndexList& removed, IndexList& added);
-template void HalfKAv2_hm::append_changed_indices<BLACK>(
-  int bucket, bool mirror, const DiffType& diff, IndexList& removed, IndexList& added);
 
 bool HalfKAv2_hm::requires_refresh(const DiffType& diff, Color perspective) {
     return diff.requires_refresh[perspective];
