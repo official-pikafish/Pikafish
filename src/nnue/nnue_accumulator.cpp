@@ -553,18 +553,6 @@ void update_accumulator_incremental(
                                                removed);
     }
 
-    if (!added.size() && !removed.size())
-    {
-        auto&       targetAcc = target_state.template acc<TransformedFeatureDimensions>();
-        const auto& sourceAcc = computed.template acc<TransformedFeatureDimensions>();
-
-        targetAcc.accumulation[perspective]     = sourceAcc.accumulation[perspective];
-        targetAcc.psqtAccumulation[perspective] = sourceAcc.psqtAccumulation[perspective];
-        targetAcc.computed[perspective]         = true;
-
-        return;
-    }
-
     auto updateContext =
       make_accumulator_update_context(perspective, featureTransformer, computed, target_state);
 
