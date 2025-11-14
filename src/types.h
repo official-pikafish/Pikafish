@@ -381,8 +381,6 @@ class Move {
         return Square(data & 0x7F);
     }
 
-    constexpr int from_to() const { return data & 0x3FFF; }
-
     constexpr bool is_ok() const { return none().data != data && null().data != data; }
 
     static constexpr Move null() { return Move(129); }
