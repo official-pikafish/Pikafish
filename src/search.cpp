@@ -743,9 +743,12 @@ Value Search::Worker::search(
     // bigger than the previous static evaluation at our turn (if we were in
     // check at our previous move we go back until we weren't in check) and is
     // false otherwise. The improving flag is used in various pruning heuristics.
+    // Similarly, opponentWorsening is true if our static evaluation is better
+    // for us than at the last ply.
     improving         = ss->staticEval > (ss - 2)->staticEval;
     opponentWorsening = ss->staticEval > -(ss - 1)->staticEval;
 
+    // Hindsight adjustment of reductions based on static evaluation difference.
     if (priorReduction >= 3 && !opponentWorsening)
         depth++;
     if (priorReduction >= 1 && depth >= 2 && ss->staticEval + (ss - 1)->staticEval > 197)
@@ -763,9 +766,9 @@ Value Search::Worker::search(
         auto futility_margin = [&](Depth d) {
             Value futilityMult = 130 - 32 * !ss->ttHit;
 
-            return futilityMult * d                                //
-                 - 2232 * improving * futilityMult / 951           //
-                 - 1390 * opponentWorsening * futilityMult / 4181  //
+            return futilityMult * d                               //
+                 - 2403 * improving * futilityMult / 1024         //
+                 - 340 * opponentWorsening * futilityMult / 1024  //
                  + std::abs(correctionValue) / 130930;
         };
 
@@ -813,7 +816,7 @@ Value Search::Worker::search(
 
     // Step 9. Internal iterative reductions
     // At sufficient depth, reduce depth for PV/Cut nodes without a TTMove.
-    // (*Scaler) Especially if they make IIR less aggressive.
+    // (*Scaler) Making IIR more aggressive scales poorly.
     if (!allNode && depth >= 6 && !ttData.move && priorReduction <= 3)
         depth--;
 
@@ -925,12 +928,11 @@ moves_loop:  // When in check, search starts here
         Depth r = reduction(improving, depth, moveCount, delta);
 
         // Increase reduction for ttPv nodes (*Scaler)
-        // Smaller or even negative value is better for short time controls
-        // Bigger value is better for long time controls
+        // Larger values scale well
         if (ss->ttPv)
             r += 900;
 
-        // Step 13. Pruning at shallow depth.
+        // Step 13. Pruning at shallow depths.
         // Depth conditions are important for mate finding.
         if (!rootNode && pos.major_material(us) && !is_loss(bestValue))
         {
@@ -974,7 +976,7 @@ moves_loop:  // When in check, search starts here
 
                 history += 65 * mainHistory[us][move.raw()] / 29;
 
-                // (*Scaler): Generally, a lower divisor scales well
+                // (*Scaler): Generally, lower divisors scales well
                 lmrDepth += history / 3420;
 
                 Value futilityValue = ss->staticEval + 47 + 278 * !bestMove + 131 * lmrDepth
@@ -982,7 +984,7 @@ moves_loop:  // When in check, search starts here
 
                 // Futility pruning: parent node
                 // (*Scaler): Generally, more frequent futility pruning
-                // scales well with respect to time and threads
+                // scales well
                 if (!ss->inCheck && lmrDepth < 10 && futilityValue <= alpha)
                 {
                     if (bestValue <= futilityValue && !is_decisive(bestValue)
@@ -1124,8 +1126,7 @@ moves_loop:  // When in check, search starts here
             ss->reduction = 0;
 
             // Do a full-depth search when reduced LMR search fails high
-            // (*Scaler) Usually doing more shallower searches
-            // doesn't scale well to longer TCs
+            // (*Scaler) Shallower searches here don't scale well
             if (value > alpha)
             {
                 // Adjust full-depth search based on LMR results - if the result was
@@ -1253,7 +1254,7 @@ moves_loop:  // When in check, search starts here
 
                 if (value >= beta)
                 {
-                    // (*Scaler) Especially if they make cutoffCnt increment more often.
+                    // (*Scaler) Infrequent and small updates scale well
                     ss->cutoffCnt += (extension < 2) || PvNode;
                     assert(value >= beta);  // Fail high
                     break;
@@ -1356,10 +1357,9 @@ moves_loop:  // When in check, search starts here
     // Adjust correction history if the best move is not a capture
     // and the error direction matches whether we are above/below bounds.
     if (!ss->inCheck && !(bestMove && pos.capture(bestMove))
-        && (bestValue < ss->staticEval) == !bestMove)
+        && (bestValue > ss->staticEval) == bool(bestMove))
     {
-        auto bonus = std::clamp(int(bestValue - ss->staticEval) * depth
-                                  / (8 + 2 * (bestValue > ss->staticEval)),
+        auto bonus = std::clamp(int(bestValue - ss->staticEval) * depth / (bestMove ? 10 : 8),
                                 -CORRECTION_HISTORY_LIMIT / 4, CORRECTION_HISTORY_LIMIT / 4);
         update_correction_history(pos, ss, *this, bonus);
     }
