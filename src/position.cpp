@@ -449,6 +449,8 @@ void Position::do_move(Move                      m,
                        DirtyThreats&             dts,
                        const TranspositionTable* tt = nullptr) {
 
+    using namespace Eval::NNUE;
+
     assert(m.is_ok());
     assert(&newSt != st);
 
@@ -492,23 +494,15 @@ void Position::do_move(Move                      m,
     assert(captured == NO_PIECE || color_of(captured) == them);
     assert(type_of(captured) != KING);
 
-    if (pc == make_piece(us, KING))
-    {
-        dp.requires_refresh[us] = true;
-        bool mirror_before =
-          Eval::NNUE::PSQFeatureSet::KingBuckets[king_square(them)][from][0].second;
-        bool mirror_after = Eval::NNUE::PSQFeatureSet::KingBuckets[king_square(them)][to][0].second;
-        dts.requires_refresh[them] = dp.requires_refresh[them] = (mirror_before != mirror_after);
-        mirror_before = Eval::NNUE::PSQFeatureSet::KingBuckets[from][king_square(them)][0].second;
-        mirror_after  = Eval::NNUE::PSQFeatureSet::KingBuckets[to][king_square(them)][0].second;
-        dts.requires_refresh[us] = (mirror_before != mirror_after);
-    }
-    else
-        dts.requires_refresh[us] = dts.requires_refresh[them] = dp.requires_refresh[us] =
-          dp.requires_refresh[them]                           = false;
-
-    bool mid_mirror_before[2] = {Eval::NNUE::PSQFeatureSet::requires_mid_mirror(*this, us),
-                                 Eval::NNUE::PSQFeatureSet::requires_mid_mirror(*this, them)};
+    bool mirror_before[2] = {
+      PSQFeatureSet::KingBuckets[king_square(us)][king_square(them)]
+                                [PSQFeatureSet::requires_mid_mirror(*this, us)]
+                                  .second,
+      PSQFeatureSet::KingBuckets[king_square(them)][king_square(us)]
+                                [PSQFeatureSet::requires_mid_mirror(*this, them)]
+                                  .second};
+    dp.requires_refresh[them] = false;
+    dp.requires_refresh[us]   = pc == make_piece(us, KING);
 
     if (captured)
     {
@@ -561,25 +555,27 @@ void Position::do_move(Move                      m,
 
     if (captured)
     {
-        auto attack_bucket_before = Eval::NNUE::PSQFeatureSet::make_attack_bucket(*this, them);
+        auto attack_bucket_before = PSQFeatureSet::make_attack_bucket(*this, them);
 
         remove_piece(from, &dts);
         swap_piece(to, pc, &dts);
 
-        auto attack_bucket_after = Eval::NNUE::PSQFeatureSet::make_attack_bucket(*this, them);
+        auto attack_bucket_after = PSQFeatureSet::make_attack_bucket(*this, them);
 
-        if (attack_bucket_before != attack_bucket_after)
-            dp.requires_refresh[them] = true;
+        dp.requires_refresh[them] |= (attack_bucket_before != attack_bucket_after);
     }
     else
         move_piece(from, to, &dts);
 
-    bool mid_mirror_after[2] = {Eval::NNUE::PSQFeatureSet::requires_mid_mirror(*this, us),
-                                Eval::NNUE::PSQFeatureSet::requires_mid_mirror(*this, them)};
-    dp.requires_refresh[us] |= (mid_mirror_before[0] != mid_mirror_after[0]);
-    dp.requires_refresh[them] |= (mid_mirror_before[1] != mid_mirror_after[1]);
-    dts.requires_refresh[us] |= (mid_mirror_before[0] != mid_mirror_after[0]);
-    dts.requires_refresh[them] |= (mid_mirror_before[1] != mid_mirror_after[1]);
+    bool mirror_after[2] = {
+      PSQFeatureSet::KingBuckets[king_square(us)][king_square(them)]
+                                [PSQFeatureSet::requires_mid_mirror(*this, us)]
+                                  .second,
+      PSQFeatureSet::KingBuckets[king_square(them)][king_square(us)]
+                                [PSQFeatureSet::requires_mid_mirror(*this, them)]
+                                  .second};
+    dp.requires_refresh[us] |= dts.requires_refresh[us]     = (mirror_before[0] != mirror_after[0]);
+    dp.requires_refresh[them] |= dts.requires_refresh[them] = (mirror_before[1] != mirror_after[1]);
 
     // Set capture piece
     st->capturedPiece = captured;

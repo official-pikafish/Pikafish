@@ -43,13 +43,45 @@ bool HalfKAv2_hm::requires_mid_mirror(const Position& pos, Color c) {
             || (pos.mid_encoding(c) == BalanceEncoding && pos.mid_encoding(~c) < BalanceEncoding));
 }
 
-// Get attack bucket
+// Get attack bucket based on attack feature
 IndexType HalfKAv2_hm::make_attack_bucket(const Position& pos, Color c) {
+    static constexpr auto AttackBucket = []() {
+        std::array<std::array<std::array<int, 3>, 3>, 3> v{};
+        for (uint8_t rook = 0; rook <= 2; ++rook)
+            for (uint8_t knight = 0; knight <= 2; ++knight)
+                for (uint8_t cannon = 0; cannon <= 2; ++cannon)
+                    v[rook][knight][cannon] = bool(rook) * 2 + bool(knight + cannon);
+        return v;
+    }();
+
     return AttackBucket[pos.count<ROOK>(c)][pos.count<KNIGHT>(c)][pos.count<CANNON>(c)];
 }
 
 // Get layer stack bucket
 IndexType HalfKAv2_hm::make_layer_stack_bucket(const Position& pos) {
+    static constexpr auto LayerStackBuckets = [] {
+        std::array<std::array<std::array<std::array<uint8_t, 5>, 5>, 3>, 3> v{};
+        for (uint8_t us_rook = 0; us_rook <= 2; ++us_rook)
+            for (uint8_t opp_rook = 0; opp_rook <= 2; ++opp_rook)
+                for (uint8_t us_knight_cannon = 0; us_knight_cannon <= 4; ++us_knight_cannon)
+                    for (uint8_t opp_knight_cannon = 0; opp_knight_cannon <= 4; ++opp_knight_cannon)
+                        v[us_rook][opp_rook][us_knight_cannon][opp_knight_cannon] = [&] {
+                            if (us_rook == opp_rook)
+                                return us_rook * 4
+                                     + int(us_knight_cannon + opp_knight_cannon >= 4) * 2
+                                     + int(us_knight_cannon == opp_knight_cannon);
+                            else if (us_rook == 2 && opp_rook == 1)
+                                return 12;
+                            else if (us_rook == 1 && opp_rook == 2)
+                                return 13;
+                            else if (us_rook > 0 && opp_rook == 0)
+                                return 14;
+                            else  // us_rook == 0 && opp_rook > 0
+                                return 15;
+                        }();
+        return v;
+    }();
+
     Color us = pos.side_to_move();
     return LayerStackBuckets[pos.count<ROOK>(us)][pos.count<ROOK>(~us)]
                             [pos.count<KNIGHT>(us) + pos.count<CANNON>(us)]

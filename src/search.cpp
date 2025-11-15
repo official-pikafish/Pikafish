@@ -432,20 +432,22 @@ void Search::Worker::iterative_deepening() {
             uint64_t nodesEffort =
               rootMoves[0].effort * 100000 / std::max(size_t(1), size_t(nodes));
 
-            double fallingEval =
-              (16.940 + 2.662 * (mainThread->bestPreviousAverageScore - bestValue)
-               + 0.798 * (mainThread->iterValue[iterIdx] - bestValue))
-              / 100.0;
-            fallingEval = std::clamp(fallingEval, 0.6026, 1.8877);
+            double fallingEval = (16.94 + 2.66 * (mainThread->bestPreviousAverageScore - bestValue)
+                                  + 0.80 * (mainThread->iterValue[iterIdx] - bestValue))
+                               / 100.0;
+            fallingEval = std::clamp(fallingEval, 0.60, 1.89);
 
             // If the bestMove is stable over several iterations, reduce time accordingly
-            double k      = 0.5468;
+            double k      = 0.55;
             double center = lastBestMoveDepth + 12.19;
-            timeReduction = 0.662 + 0.84 / (1.030 + std::exp(-k * (completedDepth - center)));
-            double reduction =
-              (2.056 + mainThread->previousTimeReduction) / (2.5240 * timeReduction);
-            double bestMoveInstability = 0.95 + 1.6247 * totBestMoveChanges / threads.size();
-            double highBestMoveEffort  = completedDepth >= 9 && nodesEffort >= 81824 ? 0.642 : 1.0;
+
+            timeReduction = 0.66 + 0.84 / (1.03 + std::exp(-k * (completedDepth - center)));
+
+            double reduction = (2.06 + mainThread->previousTimeReduction) / (2.52 * timeReduction);
+
+            double bestMoveInstability = 0.95 + 1.62 * totBestMoveChanges / threads.size();
+
+            double highBestMoveEffort = completedDepth >= 9 && nodesEffort >= 81824 ? 0.64 : 1.0;
 
             double totalTime = mainThread->tm.optimum() * fallingEval * reduction
                              * bestMoveInstability * highBestMoveEffort;
@@ -463,7 +465,7 @@ void Search::Worker::iterative_deepening() {
                     threads.stop = true;
             }
             else
-                threads.increaseDepth = mainThread->ponder || elapsedTime <= totalTime * 0.248;
+                threads.increaseDepth = mainThread->ponder || elapsedTime <= totalTime * 0.25;
         }
 
         mainThread->iterValue[iterIdx] = bestValue;
@@ -1012,7 +1014,6 @@ moves_loop:  // When in check, search starts here
 
         // (*Scaler) Generally, higher singularBeta (i.e closer to ttValue)
         // and lower extension margins scale well.
-
         if (!rootNode && move == ttData.move && !excludedMove && depth >= 5 + ss->ttPv
             && is_valid(ttData.value) && !is_decisive(ttData.value) && (ttData.bound & BOUND_LOWER)
             && ttData.depth >= depth - 3)
