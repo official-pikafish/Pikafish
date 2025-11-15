@@ -27,6 +27,7 @@
 #include <initializer_list>
 #include <utility>
 
+#include "../../bitboard.h"
 #include "../../misc.h"
 #include "../../types.h"
 #include "../nnue_common.h"
@@ -37,37 +38,11 @@ class Position;
 
 namespace Stockfish::Eval::NNUE::Features {
 
+void init_psq_offsets();
+
 // Feature HalfKAv2_hm: Combination of the position of own king and the
 // position of pieces. Position mirrored such that king is always on d..e files.
 class HalfKAv2_hm {
-
-    // Unique number for each piece type on each square
-    enum {
-        // clang-format off
-        PS_NONE     = 0,
-        PS_W_ROOK   = 0,
-        PS_B_ROOK   = 1 * SQUARE_NB,
-        PS_W_CANNON = 2 * SQUARE_NB,
-        PS_B_CANNON = 3 * SQUARE_NB,
-        PS_W_KNIGHT = 4 * SQUARE_NB,
-        PS_B_KNIGHT = 5 * SQUARE_NB,
-        PS_AB_W_KP  = 6 * SQUARE_NB,  // White King and Pawn are merged into one plane, also used for Advisor and Bishop
-        PS_B_KP     = 7 * SQUARE_NB,  // Black King and Pawn are merged into one plane
-        PS_NB       = 8 * SQUARE_NB
-        // clang-format on
-    };
-
-    static constexpr IndexType PieceSquareIndex[COLOR_NB][PIECE_NB] = {
-      // Convention: W - us, B - them
-      // Viewed from other side, W and B are reversed
-      // clang-format off
-      { PS_NONE, PS_W_ROOK, PS_AB_W_KP, PS_W_CANNON, PS_AB_W_KP, PS_W_KNIGHT, PS_AB_W_KP, PS_AB_W_KP,
-        PS_NONE, PS_B_ROOK, PS_AB_W_KP, PS_B_CANNON, PS_B_KP   , PS_B_KNIGHT, PS_AB_W_KP, PS_B_KP   , },
-      { PS_NONE, PS_B_ROOK, PS_AB_W_KP, PS_B_CANNON, PS_B_KP   , PS_B_KNIGHT, PS_AB_W_KP, PS_B_KP   ,
-        PS_NONE, PS_W_ROOK, PS_AB_W_KP, PS_W_CANNON, PS_AB_W_KP, PS_W_KNIGHT, PS_AB_W_KP, PS_AB_W_KP, }
-      // clang-format on
-    };
-
    public:
     // Feature name
     static constexpr const char* Name = "HalfKAv2_hm";
@@ -75,8 +50,34 @@ class HalfKAv2_hm {
     // Hash value embedded in the evaluation file
     static constexpr std::uint32_t HashValue = 0xd17b100;
 
+    // Number of features per plane
+    static constexpr IndexType PS_NB = 689;
+
     // Number of feature dimensions
-    static constexpr IndexType Dimensions = 6 * 4 * static_cast<IndexType>(PS_NB);
+    static constexpr IndexType Dimensions = 6 * 4 * PS_NB;
+
+    static constexpr Bitboard ValidBB[PIECE_NB]{
+      0,                                                                                        // _
+      HalfBB[WHITE] | HalfBB[BLACK],                                                            // R
+      ((Rank0BB | Rank2BB) & (FileDBB | FileFBB)) | (Rank1BB & FileEBB),                        // A
+      HalfBB[WHITE] | HalfBB[BLACK],                                                            // C
+      PawnBB[WHITE],                                                                            // P
+      HalfBB[WHITE] | HalfBB[BLACK],                                                            // N
+      ((Rank0BB | Rank4BB) & (FileCBB | FileGBB)) | (Rank2BB & (FileABB | FileEBB | FileIBB)),  // B
+      HalfBB[WHITE] & Palace & ~FileFBB,                                                        // K
+      0,                                                                                        // _
+      HalfBB[WHITE] | HalfBB[BLACK],                                                            // r
+      ((Rank7BB | Rank9BB) & (FileDBB | FileFBB)) | (Rank8BB & FileEBB),                        // a
+      HalfBB[WHITE] | HalfBB[BLACK],                                                            // c
+      PawnBB[BLACK],                                                                            // p
+      HalfBB[WHITE] | HalfBB[BLACK],                                                            // n
+      ((Rank5BB | Rank9BB) & (FileCBB | FileGBB)) | (Rank7BB & (FileABB | FileEBB | FileIBB)),  // b
+      HalfBB[BLACK] & Palace,                                                                   // k
+    };
+
+    static constexpr std::array<Piece, 14> AllPieces{
+      W_ROOK, W_ADVISOR, W_CANNON, W_PAWN, W_KNIGHT, W_BISHOP, W_KING,
+      B_ROOK, B_ADVISOR, B_CANNON, B_PAWN, B_KNIGHT, B_BISHOP, B_KING};
 
     // Get king_index and mirror information
     static constexpr auto KingBuckets = []() {
@@ -115,6 +116,21 @@ class HalfKAv2_hm {
         return v;
     }();
 
+    // Square index mapping based on condition (Mirror, Rotate)
+    static constexpr auto IndexMap = []() {
+        std::array<std::array<std::array<std::uint8_t, SQUARE_NB>, 2>, 2> v{};
+        for (uint8_t m = 0; m < 2; ++m)
+            for (uint8_t r = 0; r < 2; ++r)
+                for (uint8_t s = 0; s < SQUARE_NB; ++s)
+                {
+                    uint8_t ss = s;
+                    ss         = m ? uint8_t(flip_file(Square(ss))) : ss;
+                    ss         = r ? uint8_t(flip_rank(Square(ss))) : ss;
+                    v[m][r][s] = ss;
+                }
+        return v;
+    }();
+
     // Get attack bucket based on attack feature
     static constexpr auto AttackBucket = []() {
         std::array<std::array<std::array<int, 3>, 3>, 3> v{};
@@ -122,38 +138,6 @@ class HalfKAv2_hm {
             for (uint8_t knight = 0; knight <= 2; ++knight)
                 for (uint8_t cannon = 0; cannon <= 2; ++cannon)
                     v[rook][knight][cannon] = bool(rook) * 2 + bool(knight + cannon);
-        return v;
-    }();
-
-    // Square index mapping based on condition (Mirror, Rotate, ABMap)
-    static constexpr auto IndexMap = []() {
-        // Map advisor and bishop location into White King plane
-        constexpr uint8_t ABMap[SQUARE_NB] = {
-          // clang-format off
-           0,  0,  0,  1,  0,  2,  5,  0,  0,
-           0,  0,  0,  0,  6,  0,  0,  0,  0,
-           7,  0,  0,  8,  9, 10,  0,  0, 11,
-           0,  0,  0,  0,  0,  0,  0,  0,  0,
-           0,  0, 14,  0,  0,  0, 15,  0,  0,
-           0,  0, 16,  0,  0,  0, 17,  0,  0,
-           0,  0,  0,  0,  0,  0,  0,  0,  0,
-          18,  0,  0, 19, 20, 23,  0,  0, 24,
-           0,  0,  0,  0, 25,  0,  0,  0,  0,
-           0,  0, 26, 28,  0, 30, 32,  0,  0,
-          // clang-format on
-        };
-        std::array<std::array<std::array<std::array<std::uint8_t, SQUARE_NB>, 2>, 2>, 2> v{};
-        for (uint8_t m = 0; m < 2; ++m)
-            for (uint8_t r = 0; r < 2; ++r)
-                for (uint8_t ab = 0; ab < 2; ++ab)
-                    for (uint8_t s = 0; s < SQUARE_NB; ++s)
-                    {
-                        uint8_t ss     = s;
-                        ss             = m ? uint8_t(flip_file(Square(ss))) : ss;
-                        ss             = r ? uint8_t(flip_rank(Square(ss))) : ss;
-                        ss             = ab ? ABMap[ss] : ss;
-                        v[m][r][ab][s] = ss;
-                    }
         return v;
     }();
 
@@ -270,6 +254,7 @@ class HalfKAv2_hm {
     // Maximum number of simultaneously active features.
     static constexpr IndexType MaxActiveDimensions = 32;
     using IndexList                                = ValueList<IndexType, MaxActiveDimensions>;
+    using DiffType                                 = DirtyPiece;
 
     // Returns whether the middle mirror is required.
     static bool requires_mid_mirror(const Position& pos, Color c);
@@ -287,11 +272,11 @@ class HalfKAv2_hm {
     // Get a list of indices for recently changed features
     template<Color Perspective>
     static void append_changed_indices(
-      int bucket, bool mirror, const DirtyPiece& dp, IndexList& removed, IndexList& added);
+      int bucket, bool mirror, const DiffType& diff, IndexList& removed, IndexList& added);
 
     // Returns whether the change stored in this DirtyPiece means
     // that a full accumulator refresh is required.
-    static bool requires_refresh(const DirtyPiece& dirtyPiece, Color perspective);
+    static bool requires_refresh(const DiffType& diff, Color perspective);
 };
 
 }  // namespace Stockfish::Eval::NNUE::Features

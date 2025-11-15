@@ -47,58 +47,40 @@ namespace Stockfish::Eval::NNUE::SIMD {
 
 #ifdef USE_AVX512
 using vec_t      = __m512i;
+using vec_i8_t   = __m256i;
 using psqt_vec_t = __m512i;
 using vec_uint_t = __m512i;
     #define vec_load(a) _mm512_load_si512(a)
     #define vec_store(a, b) _mm512_store_si512(a, b)
+    #define vec_convert_8_16(a) _mm512_cvtepi8_epi16(a)
+    #define vec_add_16(a, b) _mm512_add_epi16(a, b)
+    #define vec_sub_16(a, b) _mm512_sub_epi16(a, b)
+    #define vec_mulhi_16(a, b) _mm512_mulhi_epi16(a, b)
     #define vec_zero() _mm512_setzero_epi32()
     #define vec_set_16(a) _mm512_set1_epi16(a)
+    #define vec_max_16(a, b) _mm512_max_epi16(a, b)
+    #define vec_min_16(a, b) _mm512_min_epi16(a, b)
+    #define vec_slli_16(a, b) _mm512_slli_epi16(a, b)
+    // Inverse permuted at load time
+    #define vec_packus_16(a, b) _mm512_packus_epi16(a, b)
     #define vec_load_psqt(a) _mm512_load_si512(a)
     #define vec_store_psqt(a, b) _mm512_store_si512(a, b)
     #define vec_add_psqt_32(a, b) _mm512_add_epi32(a, b)
     #define vec_sub_psqt_32(a, b) _mm512_sub_epi32(a, b)
     #define vec_zero_psqt() _mm512_setzero_epi32()
 
-    #ifdef USE_AVX512BW
-        #define vec_add_16(a, b) _mm512_add_epi16(a, b)
-        #define vec_sub_16(a, b) _mm512_sub_epi16(a, b)
-        #define vec_mulhi_16(a, b) _mm512_mulhi_epi16(a, b)
-        #define vec_max_16(a, b) _mm512_max_epi16(a, b)
-        #define vec_min_16(a, b) _mm512_min_epi16(a, b)
-        #define vec_slli_16(a, b) _mm512_slli_epi16(a, b)
-        // Inverse permuted at load time
-        #define vec_packus_16(a, b) _mm512_packus_epi16(a, b)
-    #else
-        #define vec_op(op, a, b) \
-            __builtin_shufflevector(op(__builtin_shufflevector(a, a, 0, 1, 2, 3), \
-                                       __builtin_shufflevector(b, b, 0, 1, 2, 3)), \
-                                    op(__builtin_shufflevector(a, a, 4, 5, 6, 7), \
-                                       __builtin_shufflevector(b, b, 4, 5, 6, 7)), \
-                                    0, 1, 2, 3, 4, 5, 6, 7)
-        #define vec_add_16(a, b) vec_op(_mm256_add_epi16, a, b)
-        #define vec_sub_16(a, b) vec_op(_mm256_sub_epi16, a, b)
-        #define vec_mulhi_16(a, b) vec_op(_mm256_mulhi_epi16, a, b)
-        #define vec_max_16(a, b) vec_op(_mm256_max_epi16, a, b)
-        #define vec_min_16(a, b) vec_op(_mm256_min_epi16, a, b)
-        #define vec_slli_16(a, b) \
-            __builtin_shufflevector( \
-              _mm256_slli_epi16(__builtin_shufflevector(a, a, 0, 1, 2, 3), b), \
-              _mm256_slli_epi16(__builtin_shufflevector(a, a, 4, 5, 6, 7), b), 0, 1, 2, 3, 4, 5, \
-              6, 7)
-        // Inverse permuted at load time
-        #define vec_packus_16(a, b) vec_op(_mm256_packus_epi16, a, b)
-    #endif
-
     #define NumRegistersSIMD 16
     #define MaxChunkSize 64
 
 #elif USE_AVX2
 using vec_t      = __m256i;
+using vec_i8_t   = __m128i;
 using vec128_t   = __m128i;
 using psqt_vec_t = __m256i;
 using vec_uint_t = __m256i;
     #define vec_load(a) _mm256_load_si256(a)
     #define vec_store(a, b) _mm256_store_si256(a, b)
+    #define vec_convert_8_16(a) _mm256_cvtepi8_epi16(a)
     #define vec_add_16(a, b) _mm256_add_epi16(a, b)
     #define vec_sub_16(a, b) _mm256_sub_epi16(a, b)
     #define vec_mulhi_16(a, b) _mm256_mulhi_epi16(a, b)
@@ -131,11 +113,12 @@ using vec_uint_t = __m256i;
     #define vec128_storeu(a, b) _mm_storeu_si128(a, b)
     #define vec128_add(a, b) _mm_add_epi16(a, b)
 
-    #define NumRegistersSIMD 16
+    #define NumRegistersSIMD 12
     #define MaxChunkSize 32
 
 #elif USE_SSE2
 using vec_t      = __m128i;
+using vec_i8_t   = std::uint64_t;  // for the correct size -- will be loaded into an xmm reg
 using vec128_t   = __m128i;
 using psqt_vec_t = __m128i;
 using vec_uint_t = __m128i;
@@ -161,17 +144,35 @@ using vec_uint_t = __m128i;
             _mm_movemask_ps(_mm_castsi128_ps(_mm_cmpgt_epi32(a, _mm_setzero_si128())))
     #endif
 
+    #ifdef __i386__
+inline __m128i _mm_cvtsi64_si128(int64_t val) {
+    return _mm_loadl_epi64(reinterpret_cast<const __m128i*>(&val));
+}
+    #endif
+
+    #ifdef USE_SSE41
+        #define vec_convert_8_16(a) _mm_cvtepi8_epi16(_mm_cvtsi64_si128(static_cast<int64_t>(a)))
+    #else
+// Credit: Yoshie2000
+inline __m128i vec_convert_8_16(uint64_t x) {
+    __m128i v8   = _mm_cvtsi64_si128(static_cast<int64_t>(x));
+    __m128i sign = _mm_cmpgt_epi8(_mm_setzero_si128(), v8);
+    return _mm_unpacklo_epi8(v8, sign);
+}
+    #endif
+
     #define vec128_zero _mm_setzero_si128()
     #define vec128_set_16(a) _mm_set1_epi16(a)
     #define vec128_load(a) _mm_load_si128(a)
     #define vec128_storeu(a, b) _mm_storeu_si128(a, b)
     #define vec128_add(a, b) _mm_add_epi16(a, b)
 
-    #define NumRegistersSIMD (Is64Bit ? 16 : 8)
+    #define NumRegistersSIMD (Is64Bit ? 12 : 6)
     #define MaxChunkSize 16
 
 #elif USE_NEON
 using vec_t      = int16x8_t;
+using vec_i8_t   = int8x16_t;
 using psqt_vec_t = int32x4_t;
 using vec128_t   = uint16x8_t;
 using vec_uint_t = uint32x4_t;
@@ -202,6 +203,11 @@ static constexpr std::uint32_t Mask[4] = {1, 2, 4, 8};
 
     #define NumRegistersSIMD 16
     #define MaxChunkSize 16
+
+    #ifndef __aarch64__
+// Single instruction doesn't exist on 32-bit ARM
+inline int8x16_t vmovl_high_s8(int8x16_t val) { return vmovl_s8(vget_high_s8(val)); }
+    #endif
 
 #else
     #undef VECTOR
@@ -276,20 +282,10 @@ fused(const typename VecWrapper::type& in, const T& operand, const Ts&... operan
 
     #if defined(USE_VNNI)
     acc = _mm512_dpbusd_epi32(acc, a, b);
-    #elif defined(USE_AVX512BW)
+    #else
     __m512i product0 = _mm512_maddubs_epi16(a, b);
     product0         = _mm512_madd_epi16(product0, _mm512_set1_epi16(1));
     acc              = _mm512_add_epi32(acc, product0);
-    #else
-    acc = _mm512_add_epi32(
-      acc, __builtin_shufflevector(
-             _mm256_madd_epi16(_mm256_maddubs_epi16(__builtin_shufflevector(a, a, 0, 1, 2, 3),
-                                                    __builtin_shufflevector(b, b, 0, 1, 2, 3)),
-                               _mm256_set1_epi16(1)),
-             _mm256_madd_epi16(_mm256_maddubs_epi16(__builtin_shufflevector(a, a, 4, 5, 6, 7),
-                                                    __builtin_shufflevector(b, b, 4, 5, 6, 7)),
-                               _mm256_set1_epi16(1)),
-             0, 1, 2, 3, 4, 5, 6, 7));
     #endif
 }
 

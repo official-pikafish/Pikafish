@@ -26,6 +26,17 @@
 
 namespace Stockfish::Eval::NNUE::Features {
 
+// Lookup array for indexing
+uint16_t PSQOffsets[PIECE_NB][SQUARE_NB];
+
+void init_psq_offsets() {
+    int cumulativeOffset = 0;
+    for (Piece pc : HalfKAv2_hm::AllPieces)
+        for (Square sq = SQ_A0; sq <= SQ_I9; ++sq)
+            if (HalfKAv2_hm::ValidBB[pc] & sq)
+                PSQOffsets[pc][sq] = cumulativeOffset++;
+}
+
 bool HalfKAv2_hm::requires_mid_mirror(const Position& pos, Color c) {
     return ((1ULL << 63) & pos.mid_encoding(c) & pos.mid_encoding(~c))
         && (pos.mid_encoding(c) < BalanceEncoding
@@ -48,9 +59,12 @@ IndexType HalfKAv2_hm::make_layer_stack_bucket(const Position& pos) {
 // Index of a feature for a given king position and another piece on some square
 template<Color Perspective>
 inline IndexType HalfKAv2_hm::make_index(Square s, Piece pc, int bucket, bool mirror) {
-    return IndexType(
-      IndexMap[mirror][Perspective == BLACK][type_of(pc) == ADVISOR || type_of(pc) == BISHOP][s]
-      + PieceSquareIndex[Perspective][pc] + PS_NB * bucket);
+    s = (Square) HalfKAv2_hm::IndexMap[mirror][Perspective == BLACK][s];
+
+    if constexpr (Perspective == BLACK)
+        pc = ~pc;
+
+    return PSQOffsets[pc][s] + PS_NB * bucket;
 }
 
 // Explicit template instantiations
@@ -60,24 +74,24 @@ template IndexType HalfKAv2_hm::make_index<BLACK>(Square s, Piece pc, int bucket
 // Get a list of indices for recently changed features
 template<Color Perspective>
 void HalfKAv2_hm::append_changed_indices(
-  int bucket, bool mirror, const DirtyPiece& dp, IndexList& removed, IndexList& added) {
-    removed.push_back(make_index<Perspective>(dp.from, dp.pc, bucket, mirror));
+  int bucket, bool mirror, const DiffType& diff, IndexList& removed, IndexList& added) {
+    removed.push_back(make_index<Perspective>(diff.from, diff.pc, bucket, mirror));
 
-    if (dp.to != SQ_NONE)
-        added.push_back(make_index<Perspective>(dp.to, dp.pc, bucket, mirror));
+    if (diff.to != SQ_NONE)
+        added.push_back(make_index<Perspective>(diff.to, diff.pc, bucket, mirror));
 
-    if (dp.remove_sq != SQ_NONE)
-        removed.push_back(make_index<Perspective>(dp.remove_sq, dp.remove_pc, bucket, mirror));
+    if (diff.remove_sq != SQ_NONE)
+        removed.push_back(make_index<Perspective>(diff.remove_sq, diff.remove_pc, bucket, mirror));
 }
 
 // Explicit template instantiations
 template void HalfKAv2_hm::append_changed_indices<WHITE>(
-  int bucket, bool mirror, const DirtyPiece& dp, IndexList& removed, IndexList& added);
+  int bucket, bool mirror, const DiffType& diff, IndexList& removed, IndexList& added);
 template void HalfKAv2_hm::append_changed_indices<BLACK>(
-  int bucket, bool mirror, const DirtyPiece& dp, IndexList& removed, IndexList& added);
+  int bucket, bool mirror, const DiffType& diff, IndexList& removed, IndexList& added);
 
-bool HalfKAv2_hm::requires_refresh(const DirtyPiece& dirtyPiece, Color perspective) {
-    return dirtyPiece.requires_refresh[perspective];
+bool HalfKAv2_hm::requires_refresh(const DiffType& diff, Color perspective) {
+    return diff.requires_refresh[perspective];
 }
 
 }  // namespace Stockfish::Eval::NNUE::Features

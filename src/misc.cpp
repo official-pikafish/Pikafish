@@ -244,9 +244,6 @@ std::string compiler_info() {
 #if defined(USE_VNNI)
     compiler += " VNNI";
 #endif
-#if defined(USE_AVX512BW)
-    compiler += " AVX512BW";
-#endif
 #if defined(USE_AVX512)
     compiler += " AVX512";
 #endif

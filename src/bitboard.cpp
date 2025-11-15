@@ -36,7 +36,9 @@ uint8_t SquareDistance[SQUARE_NB][SQUARE_NB];
 Bitboard SquareBB[SQUARE_NB];
 Bitboard LineBB[SQUARE_NB][SQUARE_NB];
 Bitboard BetweenBB[SQUARE_NB][SQUARE_NB];
-Bitboard PseudoAttacks[PIECE_TYPE_NB + 2][SQUARE_NB];
+Bitboard RayPassBB[SQUARE_NB][SQUARE_NB];
+Bitboard LeaperPassBB[SQUARE_NB][SQUARE_NB];
+Bitboard PseudoAttacks[PIECE_TYPE_NB + 4][SQUARE_NB];
 
 Magic RookMagics[SQUARE_NB];
 Magic CannonMagics[SQUARE_NB];
@@ -118,38 +120,57 @@ void Bitboards::init() {
         PseudoAttacks[NO_PIECE_TYPE][s1] = pawn_attacks_bb<WHITE>(s1);
         PseudoAttacks[PAWN][s1]          = pawn_attacks_bb<BLACK>(s1);
 
-        PseudoAttacks[KNIGHT_TO][s1] = pawn_attacks_to_bb<WHITE>(s1);
-        PseudoAttacks[PAWN_TO][s1]   = pawn_attacks_to_bb<BLACK>(s1);
+        PseudoAttacks[PAWN_TO - 1][s1] = pawn_attacks_to_bb<WHITE>(s1);
+        PseudoAttacks[PAWN_TO][s1]     = pawn_attacks_to_bb<BLACK>(s1);
 
         PseudoAttacks[ROOK][s1]   = attacks_bb<ROOK>(s1, 0);
         PseudoAttacks[BISHOP][s1] = attacks_bb<BISHOP>(s1, 0);
         PseudoAttacks[KNIGHT][s1] = attacks_bb<KNIGHT>(s1, 0);
 
         // Only generate pseudo attacks in the palace squares for king and advisor
-        if (Palace & s1)
+        for (int step : {NORTH, SOUTH, WEST, EAST})
         {
-            for (int step : {NORTH, SOUTH, WEST, EAST})
-                PseudoAttacks[KING][s1] |= safe_destination(s1, step);
-            PseudoAttacks[KING][s1] &= Palace;
+            if (Palace & s1)
+                PseudoAttacks[KING][s1] |= safe_destination(s1, step) & Palace;
+            // Unconstrained king
+            PseudoAttacks[KING + 3][s1] |= safe_destination(s1, step);
+        }
 
-            for (int step : {NORTH_WEST, NORTH_EAST, SOUTH_WEST, SOUTH_EAST})
-                PseudoAttacks[ADVISOR][s1] |= safe_destination(s1, step);
-            PseudoAttacks[ADVISOR][s1] &= Palace;
+        for (int step : {NORTH_WEST, NORTH_EAST, SOUTH_WEST, SOUTH_EAST})
+        {
+            if (Palace & s1)
+                PseudoAttacks[ADVISOR][s1] |= safe_destination(s1, step) & Palace;
+            // Unconstrained advisor
+            PseudoAttacks[ADVISOR + 9][s1] |= safe_destination(s1, step);
         }
 
         for (Square s2 = SQ_A0; s2 <= SQ_I9; ++s2)
         {
             if (PseudoAttacks[ROOK][s1] & s2)
             {
-                LineBB[s1][s2] = (attacks_bb(ROOK, s1, 0) & attacks_bb(ROOK, s2, 0)) | s1 | s2;
+                LineBB[s1][s2] = (attacks_bb<ROOK>(s1) & attacks_bb<ROOK>(s2, 0)) | s1 | s2;
                 BetweenBB[s1][s2] =
-                  (attacks_bb(ROOK, s1, square_bb(s2)) & attacks_bb(ROOK, s2, square_bb(s1)));
+                  (attacks_bb<ROOK>(s1, square_bb(s2)) & attacks_bb<ROOK>(s2, square_bb(s1)));
+                RayPassBB[s1][s2] = attacks_bb<CANNON>(s1, square_bb(s2));
             }
 
             if (PseudoAttacks[KNIGHT][s1] & s2)
                 BetweenBB[s1][s2] |= lame_leaper_path<KNIGHT_TO>(Direction(s2 - s1), s1);
 
             BetweenBB[s1][s2] |= s2;
+        }
+    }
+
+    for (Square s1 = SQ_A0; s1 <= SQ_I9; ++s1)
+    {
+        for (Square s2 = SQ_A0; s2 <= SQ_I9; ++s2)
+        {
+            if (unconstrained_attacks_bb<KING>(s1) & s2)
+                LeaperPassBB[s1][s2] |=
+                  attacks_bb<KNIGHT>(s1) & unconstrained_attacks_bb<ADVISOR>(s2);
+            if (unconstrained_attacks_bb<ADVISOR>(s1) & s2)
+                LeaperPassBB[s1][s2] |=
+                  attacks_bb<BISHOP>(s1) & unconstrained_attacks_bb<ADVISOR>(s2);
         }
     }
 }

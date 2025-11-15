@@ -125,7 +125,7 @@ Position& Position::set(const string& fenStr, StateInfo* si) {
     Square             sq = SQ_A9;
     std::istringstream ss(fenStr);
 
-    std::memset(this, 0, sizeof(Position));
+    std::memset(reinterpret_cast<char*>(this), 0, sizeof(Position));
 
     midEncoding[WHITE] = midEncoding[BLACK] = Eval::NNUE::Features::HalfKAv2_hm::BalanceEncoding;
 
@@ -442,10 +442,12 @@ bool Position::gives_check(Move m) const {
 // moves should be filtered out before this function is called.
 // If a pointer to the TT table is passed, the entry for the new position
 // will be prefetched
-DirtyPiece Position::do_move(Move                      m,
-                             StateInfo&                newSt,
-                             bool                      givesCheck,
-                             const TranspositionTable* tt = nullptr) {
+void Position::do_move(Move                      m,
+                       StateInfo&                newSt,
+                       bool                      givesCheck,
+                       DirtyPiece&               dp,
+                       DirtyThreats&             dts,
+                       const TranspositionTable* tt = nullptr) {
 
     assert(m.is_ok());
     assert(&newSt != st);
@@ -482,7 +484,6 @@ DirtyPiece Position::do_move(Move                      m,
     Piece  pc       = piece_on(from);
     Piece  captured = piece_on(to);
 
-    DirtyPiece dp;
     dp.pc   = pc;
     dp.from = from;
     dp.to   = to;
@@ -494,15 +495,20 @@ DirtyPiece Position::do_move(Move                      m,
     if (pc == make_piece(us, KING))
     {
         dp.requires_refresh[us] = true;
-        bool mirror_before = Eval::NNUE::FeatureSet::KingBuckets[king_square(them)][from][0].second;
-        bool mirror_after  = Eval::NNUE::FeatureSet::KingBuckets[king_square(them)][to][0].second;
-        dp.requires_refresh[them] = (mirror_before != mirror_after);
+        bool mirror_before =
+          Eval::NNUE::PSQFeatureSet::KingBuckets[king_square(them)][from][0].second;
+        bool mirror_after = Eval::NNUE::PSQFeatureSet::KingBuckets[king_square(them)][to][0].second;
+        dts.requires_refresh[them] = dp.requires_refresh[them] = (mirror_before != mirror_after);
+        mirror_before = Eval::NNUE::PSQFeatureSet::KingBuckets[from][king_square(them)][0].second;
+        mirror_after  = Eval::NNUE::PSQFeatureSet::KingBuckets[to][king_square(them)][0].second;
+        dts.requires_refresh[us] = (mirror_before != mirror_after);
     }
     else
-        dp.requires_refresh[us] = dp.requires_refresh[them] = false;
+        dts.requires_refresh[us] = dts.requires_refresh[them] = dp.requires_refresh[us] =
+          dp.requires_refresh[them]                           = false;
 
-    bool mid_mirror_before[2] = {Eval::NNUE::FeatureSet::requires_mid_mirror(*this, us),
-                                 Eval::NNUE::FeatureSet::requires_mid_mirror(*this, them)};
+    bool mid_mirror_before[2] = {Eval::NNUE::PSQFeatureSet::requires_mid_mirror(*this, us),
+                                 Eval::NNUE::PSQFeatureSet::requires_mid_mirror(*this, them)};
 
     if (captured)
     {
@@ -527,16 +533,6 @@ DirtyPiece Position::do_move(Move                      m,
 
         dp.remove_pc = captured;
         dp.remove_sq = capsq;
-
-        auto attack_bucket_before = Eval::NNUE::FeatureSet::make_attack_bucket(*this, them);
-
-        // Update board and piece lists
-        remove_piece(capsq);
-
-        auto attack_bucket_after = Eval::NNUE::FeatureSet::make_attack_bucket(*this, them);
-
-        if (attack_bucket_before != attack_bucket_after)
-            dp.requires_refresh[them] = true;
 
         // Update hash key
         k ^= Zobrist::psq[captured][capsq];
@@ -563,13 +559,27 @@ DirtyPiece Position::do_move(Move                      m,
             st->minorPieceKey ^= Zobrist::psq[pc][from] ^ Zobrist::psq[pc][to];
     }
 
-    // Move the piece.
-    move_piece(from, to);
+    if (captured)
+    {
+        auto attack_bucket_before = Eval::NNUE::PSQFeatureSet::make_attack_bucket(*this, them);
 
-    dp.requires_refresh[us] |=
-      (mid_mirror_before[0] != Eval::NNUE::FeatureSet::requires_mid_mirror(*this, us));
-    dp.requires_refresh[them] |=
-      (mid_mirror_before[1] != Eval::NNUE::FeatureSet::requires_mid_mirror(*this, them));
+        remove_piece(from, &dts);
+        swap_piece(to, pc, &dts);
+
+        auto attack_bucket_after = Eval::NNUE::PSQFeatureSet::make_attack_bucket(*this, them);
+
+        if (attack_bucket_before != attack_bucket_after)
+            dp.requires_refresh[them] = true;
+    }
+    else
+        move_piece(from, to, &dts);
+
+    bool mid_mirror_after[2] = {Eval::NNUE::PSQFeatureSet::requires_mid_mirror(*this, us),
+                                Eval::NNUE::PSQFeatureSet::requires_mid_mirror(*this, them)};
+    dp.requires_refresh[us] |= (mid_mirror_before[0] != mid_mirror_after[0]);
+    dp.requires_refresh[them] |= (mid_mirror_before[1] != mid_mirror_after[1]);
+    dts.requires_refresh[us] |= (mid_mirror_before[0] != mid_mirror_after[0]);
+    dts.requires_refresh[them] |= (mid_mirror_before[1] != mid_mirror_after[1]);
 
     // Set capture piece
     st->capturedPiece = captured;
@@ -591,7 +601,6 @@ DirtyPiece Position::do_move(Move                      m,
     assert(dp.pc != NO_PIECE);
     assert(!bool(captured) ^ (dp.remove_sq != SQ_NONE));
     assert(dp.from != SQ_NONE && dp.to != SQ_NONE);
-    return dp;
 }
 
 
@@ -626,6 +635,168 @@ void Position::undo_move(Move m) {
     --filter[st->key];
 
     assert(pos_is_ok());
+}
+
+
+template<bool PutPiece>
+inline void add_dirty_threat(
+  DirtyThreats* const dts, Piece pc, Piece threatened, Square s, Square threatenedSq) {
+    dts->list.push_back({pc, threatened, s, threatenedSq, PutPiece});
+}
+
+
+template<bool PutPiece, bool ComputeRay>
+void Position::update_piece_threats(Piece pc, Square s, DirtyThreats* const dts) {
+    Bitboard occupied = pieces();
+
+    const Bitboard rAttacks = attacks_bb<ROOK>(s, occupied);
+    const Bitboard cAttacks = attacks_bb<CANNON>(s, occupied);
+
+    // Outgoing threats
+    Bitboard threatened;
+
+    switch (type_of(pc))
+    {
+    case PAWN :
+        threatened = attacks_bb<PAWN>(s, color_of(pc));
+        break;
+    case ROOK :
+        threatened = rAttacks;
+        break;
+    case CANNON :
+        threatened = cAttacks;
+        break;
+
+    default :
+        threatened = attacks_bb(type_of(pc), s, occupied);
+    }
+
+    threatened &= occupied;
+
+    while (threatened)
+    {
+        Square threatenedSq = pop_lsb(threatened);
+        Piece  threatenedPc = piece_on(threatenedSq);
+
+        assert(threatenedSq != s);
+        assert(threatenedPc);
+
+        add_dirty_threat<PutPiece>(dts, pc, threatenedPc, s, threatenedSq);
+    }
+
+    // Incoming threats
+    Bitboard incoming_threats = (attacks_bb<PAWN_TO>(s, WHITE) & pieces(WHITE, PAWN))
+                              | (attacks_bb<PAWN_TO>(s, BLACK) & pieces(BLACK, PAWN))
+                              | (attacks_bb<KNIGHT_TO>(s, occupied) & pieces(KNIGHT))
+                              | (attacks_bb<BISHOP>(s, occupied) & pieces(BISHOP))
+                              | (attacks_bb<ADVISOR>(s) & pieces(ADVISOR))
+                              | (attacks_bb<KING>(s) & pieces(KING));
+
+    // Discovered threats
+    if constexpr (ComputeRay)
+    {
+        // Rooks threat pieces on the other side
+        Bitboard sliders = rAttacks & pieces(ROOK);
+        while (sliders)
+        {
+            Square sliderSq = pop_lsb(sliders);
+            Piece  slider   = piece_on(sliderSq);
+
+            const Bitboard discovered = ray_pass_bb(sliderSq, s) & rAttacks & occupied;
+
+            assert(!more_than_one(discovered));
+            if (discovered)
+            {
+                const Square threatenedSq = lsb(discovered);
+                const Piece  threatenedPc = piece_on(threatenedSq);
+                add_dirty_threat<!PutPiece>(dts, slider, threatenedPc, sliderSq, threatenedSq);
+            }
+
+            add_dirty_threat<PutPiece>(dts, slider, pc, sliderSq, s);
+        }
+        // Cannons threat pieces on the other side
+        sliders = cAttacks & pieces(CANNON);
+        while (sliders)
+        {
+            Square sliderSq = pop_lsb(sliders);
+            Piece  slider   = piece_on(sliderSq);
+
+            // Jumping over the first piece before 's'
+            const Bitboard discovered = ray_pass_bb(sliderSq, s) & rAttacks & occupied;
+
+            assert(!more_than_one(discovered));
+            if (discovered)
+            {
+                const Square threatenedSq = lsb(discovered);
+                const Piece  threatenedPc = piece_on(threatenedSq);
+                add_dirty_threat<!PutPiece>(dts, slider, threatenedPc, sliderSq, threatenedSq);
+            }
+
+            add_dirty_threat<PutPiece>(dts, slider, pc, sliderSq, s);
+        }
+        sliders = rAttacks & pieces(CANNON);
+        while (sliders)
+        {
+            Square sliderSq = pop_lsb(sliders);
+            Piece  slider   = piece_on(sliderSq);
+
+            // Jumping over 's'
+            Bitboard discovered = ray_pass_bb(sliderSq, s) & rAttacks & occupied;
+
+            assert(!more_than_one(discovered));
+            if (discovered)
+            {
+                const Square threatenedSq = lsb(discovered);
+                const Piece  threatenedPc = piece_on(threatenedSq);
+                add_dirty_threat<PutPiece>(dts, slider, threatenedPc, sliderSq, threatenedSq);
+            }
+
+            // Jumping over the first piece after 's'
+            discovered = ray_pass_bb(sliderSq, s) & cAttacks & occupied;
+
+            assert(!more_than_one(discovered));
+            if (discovered)
+            {
+                const Square threatenedSq = lsb(discovered);
+                const Piece  threatenedPc = piece_on(threatenedSq);
+                add_dirty_threat<!PutPiece>(dts, slider, threatenedPc, sliderSq, threatenedSq);
+            }
+        }
+
+        // Knights with 's' in between threat pieces on the other side
+        // Bishops with 's' in between threat pieces on the other side
+        Bitboard leapers = (unconstrained_attacks_bb<KING>(s) & pieces(KNIGHT))
+                         | (unconstrained_attacks_bb<ADVISOR>(s) & pieces(BISHOP));
+        while (leapers)
+        {
+            Square leaperSq = pop_lsb(leapers);
+            Piece  leaper   = piece_on(leaperSq);
+
+            Bitboard discovered = leaper_pass_bb(leaperSq, s) & occupied;
+
+            assert(type_of(leaper) == KNIGHT ? popcount(discovered) <= 2
+                                             : !more_than_one(discovered));
+            while (discovered)
+            {
+                const Square threatenedSq = pop_lsb(discovered);
+                const Piece  threatenedPc = piece_on(threatenedSq);
+                add_dirty_threat<!PutPiece>(dts, leaper, threatenedPc, leaperSq, threatenedSq);
+            }
+        }
+    }
+    else
+        incoming_threats |= (rAttacks & pieces(ROOK)) | (cAttacks & pieces(CANNON));
+
+    while (incoming_threats)
+    {
+        Square src_sq = pop_lsb(incoming_threats);
+        Piece  src_pc = piece_on(src_sq);
+
+        assert(src_sq != s);
+        assert(src_pc != NO_PIECE);
+
+        add_dirty_threat<PutPiece>(dts, src_pc, pc, src_sq, s);
+    }
 }
 
 
@@ -1187,7 +1358,7 @@ bool Position::pos_is_ok() const {
 
     for (Piece pc : Pieces)
         if (pieceCount[pc] != popcount(pieces(color_of(pc), type_of(pc)))
-            || pieceCount[pc] != std::count(board, board + SQUARE_NB, pc))
+            || pieceCount[pc] != std::count(board.begin(), board.end(), pc))
             assert(0 && "pos_is_ok: Pieces");
 
     return true;

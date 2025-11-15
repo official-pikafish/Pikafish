@@ -78,8 +78,10 @@ extern uint8_t SquareDistance[SQUARE_NB][SQUARE_NB];
 
 extern Bitboard SquareBB[SQUARE_NB];
 extern Bitboard BetweenBB[SQUARE_NB][SQUARE_NB];
+extern Bitboard RayPassBB[SQUARE_NB][SQUARE_NB];
+extern Bitboard LeaperPassBB[SQUARE_NB][SQUARE_NB];
 extern Bitboard LineBB[SQUARE_NB][SQUARE_NB];
-extern Bitboard PseudoAttacks[PIECE_TYPE_NB + 2][SQUARE_NB];
+extern Bitboard PseudoAttacks[PIECE_TYPE_NB + 4][SQUARE_NB];
 
 int popcount(Bitboard b);  // required for 128 bit pext
 
@@ -165,7 +167,7 @@ constexpr Bitboard shift(Bitboard b) {
 template<Color C>
 constexpr Bitboard pawn_attacks_bb(Square s) {
     Bitboard b      = square_bb(s);
-    Bitboard attack = shift < C == WHITE ? NORTH : SOUTH > (b);
+    Bitboard attack = shift<C == WHITE ? NORTH : SOUTH>(b);
     if ((C == WHITE && rank_of(s) > RANK_4) || (C == BLACK && rank_of(s) < RANK_5))
         attack |= shift<WEST>(b) | shift<EAST>(b);
     return attack;
@@ -177,7 +179,7 @@ constexpr Bitboard pawn_attacks_bb(Square s) {
 template<Color C>
 constexpr Bitboard pawn_attacks_to_bb(Square s) {
     Bitboard b      = square_bb(s);
-    Bitboard attack = shift < C == WHITE ? SOUTH : NORTH > (b);
+    Bitboard attack = shift<C == WHITE ? SOUTH : NORTH>(b);
     if ((C == WHITE && rank_of(s) > RANK_4) || (C == BLACK && rank_of(s) < RANK_5))
         attack |= shift<WEST>(b) | shift<EAST>(b);
     return attack;
@@ -206,6 +208,20 @@ inline Bitboard between_bb(Square s1, Square s2) {
 
     assert(is_ok(s1) && is_ok(s2));
     return BetweenBB[s1][s2];
+}
+
+
+inline Bitboard ray_pass_bb(Square s1, Square s2) {
+
+    assert(is_ok(s1) && is_ok(s2));
+    return RayPassBB[s1][s2];
+}
+
+
+inline Bitboard leaper_pass_bb(Square s1, Square s2) {
+
+    assert(is_ok(s1) && is_ok(s2));
+    return LeaperPassBB[s1][s2];
 }
 
 
@@ -244,13 +260,13 @@ inline int edge_distance(Rank r) { return std::min(r, Rank(RANK_9 - r)); }
 template<PieceType Pt>
 inline Bitboard attacks_bb(Square s, Color c = COLOR_NB) {
 
-    assert(((Pt != PAWN && Pt != PAWN_TO) || c < COLOR_NB) && (is_ok(s)));
+    assert((Pt != KNIGHT_TO) && ((Pt != PAWN && Pt != PAWN_TO) || c < COLOR_NB) && (is_ok(s)));
     if constexpr (Pt != PAWN && Pt != PAWN_TO)
         return PseudoAttacks[Pt][s];
     else if constexpr (Pt == PAWN)
         return PseudoAttacks[c == WHITE ? NO_PIECE_TYPE : PAWN][s];
     else  // if constexpr (Pt == PAWN_TO)
-        return PseudoAttacks[c == WHITE ? KNIGHT_TO : PAWN_TO][s];
+        return PseudoAttacks[c == WHITE ? PAWN_TO - 1 : PAWN_TO][s];
 }
 
 
@@ -298,6 +314,23 @@ inline Bitboard attacks_bb(PieceType pt, Square s, Bitboard occupied) {
         return attacks_bb<KNIGHT>(s, occupied);
     default :
         return PseudoAttacks[pt][s];
+    }
+}
+
+
+template<PieceType Pt>
+inline Bitboard unconstrained_attacks_bb(Square s) {
+
+    assert((Pt == KING || Pt == ADVISOR) && (is_ok(s)));
+
+    switch (Pt)
+    {
+    case KING :
+        return PseudoAttacks[KING + 3][s];
+    case ADVISOR :
+        return PseudoAttacks[ADVISOR + 9][s];
+    default :
+        return PseudoAttacks[Pt][s];
     }
 }
 

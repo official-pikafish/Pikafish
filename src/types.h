@@ -40,6 +40,7 @@
     #include <cstddef>
     #include <cstdint>
     #include <type_traits>
+    #include "misc.h"
 
     #if defined(_MSC_VER)
         // Disable some silly and noisy warnings from MSVC compiler
@@ -290,6 +291,39 @@ struct DirtyPiece {
     Piece  remove_pc;
 
     bool requires_refresh[2];
+};
+
+// Keep track of what threats change on the board (used by NNUE)
+struct DirtyThreat {
+    DirtyThreat() { /* don't initialize data */ }
+    DirtyThreat(Piece pc, Piece threatened_pc, Square pc_sq, Square threatened_sq, bool add) {
+        data = (add << 28) | (pc << 20) | (threatened_pc << 16) | (threatened_sq << 8) | (pc_sq);
+    }
+
+    Piece  pc() const { return static_cast<Piece>(data >> 20 & 0xf); }
+    Piece  threatened_pc() const { return static_cast<Piece>(data >> 16 & 0xf); }
+    Square threatened_sq() const { return static_cast<Square>(data >> 8 & 0xff); }
+    Square pc_sq() const { return static_cast<Square>(data & 0xff); }
+    bool   add() const {
+        uint32_t b = data >> 28;
+        sf_assume(b == 0 || b == 1);
+        return b;
+    }
+
+   private:
+    uint32_t data;
+};
+
+using DirtyThreatList = ValueList<DirtyThreat, 64>;
+
+struct DirtyThreats {
+    DirtyThreatList list;
+    bool            requires_refresh[2];
+};
+
+struct DirtyBoardData {
+    DirtyPiece   dp;
+    DirtyThreats dts;
 };
 
     #define ENABLE_INCR_OPERATORS_ON(T) \
