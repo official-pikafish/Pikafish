@@ -161,10 +161,11 @@ void FullThreats::append_changed_indices(
         auto to       = dirty.threatened_sq();
         auto add      = dirty.add();
 
-        IndexType index = make_index(perspective, attacker, from, to, attacked, mirror);
+        auto&     insert = add ? added : removed;
+        IndexType index  = make_index(perspective, attacker, from, to, attacked, mirror);
 
         if (index < Dimensions)
-            (add ? added : removed).push_back(index);
+            insert.push_back(index);
     }
 }
 
