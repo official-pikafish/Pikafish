@@ -662,18 +662,12 @@ Value Search::Worker::search(
     ss->ttPv     = excludedMove ? ss->ttPv : PvNode || (ttHit && ttData.is_pv);
     ttCapture    = ttData.move && pos.capture(ttData.move);
 
-    // At this point, if excluded, skip straight to step 5, static eval. However,
-    // to save indentation, we list the condition in all code between here and there.
-
     // Step 5. Static evaluation of the position
     Value      unadjustedStaticEval = VALUE_NONE;
     const auto correctionValue      = correction_value(*this, pos, ss);
+    // Skip early pruning when in check
     if (ss->inCheck)
-    {
-        // Skip early pruning when in check
         ss->staticEval = eval = (ss - 2)->staticEval;
-        improving             = false;
-    }
     else if (excludedMove)
         unadjustedStaticEval = eval = ss->staticEval;
     else if (ss->ttHit)
