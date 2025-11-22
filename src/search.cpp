@@ -699,6 +699,7 @@ Value Search::Worker::search(
                 // Check that the ttValue after the tt move would also trigger a cutoff
                 if (!is_valid(ttDataNext.value))
                     return ttData.value;
+
                 if ((ttData.value >= beta) == (-ttDataNext.value >= beta))
                     return ttData.value;
             }
@@ -764,6 +765,7 @@ Value Search::Worker::search(
     // Hindsight adjustment of reductions based on static evaluation difference.
     if (priorReduction >= 3 && !opponentWorsening)
         depth++;
+
     if (priorReduction >= 1 && depth >= 2 && ss->staticEval + (ss - 1)->staticEval > 197)
         depth--;
 
@@ -1089,8 +1091,6 @@ moves_loop:  // When in check, search starts here
         if (ss->ttPv)
             r -= 2317 + PvNode * 990 + (ttData.value > alpha) * 1116
                + (ttData.depth >= depth) * (1137 + cutNode * 945);
-
-        // These reduction adjustments have no proven non-linear scaling
 
         r += 853;  // Base reduction offset to compensate for other tweaks
         r -= moveCount * 66;
@@ -1474,8 +1474,10 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
         {
             // Never assume anything about values stored in TT
             unadjustedStaticEval = ttData.eval;
+
             if (!is_valid(unadjustedStaticEval))
                 unadjustedStaticEval = evaluate(pos);
+
             ss->staticEval = bestValue =
               to_corrected_static_eval(unadjustedStaticEval, correctionValue);
 
@@ -1487,8 +1489,7 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
         else
         {
             unadjustedStaticEval = evaluate(pos);
-
-            ss->staticEval = bestValue =
+            ss->staticEval       = bestValue =
               to_corrected_static_eval(unadjustedStaticEval, correctionValue);
         }
 
@@ -1497,6 +1498,7 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
         {
             if (!is_decisive(bestValue))
                 bestValue = (bestValue + beta) / 2;
+
             if (!ss->ttHit)
                 ttWriter.write(posKey, value_to_tt(bestValue, ss->ply), false, BOUND_LOWER,
                                DEPTH_UNSEARCHED, Move::none(), unadjustedStaticEval,
@@ -1751,6 +1753,7 @@ void update_continuation_histories(Stack* ss, Piece pc, Square to, int bonus) {
         // Only update the first 2 continuation histories if we are in check
         if (ss->inCheck && i > 2)
             break;
+
         if (((ss - i)->currentMove).is_ok())
             (*(ss - i)->continuationHistory)[pc][to] << (bonus * weight / 1024) + 83 * (i < 2);
     }
@@ -1776,6 +1779,40 @@ void update_quiet_histories(
 
 }
 
+<<<<<<< HEAD
+=======
+// When playing with strength handicap, choose the best move among a set of
+// RootMoves using a statistical rule dependent on 'level'. Idea by Heinz van Saanen.
+Move Skill::pick_best(const RootMoves& rootMoves, size_t multiPV) {
+    static PRNG rng(now());  // PRNG sequence should be non-deterministic
+
+    // RootMoves are already sorted by score in descending order
+    Value  topScore = rootMoves[0].score;
+    int    delta    = std::min(topScore - rootMoves[multiPV - 1].score, int(PawnValue));
+    int    maxScore = -VALUE_INFINITE;
+    double weakness = 120 - 2 * level;
+
+    // Choose best move. For each move score we add two terms, both dependent on
+    // weakness. One is deterministic and bigger for weaker levels, and one is
+    // random. Then we choose the move with the resulting highest score.
+    for (size_t i = 0; i < multiPV; ++i)
+    {
+        // This is our magic formula
+        int push = int(weakness * int(topScore - rootMoves[i].score)
+                       + delta * (rng.rand<unsigned>() % int(weakness)))
+                 / 128;
+
+        if (rootMoves[i].score + push >= maxScore)
+        {
+            maxScore = rootMoves[i].score + push;
+            best     = rootMoves[i].pv[0];
+        }
+    }
+
+    return best;
+}
+
+>>>>>>> 45d034fa (Formatting fixups)
 // Used to print debug info and, more importantly, to detect
 // when we are out of available time and thus stop the search.
 void SearchManager::check_time(Search::Worker& worker) {
