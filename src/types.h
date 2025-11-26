@@ -297,7 +297,8 @@ struct DirtyPiece {
 struct DirtyThreat {
     DirtyThreat() { /* don't initialize data */ }
     DirtyThreat(Piece pc, Piece threatened_pc, Square pc_sq, Square threatened_sq, bool add) {
-        data = (add << 31) | (pc << 20) | (threatened_pc << 16) | (threatened_sq << 8) | (pc_sq);
+        data = (uint32_t(add) << 31) | (pc << 20) | (threatened_pc << 16) | (threatened_sq << 8)
+             | (pc_sq);
     }
 
     Piece  pc() const { return static_cast<Piece>(data >> 20 & 0xf); }

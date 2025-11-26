@@ -23,7 +23,7 @@ jobs:
             os: windows-latest
             shell: msys2 {0}
             ext: .exe
-        arch: ["-avx512icl", "-vnni512", "-avx512bw", "-avx512", "-avxvnni", "-bmi2", "-avx2", "-sse41-popcnt"]
+        arch: ["-avx512icl", "-vnni512", "-avx512", "-avxvnni", "-bmi2", "-avx2", "-sse41-popcnt"]
     defaults:
       run:
         working-directory: src
