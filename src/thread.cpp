@@ -275,7 +275,8 @@ void ThreadPool::start_thinking(Position& pos, StateListPtr& states, Search::Lim
     {
         th->run_custom_job([&]() {
             th->worker->limits = limits;
-            th->worker->nodes = th->worker->nmpMinPly = th->worker->bestMoveChanges = 0;
+            th->worker->nodes = th->worker->bestMoveChanges = 0;
+            th->worker->nmpMinPly                           = 0;
             th->worker->rootDepth = th->worker->completedDepth = 0;
             th->worker->rootMoves                              = rootMoves;
             th->worker->rootPos.set(pos, &th->worker->rootState);

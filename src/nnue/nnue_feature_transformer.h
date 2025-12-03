@@ -150,9 +150,10 @@ class FeatureTransformer {
         read_little_endian<WeightType>(stream, combinedWeights->data(),
                                        HalfDimensions * TotalInputDimensions);
 
-        std::copy(combinedWeights->begin(),
-                  combinedWeights->begin() + ThreatInputDimensions * HalfDimensions,
-                  std::begin(threatWeights));
+        std::transform(combinedWeights->begin(),
+                       combinedWeights->begin() + ThreatInputDimensions * HalfDimensions,
+                       std::begin(threatWeights),
+                       [](WeightType w) { return static_cast<ThreatWeightType>(w); });
 
         std::copy(combinedWeights->begin() + ThreatInputDimensions * HalfDimensions,
                   combinedWeights->begin()
