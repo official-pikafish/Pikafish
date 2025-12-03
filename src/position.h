@@ -59,7 +59,7 @@ struct StateInfo {
     Bitboard   blockersForKing[COLOR_NB];
     Bitboard   pinners[COLOR_NB];
     Bitboard   checkSquares[PIECE_TYPE_NB];
-    bool       needSlowCheck;
+    bool       needFullCheck;
     Piece      capturedPiece;
     Move       move;
 };

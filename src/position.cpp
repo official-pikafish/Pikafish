@@ -186,8 +186,8 @@ void Position::set_check_info() const {
 
     Square ksq = king_square(~sideToMove);
 
-    // We have to take special cares about the cannon and checks
-    st->needSlowCheck =
+    // We have to take special cares about the hollow cannons and checks
+    st->needFullCheck =
       checkers() || (attacks_bb<ROOK>(king_square(sideToMove)) & pieces(~sideToMove, CANNON));
 
     st->checkSquares[PAWN]   = attacks_bb<PAWN_TO>(ksq, sideToMove);
@@ -201,7 +201,7 @@ void Position::set_check_info() const {
     {
         Bitboard hollowCannonDiscover = Bitboard(0);
         while (hollowCannons)
-            hollowCannonDiscover |= between_bb(ksq, pop_lsb(hollowCannons));
+            hollowCannonDiscover |= between_bb(pop_lsb(hollowCannons), ksq);
         for (PieceType pt = ROOK; pt < KING; ++pt)
             st->checkSquares[pt] |= hollowCannonDiscover;
     }
@@ -362,11 +362,11 @@ bool Position::legal(Move m) const {
     if (type_of(piece_on(from)) == KING)
         return !(checkers_to(~us, to, occupied));
 
-    // If we don't need slow check. A non-king move is always legal when either:
+    // If we don't need full check. A non-king move is always legal when either:
     // 1. Not moving a pinned piece.
     // 2. Moving a pinned non-cannon piece and aligned with king.
     // 3. Moving a pinned cannon and aligned with king but it's not a capture move.
-    if (!st->needSlowCheck
+    if (!st->needFullCheck
         && (!(blockers_for_king(us) & from)
             || (((type_of(piece_on(from)) != CANNON) || !capture(m))
                 && aligned(from, to, king_square(us)))))
@@ -419,18 +419,16 @@ bool Position::gives_check(Move m) const {
     PieceType pt = type_of(moved_piece(m));
 
     // Is there a direct check?
-    if (pt == CANNON && aligned(from, to, ksq))
+    if (pt == CANNON && (check_squares(ROOK) & from) && aligned(from, to, ksq))
     {
-        if (attacks_bb<CANNON>(to, (pieces() ^ from) | to) & ksq)
+        if (capture(m) && (ray_pass_bb(ksq, from) & to))
             return true;
     }
     else if (check_squares(pt) & to)
         return true;
 
     // Is there a discovered check?
-    if (attacks_bb<ROOK>(ksq) & pieces(sideToMove, CANNON))
-        return bool(checkers_to(sideToMove, ksq, (pieces() ^ from) | to) & ~square_bb(from));
-    else if ((blockers_for_king(~sideToMove) & from) && !aligned(from, to, ksq))
+    if ((blockers_for_king(~sideToMove) & from) && (!aligned(from, to, ksq) || capture(m)))
         return true;
 
     return false;
@@ -582,7 +580,7 @@ void Position::do_move(Move                      m,
 
     // Calculate checkers bitboard (if move gives check)
     st->checkersBB = givesCheck ? checkers_to(us, king_square(them)) : Bitboard(0);
-    assert(givesCheck == bool(st->checkersBB));
+    assert(givesCheck == bool(checkers_to(us, king_square(them))));
 
     sideToMove = ~sideToMove;
 
