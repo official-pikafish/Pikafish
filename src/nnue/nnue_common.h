@@ -50,7 +50,7 @@ namespace Stockfish::Eval::NNUE {
 
 using BiasType         = std::int16_t;
 using ThreatWeightType = std::int8_t;
-using WeightType       = std::int16_t;
+using WeightType       = std::int8_t;
 using PSQTWeightType   = std::int32_t;
 using IndexType        = std::uint32_t;
 

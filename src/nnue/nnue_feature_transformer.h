@@ -127,13 +127,13 @@ class FeatureTransformer {
 
     void permute_weights() {
         permute<16>(biases, PackusEpi16Order);
-        permute<16>(weights, PackusEpi16Order);
+        permute<8>(weights, PackusEpi16Order);
         permute<8>(threatWeights, PackusEpi16Order);
     }
 
     void unpermute_weights() {
         permute<16>(biases, InversePackusEpi16Order);
-        permute<16>(weights, InversePackusEpi16Order);
+        permute<8>(weights, InversePackusEpi16Order);
         permute<8>(threatWeights, InversePackusEpi16Order);
     }
 
@@ -147,7 +147,8 @@ class FeatureTransformer {
           std::make_unique<std::array<WeightType, HalfDimensions * TotalInputDimensions>>();
         auto combinedPsqtWeights =
           std::make_unique<std::array<PSQTWeightType, TotalInputDimensions * PSQTBuckets>>();
-        read_leb_128<WeightType>(stream, *combinedWeights);
+        read_little_endian<WeightType>(stream, combinedWeights->data(),
+                                       HalfDimensions * TotalInputDimensions);
 
         std::copy(combinedWeights->begin(),
                   combinedWeights->begin() + ThreatInputDimensions * HalfDimensions,
@@ -194,7 +195,8 @@ class FeatureTransformer {
                   std::begin(copy->weights) + InputDimensions * HalfDimensions,
                   combinedWeights->begin() + ThreatInputDimensions * HalfDimensions);
 
-        write_leb_128<WeightType>(stream, *combinedWeights);
+        write_little_endian<WeightType>(stream, combinedWeights->data(),
+                                        HalfDimensions * TotalInputDimensions);
 
         std::copy(std::begin(copy->threatPsqtWeights),
                   std::begin(copy->threatPsqtWeights) + ThreatInputDimensions * PSQTBuckets,

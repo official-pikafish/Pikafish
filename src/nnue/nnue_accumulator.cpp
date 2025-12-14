@@ -207,15 +207,15 @@ void AccumulatorStack::forward_update_incremental(
 
     for (std::size_t next = begin + 1; next < size; next++)
     {
-        if (next + 1 < size)
+        if constexpr (std::is_same_v<FeatureSet, PSQFeatureSet>)
         {
-            DirtyPiece& dp1 = mut_accumulators<PSQFeatureSet>()[next].diff;
-            DirtyPiece& dp2 = mut_accumulators<PSQFeatureSet>()[next + 1].diff;
-
-            auto& accumulators = mut_accumulators<FeatureSet>();
-
-            if constexpr (std::is_same_v<FeatureSet, PSQFeatureSet>)
+            if (next + 1 < size)
             {
+                DirtyPiece& dp1 = mut_accumulators<PSQFeatureSet>()[next].diff;
+                DirtyPiece& dp2 = mut_accumulators<PSQFeatureSet>()[next + 1].diff;
+
+                auto& accumulators = mut_accumulators<FeatureSet>();
+
                 if (dp1.to != SQ_NONE && dp1.to == dp2.remove_sq)
                 {
                     const Square captureSq = dp1.to;
@@ -278,8 +278,7 @@ template<typename VectorWrapper,
          IndexType Width,
          UpdateOperation... ops,
          typename ElementType,
-         typename... Ts,
-         std::enable_if_t<is_all_same_v<ElementType, Ts...>, bool> = true>
+         typename... Ts>
 void fused_row_reduce(const ElementType* in, ElementType* out, const Ts* const... rows) {
     constexpr IndexType size = Width * sizeof(ElementType) / sizeof(typename VectorWrapper::type);
 
@@ -288,7 +287,14 @@ void fused_row_reduce(const ElementType* in, ElementType* out, const Ts* const..
 
     for (IndexType i = 0; i < size; ++i)
         vecOut[i] = fused<VectorWrapper, ops...>(
-          vecIn[i], reinterpret_cast<const typename VectorWrapper::type*>(rows)[i]...);
+          vecIn[i], std::is_same_v<VectorWrapper, Vec16Wrapper>
+                      ?
+#ifdef VECTOR
+                      vec_convert_8_16(reinterpret_cast<const vec_i8_t*>(rows)[i])
+#else
+                      static_cast<const typename VectorWrapper::type>(rows[i])
+#endif
+                      : reinterpret_cast<const typename VectorWrapper::type*>(rows)[i]...);
 }
 
 template<typename FeatureSet, IndexType Dimensions>
@@ -690,31 +696,58 @@ void update_accumulator_refresh_cache(Color                                 pers
         {
             IndexType       indexR  = removed[i];
             const IndexType offsetR = Dimensions * indexR + j * Tiling::TileHeight;
-            auto* columnR = reinterpret_cast<const vec_t*>(&featureTransformer.weights[offsetR]);
+            auto* columnR = reinterpret_cast<const vec_i8_t*>(&featureTransformer.weights[offsetR]);
             IndexType       indexA  = added[i];
             const IndexType offsetA = Dimensions * indexA + j * Tiling::TileHeight;
-            auto* columnA = reinterpret_cast<const vec_t*>(&featureTransformer.weights[offsetA]);
+            auto* columnA = reinterpret_cast<const vec_i8_t*>(&featureTransformer.weights[offsetA]);
 
+    #ifdef USE_NEON
+            for (IndexType k = 0; k < Tiling::NumRegs; k += 2)
+            {
+                acc[k] =
+                  fused<Vec16Wrapper, Add, Sub>(acc[k], vmovl_s8(vget_low_s8(columnA[k / 2])),
+                                                vmovl_s8(vget_low_s8(columnR[k / 2])));
+                acc[k + 1] = fused<Vec16Wrapper, Add, Sub>(
+                  acc[k + 1], vmovl_high_s8(columnA[k / 2]), vmovl_high_s8(columnR[k / 2]));
+            }
+    #else
             for (IndexType k = 0; k < Tiling::NumRegs; ++k)
-                acc[k] = fused<Vec16Wrapper, Add, Sub>(acc[k], columnA[k], columnR[k]);
+                acc[k] = fused<Vec16Wrapper, Add, Sub>(acc[k], vec_convert_8_16(columnA[k]),
+                                                       vec_convert_8_16(columnR[k]));
+    #endif
         }
         for (; i < removed.size(); ++i)
         {
             IndexType       index  = removed[i];
             const IndexType offset = Dimensions * index + j * Tiling::TileHeight;
-            auto* column = reinterpret_cast<const vec_t*>(&featureTransformer.weights[offset]);
-
+            auto* column = reinterpret_cast<const vec_i8_t*>(&featureTransformer.weights[offset]);
+    #ifdef USE_NEON
+            for (IndexType k = 0; k < Tiling::NumRegs; k += 2)
+            {
+                acc[k]     = vec_sub_16(acc[k], vmovl_s8(vget_low_s8(column[k / 2])));
+                acc[k + 1] = vec_sub_16(acc[k + 1], vmovl_high_s8(column[k / 2]));
+            }
+    #else
             for (IndexType k = 0; k < Tiling::NumRegs; ++k)
-                acc[k] = vec_sub_16(acc[k], column[k]);
+                acc[k] = vec_sub_16(acc[k], vec_convert_8_16(column[k]));
+    #endif
         }
         for (; i < added.size(); ++i)
         {
             IndexType       index  = added[i];
             const IndexType offset = Dimensions * index + j * Tiling::TileHeight;
-            auto* column = reinterpret_cast<const vec_t*>(&featureTransformer.weights[offset]);
+            auto* column = reinterpret_cast<const vec_i8_t*>(&featureTransformer.weights[offset]);
 
+    #ifdef USE_NEON
+            for (IndexType k = 0; k < Tiling::NumRegs; k += 2)
+            {
+                acc[k]     = vec_add_16(acc[k], vmovl_s8(vget_low_s8(column[k / 2])));
+                acc[k + 1] = vec_add_16(acc[k + 1], vmovl_high_s8(column[k / 2]));
+            }
+    #else
             for (IndexType k = 0; k < Tiling::NumRegs; ++k)
-                acc[k] = vec_add_16(acc[k], column[k]);
+                acc[k] = vec_add_16(acc[k], vec_convert_8_16(column[k]));
+    #endif
         }
 
         for (IndexType k = 0; k < Tiling::NumRegs; k++)
