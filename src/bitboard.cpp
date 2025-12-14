@@ -207,7 +207,7 @@ template<PieceType pt>
 Bitboard lame_leaper_path(Direction d, Square s) {
     Bitboard b  = 0;
     Square   to = s + d;
-    if (!is_ok(to) || distance(s, to) >= 4)
+    if (!is_ok(to) || distance(s, to) > 3)
         return b;
 
     // If piece type is by knight attacks, swap the source and destination square
@@ -248,7 +248,7 @@ Bitboard lame_leaper_attack(Square s, Bitboard occupied) {
     for (const auto& d : pt == BISHOP ? BishopDirections : KnightDirections)
     {
         Square to = s + d;
-        if (is_ok(to) && distance(s, to) < 4 && !(lame_leaper_path<pt>(d, s) & occupied))
+        if (is_ok(to) && distance(s, to) < 3 && !(lame_leaper_path<pt>(d, s) & occupied))
             b |= to;
     }
     if (pt == BISHOP)
