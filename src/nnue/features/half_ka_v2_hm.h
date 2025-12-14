@@ -53,8 +53,11 @@ class HalfKAv2_hm {
     // Number of features per plane
     static constexpr IndexType PS_NB = 689;
 
+    // Number of attack buckets
+    static constexpr IndexType AttackBucketNB = 4;
+
     // Number of feature dimensions
-    static constexpr IndexType Dimensions = 6 * 4 * PS_NB;
+    static constexpr IndexType Dimensions = 6 * AttackBucketNB * PS_NB;
 
     static constexpr Bitboard ValidBB[PIECE_NB]{
       0,                                                                                        // _
@@ -227,6 +230,9 @@ class HalfKAv2_hm {
 
     // Get attack bucket
     static IndexType make_attack_bucket(const Position& pos, Color c);
+
+    // Get feature bucket
+    static std::tuple<int, bool, int> make_feature_bucket(Color perspective, const Position& pos);
 
     // Get layer stack bucket
     static IndexType make_layer_stack_bucket(const Position& pos);

@@ -57,6 +57,18 @@ IndexType HalfKAv2_hm::make_attack_bucket(const Position& pos, Color c) {
     return AttackBucket[pos.count<ROOK>(c)][pos.count<KNIGHT>(c)][pos.count<CANNON>(c)];
 }
 
+// Get feature bucket
+std::tuple<int, bool, int> HalfKAv2_hm::make_feature_bucket(Color           perspective,
+                                                            const Position& pos) {
+    const Square ksq           = pos.king_square(perspective);
+    const Square oksq          = pos.king_square(~perspective);
+    auto [king_bucket, mirror] = KingBuckets[ksq][oksq][requires_mid_mirror(pos, perspective)];
+    auto attack_bucket         = make_attack_bucket(pos, perspective);
+    auto bucket                = king_bucket * 4 + attack_bucket;
+
+    return {bucket, mirror, attack_bucket};
+}
+
 // Get layer stack bucket
 IndexType HalfKAv2_hm::make_layer_stack_bucket(const Position& pos) {
     static constexpr auto LayerStackBuckets = [] {

@@ -21,7 +21,6 @@
 #include "full_threats.h"
 
 #include <array>
-#include <initializer_list>
 
 #include "../../position.h"
 #include "../../types.h"
