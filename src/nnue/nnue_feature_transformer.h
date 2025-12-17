@@ -142,23 +142,12 @@ class FeatureTransformer {
     // reading the weights into a combined array, and then splitting.
     bool read_parameters(std::istream& stream) {
         read_leb_128<BiasType>(stream, biases);
+        read_little_endian<ThreatWeightType>(stream, threatWeights.data(),
+                                             ThreatInputDimensions * HalfDimensions);
+        read_little_endian<WeightType>(stream, weights.data(), InputDimensions * HalfDimensions);
 
-        auto combinedWeights =
-          std::make_unique<std::array<WeightType, HalfDimensions * TotalInputDimensions>>();
         auto combinedPsqtWeights =
           std::make_unique<std::array<PSQTWeightType, TotalInputDimensions * PSQTBuckets>>();
-        read_little_endian<WeightType>(stream, combinedWeights->data(),
-                                       HalfDimensions * TotalInputDimensions);
-
-        std::transform(combinedWeights->begin(),
-                       combinedWeights->begin() + ThreatInputDimensions * HalfDimensions,
-                       std::begin(threatWeights),
-                       [](WeightType w) { return static_cast<ThreatWeightType>(w); });
-
-        std::copy(combinedWeights->begin() + ThreatInputDimensions * HalfDimensions,
-                  combinedWeights->begin()
-                    + (ThreatInputDimensions + InputDimensions) * HalfDimensions,
-                  std::begin(weights));
 
         read_leb_128<PSQTWeightType>(stream, *combinedPsqtWeights);
 
@@ -182,22 +171,12 @@ class FeatureTransformer {
         copy->unpermute_weights();
 
         write_leb_128<BiasType>(stream, copy->biases);
+        write_little_endian<ThreatWeightType>(stream, threatWeights.data(),
+                                              ThreatInputDimensions * HalfDimensions);
+        write_little_endian<WeightType>(stream, weights.data(), InputDimensions * HalfDimensions);
 
-        auto combinedWeights =
-          std::make_unique<std::array<WeightType, HalfDimensions * TotalInputDimensions>>();
         auto combinedPsqtWeights =
           std::make_unique<std::array<PSQTWeightType, TotalInputDimensions * PSQTBuckets>>();
-
-        std::copy(std::begin(copy->threatWeights),
-                  std::begin(copy->threatWeights) + ThreatInputDimensions * HalfDimensions,
-                  combinedWeights->begin());
-
-        std::copy(std::begin(copy->weights),
-                  std::begin(copy->weights) + InputDimensions * HalfDimensions,
-                  combinedWeights->begin() + ThreatInputDimensions * HalfDimensions);
-
-        write_little_endian<WeightType>(stream, combinedWeights->data(),
-                                        HalfDimensions * TotalInputDimensions);
 
         std::copy(std::begin(copy->threatPsqtWeights),
                   std::begin(copy->threatPsqtWeights) + ThreatInputDimensions * PSQTBuckets,
