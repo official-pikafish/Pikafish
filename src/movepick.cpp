@@ -186,11 +186,7 @@ ExtMove* MovePicker::score(MoveList<Type>& ml) {
             if (pos.capture(m))
                 m.value = PieceValue[capturedPiece] + (1 << 28);
             else
-            {
                 m.value = (*mainHistory)[us][m.raw()] + (*continuationHistory[0])[pc][to];
-                if (ply < LOW_PLY_HISTORY_SIZE)
-                    m.value += (*lowPlyHistory)[ply][m.raw()];
-            }
         }
     }
     return it;
