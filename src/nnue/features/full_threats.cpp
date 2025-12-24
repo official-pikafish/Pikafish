@@ -29,11 +29,12 @@
 namespace Stockfish::Eval::NNUE::Features {
 
 // Lookup array for indexing threats
-uint16_t ThreatOffsets[PIECE_NB][SQUARE_NB][SQUARE_NB][PIECE_NB];
-
-void init_threat_offsets() {
+auto ThreatOffsets = []() {
+    std::array<std::array<std::array<std::array<uint16_t, PIECE_NB>, SQUARE_NB>, SQUARE_NB>,
+               PIECE_NB>
+      ThreatOffsets{};
     // clang-format off
-    static constexpr bool ValidPairs[PIECE_NB][PIECE_NB] = {
+    constexpr bool ValidPairs[PIECE_NB][PIECE_NB] = {
       //    R   A   C   P   N   B   K   _   r   a   c   p   n   b   k
       { 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0}, // _
       { 0,  1,  1,  1,  1,  1,  1,  1,  0,  1,  1,  1,  1,  1,  1,  0}, // R
@@ -73,9 +74,10 @@ void init_threat_offsets() {
                 if (pt == PAWN)
                     attacks = attacks_bb<PAWN>(from, color_of(attacker));
                 else if (pt == CANNON)
-                    attacks = attacks_bb<CANNON>(from, unconstrained_attacks_bb<KING>(from));
+                    attacks =
+                      Bitboards::sliding_attack<CANNON>(from, unconstrained_attacks_bb<KING>(from));
                 else
-                    attacks = attacks_bb(pt, from, 0);
+                    attacks = PseudoAttacks[pt][from];
 
                 for (Piece attacked : HalfKAv2_hm::AllPieces)
                     if (ValidPairs[attacker][attacked])
@@ -101,8 +103,8 @@ void init_threat_offsets() {
             }
     }
 
-    init_psq_offsets();
-}
+    return ThreatOffsets;
+}();
 
 // Index of a feature for a given king position and another piece on some square
 IndexType FullThreats::make_index(

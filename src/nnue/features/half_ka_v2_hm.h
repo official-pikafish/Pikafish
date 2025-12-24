@@ -38,8 +38,6 @@ class Position;
 
 namespace Stockfish::Eval::NNUE::Features {
 
-void init_psq_offsets();
-
 // Feature HalfKAv2_hm: Combination of the position of own king and the
 // position of pieces. Position mirrored such that king is always on d..e files.
 class HalfKAv2_hm {

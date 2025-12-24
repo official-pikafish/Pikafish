@@ -30,8 +30,6 @@ class Position;
 
 namespace Stockfish::Eval::NNUE::Features {
 
-void init_threat_offsets();
-
 class FullThreats {
    public:
     // Feature name

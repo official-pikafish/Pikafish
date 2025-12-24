@@ -27,15 +27,16 @@
 namespace Stockfish::Eval::NNUE::Features {
 
 // Lookup array for indexing
-uint16_t PSQOffsets[PIECE_NB][SQUARE_NB];
-
-void init_psq_offsets() {
+constexpr auto PSQOffsets = [] {
     int cumulativeOffset = 0;
+
+    std::array<std::array<uint16_t, SQUARE_NB>, PIECE_NB> PSQOffsets{};
     for (Piece pc : HalfKAv2_hm::AllPieces)
         for (Square sq = SQ_A0; sq <= SQ_I9; ++sq)
             if (HalfKAv2_hm::ValidBB[pc] & sq)
                 PSQOffsets[pc][sq] = cumulativeOffset++;
-}
+    return PSQOffsets;
+}();
 
 bool HalfKAv2_hm::requires_mid_mirror(const Position& pos, Color c) {
     return ((1ULL << 63) & pos.mid_encoding(c) & pos.mid_encoding(~c))
