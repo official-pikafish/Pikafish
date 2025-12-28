@@ -1125,6 +1125,10 @@ moves_loop:  // When in check, search starts here
         // Decrease/increase reduction for moves with a good/bad history
         r -= ss->statScore * 946 / 8192;
 
+        // Scale up reductions for expected ALL nodes
+        if (allNode)
+            r += r / (depth + 1);
+
         // Step 16. Late moves reduction / extension (LMR)
         if (depth >= 2 && moveCount > 1)
         {
