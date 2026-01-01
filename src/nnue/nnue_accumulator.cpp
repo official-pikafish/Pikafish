@@ -264,6 +264,24 @@ template void AccumulatorStack::evaluate<TransformedFeatureDimensionsBig>(
 
 namespace {
 
+template<typename VectorWrapper, typename RowType>
+inline auto load_row_val(const RowType* rows, IndexType i) {
+    if constexpr (std::is_same_v<VectorWrapper, Vec16Wrapper>)
+    {
+#ifdef VECTOR
+    #ifdef USE_NEON
+        return vmovl_s8(reinterpret_cast<const int8x8_t*>(rows)[i]);
+    #else
+        return vec_convert_8_16(reinterpret_cast<const vec_i8_t*>(rows)[i]);
+    #endif
+#else
+        return static_cast<const typename VectorWrapper::type>(rows[i]);
+#endif
+    }
+    else
+        return reinterpret_cast<const typename VectorWrapper::type*>(rows)[i];
+}
+
 template<typename VectorWrapper,
          IndexType Width,
          UpdateOperation... ops,
@@ -276,15 +294,7 @@ void fused_row_reduce(const ElementType* in, ElementType* out, const Ts* const..
     auto* vecOut = reinterpret_cast<typename VectorWrapper::type*>(out);
 
     for (IndexType i = 0; i < size; ++i)
-        vecOut[i] = fused<VectorWrapper, ops...>(
-          vecIn[i], std::is_same_v<VectorWrapper, Vec16Wrapper>
-                      ?
-#ifdef VECTOR
-                      vec_convert_8_16(reinterpret_cast<const vec_i8_t*>(rows)[i])
-#else
-                      static_cast<const typename VectorWrapper::type>(rows[i])
-#endif
-                      : reinterpret_cast<const typename VectorWrapper::type*>(rows)[i]...);
+        vecOut[i] = fused<VectorWrapper, ops...>(vecIn[i], load_row_val<VectorWrapper>(rows, i)...);
 }
 
 template<typename FeatureSet, IndexType Dimensions>
