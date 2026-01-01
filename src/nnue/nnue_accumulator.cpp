@@ -620,6 +620,24 @@ Bitboard get_changed_pieces(const std::array<Piece, SQUARE_NB>& oldPieces,
         sameBB |= static_cast<Bitboard>(equalMask) << i;
     }
     return ~sameBB;
+#elif defined(USE_NEON)
+    Bitboard sameBB = 0;
+
+    constexpr uint8x16_t mask_weights = {1, 2, 4, 8, 16, 32, 64, 128, 1, 2, 4, 8, 16, 32, 64, 128};
+
+    for (int i : {0, 16, 32, 48, 64, 74})
+    {
+        uint8x16_t old_v = vld1q_u8(reinterpret_cast<const uint8_t*>(&oldPieces[i]));
+        uint8x16_t new_v = vld1q_u8(reinterpret_cast<const uint8_t*>(&newPieces[i]));
+
+        uint8x16_t eq     = vceqq_u8(old_v, new_v);
+        uint8x16_t masked = vandq_u8(eq, mask_weights);
+        uint16_t   mask16 = vaddv_u8(vget_low_u8(masked)) | (vaddv_u8(vget_high_u8(masked)) << 8);
+
+        sameBB |= static_cast<Bitboard>(mask16) << i;
+    }
+
+    return ~sameBB;
 #else
     Bitboard changed = 0;
 
