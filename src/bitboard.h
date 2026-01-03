@@ -314,29 +314,19 @@ inline Square lsb(Bitboard b) {
 #endif
 }
 
-// Returns the most significant bit in a non-zero bitboard.
-inline Square msb(Bitboard b) {
+// Returns the most significant bit in a 64 bit integer.
+inline int msb(uint64_t b) {
     assert(b);
 
 #if defined(_MSC_VER)
 
     unsigned long idx;
-    if (b._Word[1])
-    {
-        _BitScanReverse(&idx, b._Word[1]);
-        return Square(idx);
-    }
-    else
-    {
-        _BitScanReverse(&idx, b._Word[0]);
-        return Square(idx + 64);
-    }
+    _BitScanReverse64(&idx, b);
+    return idx;
 
 #else  // Assumed gcc or compatible compiler
 
-    if (uint64_t(b >> 64))
-        return Square(__builtin_clzll(b));
-    return Square(__builtin_clzll(b) + 64);
+    return 63 ^ __builtin_clzll(b);
 
 #endif
 }
