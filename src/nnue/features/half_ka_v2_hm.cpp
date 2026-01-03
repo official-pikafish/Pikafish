@@ -30,7 +30,7 @@ namespace Stockfish::Eval::NNUE::Features {
 constexpr auto PSQOffsets = [] {
     int cumulativeOffset = 0;
 
-    std::array<std::array<uint16_t, SQUARE_NB>, PIECE_NB> PSQOffsets{};
+    MultiArray<uint16_t, PIECE_NB, SQUARE_NB> PSQOffsets{};
     for (Piece pc : HalfKAv2_hm::AllPieces)
         for (Square sq = SQ_A0; sq <= SQ_I9; ++sq)
             if (HalfKAv2_hm::ValidBB[pc] & sq)
@@ -47,7 +47,7 @@ bool HalfKAv2_hm::requires_mid_mirror(const Position& pos, Color c) {
 // Get attack bucket based on attack feature
 IndexType HalfKAv2_hm::make_attack_bucket(const Position& pos, Color c) {
     static constexpr auto AttackBucket = []() {
-        std::array<std::array<std::array<int, 3>, 3>, 3> v{};
+        MultiArray<int, 3, 3, 3> v{};
         for (uint8_t rook = 0; rook <= 2; ++rook)
             for (uint8_t knight = 0; knight <= 2; ++knight)
                 for (uint8_t cannon = 0; cannon <= 2; ++cannon)
@@ -73,7 +73,7 @@ std::tuple<int, bool, int> HalfKAv2_hm::make_feature_bucket(Color           pers
 // Get layer stack bucket
 IndexType HalfKAv2_hm::make_layer_stack_bucket(const Position& pos) {
     static constexpr auto LayerStackBuckets = [] {
-        std::array<std::array<std::array<std::array<uint8_t, 5>, 5>, 3>, 3> v{};
+        MultiArray<uint8_t, 3, 3, 5, 5> v{};
         for (uint8_t us_rook = 0; us_rook <= 2; ++us_rook)
             for (uint8_t opp_rook = 0; opp_rook <= 2; ++opp_rook)
                 for (uint8_t us_knight_cannon = 0; us_knight_cannon <= 4; ++us_knight_cannon)

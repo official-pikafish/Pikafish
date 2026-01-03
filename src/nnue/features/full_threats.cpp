@@ -30,9 +30,7 @@ namespace Stockfish::Eval::NNUE::Features {
 
 // Lookup array for indexing threats
 auto ThreatOffsets = []() {
-    std::array<std::array<std::array<std::array<uint16_t, PIECE_NB>, SQUARE_NB>, SQUARE_NB>,
-               PIECE_NB>
-      ThreatOffsets{};
+    MultiArray<uint16_t, PIECE_NB, SQUARE_NB, SQUARE_NB, PIECE_NB> ThreatOffsets{};
     // clang-format off
     constexpr bool ValidPairs[PIECE_NB][PIECE_NB] = {
       //    R   A   C   P   N   B   K   _   r   a   c   p   n   b   k

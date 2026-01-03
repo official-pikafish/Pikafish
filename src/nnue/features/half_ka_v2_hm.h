@@ -99,7 +99,7 @@ class HalfKAv2_hm {
           // clang-format on
         };
 #undef M
-        std::array<std::array<std::array<std::pair<int, bool>, 2>, SQUARE_NB>, SQUARE_NB> v{};
+        MultiArray<std::pair<int, bool>, SQUARE_NB, SQUARE_NB, 2> v{};
         for (uint8_t ksq = SQ_A0; ksq <= SQ_I9; ++ksq)
             for (uint8_t oksq = SQ_A0; oksq <= SQ_I9; ++oksq)
                 for (uint8_t midm = 0; midm <= 1; ++midm)
@@ -119,7 +119,7 @@ class HalfKAv2_hm {
 
     // Square index mapping based on condition (Mirror, Rotate)
     static constexpr auto IndexMap = []() {
-        std::array<std::array<std::array<std::uint8_t, SQUARE_NB>, 2>, 2> v{};
+        MultiArray<std::uint8_t, 2, 2, SQUARE_NB> v{};
         for (uint8_t m = 0; m < 2; ++m)
             for (uint8_t r = 0; r < 2; ++r)
                 for (uint8_t s = 0; s < SQUARE_NB; ++s)
@@ -187,9 +187,7 @@ class HalfKAv2_hm {
     *    by the second part, and all overflows of the second part will be automatically resolved at this time.
     */
     static constexpr auto MidMirrorEncoding = [] {
-        std::array<std::array<uint64_t, static_cast<size_t>(SQUARE_NB)>,
-                   static_cast<size_t>(PIECE_NB)>
-                          encodings{};
+        MultiArray<uint64_t, PIECE_NB, SQUARE_NB> encodings{};
         constexpr uint8_t shifts[8][2]{{0, 0},   {44, 0},  {60, 36}, {47, 7},
                                        {53, 21}, {50, 14}, {57, 29}, {0, 0}};
         for (const auto& c : {WHITE, BLACK})
