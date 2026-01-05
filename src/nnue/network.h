@@ -28,7 +28,6 @@
 #include <string>
 #include <string_view>
 #include <tuple>
-#include <utility>
 
 #include "../misc.h"
 #include "../types.h"
@@ -117,8 +116,8 @@ using NetworkBig = Network<BigNetworkArchitecture, BigFeatureTransformer>;
 
 
 struct Networks {
-    Networks(std::unique_ptr<NetworkBig>&& nB) :
-        big(std::move(*nB)) {}
+    Networks(EvalFile bigFile) :
+        big(bigFile) {}
 
     NetworkBig big;
 };

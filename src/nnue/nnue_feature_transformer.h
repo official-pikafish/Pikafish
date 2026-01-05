@@ -138,27 +138,14 @@ class FeatureTransformer {
     }
 
     // Read network parameters
-    // TODO: This is ugly. Currently LEB128 on the entire L1 necessitates
-    // reading the weights into a combined array, and then splitting.
     bool read_parameters(std::istream& stream) {
-        read_leb_128<BiasType>(stream, biases);
+        read_leb_128(stream, biases);
+
         read_little_endian<ThreatWeightType>(stream, threatWeights.data(),
                                              ThreatInputDimensions * HalfDimensions);
         read_little_endian<WeightType>(stream, weights.data(), InputDimensions * HalfDimensions);
 
-        auto combinedPsqtWeights =
-          std::make_unique<std::array<PSQTWeightType, TotalInputDimensions * PSQTBuckets>>();
-
-        read_leb_128<PSQTWeightType>(stream, *combinedPsqtWeights);
-
-        std::copy(combinedPsqtWeights->begin(),
-                  combinedPsqtWeights->begin() + ThreatInputDimensions * PSQTBuckets,
-                  std::begin(threatPsqtWeights));
-
-        std::copy(combinedPsqtWeights->begin() + ThreatInputDimensions * PSQTBuckets,
-                  combinedPsqtWeights->begin()
-                    + (ThreatInputDimensions + InputDimensions) * PSQTBuckets,
-                  std::begin(psqtWeights));
+        read_leb_128(stream, threatPsqtWeights, psqtWeights);
 
         permute_weights();
         return !stream.fail();
@@ -171,9 +158,10 @@ class FeatureTransformer {
         copy->unpermute_weights();
 
         write_leb_128<BiasType>(stream, copy->biases);
-        write_little_endian<ThreatWeightType>(stream, threatWeights.data(),
+        write_little_endian<ThreatWeightType>(stream, copy->threatWeights.data(),
                                               ThreatInputDimensions * HalfDimensions);
-        write_little_endian<WeightType>(stream, weights.data(), InputDimensions * HalfDimensions);
+        write_little_endian<WeightType>(stream, copy->weights.data(),
+                                        InputDimensions * HalfDimensions);
 
         auto combinedPsqtWeights =
           std::make_unique<std::array<PSQTWeightType, TotalInputDimensions * PSQTBuckets>>();

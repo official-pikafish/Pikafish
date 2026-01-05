@@ -54,8 +54,7 @@ Engine::Engine(std::optional<std::string> path) :
     threads(),
     networks(numaContext,
              // Heap-allocate because sizeof(NN::Networks) is large
-             std::make_unique<NN::Networks>(std::make_unique<NN::NetworkBig>(
-               NN::EvalFile{EvalFileDefaultNameBig, "None", ""}))) {
+             std::make_unique<NN::Networks>(NN::EvalFile{EvalFileDefaultNameBig, "None", ""})) {
 
     pos.set(StartFEN, &states->back());
 
