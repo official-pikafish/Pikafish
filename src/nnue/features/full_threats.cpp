@@ -54,10 +54,10 @@ auto ThreatOffsets = []() {
     // clang-format on
 
     // Initialize threat offsets to be all Dimension
-    for (size_t i = 0; i < PIECE_NB; ++i)
-        for (size_t j = 0; j < SQUARE_NB; ++j)
-            for (size_t k = 0; k < SQUARE_NB; ++k)
-                for (size_t l = 0; l < PIECE_NB; ++l)
+    for (uint8_t i = 0; i < PIECE_NB; ++i)
+        for (uint8_t j = 0; j < SQUARE_NB; ++j)
+            for (uint8_t k = 0; k < SQUARE_NB; ++k)
+                for (uint8_t l = 0; l < PIECE_NB; ++l)
                     ThreatOffsets[i][j][k][l] = FullThreats::Dimensions;
 
     int cumulativeOffset = 0;

@@ -45,7 +45,7 @@ inline Move* write_moves(Move* moveList, uint32_t mask, __m512i vector) {
 inline Move* splat_moves(Move* moveList, Square from, Bitboard to_bb) {
     alignas(64) static constexpr auto SPLAT_TABLE = [] {
         std::array<Move, 90> table{};
-        for (int8_t i = 0; i < 90; i++)
+        for (uint8_t i = 0; i < 90; i++)
             table[i] = {Move(SQUARE_ZERO, Square{i})};
         return table;
     }();

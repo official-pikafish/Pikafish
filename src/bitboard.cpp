@@ -58,12 +58,15 @@ std::string Bitboards::pretty(Bitboard b) {
 
     std::string s = "+---+---+---+---+---+---+---+---+---+\n";
 
-    for (Rank r = RANK_9; r >= RANK_0; --r)
+    for (Rank r = RANK_9;; --r)
     {
         for (File f = FILE_A; f <= FILE_I; ++f)
             s += b & make_square(f, r) ? "| X " : "|   ";
 
         s += "| " + std::to_string(r) + "\n+---+---+---+---+---+---+---+---+---+\n";
+
+        if (r == RANK_0)
+            break;
     }
     s += "  a   b   c   d   e   f   g   h   i\n";
 
