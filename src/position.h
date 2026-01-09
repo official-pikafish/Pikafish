@@ -192,7 +192,6 @@ class Position {
     std::array<Bitboard, PIECE_TYPE_NB> byTypeBB;
     std::array<Bitboard, COLOR_NB>      byColorBB;
 
-    Square     kingSquare[COLOR_NB];
     int        pieceCount[PIECE_NB];
     uint64_t   midEncoding[COLOR_NB];
     StateInfo* st;
@@ -248,7 +247,10 @@ inline int Position::count() const {
     return count<Pt>(WHITE) + count<Pt>(BLACK);
 }
 
-inline Square Position::king_square(Color c) const { return kingSquare[c]; }
+inline Square Position::king_square(Color c) const {
+    return c == WHITE ? lsb(uint64_t(pieces(KING)))
+                      : Square(64 + lsb(uint64_t(pieces(KING) >> 64)));
+}
 
 inline uint64_t Position::mid_encoding(Color c) const { return midEncoding[c]; }
 
@@ -351,8 +353,6 @@ inline void Position::move_piece(Square from, Square to, DirtyThreats* const dts
     byColorBB[color_of(pc)] ^= fromTo;
     board[from] = NO_PIECE;
     board[to]   = pc;
-    if (type_of(pc) == KING)
-        kingSquare[color_of(pc)] = to;
     midEncoding[color_of(pc)] -= Eval::NNUE::Features::HalfKAv2_hm::MidMirrorEncoding[pc][from];
     midEncoding[color_of(pc)] += Eval::NNUE::Features::HalfKAv2_hm::MidMirrorEncoding[pc][to];
 
@@ -369,8 +369,6 @@ inline void Position::swap_piece(Square s, Piece pc, DirtyThreats* const dts) {
         update_piece_threats<false, false>(old, s, dts);
 
     put_piece(pc, s);
-    if (type_of(pc) == KING)
-        kingSquare[color_of(pc)] = s;
 
     if (dts)
         update_piece_threats<true, false>(pc, s, dts);

@@ -147,8 +147,6 @@ Position& Position::set(const string& fenStr, StateInfo* si) {
         else if ((idx = PieceToChar.find(token)) != string::npos)
         {
             put_piece(Piece(idx), sq);
-            if (type_of(Piece(idx)) == KING)
-                kingSquare[color_of(Piece(idx))] = sq;
             ++sq;
         }
     }
