@@ -1335,6 +1335,7 @@ moves_loop:  // When in check, search starts here
 
         bonusScale = std::max(bonusScale, 0);
 
+        // scaledBonus ranges from 0 to roughly 2.3M, overflows happen for multipliers larger than 900
         const int scaledBonus = std::min(148 * depth - 86, 2188) * bonusScale;
 
         update_continuation_histories(ss - 1, pos.piece_on(prevSq), prevSq,
@@ -1344,7 +1345,7 @@ moves_loop:  // When in check, search starts here
 
         if (type_of(pos.piece_on(prevSq)) != PAWN)
             sharedHistory.pawn_entry(pos)[pos.piece_on(prevSq)][prevSq]
-              << scaledBonus * 975 / 32768;
+              << scaledBonus * 244 / 8192;
     }
 
     // Bonus for prior capture countermove that caused the fail low
