@@ -809,7 +809,7 @@ void Position::update_piece_threats(Piece pc, Square s, DirtyThreats* const dts)
 
 // Used to do a "null move": it flips
 // the side to move without executing any move on the board.
-void Position::do_null_move(StateInfo& newSt, const TranspositionTable& tt) {
+void Position::do_null_move(StateInfo& newSt) {
 
     assert(!checkers());
     assert(&newSt != st);
@@ -823,7 +823,6 @@ void Position::do_null_move(StateInfo& newSt, const TranspositionTable& tt) {
     st             = &newSt;
 
     st->key ^= Zobrist::side;
-    prefetch(tt.first_entry(key()));
 
     st->pliesFromNull = 0;
 
