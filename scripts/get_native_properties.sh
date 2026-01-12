@@ -44,8 +44,6 @@ set_arch_x86_64() {
   elif check_flags 'avx512vnni' 'avx512dq' 'avx512f' 'avx512bw' 'avx512vl'; then
     true_arch='x86-64-vnni512'
   elif check_flags 'avx512f' 'avx512bw'; then
-    true_arch='x86-64-avx512bw'
-  elif check_flags 'avx512f'; then
     true_arch='x86-64-avx512'
   elif check_flags 'avxvnni'; then
     true_arch='x86-64-avxvnni'
@@ -82,12 +80,12 @@ case $uname_s in
     case $uname_m in
       'arm64')
         true_arch='apple-silicon'
-        file_arch='x86-64-sse41-popcnt' # Supported by Rosetta 2
+        file_arch='m1-apple-silicon'
         ;;
       'x86_64')
         flags=$(sysctl -n machdep.cpu.features machdep.cpu.leaf7_features | tr '\n' ' ' | tr '[:upper:]' '[:lower:]' | tr -d '_.')
         set_arch_x86_64
-        if [ "$true_arch" = 'x86-64-vnni256' ] || [ "$true_arch" = 'x86-64-avx512' ]; then
+        if [ "$true_arch" = 'x86-64-avx512' ]; then
            file_arch='x86-64-bmi2'
         fi
         ;;

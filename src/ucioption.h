@@ -47,10 +47,10 @@ class Option {
     Option(const char* v, const char* cur, OnChange = nullptr);
 
     Option& operator=(const std::string&);
-    operator int() const;
-    operator std::string() const;
-    bool operator==(const char*) const;
-    bool operator!=(const char*) const;
+            operator int() const;
+            operator std::string() const;
+    bool    operator==(const char*) const;
+    bool    operator!=(const char*) const;
 
     friend std::ostream& operator<<(std::ostream&, const OptionsMap&);
 

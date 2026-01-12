@@ -21,6 +21,9 @@
     { include: [ "<iosfwd>", public, "<iostream>", public ] },
 
     # Missing mappings in include-what-you-use's libcxx.imp
+    { include: ["@<__cstddef/.*>", private, "<cstddef>", public ] },
     { include: ["@<__condition_variable/.*>", private, "<condition_variable>", public ] },
     { include: ["@<__mutex/.*>", private, "<mutex>", public ] },
+    { include: ["@<__type_traits/.*>", private, "<type_traits>", public ] },
+    { include: ["@<__utility/.*>", private, "<utility>", public ] },
 ]
