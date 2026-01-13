@@ -20,11 +20,13 @@
 #define BITBOARD_H_INCLUDED
 
 #include <algorithm>
+#include <array>
 #include <cassert>
 #include <cstring>
+#include <initializer_list>
 #include <cstdint>
-#include <cstdlib>
 #include <string>
+#include <utility>
 
 #include "types.h"
 

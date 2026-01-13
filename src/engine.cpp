@@ -21,6 +21,7 @@
 #include <algorithm>
 #include <cassert>
 #include <deque>
+#include <memory>
 #include <sstream>
 #include <string_view>
 #include <utility>

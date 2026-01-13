@@ -18,6 +18,7 @@
 
 #include <iostream>
 #include <memory>
+#include <string>
 
 #include "bitboard.h"
 #include "misc.h"

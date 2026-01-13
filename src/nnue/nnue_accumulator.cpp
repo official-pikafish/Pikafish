@@ -21,6 +21,7 @@
 #include <cassert>
 #include <cstdint>
 #include <new>
+#include <tuple>
 #include <type_traits>
 #include <utility>
 

@@ -20,6 +20,7 @@
 
 #include "nnue_misc.h"
 
+#include <cmath>
 #include <cstdlib>
 #include <cstring>
 #include <iomanip>

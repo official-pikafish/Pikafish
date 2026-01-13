@@ -21,10 +21,14 @@
 #include "full_threats.h"
 
 #include <array>
+#include <utility>
 
+#include "../../bitboard.h"
+#include "../../misc.h"
 #include "../../position.h"
 #include "../../types.h"
 #include "../nnue_common.h"
+#include "half_ka_v2_hm.h"
 
 namespace Stockfish::Eval::NNUE::Features {
 

@@ -26,10 +26,12 @@
 #include <deque>
 #include <iosfwd>
 #include <memory>
+#include <new>
 #include <string>
 #include <utility>
 
 #include "bitboard.h"
+#include "misc.h"
 #include "nnue/features/half_ka_v2_hm.h"
 #include "types.h"
 
