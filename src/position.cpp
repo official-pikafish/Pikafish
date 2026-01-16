@@ -555,6 +555,15 @@ void Position::do_move(Move                      m,
             st->minorPieceKey ^= Zobrist::psq[pc][from] ^ Zobrist::psq[pc][to];
     }
 
+    if (history)
+    {
+        prefetch(&history->pawn_entry(*this)[pc][to]);
+        prefetch(&history->pawn_correction_entry(*this));
+        prefetch(&history->minor_piece_correction_entry(*this));
+        prefetch(&history->nonpawn_correction_entry<WHITE>(*this));
+        prefetch(&history->nonpawn_correction_entry<BLACK>(*this));
+    }
+
     if (captured)
     {
         auto attack_bucket_before = PSQFeatureSet::make_attack_bucket(*this, them);
@@ -578,15 +587,6 @@ void Position::do_move(Move                      m,
                                   .second};
     dp.requires_refresh[us] |= dts.requires_refresh[us]     = (mirror_before[0] != mirror_after[0]);
     dp.requires_refresh[them] |= dts.requires_refresh[them] = (mirror_before[1] != mirror_after[1]);
-
-    if (history)
-    {
-        prefetch(&history->pawn_entry(*this)[pc][to]);
-        prefetch(&history->pawn_correction_entry(*this));
-        prefetch(&history->minor_piece_correction_entry(*this));
-        prefetch(&history->nonpawn_correction_entry<WHITE>(*this));
-        prefetch(&history->nonpawn_correction_entry<BLACK>(*this));
-    }
 
     // Set capture piece
     st->capturedPiece = captured;
