@@ -74,6 +74,84 @@ inline Move* splat_moves(Move* moveList, Square from, Bitboard to_bb) {
 
 #endif
 
+// Absorption Xiangqi: Generate attacks for a specific piece type ability
+// This handles the special cases for each piece type
+template<Color Us, GenType Type>
+Bitboard generate_ability_attacks(PieceType pt, Square from, const Position& pos, Bitboard target, bool hasAnyAbsorbed) {
+    Bitboard b = 0;
+    Bitboard occupied = pos.pieces();
+
+    switch (pt) {
+    case PAWN:
+        b = attacks_bb<PAWN>(from, Us) & target;
+        break;
+
+    case ROOK:
+        b = attacks_bb<ROOK>(from, occupied) & target;
+        break;
+
+    case KNIGHT:
+        b = attacks_bb<KNIGHT>(from, occupied) & target;
+        break;
+
+    case BISHOP:
+        // If piece has absorbed abilities, Bishop can move full board (diagonal 2 steps)
+        // otherwise restricted to own half
+        if (hasAnyAbsorbed)
+            b = attacks_bb<BISHOP>(from, occupied);  // Full board bishop moves
+        else
+            b = attacks_bb<BISHOP>(from, occupied);  // Already restricted by attack table
+        b &= target;
+        break;
+
+    case ADVISOR:
+        // If piece has absorbed abilities, Advisor can move full board (diagonal 1 step)
+        // otherwise restricted to palace
+        if (hasAnyAbsorbed)
+            b = unconstrained_attacks_bb<ADVISOR>(from) & target;
+        else
+            b = attacks_bb<ADVISOR>(from) & target;
+        break;
+
+    case CANNON:
+        // Cannon has special capture vs quiet logic
+        if (Type != QUIETS)
+            b |= attacks_bb<CANNON>(from, occupied) & pos.pieces(~Us);
+        if (Type != CAPTURES)
+            b |= attacks_bb<ROOK>(from, occupied) & ~occupied;
+        if (Type == EVASIONS)
+            b &= target;
+        break;
+
+    default:
+        break;
+    }
+
+    return b;
+}
+
+// Absorption Xiangqi: Generate all moves for a piece considering its absorbed abilities
+template<Color Us, GenType Type>
+Move* generate_piece_with_absorption(const Position& pos, Move* moveList, Square from, PieceType basePt, Bitboard target) {
+    AbilityMask abilities = pos.absorbed_abilities(from);
+    bool hasAnyAbsorbed = (abilities != 0);
+
+    // Collect all destination squares from base type and absorbed types
+    Bitboard destinations = 0;
+
+    // Generate moves for base piece type
+    destinations |= generate_ability_attacks<Us, Type>(basePt, from, pos, target, hasAnyAbsorbed);
+
+    // Generate moves for each absorbed ability
+    for (PieceType pt = ROOK; pt < KING; ++pt) {
+        if (abilities & (1 << pt)) {
+            destinations |= generate_ability_attacks<Us, Type>(pt, from, pos, target, hasAnyAbsorbed);
+        }
+    }
+
+    return splat_moves(moveList, from, destinations);
+}
+
 template<Color Us, PieceType Pt, GenType Type>
 Move* generate_moves(const Position& pos, Move* moveList, Bitboard target) {
 
@@ -83,27 +161,8 @@ Move* generate_moves(const Position& pos, Move* moveList, Bitboard target) {
 
     while (bb)
     {
-        Square   from = pop_lsb(bb);
-        Bitboard b    = 0;
-        if constexpr (Pt != CANNON)
-            b = (Pt != PAWN ? attacks_bb<Pt>(from, pos.pieces()) : attacks_bb<PAWN>(from, Us))
-              & target;
-        else
-        {
-            // Generate cannon capture moves.
-            if (Type != QUIETS)
-                b |= attacks_bb<CANNON>(from, pos.pieces()) & pos.pieces(~Us);
-
-            // Generate cannon quite moves.
-            if (Type != CAPTURES)
-                b |= attacks_bb<ROOK>(from, pos.pieces()) & ~pos.pieces();
-
-            // Restrict to target if in evasion generation
-            if (Type == EVASIONS)
-                b &= target;
-        }
-
-        moveList = splat_moves(moveList, from, b);
+        Square from = pop_lsb(bb);
+        moveList = generate_piece_with_absorption<Us, Type>(pos, moveList, from, Pt, target);
     }
 
     return moveList;
@@ -195,22 +254,47 @@ Move* generate<EVASIONS>(const Position& pos, Move* moveList) {
     moveList = splat_moves(moveList, ksq, b);
 
     // Generate move away hurdle piece evasions for cannon
+    // Absorption Xiangqi: hurdle piece may have absorbed abilities
     if (pt == CANNON)
     {
         Bitboard hurdle = between_bb(ksq, checksq) & pos.pieces(us);
         if (hurdle)
         {
             Square hurdleSq = pop_lsb(hurdle);
-            pt              = type_of(pos.piece_on(hurdleSq));
-            if (pt == PAWN)
-                b = attacks_bb<PAWN>(hurdleSq, us) & ~line_bb(checksq, hurdleSq) & ~pos.pieces(us);
-            else if (pt == CANNON)
-                b = (attacks_bb<ROOK>(hurdleSq, pos.pieces()) & ~line_bb(checksq, hurdleSq)
-                     & ~pos.pieces())
-                  | (attacks_bb<CANNON>(hurdleSq, pos.pieces()) & pos.pieces(~us));
+            PieceType hurdlePt = type_of(pos.piece_on(hurdleSq));
+            AbilityMask abilities = pos.absorbed_abilities(hurdleSq);
+            bool hasAnyAbsorbed = (abilities != 0);
+
+            b = 0;
+            Bitboard validTarget = ~line_bb(checksq, hurdleSq) & ~pos.pieces(us);
+            Bitboard occupied = pos.pieces();
+
+            // Generate moves for base type
+            if (hurdlePt == PAWN)
+                b |= attacks_bb<PAWN>(hurdleSq, us) & validTarget;
+            else if (hurdlePt == CANNON)
+                b |= ((attacks_bb<ROOK>(hurdleSq, occupied) & ~pos.pieces())
+                    | (attacks_bb<CANNON>(hurdleSq, occupied) & pos.pieces(~us))) & ~line_bb(checksq, hurdleSq);
+            else if (hurdlePt == ADVISOR && hasAnyAbsorbed)
+                b |= unconstrained_attacks_bb<ADVISOR>(hurdleSq) & validTarget;
             else
-                b = attacks_bb(pt, hurdleSq, pos.pieces()) & ~line_bb(checksq, hurdleSq)
-                  & ~pos.pieces(us);
+                b |= attacks_bb(hurdlePt, hurdleSq, occupied) & validTarget;
+
+            // Generate moves for absorbed abilities
+            for (PieceType apt = ROOK; apt < KING; ++apt) {
+                if (abilities & (1 << apt)) {
+                    if (apt == PAWN)
+                        b |= attacks_bb<PAWN>(hurdleSq, us) & validTarget;
+                    else if (apt == CANNON)
+                        b |= ((attacks_bb<ROOK>(hurdleSq, occupied) & ~pos.pieces())
+                            | (attacks_bb<CANNON>(hurdleSq, occupied) & pos.pieces(~us))) & ~line_bb(checksq, hurdleSq);
+                    else if (apt == ADVISOR)
+                        b |= unconstrained_attacks_bb<ADVISOR>(hurdleSq) & validTarget;
+                    else
+                        b |= attacks_bb(apt, hurdleSq, occupied) & validTarget;
+                }
+            }
+
             moveList = splat_moves(moveList, hurdleSq, b);
         }
     }

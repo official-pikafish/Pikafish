@@ -65,6 +65,10 @@ struct StateInfo {
     bool       needFullCheck;
     Piece      capturedPiece;
     Move       move;
+
+    // Absorption Xiangqi: track previous absorption state for undo
+    Square      absorptionSquare;     // Square where absorption occurred (SQ_NONE if no capture)
+    AbilityMask previousAbsorbed;     // Previous absorption state of capturing piece
 };
 
 
@@ -208,6 +212,15 @@ class Position {
 
     DirtyPiece   scratch_dp;
     DirtyThreats scratch_dts;
+
+    // Absorption Xiangqi: track absorbed abilities for each square
+    // Each element is a bitmask of PieceTypes that the piece on that square has absorbed
+    std::array<AbilityMask, SQUARE_NB> absorbed;
+
+   public:
+    // Absorption Xiangqi accessors
+    AbilityMask absorbed_abilities(Square s) const { return absorbed[s]; }
+    bool has_absorbed(Square s, PieceType pt) const { return absorbed[s] & (1 << pt); }
 };
 
 std::ostream& operator<<(std::ostream& os, const Position& pos);

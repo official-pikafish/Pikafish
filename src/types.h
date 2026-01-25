@@ -124,6 +124,11 @@ constexpr bool Is64Bit = false;
 using Key      = uint64_t;
 using Bitboard = __uint128_t;
 
+// Absorption Xiangqi: bitmask tracking which piece types' abilities a piece has absorbed
+// Bit 1 = ROOK, Bit 2 = ADVISOR, Bit 3 = CANNON, Bit 4 = PAWN, Bit 5 = KNIGHT, Bit 6 = BISHOP
+// KING (bit 7) is never absorbed as it doesn't grant movement abilities
+using AbilityMask = uint8_t;
+
 constexpr int MAX_MOVES = 128;
 constexpr int MAX_PLY   = 246;
 

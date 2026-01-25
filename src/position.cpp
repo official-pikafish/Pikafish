@@ -320,30 +320,109 @@ void Position::update_blockers() const {
 }
 
 
+// Absorption Xiangqi: Check if a piece at 'from' can attack square 's'
+// considering its base type and all absorbed abilities
+bool can_attack_with_abilities(Square from, Square s, Bitboard occupied, PieceType basePt, AbilityMask abilities, Color pieceColor) {
+    // Check base piece type
+    switch (basePt) {
+    case PAWN:
+        if (attacks_bb<PAWN>(from, pieceColor) & s) return true;
+        break;
+    case ROOK:
+        if (attacks_bb<ROOK>(from, occupied) & s) return true;
+        break;
+    case CANNON:
+        if (attacks_bb<CANNON>(from, occupied) & s) return true;
+        break;
+    case KNIGHT:
+        if (attacks_bb<KNIGHT>(from, occupied) & s) return true;
+        break;
+    case BISHOP:
+        if (attacks_bb<BISHOP>(from, occupied) & s) return true;
+        break;
+    case ADVISOR:
+        if (abilities)  // Has absorbed abilities, can attack outside palace
+            { if (unconstrained_attacks_bb<ADVISOR>(from) & s) return true; }
+        else
+            { if (attacks_bb<ADVISOR>(from) & s) return true; }
+        break;
+    case KING:
+        if (attacks_bb<KING>(from) & s) return true;
+        break;
+    default:
+        break;
+    }
+
+    // Check absorbed abilities
+    for (PieceType pt = ROOK; pt < KING; ++pt) {
+        if (abilities & (1 << pt)) {
+            switch (pt) {
+            case PAWN:
+                if (attacks_bb<PAWN>(from, pieceColor) & s) return true;
+                break;
+            case ROOK:
+                if (attacks_bb<ROOK>(from, occupied) & s) return true;
+                break;
+            case CANNON:
+                if (attacks_bb<CANNON>(from, occupied) & s) return true;
+                break;
+            case KNIGHT:
+                if (attacks_bb<KNIGHT>(from, occupied) & s) return true;
+                break;
+            case BISHOP:
+                if (attacks_bb<BISHOP>(from, occupied) & s) return true;
+                break;
+            case ADVISOR:
+                if (unconstrained_attacks_bb<ADVISOR>(from) & s) return true;
+                break;
+            default:
+                break;
+            }
+        }
+    }
+    return false;
+}
+
 // Computes a bitboard of all pieces which attack a given square.
 // Slider attacks use the occupied bitboard to indicate occupancy.
+// Absorption Xiangqi: considers absorbed abilities
 Bitboard Position::attackers_to(Square s, Bitboard occupied) const {
+    Bitboard attackers = 0;
 
-    return (attacks_bb<PAWN_TO>(s, WHITE) & pieces(WHITE, PAWN))
-         | (attacks_bb<PAWN_TO>(s, BLACK) & pieces(BLACK, PAWN))
-         | (attacks_bb<KNIGHT_TO>(s, occupied) & pieces(KNIGHT))
-         | (attacks_bb<ROOK>(s, occupied) & pieces(ROOK))
-         | (attacks_bb<CANNON>(s, occupied) & pieces(CANNON))
-         | (attacks_bb<BISHOP>(s, occupied) & pieces(BISHOP))
-         | (attacks_bb<ADVISOR>(s) & pieces(ADVISOR)) | (attacks_bb<KING>(s) & pieces(KING));
+    // Check all pieces on the board
+    Bitboard allPieces = pieces();
+    while (allPieces) {
+        Square from = pop_lsb(allPieces);
+        Piece pc = piece_on(from);
+        if (pc == NO_PIECE) continue;
+
+        if (can_attack_with_abilities(from, s, occupied, type_of(pc), absorbed[from], color_of(pc)))
+            attackers |= from;
+    }
+
+    return attackers;
 }
 
 
 // Computes a bitboard of all pieces of a given color
 // which gives check to a given square. Slider attacks use the occupied bitboard
 // to indicate occupancy.
+// Absorption Xiangqi: considers absorbed abilities
 Bitboard Position::checkers_to(Color c, Square s, Bitboard occupied) const {
+    Bitboard checkers = 0;
 
-    return ((attacks_bb<PAWN_TO>(s, c) & pieces(PAWN))
-            | (attacks_bb<KNIGHT_TO>(s, occupied) & pieces(KNIGHT))
-            | (attacks_bb<ROOK>(s, occupied) & pieces(KING, ROOK))
-            | (attacks_bb<CANNON>(s, occupied) & pieces(CANNON)))
-         & pieces(c);
+    // Check all pieces of color c
+    Bitboard colorPieces = pieces(c);
+    while (colorPieces) {
+        Square from = pop_lsb(colorPieces);
+        Piece pc = piece_on(from);
+        if (pc == NO_PIECE) continue;
+
+        if (can_attack_with_abilities(from, s, occupied, type_of(pc), absorbed[from], c))
+            checkers |= from;
+    }
+
+    return checkers;
 }
 
 
@@ -535,9 +614,24 @@ void Position::do_move(Move                      m,
 
         // Reset rule 60 counter
         st->check10[WHITE] = st->check10[BLACK] = st->rule60 = 0;
+
+        // Absorption Xiangqi: absorb the captured piece's base type (not KING)
+        PieceType capturedType = type_of(captured);
+        PieceType movingType = type_of(pc);
+        st->absorptionSquare = from;
+        st->previousAbsorbed = absorbed[from];
+
+        // Only absorb if: different piece type, not KING, and not already absorbed
+        if (capturedType != movingType && capturedType != KING && !(absorbed[from] & (1 << capturedType)))
+        {
+            absorbed[from] |= (1 << capturedType);
+        }
     }
     else
+    {
         dp.remove_sq = SQ_NONE;
+        st->absorptionSquare = SQ_NONE;
+    }
 
     // Update hash key
     k ^= Zobrist::psq[pc][from] ^ Zobrist::psq[pc][to];
@@ -565,9 +659,19 @@ void Position::do_move(Move                      m,
         auto attack_bucket_after = PSQFeatureSet::make_attack_bucket(*this, them);
 
         dp.requires_refresh[them] |= (attack_bucket_before != attack_bucket_after);
+
+        // Absorption Xiangqi: move absorbed abilities from 'from' to 'to'
+        absorbed[to] = absorbed[from];
+        absorbed[from] = 0;
     }
     else
+    {
         move_piece(from, to, &dts);
+
+        // Absorption Xiangqi: move absorbed abilities from 'from' to 'to'
+        absorbed[to] = absorbed[from];
+        absorbed[from] = 0;
+    }
 
     bool mirror_after[2] = {
       PSQFeatureSet::KingBuckets[king_square(us)][king_square(them)]
@@ -624,6 +728,10 @@ void Position::undo_move(Move m) {
 
     assert(empty(from));
     assert(type_of(st->capturedPiece) != KING);
+
+    // Absorption Xiangqi: restore absorbed abilities before moving piece back
+    absorbed[from] = (st->absorptionSquare != SQ_NONE) ? st->previousAbsorbed : absorbed[to];
+    absorbed[to] = 0;
 
     move_piece(to, from);  // Put the piece back at the source square
 
