@@ -124,6 +124,12 @@ std::uint64_t Engine::perft(const std::string& fen, Depth depth) {
     return Benchmark::perft(fen, depth);
 }
 
+std::uint64_t Engine::perft(Depth depth) {
+    verify_networks();
+
+    return Benchmark::perft<true>(pos, depth);
+}
+
 void Engine::go(Search::LimitsType& limits) {
     assert(limits.perft == 0);
     verify_networks();

@@ -69,6 +69,7 @@ struct StateInfo {
     // Absorption Xiangqi: track previous absorption state for undo
     Square      absorptionSquare;     // Square where absorption occurred (SQ_NONE if no capture)
     AbilityMask previousAbsorbed;     // Previous absorption state of capturing piece
+    AbilityMask capturedAbsorbed;     // Absorbed abilities of the captured piece (for undo)
 };
 
 
@@ -167,6 +168,9 @@ class Position {
     uint16_t chased(Color c);
     Value    major_material(Color c) const;
     Value    major_material() const;
+
+    // Absorption Xiangqi: calculate effective piece value including absorbed abilities
+    Value    absorbed_piece_value(Square s) const;
 
     // Position consistency check, for debugging
     bool pos_is_ok() const;
@@ -402,6 +406,9 @@ inline Position& Position::set(const Position& pos, StateInfo* si) {
 
     // Special cares for bloom filter
     std::memcpy(&filter, &pos.filter, sizeof(BloomFilter));
+
+    // Absorption Xiangqi: copy absorbed abilities
+    absorbed = pos.absorbed;
 
     return *this;
 }

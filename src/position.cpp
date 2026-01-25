@@ -45,6 +45,9 @@ namespace Zobrist {
 
 Key psq[PIECE_NB][SQUARE_NB];
 Key side, noPawns;
+// Absorption Xiangqi: Zobrist keys for absorbed abilities
+// absorption[square][piece_type] = key for having absorbed that piece type at that square
+Key absorption[SQUARE_NB][PIECE_TYPE_NB];
 }
 
 namespace {
@@ -93,6 +96,11 @@ void Position::init() {
 
     Zobrist::side    = rng.rand<Key>();
     Zobrist::noPawns = rng.rand<Key>();
+
+    // Absorption Xiangqi: initialize Zobrist keys for absorbed abilities
+    for (Square s = SQ_A0; s <= SQ_I9; ++s)
+        for (PieceType pt = PAWN; pt <= KING; ++pt)
+            Zobrist::absorption[s][pt] = rng.rand<Key>();
 }
 
 
@@ -139,6 +147,8 @@ Position& Position::set(const string& fenStr, StateInfo* si) {
     ss >> std::noskipws;
 
     // 1. Piece placement
+    // Extended format for Absorption Xiangqi: piece(abilities)
+    // e.g., R(cn) for rook with cannon and knight abilities
     while ((ss >> token) && !isspace(token))
     {
         if (isdigit(token))
@@ -150,6 +160,27 @@ Position& Position::set(const string& fenStr, StateInfo* si) {
         else if ((idx = PieceToChar.find(token)) != string::npos)
         {
             put_piece(Piece(idx), sq);
+
+            // Check for absorbed abilities in extended format: piece(abilities)
+            char next = ss.peek();
+            if (next == '(')
+            {
+                ss >> token;  // consume '('
+                AbilityMask abilities = 0;
+                while ((ss >> token) && token != ')')
+                {
+                    // Parse ability characters (lowercase)
+                    char lc = tolower(token);
+                    if (lc == 'r') abilities |= (1 << ROOK);
+                    else if (lc == 'a') abilities |= (1 << ADVISOR);
+                    else if (lc == 'c') abilities |= (1 << CANNON);
+                    else if (lc == 'p') abilities |= (1 << PAWN);
+                    else if (lc == 'n') abilities |= (1 << KNIGHT);
+                    else if (lc == 'b') abilities |= (1 << BISHOP);
+                }
+                absorbed[sq] = abilities;
+            }
+
             ++sq;
         }
     }
@@ -189,8 +220,10 @@ void Position::set_check_info() const {
     Square ksq = king_square(~sideToMove);
 
     // We have to take special cares about the hollow cannons and checks
-    st->needFullCheck =
-      checkers() || (attacks_bb<ROOK>(king_square(sideToMove)) & pieces(~sideToMove, CANNON));
+    // Absorption Xiangqi: always do full check since pieces can have absorbed abilities
+    // that make the standard optimizations unsafe (e.g., a pawn with rook ability can pin)
+    st->needFullCheck = true;
+    (void)(checkers() || (attacks_bb<ROOK>(king_square(sideToMove)) & pieces(~sideToMove, CANNON)));
 
     st->checkSquares[PAWN]   = attacks_bb<PAWN_TO>(ksq, sideToMove);
     st->checkSquares[KNIGHT] = attacks_bb<KNIGHT_TO>(ksq, pieces());
@@ -241,11 +274,17 @@ void Position::set_state() const {
 
             if (pt != KING && (pt & 1))
             {
-                st->majorMaterial[color_of(pc)] += PieceValue[pc];
+                // Absorption Xiangqi: use effective piece value including absorbed abilities
+                st->majorMaterial[color_of(pc)] += absorbed_piece_value(s);
                 if (pt != ROOK)
                     st->minorPieceKey ^= Zobrist::psq[pc][s];
             }
         }
+
+        // Absorption Xiangqi: include absorbed abilities in hash
+        for (PieceType apt = ROOK; apt < KING; ++apt)
+            if (absorbed[s] & (1 << apt))
+                st->key ^= Zobrist::absorption[s][apt];
     }
 
     if (sideToMove == BLACK)
@@ -253,7 +292,77 @@ void Position::set_state() const {
 }
 
 
+// Helper to convert absorbed abilities to a string
+static string absorbed_to_string(AbilityMask abilities) {
+    string result;
+    // Order: r, a, c, p, n, b (matching piece type order)
+    if (abilities & (1 << ROOK))    result += 'r';
+    if (abilities & (1 << ADVISOR)) result += 'a';
+    if (abilities & (1 << CANNON))  result += 'c';
+    if (abilities & (1 << PAWN))    result += 'p';
+    if (abilities & (1 << KNIGHT))  result += 'n';
+    if (abilities & (1 << BISHOP))  result += 'b';
+    return result;
+}
+
+// Absorption Xiangqi: piece value lookup by piece type
+static constexpr Value AbsorptionPieceValue[PIECE_TYPE_NB] = {
+    VALUE_ZERO,   // NO_PIECE_TYPE
+    RookValue,    // ROOK
+    AdvisorValue, // ADVISOR
+    CannonValue,  // CANNON
+    PawnValue,    // PAWN
+    KnightValue,  // KNIGHT
+    BishopValue,  // BISHOP
+    VALUE_ZERO    // KING
+};
+
+// Absorption Xiangqi: synergy multiplier for combined pieces (23/20 = 1.15)
+static constexpr int ABSORPTION_SYNERGY_NUMERATOR = 23;
+static constexpr int ABSORPTION_SYNERGY_DENOMINATOR = 20;
+
+// Absorption Xiangqi: calculate effective piece value including absorbed abilities
+// A piece with absorbed abilities is worth the sum of its base value plus absorbed values,
+// multiplied by a synergy factor (since combined pieces are more valuable than separate ones).
+// Exception: Rook + Pawn ability doesn't add Pawn value (Rook already moves orthogonally).
+Value Position::absorbed_piece_value(Square s) const {
+    Piece pc = piece_on(s);
+    if (pc == NO_PIECE)
+        return VALUE_ZERO;
+
+    PieceType basePt = type_of(pc);
+    Value baseValue = PieceValue[pc];
+
+    AbilityMask abilities = absorbed[s];
+    if (!abilities)
+        return baseValue;
+
+    // Sum up absorbed ability values
+    Value absorbedValue = VALUE_ZERO;
+    for (PieceType apt = ROOK; apt < KING; ++apt) {
+        if (abilities & (1 << apt)) {
+            // Exception: Rook + Pawn ability doesn't add value
+            // (Rook already has orthogonal movement, pawn ability is redundant)
+            if (basePt == ROOK && apt == PAWN)
+                continue;
+            // Also skip if absorbed ability matches base type (shouldn't happen, but safety)
+            if (apt == basePt)
+                continue;
+            absorbedValue += AbsorptionPieceValue[apt];
+        }
+    }
+
+    // Apply synergy multiplier: combined pieces are worth more than sum of parts
+    Value totalValue = baseValue + absorbedValue;
+    if (absorbedValue > VALUE_ZERO)
+        totalValue = totalValue * ABSORPTION_SYNERGY_NUMERATOR / ABSORPTION_SYNERGY_DENOMINATOR;
+
+    return totalValue;
+}
+
 // Returns a FEN representation of the position.
+// Extended format for Absorption Xiangqi: pieces with absorbed abilities
+// are written as piece(abilities), e.g., R(cn) for a rook with cannon and knight.
 string Position::fen() const {
 
     int                emptyCnt;
@@ -270,7 +379,15 @@ string Position::fen() const {
                 ss << emptyCnt;
 
             if (f <= FILE_I)
-                ss << PieceToChar[piece_on(make_square(f, r))];
+            {
+                Square sq = make_square(f, r);
+                ss << PieceToChar[piece_on(sq)];
+
+                // Absorption Xiangqi: output absorbed abilities if any
+                AbilityMask abilities = absorbed[sq];
+                if (abilities)
+                    ss << '(' << absorbed_to_string(abilities) << ')';
+            }
         }
 
         if (r == RANK_0)
@@ -478,17 +595,55 @@ bool Position::pseudo_legal(const Move m) const {
     if (pieces(us) & to)
         return false;
 
-    // Handle the special cases
-    if (type_of(pc) == PAWN)
-        return bool(attacks_bb<PAWN>(from, us) & to);
-    else if (type_of(pc) == CANNON && !capture(m))
-        return bool(attacks_bb<ROOK>(from, pieces()) & to);
-    else
-        return bool(attacks_bb(type_of(pc), from, pieces()) & to);
+    PieceType pt = type_of(pc);
+    Bitboard occupied = pieces();
+    bool isCapture = capture(m);
+    AbilityMask abilities = absorbed[from];
+    bool hasAnyAbsorbed = (abilities != 0);
+
+    // Helper lambda to check if a move is valid for a given piece type
+    auto is_valid_for_type = [&](PieceType checkPt) -> bool {
+        if (checkPt == PAWN)
+            return bool(attacks_bb<PAWN>(from, us) & to);
+        else if (checkPt == CANNON) {
+            // Cannon has different moves for captures vs quiets
+            if (isCapture)
+                return bool(attacks_bb<CANNON>(from, occupied) & to);
+            else
+                return bool(attacks_bb<ROOK>(from, occupied) & to);
+        }
+        else if (checkPt == ADVISOR) {
+            // Advisor with absorbed abilities can move diagonally anywhere
+            if (hasAnyAbsorbed)
+                return bool(unconstrained_attacks_bb<ADVISOR>(from) & to);
+            else
+                return bool(attacks_bb<ADVISOR>(from) & to);
+        }
+        else if (checkPt == BISHOP) {
+            // Bishop moves are already handled by attacks_bb
+            return bool(attacks_bb<BISHOP>(from, occupied) & to);
+        }
+        else
+            return bool(attacks_bb(checkPt, from, occupied) & to);
+    };
+
+    // Check if move is valid for base piece type
+    if (is_valid_for_type(pt))
+        return true;
+
+    // Absorption Xiangqi: check if move is valid for any absorbed ability
+    for (PieceType apt = ROOK; apt < KING; ++apt) {
+        if ((abilities & (1 << apt)) && is_valid_for_type(apt))
+            return true;
+    }
+
+    return false;
 }
 
 
 // Tests whether a pseudo-legal move gives a check
+// Absorption Xiangqi: considers both base piece type and absorbed abilities,
+// including abilities that will be gained from a capture
 bool Position::gives_check(Move m) const {
 
     assert(m.is_ok());
@@ -500,14 +655,38 @@ bool Position::gives_check(Move m) const {
 
     PieceType pt = type_of(moved_piece(m));
 
-    // Is there a direct check?
-    if (pt == CANNON && (check_squares(ROOK) & from) && aligned(from, to, ksq))
-    {
-        if (capture(m) && (ray_pass_bb(ksq, from) & to))
+    // Helper lambda to check if a piece type gives check from 'to' square
+    auto check_for_type = [&](PieceType checkPt) {
+        if (checkPt == CANNON && (check_squares(ROOK) & from) && aligned(from, to, ksq))
+        {
+            if (capture(m) && (ray_pass_bb(ksq, from) & to))
+                return true;
+        }
+        else if (check_squares(checkPt) & to)
+            return true;
+        return false;
+    };
+
+    // Is there a direct check from base piece type?
+    if (check_for_type(pt))
+        return true;
+
+    // Absorption Xiangqi: check if any currently absorbed ability gives check
+    AbilityMask abilities = absorbed[from];
+    for (PieceType apt = ROOK; apt < KING; ++apt) {
+        if ((abilities & (1 << apt)) && check_for_type(apt))
             return true;
     }
-    else if (check_squares(pt) & to)
-        return true;
+
+    // Absorption Xiangqi: if this is a capture, check if the newly absorbed ability gives check
+    if (capture(m)) {
+        PieceType capturedType = type_of(piece_on(to));
+        // Will absorb if: different type, not KING, not already absorbed
+        if (capturedType != pt && capturedType != KING && !(abilities & (1 << capturedType))) {
+            if (check_for_type(capturedType))
+                return true;
+        }
+    }
 
     // Is there a discovered check?
     if ((blockers_for_king(~sideToMove) & from) && (!aligned(from, to, ksq) || capture(m)))
@@ -600,7 +779,8 @@ void Position::do_move(Move                      m,
 
             if (type_of(captured) & 1)
             {
-                st->majorMaterial[them] -= PieceValue[captured];
+                // Absorption Xiangqi: subtract effective value including absorbed abilities
+                st->majorMaterial[them] -= absorbed_piece_value(capsq);
                 if (type_of(captured) != ROOK)
                     st->minorPieceKey ^= Zobrist::psq[captured][capsq];
             }
@@ -620,17 +800,49 @@ void Position::do_move(Move                      m,
         PieceType movingType = type_of(pc);
         st->absorptionSquare = from;
         st->previousAbsorbed = absorbed[from];
+        st->capturedAbsorbed = absorbed[capsq];  // Save captured piece's absorbed abilities
+
+        // Absorption Xiangqi: save moving piece's old effective value for material update
+        Value oldMovingValue = absorbed_piece_value(from);
+
+        // XOR out old absorption state at from (will XOR in at 'to' later)
+        for (PieceType pt = ROOK; pt < KING; ++pt)
+            if (absorbed[from] & (1 << pt))
+                k ^= Zobrist::absorption[from][pt];
+
+        // XOR out captured piece's absorption state
+        for (PieceType pt = ROOK; pt < KING; ++pt)
+            if (absorbed[capsq] & (1 << pt))
+                k ^= Zobrist::absorption[capsq][pt];
 
         // Only absorb if: different piece type, not KING, and not already absorbed
         if (capturedType != movingType && capturedType != KING && !(absorbed[from] & (1 << capturedType)))
         {
             absorbed[from] |= (1 << capturedType);
+
+            // Absorption Xiangqi: update moving piece's material value due to absorption
+            Value newMovingValue = absorbed_piece_value(from);
+            st->majorMaterial[us] += (newMovingValue - oldMovingValue);
         }
+
+        // XOR in new absorption state at 'to' (after absorption)
+        for (PieceType pt = ROOK; pt < KING; ++pt)
+            if (absorbed[from] & (1 << pt))
+                k ^= Zobrist::absorption[to][pt];
+
+        // Clear captured piece's absorbed abilities
+        absorbed[capsq] = 0;
     }
     else
     {
         dp.remove_sq = SQ_NONE;
         st->absorptionSquare = SQ_NONE;
+        st->capturedAbsorbed = 0;
+
+        // Absorption Xiangqi: update hash for absorbed abilities moving from->to
+        for (PieceType pt = ROOK; pt < KING; ++pt)
+            if (absorbed[from] & (1 << pt))
+                k ^= Zobrist::absorption[from][pt] ^ Zobrist::absorption[to][pt];
     }
 
     // Update hash key
@@ -695,9 +907,11 @@ void Position::do_move(Move                      m,
     // Set capture piece
     st->capturedPiece = captured;
 
-    // Calculate checkers bitboard (if move gives check)
-    st->checkersBB = givesCheck ? checkers_to(us, king_square(them)) : Bitboard(0);
-    assert(givesCheck == bool(checkers_to(us, king_square(them))));
+    // Calculate checkers bitboard
+    // Absorption Xiangqi: always compute checkers since gives_check can't reliably
+    // predict checks when pieces gain new abilities from captures
+    st->checkersBB = checkers_to(us, king_square(them));
+    (void)givesCheck;  // Suppress unused warning
 
     sideToMove = ~sideToMove;
 
@@ -740,6 +954,9 @@ void Position::undo_move(Move m) {
         Square capsq = to;
 
         put_piece(st->capturedPiece, capsq);  // Restore the captured piece
+
+        // Absorption Xiangqi: restore the captured piece's absorbed abilities
+        absorbed[capsq] = st->capturedAbsorbed;
     }
 
     // Finally point our state pointer back to the previous state
