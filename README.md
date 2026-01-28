@@ -165,4 +165,4 @@ project][px0-data-link], which is made available under the [Open Database Licens
 [wiki-usage-link]:    https://github.com/official-pikafish/Pikafish/wiki/Download-and-usage
 [worker-link]:			https://github.com/xyztnecniV/yolo
 [px0-data-link]:      https://www.kaggle.com/datasets/pikacat/px0data
-[odbl-link]:          https://opendatacommons.org/licenses/odbl/odbl-10.txt
+[odbl-link]:          https://opendatacommons.org/licenses/odbl/odbl-1099.txt
