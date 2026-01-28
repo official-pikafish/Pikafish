@@ -100,14 +100,14 @@ Engine::Engine(std::optional<std::string> path) :
       "Ponder", Option(false));
 
     // =========================================================================
-    // 【编码助手修正】这里使用了标准的列表格式，确保下拉框有内容
+    // 【编码助手修正】手动 UCI 格式字符串，确保兼容性和下拉框内容
+    // 这里使用了 "var Chinese var SkyRule ..." 的格式，这是 UCI 协议的原生格式
     // =========================================================================
     options.add(
       "Repetition Rule", 
-      Option("Chinese", 
-             std::vector<std::string>{"Chinese", "SkyRule", "Asian", "TianTian"}, 
-             [](const Option&) { return std::nullopt; }
-      )
+      Option("Chinese", "var Chinese var SkyRule var Asian var TianTian", [](const Option&) {
+          return std::nullopt;
+      })
     );
     // =========================================================================
 
