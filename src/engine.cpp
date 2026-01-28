@@ -1,19 +1,6 @@
 /*
   Stockfish, a UCI chess playing engine derived from Glaurung 2.1
   Copyright (C) 2004-2026 The Stockfish developers (see AUTHORS file)
-
-  Stockfish is free software: you can redistribute it and/or modify
-  it under the terms of the GNU General Public License as published by
-  the Free Software Foundation, either version 3 of the License, or
-  (at your option) any later version.
-
-  Stockfish is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-  GNU General Public License for more details.
-
-  You should have received a copy of the GNU General Public License
-  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
 #include "engine.h"
@@ -49,9 +36,6 @@ constexpr int  MaxHashMB  = Is64Bit ? 33554432 : 2048;
 int            MaxThreads = std::max(1024, 4 * int(get_hardware_concurrency()));
 
 // The default configuration will attempt to group L3 domains up to 32 threads.
-// This size was found to be a good balance between the Elo gain of increased
-// history sharing and the speed loss from more cross-cache accesses (see
-// PR#6526). The user can always explicitly override this behavior.
 constexpr NumaAutoPolicy DefaultNumaPolicy = BundledL3Policy{32};
 
 Engine::Engine(std::optional<std::string> path) :
@@ -99,18 +83,11 @@ Engine::Engine(std::optional<std::string> path) :
     options.add(  //
       "Ponder", Option(false));
 
-    // =========================================================================
-    // 【编码助手修正】 标准 Combo 格式
-    // 这里的第二个参数仅仅用空格隔开选项，引擎会自动添加 "var" 前缀
-    // 这样界面就能正确识别下拉框了！
-    // =========================================================================
-    options.add(
-      "Repetition Rule", 
-      Option("Chinese", "Chinese SkyRule Asian TianTian", [](const Option&) {
-          return std::nullopt;
-      })
-    );
-    // =========================================================================
+    // =============================================================
+    // 【编码助手】已移除 Repetition Rule 选项
+    // 既然 position.cpp 已经强制锁死了规则，这里就不显示选项了
+    // 避免出现 GUI 下拉框空白的 Bug。
+    // =============================================================
 
     options.add(  //
       "MultiPV", Option(1, 1, MAX_MOVES));
@@ -133,21 +110,18 @@ Engine::Engine(std::optional<std::string> path) :
 
 std::uint64_t Engine::perft(const std::string& fen, Depth depth) {
     verify_networks();
-
     return Benchmark::perft(fen, depth);
 }
 
 void Engine::go(Search::LimitsType& limits) {
     assert(limits.perft == 0);
     verify_networks();
-
     threads.start_thinking(pos, states, limits);
 }
 void Engine::stop() { threads.stop = true; }
 
 void Engine::search_clear() {
     wait_for_search_finished();
-
     tt.clear(threads);
     threads.clear();
 }
@@ -182,7 +156,6 @@ void Engine::set_position(const std::string& fen, const std::vector<std::string>
     for (const auto& move : moves)
     {
         auto m = UCIEngine::to_move(pos, move);
-
         if (m == Move::none())
             break;
 
