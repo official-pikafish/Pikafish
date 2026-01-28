@@ -99,13 +99,17 @@ Engine::Engine(std::optional<std::string> path) :
     options.add(  //
       "Ponder", Option(false));
 
-    // --- 【编码助手修改】添加天天象棋规则选项 (Repetition Rule) ---
-    // 这行代码将允许你在配置中使用 "TianTian" 或 "Chinese"
+    // =========================================================================
+    // 【编码助手修正】这里使用了标准的列表格式，确保下拉框有内容
+    // =========================================================================
     options.add(
-      "Repetition Rule", Option("Chinese", "Chinese SkyRule Asian TianTian", [](const Option&) {
-          return std::nullopt;
-      }));
-    // -----------------------------------------------------------
+      "Repetition Rule", 
+      Option("Chinese", 
+             std::vector<std::string>{"Chinese", "SkyRule", "Asian", "TianTian"}, 
+             [](const Option&) { return std::nullopt; }
+      )
+    );
+    // =========================================================================
 
     options.add(  //
       "MultiPV", Option(1, 1, MAX_MOVES));
