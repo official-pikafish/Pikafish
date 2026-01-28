@@ -100,12 +100,13 @@ Engine::Engine(std::optional<std::string> path) :
       "Ponder", Option(false));
 
     // =========================================================================
-    // 【编码助手修正】手动 UCI 格式字符串，确保兼容性和下拉框内容
-    // 这里使用了 "var Chinese var SkyRule ..." 的格式，这是 UCI 协议的原生格式
+    // 【编码助手修正】 标准 Combo 格式
+    // 这里的第二个参数仅仅用空格隔开选项，引擎会自动添加 "var" 前缀
+    // 这样界面就能正确识别下拉框了！
     // =========================================================================
     options.add(
       "Repetition Rule", 
-      Option("Chinese", "var Chinese var SkyRule var Asian var TianTian", [](const Option&) {
+      Option("Chinese", "Chinese SkyRule Asian TianTian", [](const Option&) {
           return std::nullopt;
       })
     );
