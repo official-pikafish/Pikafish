@@ -124,6 +124,18 @@ constexpr bool Is64Bit = false;
 using Key      = uint64_t;
 using Bitboard = __uint128_t;
 
+// =================================================================
+// 【编码助手修改】添加 Rule 枚举定义
+// =================================================================
+enum Rule {
+  SkyRule,
+  Chinese,   // 天天象棋规则核心
+  Asian,
+  TianTian,  // 兼容名称
+  RuleNone
+};
+// =================================================================
+
 constexpr int MAX_MOVES = 128;
 constexpr int MAX_PLY   = 246;
 

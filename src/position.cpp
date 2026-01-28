@@ -100,30 +100,6 @@ void Position::init() {
 // This function is not very robust - make sure that input FENs are correct,
 // this is assumed to be the responsibility of the GUI.
 Position& Position::set(const string& fenStr, StateInfo* si) {
-    /*
-   A FEN string defines a particular position using only the ASCII character set.
-
-   A FEN string contains six fields separated by a space. The fields are:
-
-   1) Piece placement (from white's perspective). Each rank is described, starting
-      with rank 9 and ending with rank 0. Within each rank, the contents of each
-      square are described from file A through file I. Following the Standard
-      Algebraic Notation (SAN), each piece is identified by a single letter taken
-      from the standard English names. White pieces are designated using upper-case
-      letters ("RACPNBK") whilst Black uses lowercase ("racpnbk"). Blank squares are
-      noted using digits 1 through 9 (the number of blank squares), and "/"
-      separates ranks.
-
-   2) Active color. "w" means white moves next, "b" means black.
-
-   3) Halfmove clock. This is the number of halfmoves since the last pawn advance
-      or capture. This is used to determine if a draw can be claimed under the
-      fifty-move rule.
-
-   4) Fullmove number. The number of the full move. It starts at 1, and is
-      incremented after Black's move.
-*/
-
     unsigned char      token;
     size_t             idx;
     Square             sq = SQ_A9;
@@ -449,7 +425,7 @@ void Position::do_move(Move                      m,
                        DirtyPiece&               dp,
                        DirtyThreats&             dts,
                        const TranspositionTable* tt      = nullptr,
-                       const SharedHistories*    history = nullptr) {
+                       const SharedHistories* history = nullptr) {
 
     using namespace Eval::NNUE;
 
@@ -1158,7 +1134,120 @@ Value Position::detect_chases(int d, int ply) {
 
 // Tests whether the position may end the game by rule 60, insufficient material, draw repetition,
 // perpetual check repetition or perpetual chase repetition that allows a player to claim a game result.
+bool Position::// Tests whether the position may end the game by rule 60, insufficient material, draw repetition,
+// perpetual check repetition or perpetual chase repetition that allows a player to claim a game result.
 bool Position::rule_judge(Value& result, int ply) {
+
+    // 1. 恢复 Rule 60 计数
+    int end = std::min(st->rule60 + std::max(0, st->check10[WHITE] - 10)
+                         + std::max(0, st->check10[BLACK] - 10),
+                       st->pliesFromNull);
+
+    if (end >= 4 && filter[st->key] >= 1)
+    {
+        int        cnt       = 0;
+        StateInfo* stp       = st->previous->previous;
+        bool       checkThem = st->checkersBB && stp->checkersBB; // 对方是否在被长将（即：我方是否在长将）
+        bool       checkUs   = st->previous->checkersBB && stp->previous->checkersBB; // 我方是否在被长将（即：对方是否在长将）
+
+        for (int i = 4; i <= end; i += 2)
+        {
+            stp = stp->previous->previous;
+            checkThem &= bool(stp->checkersBB);
+
+            // 如果发现重复局面
+            if (stp->key == st->key && (++cnt == 2 || ply > i))
+            {
+                // A. 如果双方都没有严格长将 -> 检测长捉 (Chase)
+                if (!checkThem && !checkUs)
+                {
+                    Position rollback;
+                    memcpy((void*) &rollback, (const void*) this, offsetof(Position, filter));
+                    result = rollback.detect_chases(i, ply); // 让 detect_chases 决定胜负
+                }
+                // B. 如果存在长将 -> 强制执行中国规则
+                else
+                {
+                    // checkThem = true 表示“对方全程被将” -> 我方在长将 -> 我方判负 (mated_in)
+                    // checkUs   = true 表示“我方全程被将” -> 对方在长将 -> 对方判负 (即我方判胜 mate_in)
+                    
+                    if (checkThem && !checkUs)       // 我方单方面长将
+                        result = mated_in(ply);      // 判负！
+                    else if (!checkThem && checkUs)  // 对方单方面长将
+                        result = mate_in(ply);       // 判胜！
+                    else                             // 互将或复杂情况
+                        result = VALUE_DRAW;         // 判和
+                }
+
+                // 只有在确定胜负或达到3次重复时才返回
+                if (result != VALUE_DRAW || cnt == 2)
+                    return true;
+
+                // 2次重复时的快速检查
+                if (filter[st->key] <= 1)
+                {
+                    if (st->rule60 < 120 && st->previous->key == stp->previous->key)
+                    {
+                        StateInfo* prev = st->previous;
+                        while ((prev = prev->previous) != stp)
+                            if (filter[prev->key] > 1)
+                                break;
+                        if (prev == stp)
+                            return true;
+                    }
+                    break;
+                }
+            }
+
+            if (i + 1 <= end)
+                checkUs &= bool(stp->previous->checkersBB);
+        }
+    }
+
+    // 60回合自然限着 (判和)
+    if (st->rule60 >= 120)
+    {
+        result = MoveList<LEGAL>(*this).size() ? VALUE_DRAW : mated_in(ply);
+        return true;
+    }
+
+    // 子力不足判和逻辑 (保持原样)
+    if (count<PAWN>() == 0)
+    {
+        enum DrawLevel : int { NO_DRAW, DIRECT_DRAW, MATE_DRAW };
+        int level = [&]() {
+            if (!major_material()) return DIRECT_DRAW;
+            if (major_material() == CannonValue) {
+                Color c = major_material(WHITE) == CannonValue ? WHITE : BLACK;
+                if (count<ADVISOR>(c) == 0) {
+                    if (count<ADVISOR>(~c) == 0) return DIRECT_DRAW;
+                    if (count<ADVISOR>(~c) == 1) return count<BISHOP>(c) == 0 ? DIRECT_DRAW : MATE_DRAW;
+                    if (count<BISHOP>(c) == 0) return MATE_DRAW;
+                }
+            }
+            if (major_material(WHITE) == CannonValue && major_material(BLACK) == CannonValue && count<ADVISOR>() == 0)
+                return count<BISHOP>() == 0 ? DIRECT_DRAW : MATE_DRAW;
+            return NO_DRAW;
+        }();
+
+        if (level != NO_DRAW) {
+            if (level == MATE_DRAW) {
+                MoveList<LEGAL> moves(*this);
+                if (moves.size() == 0) { result = mated_in(ply); return true; }
+                for (const auto& move : moves) {
+                    StateInfo tempSt; do_move(move, tempSt);
+                    bool mate = MoveList<LEGAL>(*this).size() == 0;
+                    undo_move(move);
+                    if (mate) return false;
+                }
+            }
+            result = VALUE_DRAW;
+            return true;
+        }
+    }
+
+    return false;
+}(Value& result, int ply) {
 
     // Restore rule 60 by adding back the checks
     int end = std::min(st->rule60 + std::max(0, st->check10[WHITE] - 10)
@@ -1192,6 +1281,9 @@ bool Position::rule_judge(Value& result, int ply) {
                 }
                 else
                     // Checking detection
+                    // TianTian (Chinese) Rules: Perpetual Checker Loses.
+                    // checkUs = "We are checking". If we are checking -> mated_in (We Lose).
+                    // !checkUs (We not checking, but repetition happens) -> means Opponent checking -> mate_in (We Win).
                     result = !checkUs ? mate_in(ply) : !checkThem ? mated_in(ply) : VALUE_DRAW;
 
                 // 3 folds and 2 fold draws can be judged immediately
