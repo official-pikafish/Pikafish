@@ -172,8 +172,6 @@ Position& Position::set(const string& fenStr, StateInfo* si) {
     // handle also common incorrect FEN with fullmove = 0.
     gamePly = std::max(2 * (gamePly - 1), 0) + (sideToMove == BLACK);
   // --- 【编码助手】强制注入天天规则 ---
-    this->rule = Rule::Chinese;
-    if (si) si->rule = Rule::Chinese;
     // ---------------------------------
 
     set_state();
