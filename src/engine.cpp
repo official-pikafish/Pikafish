@@ -99,6 +99,14 @@ Engine::Engine(std::optional<std::string> path) :
     options.add(  //
       "Ponder", Option(false));
 
+    // --- 【编码助手修改】添加天天象棋规则选项 (Repetition Rule) ---
+    // 这行代码将允许你在配置中使用 "TianTian" 或 "Chinese"
+    options.add(
+      "Repetition Rule", Option("Chinese", "Chinese SkyRule Asian TianTian", [](const Option&) {
+          return std::nullopt;
+      }));
+    // -----------------------------------------------------------
+
     options.add(  //
       "MultiPV", Option(1, 1, MAX_MOVES));
 
@@ -281,7 +289,7 @@ void Engine::save_network(const std::pair<std::optional<std::string>, std::strin
 
 void Engine::trace_eval() const {
     StateListPtr trace_states(new std::deque<StateInfo>(1));
-    Position     p;
+    Position      p;
     p.set(pos.fen(), &trace_states->back());
 
     verify_networks();
@@ -327,7 +335,7 @@ std::string Engine::numa_config_information_as_string() const {
 }
 
 std::string Engine::thread_binding_information_as_string() const {
-    auto              boundThreadsByNode = get_bound_thread_count_by_numa_node();
+    auto             boundThreadsByNode = get_bound_thread_count_by_numa_node();
     std::stringstream ss;
     if (boundThreadsByNode.empty())
         return ss.str();
