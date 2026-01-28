@@ -100,30 +100,6 @@ void Position::init() {
 // This function is not very robust - make sure that input FENs are correct,
 // this is assumed to be the responsibility of the GUI.
 Position& Position::set(const string& fenStr, StateInfo* si) {
-    /*
-   A FEN string defines a particular position using only the ASCII character set.
-
-   A FEN string contains six fields separated by a space. The fields are:
-
-   1) Piece placement (from white's perspective). Each rank is described, starting
-      with rank 9 and ending with rank 0. Within each rank, the contents of each
-      square are described from file A through file I. Following the Standard
-      Algebraic Notation (SAN), each piece is identified by a single letter taken
-      from the standard English names. White pieces are designated using upper-case
-      letters ("RACPNBK") whilst Black uses lowercase ("racpnbk"). Blank squares are
-      noted using digits 1 through 9 (the number of blank squares), and "/"
-      separates ranks.
-
-   2) Active color. "w" means white moves next, "b" means black.
-
-   3) Halfmove clock. This is the number of halfmoves since the last pawn advance
-      or capture. This is used to determine if a draw can be claimed under the
-      fifty-move rule.
-
-   4) Fullmove number. The number of the full move. It starts at 1, and is
-      incremented after Black's move.
-*/
-
     unsigned char      token;
     size_t             idx;
     Square             sq = SQ_A9;
@@ -171,8 +147,6 @@ Position& Position::set(const string& fenStr, StateInfo* si) {
     // Convert from fullmove starting from 1 to gamePly starting from 0,
     // handle also common incorrect FEN with fullmove = 0.
     gamePly = std::max(2 * (gamePly - 1), 0) + (sideToMove == BLACK);
-  // --- 【编码助手】强制注入天天规则 ---
-    // ---------------------------------
 
     set_state();
 
@@ -451,7 +425,7 @@ void Position::do_move(Move                      m,
                        DirtyPiece&               dp,
                        DirtyThreats&             dts,
                        const TranspositionTable* tt      = nullptr,
-                       const SharedHistories*    history = nullptr) {
+                       const SharedHistories* history = nullptr) {
 
     using namespace Eval::NNUE;
 
@@ -1194,6 +1168,9 @@ bool Position::rule_judge(Value& result, int ply) {
                 }
                 else
                     // Checking detection
+                    // TianTian (Chinese) Rules: Perpetual Checker Loses.
+                    // checkUs = "We are checking". If we are checking -> mated_in (We Lose).
+                    // !checkUs (We not checking, but repetition happens) -> means Opponent checking -> mate_in (We Win).
                     result = !checkUs ? mate_in(ply) : !checkThem ? mated_in(ply) : VALUE_DRAW;
 
                 // 3 folds and 2 fold draws can be judged immediately
