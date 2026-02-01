@@ -112,7 +112,6 @@ Engine::Engine(std::optional<std::string> path) :
           return std::nullopt;
       }));
 
-
     threads.clear();
     threads.ensure_network_replicated();
     resize_threads();
@@ -258,7 +257,6 @@ void Engine::verify_networks() const {
 }
 
 std::unique_ptr<Eval::NNUE::Networks> Engine::get_default_networks() const {
-
     auto networks_ =
       std::make_unique<NN::Networks>(NN::EvalFile{EvalFileDefaultNameBig, "None", ""});
 

@@ -162,7 +162,6 @@ void FullThreats::append_changed_indices(Color                   perspective,
                                          IndexList&              added,
                                          const ThreatWeightType* prefetchBase,
                                          IndexType               prefetchStride) {
-
     for (const auto& dirty : diff.list)
     {
         auto attacker = dirty.pc();
