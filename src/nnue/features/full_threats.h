@@ -39,7 +39,7 @@ class FullThreats {
     static constexpr std::uint32_t HashValue = 0xd17b100;
 
     // Number of feature dimensions
-    static constexpr IndexType Dimensions = 45649;
+    static constexpr IndexType Dimensions = 45547;
 
     // Maximum number of simultaneously active features.
     static constexpr IndexType MaxActiveDimensions = 64;
