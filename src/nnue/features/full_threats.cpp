@@ -21,6 +21,7 @@
 #include "full_threats.h"
 
 #include <array>
+#include <cstddef>
 #include <utility>
 
 #include "../../bitboard.h"
@@ -154,9 +155,15 @@ void FullThreats::append_active_indices(Color perspective, const Position& pos, 
 }
 
 // Get a list of indices for recently changed features
-void FullThreats::append_changed_indices(
-  Color perspective, bool mirror, const DiffType& diff, IndexList& removed, IndexList& added) {
-    for (const auto dirty : diff.list)
+void FullThreats::append_changed_indices(Color                   perspective,
+                                         bool                    mirror,
+                                         const DiffType&         diff,
+                                         IndexList&              removed,
+                                         IndexList&              added,
+                                         const ThreatWeightType* prefetchBase,
+                                         IndexType               prefetchStride) {
+
+    for (const auto& dirty : diff.list)
     {
         auto attacker = dirty.pc();
         auto attacked = dirty.threatened_pc();
@@ -168,7 +175,12 @@ void FullThreats::append_changed_indices(
         IndexType index  = make_index(perspective, attacker, from, to, attacked, mirror);
 
         if (index < Dimensions)
+        {
+            if (prefetchBase)
+                prefetch<PrefetchRw::READ, PrefetchLoc::LOW>(
+                  prefetchBase + static_cast<std::ptrdiff_t>(index) * prefetchStride);
             insert.push_back(index);
+        }
     }
 }
 

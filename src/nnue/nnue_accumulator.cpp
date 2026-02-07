@@ -550,11 +550,14 @@ void update_accumulator_incremental(
     typename FeatureSet::IndexList removed, added;
     if constexpr (std::is_same_v<FeatureSet, ThreatFeatureSet>)
     {
+        const auto* pfBase   = &featureTransformer.threatWeights[0];
+        auto        pfStride = static_cast<IndexType>(TransformedFeatureDimensions);
         if constexpr (Forward)
             FeatureSet::append_changed_indices(perspective, mirror, target_state.diff, removed,
-                                               added);
+                                               added, pfBase, pfStride);
         else
-            FeatureSet::append_changed_indices(perspective, mirror, computed.diff, added, removed);
+            FeatureSet::append_changed_indices(perspective, mirror, computed.diff, added, removed,
+                                               pfBase, pfStride);
     }
     else
     {
