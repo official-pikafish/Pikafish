@@ -52,7 +52,6 @@ using namespace Search;
 namespace {
 
 constexpr int SEARCHEDLIST_CAPACITY = 32;
-constexpr int mainHistoryDefault    = 59;
 using SearchedList                  = ValueList<Move, SEARCHEDLIST_CAPACITY>;
 
 // (*Scalers):
@@ -293,8 +292,7 @@ void Search::Worker::iterative_deepening() {
 
     for (Color c : {WHITE, BLACK})
         for (int i = 0; i < UINT_16_HISTORY_SIZE; i++)
-            mainHistory[c][i] =
-              (mainHistory[c][i] - mainHistoryDefault) * 3 / 4 + mainHistoryDefault;
+            mainHistory[c][i] = mainHistory[c][i] * 3 / 4;
 
     // Iterative deepening loop until requested to stop or the target depth is reached
     while (++rootDepth < MAX_PLY && !threads.stop
@@ -540,7 +538,7 @@ void Search::Worker::undo_null_move(Position& pos) { pos.undo_null_move(); }
 
 // Reset histories, usually before a new game
 void Search::Worker::clear() {
-    mainHistory.fill(mainHistoryDefault);
+    mainHistory.fill(0);
     captureHistory.fill(-607);
 
     // Each thread is responsible for clearing their part of shared history
