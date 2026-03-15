@@ -120,9 +120,20 @@ class FeatureTransformer {
 
     static constexpr auto InversePackusEpi16Order = invert_permutation(PackusEpi16Order);
 
+    static constexpr std::uint32_t combine_hash(std::initializer_list<std::uint32_t> hashes) {
+        std::uint32_t hash = 0;
+        for (const auto component_hash : hashes)
+        {
+            hash = (hash << 1) | (hash >> 31);
+            hash ^= component_hash;
+        }
+        return hash;
+    }
+
     // Hash value embedded in the evaluation file
     static constexpr std::uint32_t get_hash_value() {
-        return ThreatFeatureSet::HashValue ^ (OutputDimensions * 2);
+        return combine_hash({ThreatFeatureSet::HashValue, PSQFeatureSet::HashValue})
+             ^ (OutputDimensions * 2);
     }
 
     void permute_weights() {
@@ -327,11 +338,11 @@ class FeatureTransformer {
                 BiasType sum0 = accumulation[static_cast<int>(perspectives[p])][j + 0];
                 BiasType sum1 =
                   accumulation[static_cast<int>(perspectives[p])][j + HalfDimensions / 2];
-                BiasType sum0t = threatAccumulation[static_cast<int>(perspectives[p])][j + 0];
-                BiasType sum1t =
+                sum0 += threatAccumulation[static_cast<int>(perspectives[p])][j + 0];
+                sum1 +=
                   threatAccumulation[static_cast<int>(perspectives[p])][j + HalfDimensions / 2];
-                sum0               = std::clamp<BiasType>(sum0 + sum0t, 0, 255);
-                sum1               = std::clamp<BiasType>(sum1 + sum1t, 0, 255);
+                sum0               = std::clamp<BiasType>(sum0, 0, 255);
+                sum1               = std::clamp<BiasType>(sum1, 0, 255);
                 output[offset + j] = static_cast<OutputType>(unsigned(sum0 * sum1) / 512);
             }
 

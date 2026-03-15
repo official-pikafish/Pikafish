@@ -43,10 +43,10 @@ namespace Stockfish::Eval::NNUE::Features {
 class HalfKAv2_hm {
    public:
     // Feature name
-    static constexpr const char* Name = "HalfKAv2_hm";
+    static constexpr const char* Name = "HalfKAv2_hm(Friend)";
 
     // Hash value embedded in the evaluation file
-    static constexpr std::uint32_t HashValue = 0xd17b100;
+    static constexpr std::uint32_t HashValue = 0x7f234cb8u;
 
     // Number of features per plane
     static constexpr IndexType PS_NB = 689;

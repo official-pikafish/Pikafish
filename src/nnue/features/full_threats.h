@@ -36,7 +36,7 @@ class FullThreats {
     static constexpr const char* Name = "Full_Threats(Friend)";
 
     // Hash value embedded in the evaluation file
-    static constexpr std::uint32_t HashValue = 0xd17b100;
+    static constexpr std::uint32_t HashValue = 0x8f234cb8u;
 
     // Number of feature dimensions
     static constexpr IndexType Dimensions = 45547;
