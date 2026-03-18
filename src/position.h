@@ -27,6 +27,8 @@
 #include <iosfwd>
 #include <memory>
 #include <new>
+#include <optional>
+#include <stdexcept>
 #include <string>
 #include <utility>
 
@@ -74,6 +76,12 @@ struct StateInfo {
 // elements are not invalidated upon list resizing.
 using StateListPtr = std::unique_ptr<std::deque<StateInfo>>;
 
+// This error should be used whenever a position is suspected to be unsupported
+// by the engine. In particular positions that may cause hard errors like segmentation fault.
+struct PositionSetError: std::runtime_error {
+    using std::runtime_error::runtime_error;
+};
+
 // Position class stores information regarding the board representation as
 // pieces, side to move, hash keys, etc. Important methods are
 // do_move() and undo_move(), used by the search to update node info when
@@ -87,9 +95,9 @@ class Position {
     Position& operator=(const Position&) = delete;
 
     // FEN string input/output
-    Position&   set(const std::string& fenStr, StateInfo* si);
-    Position&   set(const Position& pos, StateInfo* si);
-    std::string fen() const;
+    std::optional<PositionSetError> set(const std::string& fenStr, StateInfo* si);
+    std::optional<PositionSetError> set(const Position& pos, StateInfo* si);
+    std::string                     fen() const;
 
     // Position representation
     Bitboard pieces() const;  // All pieces
@@ -383,14 +391,14 @@ inline void Position::do_move(Move m, StateInfo& newSt, const TranspositionTable
 
 inline StateInfo* Position::state() const { return st; }
 
-inline Position& Position::set(const Position& pos, StateInfo* si) {
+inline std::optional<PositionSetError> Position::set(const Position& pos, StateInfo* si) {
 
-    set(pos.fen(), si);
+    auto err = set(pos.fen(), si);
 
     // Special cares for bloom filter
     std::memcpy(&filter, &pos.filter, sizeof(BloomFilter));
 
-    return *this;
+    return err;
 }
 
 }  // namespace Stockfish

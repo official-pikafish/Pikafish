@@ -21,6 +21,7 @@
 #include <algorithm>
 #include <cmath>
 #include <functional>
+#include <cstdlib>
 #include <iterator>
 #include <optional>
 #include <sstream>
@@ -462,6 +463,8 @@ std::uint64_t UCIEngine::perft(const Search::LimitsType& limits) {
 }
 
 void UCIEngine::position(std::istringstream& is) {
+    const std::string fullCommand = is.str();
+
     std::string token, fen;
 
     is >> token;
@@ -484,7 +487,11 @@ void UCIEngine::position(std::istringstream& is) {
         moves.push_back(token);
     }
 
-    engine.set_position(fen, moves);
+    auto err = engine.set_position(fen, moves);
+    if (err.has_value())
+    {
+        terminate_on_critical_error(fullCommand, err->what());
+    }
 }
 
 namespace {
@@ -631,6 +638,14 @@ void UCIEngine::on_bestmove(std::string_view bestmove, std::string_view ponder) 
     if (!ponder.empty())
         std::cout << " ponder " << ponder;
     std::cout << sync_endl;
+}
+
+void UCIEngine::terminate_on_critical_error(const std::string& fullCommand,
+                                            const std::string& message) {
+    sync_cout << "info string CRITICAL ERROR: Command `" << fullCommand
+              << "` failed. Reason: " << message << '\n'
+              << sync_endl;
+    std::exit(1);
 }
 
 }  // namespace Stockfish
