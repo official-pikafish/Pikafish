@@ -245,9 +245,9 @@ void Search::Worker::iterative_deepening() {
 
     Move pv[MAX_PLY + 1];
 
-    Depth lastBestMoveDepth = 0;
-    Value lastBestScore     = -VALUE_INFINITE;
-    auto  lastBestPV        = std::vector{Move::none()};
+    Depth             lastBestMoveDepth = 0;
+    Value             lastBestScore     = -VALUE_INFINITE;
+    std::vector<Move> lastBestPV;
 
     Value  alpha, beta;
     Value  bestValue     = -VALUE_INFINITE;
@@ -418,29 +418,41 @@ void Search::Worker::iterative_deepening() {
             && is_loss(rootMoves[0].score))
         {
             // Bring the last best move to the front for best thread selection.
-            Utility::move_to_front(rootMoves, [&lastBestPV = std::as_const(lastBestPV)](
-                                                const auto& rm) { return rm == lastBestPV[0]; });
-            rootMoves[0].pv    = lastBestPV;
-            rootMoves[0].score = rootMoves[0].uciScore = lastBestScore;
+            // For an aborted d1 search we label the loss score as inexact.
+            if (!lastBestPV.empty())
+            {
+                Utility::move_to_front(rootMoves,
+                                       [&lastBestPV = std::as_const(lastBestPV)](const auto& rm) {
+                                           return rm == lastBestPV[0];
+                                       });
+                rootMoves[0].pv    = lastBestPV;
+                rootMoves[0].score = rootMoves[0].uciScore = lastBestScore;
+            }
+            else
+            {
+                if (!rootMoves[0].scoreLowerbound)
+                    rootMoves[0].scoreUpperbound = true;
+                if (mainThread)
+                    main_manager()->pv(*this, threads, tt, rootDepth);
+            }
         }
-        else if (rootMoves[0].pv[0] != lastBestPV[0])
+        else if (lastBestPV.empty() || rootMoves[0].pv[0] != lastBestPV[0])
         {
             lastBestPV        = rootMoves[0].pv;
             lastBestScore     = rootMoves[0].score;
             lastBestMoveDepth = rootDepth;
         }
 
-        if (!mainThread)
-            continue;
-
-        // Have we found a "mate in x"?
-        if (limits.mate && rootMoves[0].score == rootMoves[0].uciScore
+        // Have we found a "mate in x" after a completed iteration?
+        if (limits.mate && !threads.stop
             && ((rootMoves[0].score >= VALUE_MATE_IN_MAX_PLY
                  && VALUE_MATE - rootMoves[0].score <= 2 * limits.mate)
-                || (rootMoves[0].score != -VALUE_INFINITE
-                    && rootMoves[0].score <= VALUE_MATED_IN_MAX_PLY
+                || (rootMoves[0].score <= VALUE_MATED_IN_MAX_PLY
                     && VALUE_MATE + rootMoves[0].score <= 2 * limits.mate)))
             threads.stop = true;
+
+        if (!mainThread)
+            continue;
 
         // Use part of the gained time from a previous stable move for the current move
         for (auto&& th : threads)
