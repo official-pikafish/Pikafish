@@ -24,7 +24,7 @@ jobs:
 
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
 
     # Initializes the CodeQL tools for scanning.
     - name: Initialize CodeQL
@@ -56,12 +56,12 @@ jobs:
         shell: bash
     steps:
       - name: Checkout Pikafish
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           path: Pikafish
 
       - name: Checkout include-what-you-use
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: include-what-you-use/include-what-you-use
           ref: 0.25
@@ -96,7 +96,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Pikafish
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Run clang-format style check
         uses: jidicula/clang-format-action@v4.16.0

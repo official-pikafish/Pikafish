@@ -467,22 +467,22 @@ void Search::Worker::iterative_deepening() {
             uint64_t nodesEffort =
               rootMoves[0].effort * 100000 / std::max(size_t(1), size_t(nodes));
 
-            double fallingEval = (16.93 + 2.73 * (mainThread->bestPreviousAverageScore - bestValue)
+            double fallingEval = (16.93 + 2.730 * (mainThread->bestPreviousAverageScore - bestValue)
                                   + 0.81 * (mainThread->iterValue[iterIdx] - bestValue))
                                / 100.0;
-            fallingEval = std::clamp(fallingEval, 0.61, 1.86);
+            fallingEval = std::clamp(fallingEval, 0.610, 1.860);
 
             // If the bestMove is stable over several iterations, reduce time accordingly
-            double k      = 0.54;
-            double center = lastBestMoveDepth + 12.71;
+            double k      = 0.540;
+            double center = lastBestMoveDepth + 12.710;
 
-            timeReduction = 0.66 + 0.82 / (1.03 + std::exp(-k * (completedDepth - center)));
+            timeReduction = 0.66 + 0.82 / (1.030 + std::exp(-k * (completedDepth - center)));
 
-            double reduction = (2.10 + mainThread->previousTimeReduction) / (2.48 * timeReduction);
+            double reduction = (2.1 + mainThread->previousTimeReduction) / (2.480 * timeReduction);
 
-            double bestMoveInstability = 0.96 + 1.63 * totBestMoveChanges / threads.size();
+            double bestMoveInstability = 0.960 + 1.630 * totBestMoveChanges / threads.size();
 
-            double highBestMoveEffort = nodesEffort >= 83566 ? 0.63 : 1.0;
+            double highBestMoveEffort = nodesEffort > 83566 ? 0.63 : 1.00;
 
             double totalTime = mainThread->tm.optimum() * fallingEval * reduction
                              * bestMoveInstability * highBestMoveEffort;
@@ -997,7 +997,7 @@ moves_loop:  // When in check, search starts here
                 }
 
                 // SEE based pruning for captures and checks
-                int margin = std::max(256 * depth + captHist / 30, 0);
+                int margin = std::max(256 * depth + captHist * 34 / 1024, 0);
                 if (!pos.see_ge(move, -margin))
                     continue;
             }
@@ -1397,9 +1397,10 @@ moves_loop:  // When in check, search starts here
     if (!ss->inCheck && !(bestMove && pos.capture(bestMove))
         && (bestValue > ss->staticEval) == bool(bestMove))
     {
-        auto bonus = std::clamp(int(bestValue - ss->staticEval) * depth / (bestMove ? 10 : 8),
-                                -CORRECTION_HISTORY_LIMIT / 4, CORRECTION_HISTORY_LIMIT / 4);
-        update_correction_history(pos, ss, *this, bonus);
+        auto bonus =
+          std::clamp(int(bestValue - ss->staticEval) * depth * (bestMove ? 12 : 17) / 128,
+                     -CORRECTION_HISTORY_LIMIT / 4, CORRECTION_HISTORY_LIMIT / 4);
+        update_correction_history(pos, ss, *this, 1069 * bonus / 1024);
     }
 
     assert(bestValue > -VALUE_INFINITE && bestValue < VALUE_INFINITE);
@@ -1779,7 +1780,7 @@ void update_continuation_histories(Stack* ss, Piece pc, Square to, int bonus) {
       {{1, 1076}, {2, 639}, {3, 293}, {4, 523}, {5, 129}, {6, 445}}};
 
     // Multipliers for positive history consistency
-    constexpr int CMHCMultipliers[] = {87, 94, 106, 118, 114, 128, 128};
+    constexpr int CMHCMultipliers[] = {96, 100, 100, 100, 115, 118, 129};
     int           positiveCount     = 0;
 
     for (const auto [i, weight] : conthist_bonuses)

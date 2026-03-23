@@ -30,7 +30,7 @@ jobs:
         shell: ${{ matrix.config.shell }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Setup msys and install required packages
         if: runner.os == 'Windows'
@@ -47,7 +47,7 @@ jobs:
 
       # Artifacts automatically get zipped.
       # To avoid double-zipping, we use the unzipped directory
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:	
           name: Pikafish-${{ matrix.config.name }}${{ matrix.arch }}
           path: ${{ env.EXE }}
@@ -65,7 +65,7 @@ jobs:
         shell: bash
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Compile apple-silicon build
         run: |
@@ -75,7 +75,7 @@ jobs:
 
       # Artifacts automatically get zipped.
       # To avoid double-zipping, we use the unzipped directory
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: Pikafish-MacOS-apple-silicon
           path: ${{ env.EXE }}
@@ -96,7 +96,7 @@ jobs:
         working-directory: src
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install NDK
         run: |
@@ -118,7 +118,7 @@ jobs:
 
       # Artifacts automatically get zipped.
       # To avoid double-zipping, we use the unzipped directory
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:	
           name: Pikafish-Android-${{ matrix.arch }}
           path: ${{ env.EXE }}
@@ -129,9 +129,9 @@ jobs:
     needs: [Pikafish-x86-64, Pikafish-MacOS, Pikafish-Android]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
       
       - name: Put binaries into OS-specific directories
         run: |
@@ -152,7 +152,7 @@ jobs:
 
       # Artifacts automatically get zipped.
       # To avoid double-zipping, we use the unzipped directory
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: Pikafish
           path: |
