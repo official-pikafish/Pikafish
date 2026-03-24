@@ -5,7 +5,7 @@
 
   <h3>Pikafish</h3>
 
-  A free and strong UCI xiangqi engine.
+  A free and strong UCI xiangqi engine .
   <br>
   <strong>[Explore Pikafish docs »][wiki-link]</strong>
   <br>
