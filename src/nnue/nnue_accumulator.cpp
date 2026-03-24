@@ -621,20 +621,7 @@ void update_accumulator_incremental(
 
 Bitboard get_changed_pieces(const std::array<Piece, SQUARE_NB>& oldPieces,
                             const std::array<Piece, SQUARE_NB>& newPieces) {
-#if defined(USE_AVX512) || defined(USE_AVX2)
-    static_assert(sizeof(Piece) == 1);
-    Bitboard sameBB = 0;
-
-    for (int i : {0, 32, 58})
-    {
-        const __m256i old_v = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(&oldPieces[i]));
-        const __m256i new_v = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(&newPieces[i]));
-        const __m256i cmpEqual        = _mm256_cmpeq_epi8(old_v, new_v);
-        const std::uint32_t equalMask = _mm256_movemask_epi8(cmpEqual);
-        sameBB |= static_cast<Bitboard>(equalMask) << i;
-    }
-    return ~sameBB;
-#elif defined(USE_NEON)
+#if defined(USE_NEON)
     Bitboard sameBB = 0;
 
     constexpr uint8x16_t mask_weights = {1, 2, 4, 8, 16, 32, 64, 128, 1, 2, 4, 8, 16, 32, 64, 128};
