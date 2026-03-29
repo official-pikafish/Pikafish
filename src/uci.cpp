@@ -43,7 +43,6 @@ namespace Stockfish {
 
 constexpr auto BenchmarkCommand = "speedtest";
 
-constexpr auto StartFEN = "rnbakabnr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C5C1/9/RNBAKABNR w";
 template<typename... Ts>
 struct overload: Ts... {
     using Ts::operator()...;
