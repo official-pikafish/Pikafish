@@ -104,6 +104,7 @@ VPATH = $(shell find . -type d | tr '\n' ':')
 # avx512 = yes/no     --- -mavx512f          --- Use Intel Advanced Vector Extensions 512
 # vnni512 = yes/no    --- -mavx512vnni       --- Use Intel Vector Neural Network Instructions 512
 # avx512icl = yes/no  --- ... multiple ...   --- Use All AVX-512 features available on both Intel Ice Lake and AMD Zen 4
+# knm = yes/no        --- ... multiple ...   --- Use All AVX-512 features and Vector Neural Network Instructions available on Intel Knights Mill
 # altivec = yes/no    --- -maltivec          --- Use PowerPC Altivec SIMD extension
 # vsx = yes/no        --- -mvsx              --- Use POWER VSX SIMD extension
 # neon = yes/no       --- -DUSE_NEON         --- Use ARM SIMD architecture
@@ -132,7 +133,7 @@ endif
 # explicitly check for the list of supported architectures (as listed with make help),
 # the user can override with `make ARCH=x86-64-avx512icl SUPPORTED_ARCH=true`
 ifeq ($(ARCH), $(filter $(ARCH), \
-                 x86-64-avx512icl x86-64-vnni512 x86-64-avx512 x86-64-avxvnni \
+                 x86-64-knm x86-64-avx512icl x86-64-vnni512 x86-64-avx512 x86-64-avxvnni \
                  x86-64-bmi2 x86-64-avx2 x86-64-sse41-popcnt x86-64-modern x86-64-ssse3 x86-64-sse3-popcnt \
                  x86-64 x86-32-sse41-popcnt x86-32-sse2 x86-32 ppc-64 ppc-64-altivec ppc-64-vsx ppc-32 e2k \
                  armv7 armv7-neon armv8 armv8-dotprod apple-silicon general-64 general-32 riscv64 \
@@ -159,6 +160,7 @@ avxvnni = no
 avx512 = no
 vnni512 = no
 avx512icl = no
+knm = no
 altivec = no
 vsx = no
 neon = no
@@ -295,6 +297,17 @@ ifeq ($(findstring -avx512icl,$(ARCH)),-avx512icl)
 	avx512 = yes
 	vnni512 = yes
 	avx512icl = yes
+endif
+
+ifeq ($(findstring -knm,$(ARCH)),-knm)
+	popcnt = yes
+	sse = yes
+	sse2 = yes
+	ssse3 = yes
+	sse41 = yes
+	avx2 = yes
+	pext = yes
+	knm = yes
 endif
 
 ifeq ($(sse),yes)
@@ -747,6 +760,13 @@ ifeq ($(avx512icl),yes)
 	endif
 endif
 
+ifeq ($(knm),yes)
+	CXXFLAGS += -DUSE_KNM
+	ifeq ($(comp),$(filter $(comp),gcc clang mingw icx))
+		CXXFLAGS += -mavx512f -mavx512pf -mavx512er -mavx512cd -mavx512vpopcntdq -mavx5124vnniw
+	endif
+endif
+
 ifeq ($(sse41),yes)
 	CXXFLAGS += -DUSE_SSE41
 	ifeq ($(comp),$(filter $(comp),gcc clang mingw icx))
@@ -934,6 +954,7 @@ help:
 	echo "Supported archs:" && \
 	echo "" && \
 	echo "native                  > select the best architecture for the host processor (default)" && \
+	echo "x86-64-knm              > x86 64-bit with avx512 4vnniw support of Intel Knights Mill" && \
 	echo "x86-64-avx512icl        > x86 64-bit with minimum avx512 support of Intel Ice Lake or AMD Zen 4" && \
 	echo "x86-64-vnni512          > x86 64-bit with vnni 512bit support" && \
 	echo "x86-64-avx512           > x86 64-bit with avx512 support" && \
@@ -1083,6 +1104,7 @@ config-sanity: net
 	echo "avx512: '$(avx512)'" && \
 	echo "vnni512: '$(vnni512)'" && \
 	echo "avx512icl: '$(avx512icl)'" && \
+	echo "knm: '$(knm)'" && \
 	echo "altivec: '$(altivec)'" && \
 	echo "vsx: '$(vsx)'" && \
 	echo "neon: '$(neon)'" && \
@@ -1119,6 +1141,7 @@ config-sanity: net
 	(test "$(avx512)" = "yes" || test "$(avx512)" = "no") && \
 	(test "$(vnni512)" = "yes" || test "$(vnni512)" = "no") && \
 	(test "$(avx512icl)" = "yes" || test "$(avx512icl)" = "no") && \
+	(test "$(knm)" = "yes" || test "$(knm)" = "no") && \
 	(test "$(altivec)" = "yes" || test "$(altivec)" = "no") && \
 	(test "$(vsx)" = "yes" || test "$(vsx)" = "no") && \
 	(test "$(neon)" = "yes" || test "$(neon)" = "no") && \
