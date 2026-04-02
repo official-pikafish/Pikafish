@@ -139,8 +139,8 @@ void AccumulatorStack::evaluate(const Position&                       pos,
                                 AccumulatorCaches::Cache<Dimensions>& cache) noexcept {
 
     evaluate_side<PSQFeatureSet>(WHITE, pos, featureTransformer, cache);
-    evaluate_side<ThreatFeatureSet>(WHITE, pos, featureTransformer, cache);
     evaluate_side<PSQFeatureSet>(BLACK, pos, featureTransformer, cache);
+    evaluate_side<ThreatFeatureSet>(WHITE, pos, featureTransformer, cache);
     evaluate_side<ThreatFeatureSet>(BLACK, pos, featureTransformer, cache);
 }
 

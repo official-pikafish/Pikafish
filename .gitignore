@@ -5,11 +5,6 @@ src/.depend
 .build_sha.txt
 .build_date.txt
 
-# Files from Qt
-build
-CMakeLists.txt
-CMakeLists.txt.user
-
 # Built binary
 src/pikafish*
 src/-lstdc++.res
