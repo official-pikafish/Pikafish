@@ -864,6 +864,7 @@ Value Search::Worker::search(
     probCutBeta = beta + 251 - 66 * improving;
     if (depth >= 3
         && !is_decisive(beta)
+        && probCutBeta < VALUE_INFINITE
         // If value from transposition table is lower than probCutBeta, don't attempt
         // probCut there
         && !(is_valid(ttData.value) && ttData.value < probCutBeta))
