@@ -19,11 +19,14 @@
 #include "network.h"
 
 #include <cstdlib>
+#include <cstdio>
+#include <cstring>
 #include <fstream>
 #include <iostream>
 #include <sstream>
 #include <optional>
 #include <vector>
+#include <unistd.h>
 
 #include "../misc.h"
 #include "../types.h"
@@ -157,7 +160,8 @@ void Network<Arch, Transformer>::verify(std::string                             
             f(msg);
         }
 
-        exit(EXIT_FAILURE);
+        // iOS: exit() in-process would kill the app. Log and return instead.
+        return;
     }
 
     if (f)
@@ -204,13 +208,25 @@ Network<Arch, Transformer>::trace_evaluate(const Position&                      
 template<typename Arch, typename Transformer>
 void Network<Arch, Transformer>::load_user_net(const std::string& dir,
                                                const std::string& evalfilePath) {
-    std::stringstream stream(read_compressed_nnue(dir + evalfilePath));
+    std::string fullPath = dir + evalfilePath;
+    {
+        std::string msg = "[NNUE] Attempting to load: " + fullPath + "\n";
+        ::write(STDERR_FILENO, msg.c_str(), msg.size());
+    }
+    std::stringstream stream(read_compressed_nnue(fullPath));
     auto              description = load(stream);
 
     if (description.has_value())
     {
         evalFile.current        = evalfilePath;
         evalFile.netDescription = description.value();
+        std::string msg = "[NNUE] Loaded OK: " + evalfilePath + " — " + description.value() + "\n";
+        ::write(STDERR_FILENO, msg.c_str(), msg.size());
+    }
+    else
+    {
+        std::string msg = "[NNUE] Load FAILED for: " + fullPath + "\n";
+        ::write(STDERR_FILENO, msg.c_str(), msg.size());
     }
 }
 
@@ -292,7 +308,14 @@ bool Network<Arch, Transformer>::read_parameters(std::istream& stream,
     if (!read_header(stream, &hashValue, &netDescription))
         return false;
     if (hashValue != Network::hash)
+    {
+        char buf[128];
+        std::snprintf(buf, sizeof(buf),
+                      "[NNUE] Hash mismatch: file=0x%08x expected=0x%08x\n",
+                      hashValue, Network::hash);
+        ::write(STDERR_FILENO, buf, std::strlen(buf));
         return false;
+    }
     if (!Detail::read_parameters(stream, featureTransformer))
         return false;
     for (std::size_t i = 0; i < LayerStacks; ++i)

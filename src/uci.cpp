@@ -43,7 +43,7 @@ namespace Stockfish {
 
 constexpr auto BenchmarkCommand = "speedtest";
 
-constexpr auto StartFEN = "rnbakabnr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C5C1/9/RNBAKABNR w";
+constexpr auto StartFEN = "rnbakabnr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C5C1/9/RNBAKABNR w - - 0 1";
 template<typename... Ts>
 struct overload: Ts... {
     using Ts::operator()...;
@@ -491,6 +491,8 @@ void UCIEngine::position(std::istringstream& is) {
     if (err.has_value())
     {
         terminate_on_critical_error(fullCommand, err->what());
+        // Reset to start position so a queued 'go' command doesn't crash on invalid state.
+        engine.set_position(StartFEN, {});
     }
 }
 
@@ -645,7 +647,8 @@ void UCIEngine::terminate_on_critical_error(const std::string& fullCommand,
     sync_cout << "info string CRITICAL ERROR: Command `" << fullCommand
               << "` failed. Reason: " << message << '\n'
               << sync_endl;
-    std::exit(1);
+    // iOS: running in-process, so std::exit(1) would destroy the whole app.
+    // Log the error and return so the command loop can keep running.
 }
 
 }  // namespace Stockfish

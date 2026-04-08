@@ -73,8 +73,8 @@ class UCIEngine {
 
     void init_search_update_listeners();
 
-    [[noreturn]] void terminate_on_critical_error(const std::string& fullCommand,
-                                                  const std::string& message);
+    void terminate_on_critical_error(const std::string& fullCommand,
+                                     const std::string& message);
 };
 
 }  // namespace Stockfish
