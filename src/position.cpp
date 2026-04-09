@@ -574,16 +574,6 @@ void Position::do_move(Move                      m,
     assert(captured == NO_PIECE || color_of(captured) == them);
     assert(type_of(captured) != KING);
 
-    bool mirror_before[2] = {
-      PSQFeatureSet::KingBuckets[king_square(us)][king_square(them)]
-                                [PSQFeatureSet::requires_mid_mirror(*this, us)]
-                                  .second,
-      PSQFeatureSet::KingBuckets[king_square(them)][king_square(us)]
-                                [PSQFeatureSet::requires_mid_mirror(*this, them)]
-                                  .second};
-    dp.requires_refresh[them] = false;
-    dp.requires_refresh[us]   = pc == make_piece(us, KING);
-
     if (captured)
     {
         Square capsq = to;
@@ -641,6 +631,16 @@ void Position::do_move(Move                      m,
         prefetch(&history->nonpawn_correction_entry<WHITE>(*this));
         prefetch(&history->nonpawn_correction_entry<BLACK>(*this));
     }
+
+    bool mirror_before[2] = {
+      PSQFeatureSet::KingBuckets[king_square(us)][king_square(them)]
+                                [PSQFeatureSet::requires_mid_mirror(*this, us)]
+                                  .second,
+      PSQFeatureSet::KingBuckets[king_square(them)][king_square(us)]
+                                [PSQFeatureSet::requires_mid_mirror(*this, them)]
+                                  .second};
+    dp.requires_refresh[them] = false;
+    dp.requires_refresh[us]   = pc == make_piece(us, KING);
 
     if (captured)
     {
