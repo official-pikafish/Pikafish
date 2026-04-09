@@ -21,7 +21,6 @@
 #include "full_threats.h"
 
 #include <array>
-#include <cstddef>
 #include <utility>
 
 #include "../../bitboard.h"
@@ -148,8 +147,7 @@ void FullThreats::append_active_indices(Color perspective, const Position& pos, 
             Piece     attacked = pos.piece_on(to);
             IndexType index    = make_index(perspective, attacker, from, to, attacked, mirror);
 
-            if (index < Dimensions)
-                active.push_back(index);
+            active.push_back_if_lt(index, Dimensions);
         }
     }
 }
@@ -173,13 +171,10 @@ void FullThreats::append_changed_indices(Color                   perspective,
         auto&     insert = add ? added : removed;
         IndexType index  = make_index(perspective, attacker, from, to, attacked, mirror);
 
-        if (index < Dimensions)
-        {
-            if (prefetchBase)
-                prefetch<PrefetchRw::READ, PrefetchLoc::LOW>(
-                  prefetchBase + static_cast<std::ptrdiff_t>(index) * prefetchStride);
-            insert.push_back(index);
-        }
+        if (prefetchBase)
+            prefetch<PrefetchRw::READ, PrefetchLoc::LOW>(reinterpret_cast<const void*>(
+              reinterpret_cast<uintptr_t>(prefetchBase) + index * prefetchStride));
+        insert.push_back_if_lt(index, Dimensions);
     }
 }
 
