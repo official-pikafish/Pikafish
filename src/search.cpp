@@ -1626,10 +1626,10 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
         }
     }
 
-    // Step 9. Check for mate
+    // Step 9. Check for mate and stalemate
     // All legal moves have been searched. A special case: if no legal
     // moves were found, it is checkmate.
-    if (bestValue == -VALUE_INFINITE || (!moveCount && [&] {
+    if (!moveCount && (ss->inCheck || [&] {
             for (const auto& m : MoveList<QUIETS>(pos))
                 if (pos.legal(m))
                     return false;
