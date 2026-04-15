@@ -115,7 +115,6 @@ void update_correction_history(const Position& pos,
 Value value_draw(size_t nodes) { return VALUE_DRAW - 1 + Value(nodes & 0x2); }
 Value value_to_tt(Value v, int ply);
 Value value_from_tt(Value v, int ply, int r60c);
-void  update_pv(Move* pv, Move move, const Move* childPv);
 void  update_continuation_histories(Stack* ss, Piece pc, Square to, int bonus);
 void  update_quiet_histories(
    const Position& pos, Stack* ss, Search::Worker& workerThread, Move move, int bonus);
@@ -247,7 +246,7 @@ bool Search::Worker::iterative_deepening() {
 
     SearchManager* mainThread = (is_mainthread() ? main_manager() : nullptr);
 
-    Move pv[MAX_PLY + 1];
+    PVMoves pv;
 
     Depth lastBestMoveDepth = 0;
 
@@ -274,7 +273,7 @@ bool Search::Worker::iterative_deepening() {
     for (int i = 0; i <= MAX_PLY + 2; ++i)
         (ss + i)->ply = i;
 
-    ss->pv = pv;
+    ss->pv = &pv;
 
     if (mainThread)
     {
@@ -600,7 +599,7 @@ Value Search::Worker::search(
     assert(0 < depth && depth < MAX_PLY);
     assert(!(PvNode && cutNode));
 
-    Move      pv[MAX_PLY + 1];
+    PVMoves   pv;
     StateInfo st;
 
     Key   posKey;
@@ -1197,8 +1196,8 @@ moves_loop:  // When in check, search starts here
         // otherwise let the parent node fail low with value <= alpha and try another move.
         if (PvNode && (moveCount == 1 || value > alpha))
         {
-            (ss + 1)->pv    = pv;
-            (ss + 1)->pv[0] = Move::none();
+            (ss + 1)->pv = &pv;
+            (ss + 1)->pv->clear();
 
             // Extend move from transposition table if we are about to dive into qsearch.
             // decisive score handling improves mate finding and retrograde analysis.
@@ -1257,8 +1256,8 @@ moves_loop:  // When in check, search starts here
 
                 assert((ss + 1)->pv);
 
-                for (Move* m = (ss + 1)->pv; *m != Move::none(); ++m)
-                    rm.pv.push_back(*m);
+                for (Move pvMove : *(ss + 1)->pv)
+                    rm.pv.push_back(pvMove);
 
                 // We record how often the best move has been changed in each iteration.
                 // This information is used for time management. In MultiPV mode,
@@ -1287,7 +1286,7 @@ moves_loop:  // When in check, search starts here
                 bestMove = move;
 
                 if (PvNode && !rootNode)  // Update pv even in fail-high case
-                    update_pv(ss->pv, move, (ss + 1)->pv);
+                    ss->pv->update(move, (ss + 1)->pv);
 
                 if (value >= beta)
                 {
@@ -1423,7 +1422,7 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
     assert(alpha >= -VALUE_INFINITE && alpha < beta && beta <= VALUE_INFINITE);
     assert(PvNode || (alpha == beta - 1));
 
-    Move      pv[MAX_PLY + 1];
+    PVMoves   pv;
     StateInfo st;
 
     Key   posKey;
@@ -1435,8 +1434,8 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
     // Step 1. Initialize node
     if (PvNode)
     {
-        (ss + 1)->pv = pv;
-        ss->pv[0]    = Move::none();
+        (ss + 1)->pv = &pv;
+        ss->pv->clear();
     }
 
     bestMove    = Move::none();
@@ -1616,7 +1615,7 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
                 bestMove = move;
 
                 if (PvNode)  // Update pv even in fail-high case
-                    update_pv(ss->pv, move, (ss + 1)->pv);
+                    ss->pv->update(move, (ss + 1)->pv);
 
                 if (value < beta)  // Update alpha here!
                     alpha = value;
@@ -1706,15 +1705,6 @@ Value value_from_tt(Value v, int ply, int r60c) {
         return VALUE_MATE + v > 120 - r60c ? VALUE_MATED_IN_MAX_PLY + 1 : v + ply;
 
     return v;
-}
-
-
-// Adds current move and appends child pv[]
-void update_pv(Move* pv, Move move, const Move* childPv) {
-
-    for (*pv++ = move; childPv && *childPv != Move::none();)
-        *pv++ = *childPv++;
-    *pv = Move::none();
 }
 
 
@@ -1815,7 +1805,6 @@ void update_quiet_histories(
     workerThread.sharedHistory.pawn_entry(pos)[pos.moved_piece(move)][move.to_sq()]
       << bonus * (bonus > 0 ? 913 : 553) / 1024;
 }
-
 }
 
 // Used to print debug info and, more importantly, to detect
