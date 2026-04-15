@@ -99,7 +99,7 @@ void UCIEngine::loop() {
         std::istringstream is(cmd);
 
         token.clear();  // Avoid a stale if getline() returns nothing or a blank line
-        is >> std::skipws >> token;
+        is >> token;
 
         if (token == "quit" || token == "stop")
             engine.stop();
@@ -155,8 +155,8 @@ void UCIEngine::loop() {
         {
             std::pair<std::optional<std::string>, std::string> files;
 
-            if (is >> std::skipws >> files.second)
-                files.first = files.second;
+            if (is >> files[0].second)
+                files[0].first = files[0].second;
 
             engine.save_network(files);
         }
@@ -246,7 +246,7 @@ void UCIEngine::bench(std::istream& args) {
     for (const auto& cmd : list)
     {
         std::istringstream is(cmd);
-        is >> std::skipws >> token;
+        is >> token;
 
         if (token == "go" || token == "eval")
         {
@@ -326,7 +326,7 @@ void UCIEngine::benchmark(std::istream& args) {
     for (const auto& cmd : setup.commands)
     {
         std::istringstream is(cmd);
-        is >> std::skipws >> token;
+        is >> token;
 
         if (token == "go")
         {
@@ -377,7 +377,7 @@ void UCIEngine::benchmark(std::istream& args) {
     for (const auto& cmd : setup.commands)
     {
         std::istringstream is(cmd);
-        is >> std::skipws >> token;
+        is >> token;
 
         if (token == "go")
         {
