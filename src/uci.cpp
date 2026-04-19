@@ -155,8 +155,8 @@ void UCIEngine::loop() {
         {
             std::pair<std::optional<std::string>, std::string> files;
 
-            if (is >> files[0].second)
-                files[0].first = files[0].second;
+            if (is >> files.second)
+                files.first = files.second;
 
             engine.save_network(files);
         }
