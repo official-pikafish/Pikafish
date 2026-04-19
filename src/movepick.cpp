@@ -166,9 +166,9 @@ ExtMove* MovePicker::score(const MoveList<Type>& ml) {
 
             // bonus for checks
             m.value +=
-              (bool((pt == CANNON ? pos.check_squares(pt) & ~line_bb(from, pos.king_square(~us))
-                                  : pos.check_squares(pt))
-                    & to)
+              (((pt == CANNON ? pos.check_squares(pt) & ~line_bb(from, pos.king_square(~us))
+                              : pos.check_squares(pt))
+                & to)
                && pos.see_ge(m, -75))
               * 16384;
 
