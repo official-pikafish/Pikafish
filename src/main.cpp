@@ -51,6 +51,4 @@ int main(int argc, char* argv[]) {
 
 #ifdef UNIVERSAL_BINARY
 }
-
-int main(int argc, char** argv) { return Stockfish::main(argc, argv); }
 #endif

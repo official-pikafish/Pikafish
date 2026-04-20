@@ -67,9 +67,9 @@ BINDIR = $(PREFIX)/bin
 PGOBENCH = $(RUN_PREFIX) ./$(EXE) bench
 
 ### Source and object files
-SRCS = $(shell find . ! -path './universal/*' -a -name '*.cpp') $(shell find . -name '*.S')
+SRCS = $(shell find . \( -path './universal/*' -o -path './temp_builds/*' \) -prune -o \( -name '*.cpp' -o -name '*.S' \) -printf "%P\n")
 
-HEADERS = $(shell find . -name '*.h')
+HEADERS = $(shell find . \( -path './universal/*' -o -path './temp_builds/*' \) -prune -o -name '*.h' -printf "%P\n")
 
 OBJS = $(notdir $(patsubst %.cpp,%.o,$(patsubst %.S,%.o,$(SRCS))))
 
@@ -1238,19 +1238,12 @@ ifeq ($(UNIVERSAL_BUILD),true)
 UNIVERSAL_ARCHES := x86-64 x86-64-sse41-popcnt x86-64-avx2 x86-64-bmi2 \
                     x86-64-avxvnni x86-64-avx512 x86-64-vnni512 x86-64-avx512icl
 
-# GCC 15+ required for #embed
-GCC_MAJOR := $(shell $(CXX) -dumpversion 2>/dev/null | cut -d. -f1)
-ifneq ($(shell test "$(GCC_MAJOR)" -ge 15 2>/dev/null && echo ok),ok)
-$(error Universal build needs GCC 15+ for \#embed support; CXX=$(CXX) reports version '$(GCC_MAJOR)')
-endif
-
 UNIVERSAL_SRC_DIR    := $(CURDIR)/universal
-NNUE_EMBED_OBJ       := $(TEMP_DIR)/nnue_embed.o
 UNIVERSAL_ENTRY_OBJ  := $(TEMP_DIR)/entry_x86.o
 NET_SENTINEL         := $(TEMP_DIR)/.net-done
 
 # Top-level tracked items in src/ (directories and files)
-TRACKED_TOP := $(shell echo "$(SRCS) $(HEADERS) Makefile incbin" | xargs -n1 | awk -F/ '{print $$1}' | sort -u)
+TRACKED_TOP := $(shell echo "$(SRCS) $(HEADERS) Makefile" | xargs -n1 | awk -F/ '{print $$1}' | sort -u)
 
 # Baseline x86-64 must come first in the final link (Windows --allow-multiple-definition
 # uses the first copy of inline duplicates)
@@ -1269,7 +1262,6 @@ arch-suffix     = $(subst -,_,$(1))
 arch-namespace  = Stockfish_$(call arch-suffix,$(1))
 # Itanium ABI mangled name for Stockfish_<suffix>::main(int, char**)
 arch-mangled    = _ZN$(shell printf %s '$(call arch-namespace,$(1))' | wc -c)$(call arch-namespace,$(1))4mainEiPPc
-
 arch-cxxflags   = -DStockfish=$(call arch-namespace,$(1)) -DUNIVERSAL_BINARY -Wl,--defsym=main=$(call arch-mangled,$(1))
 
 UOBJ_TGT ?= universal-object-pgo
@@ -1298,10 +1290,10 @@ $(TEMP_DIR)/%/.setup: | $(TEMP_DIR)
 	@$(foreach f,$(TRACKED_TOP),ln -s $(CURDIR)/$(f) $(TEMP_DIR)/$*/$(f);)
 	@touch $@
 
-# Per-arch stockfish.o
+# Per-arch pikafish.o
 .SECONDARY: $(patsubst %,$(TEMP_DIR)/%/.setup,$(UNIVERSAL_ARCHES))
 
-$(TEMP_DIR)/%/stockfish.o: $(TEMP_DIR)/%/.setup $(NET_SENTINEL)
+$(TEMP_DIR)/%/pikafish.o: $(TEMP_DIR)/%/.setup $(NET_SENTINEL)
 	+ENV_CXXFLAGS='$(ENV_CXXFLAGS) $(call arch-cxxflags,$*)' \
 	    $(MAKE) -C $(TEMP_DIR)/$* $(UOBJ_TGT) \
 	        ARCH=$* CXX=$(CXX)
