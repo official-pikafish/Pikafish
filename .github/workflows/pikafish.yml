@@ -38,7 +38,7 @@ jobs:
           msystem: clang64
           install: mingw-w64-clang-x86_64-clang make git
 
-      - name: Set up llvm
+      - name: Set up LLVM
         if: runner.os == 'Linux'
         run: |
           LLVM_VERSION=22
