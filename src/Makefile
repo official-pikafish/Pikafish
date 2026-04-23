@@ -67,13 +67,13 @@ BINDIR = $(PREFIX)/bin
 PGOBENCH = $(RUN_PREFIX) ./$(EXE) bench
 
 ### Source and object files
-SRCS = $(shell find . \( -path './universal/*' -o -path './temp_builds/*' \) -prune -o \( -name '*.cpp' -o -name '*.S' \) -printf "%P\n")
+SRCS = $(shell find -L . \( -path './universal' -o -path './temp_builds' \) -prune -o \( -name '*.cpp' -o -name '*.S' \) -printf "%P\n")
 
-HEADERS = $(shell find . \( -path './universal/*' -o -path './temp_builds/*' \) -prune -o -name '*.h' -printf "%P\n")
+HEADERS = $(shell find -L . \( -path './universal' -o -path './temp_builds' \) -prune -o -name '*.h' -printf "%P\n")
 
 OBJS = $(notdir $(patsubst %.cpp,%.o,$(patsubst %.S,%.o,$(SRCS))))
 
-VPATH = $(shell find . -type d | tr '\n' ':')
+VPATH = $(shell find -L . -type d | tr '\n' ':')
 
 ### ==========================================================================
 ### Section 2. High-level Configuration
@@ -1044,11 +1044,11 @@ universal-object-pgo: objclean profileclean universalclean
 	$(MAKE) ARCH=$(ARCH) COMP=$(COMP) $(profile_use)
 	@echo ""
 	@echo "Step 4/4. Extracting LTO-optimized relocatable object ..."
-	cp $(basename $(EXE)).ltrans0.ltrans.o pikafish.o
+	llvm-link -o pikafish.o $(notdir $(patsubst %.cpp,%.o,$(filter %.cpp,$(SRCS))))
 
 universal-object-nopgo: objclean universalclean
 	$(MAKE) ARCH=$(ARCH) COMP=$(COMP) all
-	cp $(basename $(EXE)).ltrans0.ltrans.o pikafish.o
+	llvm-link -o pikafish.o $(notdir $(patsubst %.cpp,%.o,$(filter %.cpp,$(SRCS))))
 
 strip:
 	$(STRIP) $(EXE)
@@ -1250,11 +1250,13 @@ TRACKED_TOP := $(shell echo "$(SRCS) $(HEADERS) Makefile" | xargs -n1 | awk -F/ 
 ARCH_OBJS := $(TEMP_DIR)/x86-64/pikafish.o \
              $(patsubst %,$(TEMP_DIR)/%/pikafish.o,$(filter-out x86-64,$(UNIVERSAL_ARCHES)))
 
-UNIVERSAL_FINAL_FLAGS := -fno-exceptions -Os -static-libstdc++ -static-libgcc
+UNIVERSAL_COMMON_OBJ := $(patsubst %.S,$(TEMP_DIR)/x86-64/%.o,$(notdir $(filter %.S,$(SRCS))))
+UNIVERSAL_FINAL_FLAGS := -fno-exceptions -Os -lpthread
 ifeq ($(KERNEL),Linux)
-    UNIVERSAL_FINAL_FLAGS += -lrt -lpthread
+    UNIVERSAL_FINAL_FLAGS += -lrt
+    UNIVERSAL_LLC_FLAGS := -relocation-model=pic
 else
-    UNIVERSAL_FINAL_FLAGS += -Wl,--allow-multiple-definition -static
+    UNIVERSAL_FINAL_FLAGS += -static
 endif
 
 # $(call arch-namespace,x86-64-avx2) => Stockfish_x86_64_avx2
@@ -1262,7 +1264,7 @@ arch-suffix     = $(subst -,_,$(1))
 arch-namespace  = Stockfish_$(call arch-suffix,$(1))
 # Itanium ABI mangled name for Stockfish_<suffix>::main(int, char**)
 arch-mangled    = _ZN$(shell printf %s '$(call arch-namespace,$(1))' | wc -c)$(call arch-namespace,$(1))4mainEiPPc
-arch-cxxflags   = -DStockfish=$(call arch-namespace,$(1)) -DUNIVERSAL_BINARY -Wl,--defsym=main=$(call arch-mangled,$(1))
+arch-cxxflags   = -DStockfish=$(call arch-namespace,$(1)) -DUNIVERSAL_BINARY
 
 UOBJ_TGT ?= universal-object-pgo
 
@@ -1297,12 +1299,46 @@ $(TEMP_DIR)/%/pikafish.o: $(TEMP_DIR)/%/.setup $(NET_SENTINEL)
 	+ENV_CXXFLAGS='$(ENV_CXXFLAGS) $(call arch-cxxflags,$*)' \
 	    $(MAKE) -C $(TEMP_DIR)/$* $(UOBJ_TGT) \
 	        ARCH=$* CXX=$(CXX)
-	objcopy --rename-section .init_array=$(call arch-suffix,$*)_init $@
-	objcopy --rename-section .ctors=$(call arch-suffix,$*)_init $@
-	objcopy --set-section-flags $(call arch-suffix,$*)_init=alloc,data $@
+	llvm-dis -o $@.ll $@
+	@awk -v section='$(call arch-suffix,$*)_init' \
+	      -v start='__start_$(call arch-suffix,$*)_init' \
+	      -v stop='__stop_$(call arch-suffix,$*)_init' '\
+		BEGIN { ctor_count = 0 } \
+		/^@llvm\.global_ctors = appending global / { \
+			line = $$0; \
+			while (match(line, /\{ i32 [0-9]+, ptr @[^,]+, ptr [^}]+\}/)) { \
+				entry = substr(line, RSTART, RLENGTH); \
+				name = entry; \
+				sub(/^\{ i32 [0-9]+, ptr @/, "", name); \
+				sub(/, ptr [^}]+\}$$/, "", name); \
+				ctors[++ctor_count] = name; \
+				line = substr(line, RSTART + RLENGTH); \
+			} \
+			next; \
+		} \
+		{ print } \
+		END { \
+			print ""; \
+			if (ctor_count == 0) { \
+				print "define internal void @__universal_noop_ctor() {"; \
+				print "  ret void"; \
+				print "}"; \
+				ctors[++ctor_count] = "__universal_noop_ctor"; \
+				print ""; \
+			} \
+			printf "@%s = dso_local global [%d x ptr] [", start, ctor_count; \
+			for (i = 1; i <= ctor_count; ++i) \
+				printf "%s ptr @%s", (i == 1 ? "" : ", "), ctors[i]; \
+			printf "], section \"%s\", align 8\n", section; \
+			printf "@%s = dso_local alias ptr, ptr getelementptr inbounds ([%d x ptr], ptr @%s, i64 1, i64 0)\n", stop, ctor_count, start; \
+		}' $@.ll > $@.rewritten.ll
+	opt -passes='internalize,lto<O3>' \
+	    -internalize-public-api-list='$(call arch-mangled,$*),__start_$(call arch-suffix,$*)_init,__stop_$(call arch-suffix,$*)_init' \
+	    -o $@.opt.bc $@.rewritten.ll
+	llc -O3 $(UNIVERSAL_LLC_FLAGS) -filetype=obj -o $@ $@.opt.bc
 
 $(UNIVERSAL_EXE): $(UNIVERSAL_ENTRY_OBJ) $(ARCH_OBJS)
-	$(CXX) -o $@ $(UNIVERSAL_ENTRY_OBJ) $(ARCH_OBJS) $(UNIVERSAL_FINAL_FLAGS)
+	$(CXX) -o $@ $(UNIVERSAL_ENTRY_OBJ) $(ARCH_OBJS) $(UNIVERSAL_COMMON_OBJ) $(UNIVERSAL_FINAL_FLAGS)
 	@echo "Universal binary built: $@"
 
 endif  # UNIVERSAL_BUILD
