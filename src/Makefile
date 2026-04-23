@@ -67,13 +67,13 @@ BINDIR = $(PREFIX)/bin
 PGOBENCH = $(RUN_PREFIX) ./$(EXE) bench
 
 ### Source and object files
-SRCS = $(shell find -L . \( -path './universal' -o -path './temp_builds' \) -prune -o \( -name '*.cpp' -o -name '*.S' \) -printf "%P\n")
+SRCS = $(shell find -L . \( -path './universal' -o -path './temp_builds' \) -prune -o \( -name '*.cpp' -o -name '*.S' \) -print | sed 's|^\./||')
 
-HEADERS = $(shell find -L . \( -path './universal' -o -path './temp_builds' \) -prune -o -name '*.h' -printf "%P\n")
+HEADERS = $(shell find -L . \( -path './universal' -o -path './temp_builds' \) -prune -o -name '*.h' -print | sed 's|^\./||')
 
 OBJS = $(notdir $(patsubst %.cpp,%.o,$(patsubst %.S,%.o,$(SRCS))))
 
-VPATH = $(shell find -L . -type d | tr '\n' ':')
+VPATH = $(shell find -L . \( -path './universal' -o -path './temp_builds' \) -prune -o -type d -print | tr '\n' ':')
 
 ### ==========================================================================
 ### Section 2. High-level Configuration
@@ -1251,12 +1251,12 @@ ARCH_OBJS := $(TEMP_DIR)/x86-64/pikafish.o \
              $(patsubst %,$(TEMP_DIR)/%/pikafish.o,$(filter-out x86-64,$(UNIVERSAL_ARCHES)))
 
 UNIVERSAL_COMMON_OBJ := $(patsubst %.S,$(TEMP_DIR)/x86-64/%.o,$(notdir $(filter %.S,$(SRCS))))
-UNIVERSAL_FINAL_FLAGS := -fno-exceptions -Os -lpthread
+UNIVERSAL_FINAL_FLAGS := -fno-exceptions -Os
 ifeq ($(KERNEL),Linux)
-    UNIVERSAL_FINAL_FLAGS += -lrt
+    UNIVERSAL_FINAL_FLAGS += -fuse-ld=lld -nostdlib++ -stdlib=libc++ -rtlib=compiler-rt -unwindlib=libunwind -Wl,-Bstatic -lc++ -lc++abi -lunwind -Wl,-Bdynamic
     UNIVERSAL_LLC_FLAGS := -relocation-model=pic
 else
-    UNIVERSAL_FINAL_FLAGS += -static
+    UNIVERSAL_FINAL_FLAGS += -static -lpthread
 endif
 
 # $(call arch-namespace,x86-64-avx2) => Stockfish_x86_64_avx2
