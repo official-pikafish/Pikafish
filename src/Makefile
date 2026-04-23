@@ -67,13 +67,13 @@ BINDIR = $(PREFIX)/bin
 PGOBENCH = $(RUN_PREFIX) ./$(EXE) bench
 
 ### Source and object files
-SRCS = $(shell find -L . \( -path './universal' -o -path './temp_builds' \) -prune -o \( -name '*.cpp' -o -name '*.S' \) -printf "%P\n")
+SRCS = $(shell find -L . \( -path './universal' -o -path './temp_builds' \) -prune -o \( -name '*.cpp' -o -name '*.S' \) -print | sed 's|^\./||')
 
-HEADERS = $(shell find -L . \( -path './universal' -o -path './temp_builds' \) -prune -o -name '*.h' -printf "%P\n")
+HEADERS = $(shell find -L . \( -path './universal' -o -path './temp_builds' \) -prune -o -name '*.h' -print | sed 's|^\./||')
 
 OBJS = $(notdir $(patsubst %.cpp,%.o,$(patsubst %.S,%.o,$(SRCS))))
 
-VPATH = $(shell find -L . -type d | tr '\n' ':')
+VPATH = $(shell find -L . \( -path './universal' -o -path './temp_builds' \) -prune -o -type d -print | tr '\n' ':')
 
 ### ==========================================================================
 ### Section 2. High-level Configuration

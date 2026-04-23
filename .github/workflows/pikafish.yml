@@ -7,12 +7,12 @@ on:
 
 jobs:
   Pikafish-x86-64:
-    name: ${{ matrix.config.name }}${{ matrix.arch }}
+    name: ${{ matrix.config.name }}
     runs-on: ${{ matrix.config.os }}
     env:
-      ARCH: x86-64${{ matrix.arch }}
+      ARCH: x86-64-universal
       COMP: clang
-      EXE: pikafish${{ matrix.arch }}${{ matrix.config.ext }}
+      EXE: pikafish${{ matrix.config.ext }}
     strategy:
       matrix:
         config:
@@ -23,7 +23,6 @@ jobs:
             os: windows-latest
             shell: msys2 {0}
             ext: .exe
-        arch: ["-avx512icl", "-vnni512", "-avx512", "-avxvnni", "-bmi2", "-avx2", "-sse41-popcnt"]
     defaults:
       run:
         working-directory: src
@@ -39,7 +38,13 @@ jobs:
           msystem: clang64
           install: mingw-w64-clang-x86_64-clang make git
 
-      - name: Compile ${{ matrix.arch }} build
+      - name: Set up llvm
+        if: runner.os == 'Linux'
+        run: |
+          curl -s https://apt.llvm.org/llvm.sh | sudo bash -s -- 22
+          echo "/usr/lib/llvm-22/bin" >> $GITHUB_PATH
+
+      - name: Compile universal build
         run: |
           make -j build EXE=$EXE
           make strip EXE=$EXE
@@ -49,7 +54,7 @@ jobs:
       # To avoid double-zipping, we use the unzipped directory
       - uses: actions/upload-artifact@v7
         with:	
-          name: Pikafish-${{ matrix.config.name }}${{ matrix.arch }}
+          name: Pikafish-${{ matrix.config.name }}
           path: ${{ env.EXE }}
 
   Pikafish-MacOS:
