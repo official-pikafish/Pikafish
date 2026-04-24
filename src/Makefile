@@ -1332,7 +1332,7 @@ $(TEMP_DIR)/%/pikafish.o: $(TEMP_DIR)/%/.setup $(NET_SENTINEL)
 			printf "], section \"%s\", align 8\n", section; \
 			printf "@%s = dso_local alias ptr, ptr getelementptr inbounds ([%d x ptr], ptr @%s, i64 1, i64 0)\n", stop, ctor_count, start; \
 		}' $@.ll > $@.rewritten.ll
-	opt -passes='internalize,lto<O3>' \
+	opt -inline-threshold=500 -passes='internalize,lto<O3>' \
 	    -internalize-public-api-list='$(call arch-mangled,$*),__start_$(call arch-suffix,$*)_init,__stop_$(call arch-suffix,$*)_init' \
 	    -o $@.opt.bc $@.rewritten.ll
 	llc -O3 $(UNIVERSAL_LLC_FLAGS) -filetype=obj -o $@ $@.opt.bc
