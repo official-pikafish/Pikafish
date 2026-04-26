@@ -188,9 +188,9 @@ class Position {
     void set_check_info() const;
 
     // Other helpers
-    template<bool PutPiece, bool ComputeRay = true>
-    void                  update_piece_threats(Piece pc, Square s, DirtyThreats* const dts);
-    void                  move_piece(Square from, Square to, DirtyThreats* const dts = nullptr);
+    template<bool ComputeRay = true>
+    void update_piece_threats(Piece pc, bool putPiece, Square s, DirtyThreats* const dts);
+    void move_piece(Square from, Square to, DirtyThreats* const dts = nullptr);
     std::pair<Piece, int> do_move(Move m);
     void                  undo_move(Move m, Piece captured, int id = 0);
     Value                 detect_chases(int d, int ply = 0);
@@ -331,7 +331,7 @@ inline void Position::put_piece(Piece pc, Square s, DirtyThreats* const dts) {
     midEncoding[color_of(pc)] += Eval::NNUE::Features::HalfKAv2_hm::MidMirrorEncoding[pc][s];
 
     if (dts)
-        update_piece_threats<true>(pc, s, dts);
+        update_piece_threats(pc, true, s, dts);
 }
 
 inline void Position::remove_piece(Square s, DirtyThreats* const dts) {
@@ -339,7 +339,7 @@ inline void Position::remove_piece(Square s, DirtyThreats* const dts) {
     Piece pc = board[s];
 
     if (dts)
-        update_piece_threats<false>(pc, s, dts);
+        update_piece_threats(pc, false, s, dts);
 
     byTypeBB[ALL_PIECES] ^= s;
     byTypeBB[type_of(pc)] ^= s;
@@ -356,7 +356,7 @@ inline void Position::move_piece(Square from, Square to, DirtyThreats* const dts
     Bitboard fromTo = from | to;
 
     if (dts)
-        update_piece_threats<false>(pc, from, dts);
+        update_piece_threats(pc, false, from, dts);
 
     byTypeBB[ALL_PIECES] ^= fromTo;
     byTypeBB[type_of(pc)] ^= fromTo;
@@ -367,7 +367,7 @@ inline void Position::move_piece(Square from, Square to, DirtyThreats* const dts
     midEncoding[color_of(pc)] += Eval::NNUE::Features::HalfKAv2_hm::MidMirrorEncoding[pc][to];
 
     if (dts)
-        update_piece_threats<true>(pc, to, dts);
+        update_piece_threats(pc, true, to, dts);
 }
 
 inline void Position::swap_piece(Square s, Piece pc, DirtyThreats* const dts) {
@@ -376,12 +376,12 @@ inline void Position::swap_piece(Square s, Piece pc, DirtyThreats* const dts) {
     remove_piece(s);
 
     if (dts)
-        update_piece_threats<false, false>(old, s, dts);
+        update_piece_threats<false>(old, false, s, dts);
 
     put_piece(pc, s);
 
     if (dts)
-        update_piece_threats<true, false>(pc, s, dts);
+        update_piece_threats<false>(pc, true, s, dts);
 }
 
 inline void Position::do_move(Move m, StateInfo& newSt, const TranspositionTable* tt = nullptr) {

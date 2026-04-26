@@ -318,11 +318,6 @@ struct DirtyThreats {
     bool            requires_refresh[2];
 };
 
-struct DirtyBoardData {
-    DirtyPiece   dp;
-    DirtyThreats dts;
-};
-
     #define ENABLE_INCR_OPERATORS_ON(T) \
         constexpr T& operator++(T& d) { return d = T(int(d) + 1); } \
         constexpr T& operator--(T& d) { return d = T(int(d) - 1); }
