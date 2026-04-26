@@ -125,8 +125,8 @@ IndexType FullThreats::make_index(
 
 // Get a list of indices for active features in ascending order
 void FullThreats::append_active_indices(Color perspective, const Position& pos, IndexList& active) {
-    Square ksq  = pos.king_square(perspective);
-    Square oksq = pos.king_square(~perspective);
+    const Square ksq  = pos.king_square(perspective);
+    const Square oksq = pos.king_square(~perspective);
     auto& [_, mirror] =
       HalfKAv2_hm::KingBuckets[ksq][oksq][HalfKAv2_hm::requires_mid_mirror(pos, perspective)];
     Bitboard occupied = pos.pieces();
