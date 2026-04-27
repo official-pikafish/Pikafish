@@ -94,11 +94,15 @@ using __uint128_t = std::_Unsigned128;
         #if defined(_MSC_VER) && !defined(__clang__)
             #define pext(b, m, s) \
                 ((_pext_u64(b._Word[1], m._Word[1]) << s) | _pext_u64(b._Word[0], m._Word[0]))
+            #define pdep(b, m) \
+                ((__uint128_t(_pdep_u64(b >> 16, m._Word[1])) << 64) | _pdep_u64(b, m._Word[0]))
         #else
             #define pext(b, m, s) ((_pext_u64(b >> 64, m >> 64) << s) | _pext_u64(b, m))
+            #define pdep(b, m) ((__uint128_t(_pdep_u64(b >> 16, m >> 64)) << 64) | _pdep_u64(b, m))
         #endif
     #else
         #define pext(b, m, s) 0
+        #define pdep(b, m) 0
     #endif
 
 namespace Stockfish {

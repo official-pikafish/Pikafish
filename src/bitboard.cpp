@@ -40,15 +40,14 @@ Magic KnightToMagics[SQUARE_NB];
 
 namespace {
 
-Bitboard RookTable[0x108000];    // To store rook attacks
-Bitboard CannonTable[0x108000];  // To store cannon attacks
-Bitboard BishopTable[0x228];     // To store bishop attacks
-Bitboard KnightTable[0x380];     // To store knight attacks
-Bitboard KnightToTable[0x3E0];   // To store by knight attacks
-
+std::array<MagicMask, 0x108000> RookTable;      // To store rook attacks
+std::array<MagicMask, 0x108000> CannonTable;    // To store cannon attacks
+std::array<MagicMask, 0x228>    BishopTable;    // To store bishop attacks
+std::array<MagicMask, 0x380>    KnightTable;    // To store knight attacks
+std::array<MagicMask, 0x3E0>    KnightToTable;  // To store by knight attacks
 
 template<PieceType pt>
-void init_magics(Bitboard table[], Magic magics[] IF_NOT_PEXT(, const Bitboard magicsInit[]));
+void init_magics(MagicMask table[], Magic magics[] IF_NOT_PEXT(, const Bitboard magicsInit[]));
 
 }
 
@@ -81,11 +80,11 @@ void Bitboards::init() {
     for (unsigned i = 0; i < (1 << 16); ++i)
         PopCnt16[i] = uint8_t(std::bitset<16>(i).count());
 
-    init_magics<ROOK>(RookTable, RookMagics IF_NOT_PEXT(, RookMagicsInit));
-    init_magics<CANNON>(CannonTable, CannonMagics IF_NOT_PEXT(, RookMagicsInit));
-    init_magics<BISHOP>(BishopTable, BishopMagics IF_NOT_PEXT(, BishopMagicsInit));
-    init_magics<KNIGHT>(KnightTable, KnightMagics IF_NOT_PEXT(, KnightMagicsInit));
-    init_magics<KNIGHT_TO>(KnightToTable, KnightToMagics IF_NOT_PEXT(, KnightToMagicsInit));
+    init_magics<ROOK>(RookTable.data(), RookMagics IF_NOT_PEXT(, RookMagicsInit));
+    init_magics<CANNON>(CannonTable.data(), CannonMagics IF_NOT_PEXT(, RookMagicsInit));
+    init_magics<BISHOP>(BishopTable.data(), BishopMagics IF_NOT_PEXT(, BishopMagicsInit));
+    init_magics<KNIGHT>(KnightTable.data(), KnightMagics IF_NOT_PEXT(, KnightMagicsInit));
+    init_magics<KNIGHT_TO>(KnightToTable.data(), KnightToMagics IF_NOT_PEXT(, KnightToMagicsInit));
 
     for (Square s1 = SQ_A0; s1 <= SQ_I9; ++s1)
     {
@@ -127,7 +126,7 @@ namespace {
 // https://www.chessprogramming.org/Magic_Bitboards. In particular, here we use
 // the so called "fancy" approach.
 template<PieceType pt>
-void init_magics(Bitboard table[], Magic magics[] IF_NOT_PEXT(, const Bitboard magicsInit[])) {
+void init_magics(MagicMask table[], Magic magics[] IF_NOT_PEXT(, const Bitboard magicsInit[])) {
 
     Bitboard edges, b;
     uint64_t size = 0;
@@ -149,6 +148,11 @@ void init_magics(Bitboard table[], Magic magics[] IF_NOT_PEXT(, const Bitboard m
             m.mask &= ~edges;
 
 #ifdef USE_PEXT
+        if constexpr (pt == ROOK || pt == CANNON)
+            m.pseudoAttacks = Bitboards::sliding_attack<ROOK>(s, 0);
+        else
+            m.pseudoAttacks = Bitboards::lame_leaper_attack<pt>(s, 0);
+
         m.shift = popcount(uint64_t(m.mask));
 #else
         m.magic = magicsInit[s];
@@ -164,9 +168,14 @@ void init_magics(Bitboard table[], Magic magics[] IF_NOT_PEXT(, const Bitboard m
         b = size = 0;
         do
         {
-            m.attacks[m.index(b)] = pt == ROOK || pt == CANNON
-                                    ? Bitboards::sliding_attack<pt>(s, b)
-                                    : Bitboards::lame_leaper_attack<pt>(s, b);
+            Bitboard attacks = pt == ROOK || pt == CANNON ? Bitboards::sliding_attack<pt>(s, b)
+                                                          : Bitboards::lame_leaper_attack<pt>(s, b);
+
+#ifdef USE_PEXT
+            m.attacks[m.index(b)] = uint32_t(pext(attacks, m.pseudoAttacks, 16));
+#else
+            m.attacks[m.index(b)] = attacks;
+#endif
 
             size++;
             b = (b - m.mask) & m.mask;

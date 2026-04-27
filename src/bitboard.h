@@ -30,13 +30,15 @@
 
 #include "types.h"
 
+namespace Stockfish {
+
 #ifdef USE_PEXT
     #define IF_NOT_PEXT(...)
+using MagicMask = uint32_t;
 #else
     #define IF_NOT_PEXT(...) __VA_ARGS__
+using MagicMask = Bitboard;
 #endif
-
-namespace Stockfish {
 
 namespace Bitboards {
 
@@ -84,10 +86,14 @@ extern Bitboard LineBB[SQUARE_NB][SQUARE_NB];
 
 // Magic holds all magic bitboards relevant data for a single square
 struct Magic {
-    Bitboard  mask;
-    Bitboard* attacks;
-    unsigned  shift;
-    IF_NOT_PEXT(Bitboard magic;)
+    Bitboard   mask;
+    MagicMask* attacks;
+    unsigned   shift;
+#ifdef USE_PEXT
+    Bitboard pseudoAttacks;
+#else
+    Bitboard magic;
+#endif
 
     // Compute the attack's index using the 'magic bitboards' approach
     unsigned index(Bitboard occupied) const {
@@ -96,6 +102,14 @@ struct Magic {
         return unsigned(pext(occupied, mask, shift));
 #else
         return unsigned(((occupied & mask) * magic) >> shift);
+#endif
+    }
+
+    Bitboard attack_bb(Bitboard occupied) const {
+#ifdef USE_PEXT
+        return pdep(attacks[index(occupied)], pseudoAttacks);
+#else
+        return attacks[index(occupied)];
 #endif
     }
 };
@@ -171,7 +185,7 @@ constexpr Bitboard shift(Bitboard b) {
 template<Color C>
 constexpr Bitboard pawn_attacks_bb(Square s) {
     Bitboard b      = square_bb(s);
-    Bitboard attack = shift<C == WHITE ? NORTH : SOUTH>(b);
+    Bitboard attack = shift < C == WHITE ? NORTH : SOUTH > (b);
     if ((C == WHITE && rank_of(s) > RANK_4) || (C == BLACK && rank_of(s) < RANK_5))
         attack |= shift<WEST>(b) | shift<EAST>(b);
     return attack;
@@ -183,7 +197,7 @@ constexpr Bitboard pawn_attacks_bb(Square s) {
 template<Color C>
 constexpr Bitboard pawn_attacks_to_bb(Square s) {
     Bitboard b      = square_bb(s);
-    Bitboard attack = shift<C == WHITE ? SOUTH : NORTH>(b);
+    Bitboard attack = shift < C == WHITE ? SOUTH : NORTH > (b);
     if ((C == WHITE && rank_of(s) > RANK_4) || (C == BLACK && rank_of(s) < RANK_5))
         attack |= shift<WEST>(b) | shift<EAST>(b);
     return attack;
@@ -512,15 +526,15 @@ inline Bitboard attacks_bb(Square s, Bitboard occupied) {
     switch (Pt)
     {
     case ROOK :
-        return RookMagics[s].attacks[RookMagics[s].index(occupied)];
+        return RookMagics[s].attack_bb(occupied);
     case CANNON :
-        return CannonMagics[s].attacks[CannonMagics[s].index(occupied)];
+        return CannonMagics[s].attack_bb(occupied);
     case BISHOP :
-        return BishopMagics[s].attacks[BishopMagics[s].index(occupied)];
+        return BishopMagics[s].attack_bb(occupied);
     case KNIGHT :
-        return KnightMagics[s].attacks[KnightMagics[s].index(occupied)];
+        return KnightMagics[s].attack_bb(occupied);
     case KNIGHT_TO :
-        return KnightToMagics[s].attacks[KnightToMagics[s].index(occupied)];
+        return KnightToMagics[s].attack_bb(occupied);
     default :
         return PseudoAttacks[Pt][s];
     }
