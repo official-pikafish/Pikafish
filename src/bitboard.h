@@ -185,7 +185,7 @@ constexpr Bitboard shift(Bitboard b) {
 template<Color C>
 constexpr Bitboard pawn_attacks_bb(Square s) {
     Bitboard b      = square_bb(s);
-    Bitboard attack = shift < C == WHITE ? NORTH : SOUTH > (b);
+    Bitboard attack = shift<C == WHITE ? NORTH : SOUTH>(b);
     if ((C == WHITE && rank_of(s) > RANK_4) || (C == BLACK && rank_of(s) < RANK_5))
         attack |= shift<WEST>(b) | shift<EAST>(b);
     return attack;
@@ -197,7 +197,7 @@ constexpr Bitboard pawn_attacks_bb(Square s) {
 template<Color C>
 constexpr Bitboard pawn_attacks_to_bb(Square s) {
     Bitboard b      = square_bb(s);
-    Bitboard attack = shift < C == WHITE ? SOUTH : NORTH > (b);
+    Bitboard attack = shift<C == WHITE ? SOUTH : NORTH>(b);
     if ((C == WHITE && rank_of(s) > RANK_4) || (C == BLACK && rank_of(s) < RANK_5))
         attack |= shift<WEST>(b) | shift<EAST>(b);
     return attack;

@@ -217,20 +217,20 @@ void ThreadPool::set(const NumaConfig&                           numaConfig,
             const NumaIndex numaId        = doBindThreads ? boundThreadToNumaNode[threadId] : 0;
             auto            create_thread = [&]() {
                 auto manager = threadId == 0
-                                          ? std::unique_ptr<Search::ISearchManager>(
+                               ? std::unique_ptr<Search::ISearchManager>(
                                    std::make_unique<Search::SearchManager>(updateContext))
-                                          : std::make_unique<Search::NullSearchManager>();
+                               : std::make_unique<Search::NullSearchManager>();
 
                 // When not binding threads we want to force all access to happen
                 // from the same NUMA node, because in case of NUMA replicated memory
                 // accesses we don't want to trash cache in case the threads get scheduled
                 // on the same NUMA node.
                 auto binder = doBindThreads ? OptionalThreadToNumaNodeBinder(numaConfig, numaId)
-                                                       : OptionalThreadToNumaNodeBinder(numaId);
+                                            : OptionalThreadToNumaNodeBinder(numaId);
 
                 threads.emplace_back(std::make_unique<Thread>(sharedState, std::move(manager),
-                                                                         threadId, counts[numaId]++,
-                                                                         threadsPerNode[numaId], binder));
+                                                              threadId, counts[numaId]++,
+                                                              threadsPerNode[numaId], binder));
             };
 
             // Ensure the worker thread inherits the intended NUMA affinity at creation.

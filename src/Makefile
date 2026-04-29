@@ -1007,7 +1007,7 @@ endif
 	format analyze
 
 analyze: net config-sanity objclean
-	$(MAKE) -k ARCH=$(ARCH) COMP=$(COMP) $(notdir $(patsubst %.cpp,%.o,$(filter-out ./external/%,$(filter %.cpp,$(SRCS)))))
+	$(MAKE) -k ARCH=$(ARCH) COMP=$(COMP) $(notdir $(patsubst %.cpp,%.o,$(filter-out external/%,$(filter %.cpp,$(SRCS)))))
 
 ifeq ($(UNIVERSAL_BUILD),false)
 build: net config-sanity

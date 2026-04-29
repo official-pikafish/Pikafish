@@ -79,7 +79,7 @@ int correction_value(const Worker& w, const Position& pos, const Stack* const ss
     const int   cntcv =
       m.is_ok() ? (*(ss - 2)->continuationCorrectionHistory)[pos.piece_on(m.to_sq())][m.to_sq()]
                     + (*(ss - 4)->continuationCorrectionHistory)[pos.piece_on(m.to_sq())][m.to_sq()]
-                  : 8;
+                : 8;
 
     return 4547 * pcv + 3804 * micv + 8213 * (wnpcv + bnpcv) + 8982 * cntcv;
 }
@@ -120,7 +120,7 @@ Value value_to_tt(Value v, int ply);
 Value value_from_tt(Value v, int ply, int r60c);
 void  update_continuation_histories(Stack* ss, Piece pc, Square to, int bonus);
 void  update_quiet_histories(
-   const Position& pos, Stack* ss, Search::Worker& workerThread, Move move, int bonus);
+  const Position& pos, Stack* ss, Search::Worker& workerThread, Move move, int bonus);
 void update_all_stats(const Position& pos,
                       Stack*          ss,
                       Search::Worker& workerThread,
@@ -487,7 +487,7 @@ bool Search::Worker::iterative_deepening() {
             double fallingEval = (16.93 + 2.730 * (mainThread->bestPreviousAverageScore - bestValue)
                                   + 0.81 * (mainThread->iterValue[iterIdx] - bestValue))
                                / 100.0;
-            fallingEval = std::clamp(fallingEval, 0.610, 1.860);
+            fallingEval        = std::clamp(fallingEval, 0.610, 1.860);
 
             // If the bestMove is stable over several iterations, reduce time accordingly
             timeReduction = std::clamp(

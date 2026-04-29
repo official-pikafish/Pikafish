@@ -377,9 +377,9 @@ void Position::update_blockers() const {
     st->pinners[~c]        = 0;
 
     // Snipers are pieces that attack 's' when a piece and other pieces are removed
-    Bitboard snipers = ((attacks_bb<ROOK>(ksq) & (pieces(ROOK) | pieces(CANNON) | pieces(KING)))
-                        | (attacks_bb<KNIGHT>(ksq) & pieces(KNIGHT)))
-                     & pieces(~c);
+    Bitboard snipers   = ((attacks_bb<ROOK>(ksq) & (pieces(ROOK) | pieces(CANNON) | pieces(KING)))
+                          | (attacks_bb<KNIGHT>(ksq) & pieces(KNIGHT)))
+                       & pieces(~c);
     Bitboard occupancy = pieces() ^ (snipers & ~pieces(CANNON));
 
     while (snipers)

@@ -201,7 +201,7 @@ class HalfKAv2_hm {
                             uint8_t r_           = c == WHITE ? r : RANK_9 - r;
                             uint8_t f_           = f < FILE_E ? f : FILE_I - f;
                             const auto& [s1, s2] = shifts[pt];
-                            encoding             = (1ULL << s1)
+                            encoding = (1ULL << s1)
                                      | ((uint64_t(File::FILE_D - f_) * 10 + uint64_t(r_)) << s2);
                             encoding = f < FILE_E ? encoding : uint64_t(-int64_t(encoding));
                         }

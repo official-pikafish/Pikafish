@@ -128,9 +128,9 @@ typedef enum {
 #define ZSTD_MAX_FSE_HEADERS_SIZE \
     (((MaxML + 1) * MLFSELog + (MaxLL + 1) * LLFSELog + (MaxOff + 1) * OffFSELog + 7) / 8)
 
-static UNUSED_ATTR const U8  LL_bits[MaxLL + 1]        = {0, 0, 0, 0, 0, 0,  0,  0,  0,  0,  0,  0,
-                                                          0, 0, 0, 0, 1, 1,  1,  1,  2,  2,  3,  3,
-                                                          4, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
+static UNUSED_ATTR const U8  LL_bits[MaxLL + 1] = {0, 0, 0, 0, 0, 0,  0,  0,  0,  0,  0,  0,
+                                                   0, 0, 0, 0, 1, 1,  1,  1,  2,  2,  3,  3,
+                                                   4, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
 static UNUSED_ATTR const S16 LL_defaultNorm[MaxLL + 1] = {4, 3, 2, 2, 2, 2, 2, 2, 2,  2,  2,  2,
                                                           2, 1, 1, 1, 2, 2, 2, 2, 2,  2,  2,  2,
                                                           2, 3, 2, 1, 1, 1, 1, 1, -1, -1, -1, -1};

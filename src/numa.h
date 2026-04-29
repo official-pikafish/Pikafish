@@ -407,7 +407,7 @@ std::set<CpuIndex> readCacheMembers(const T* info, Pred&& is_cpu_allowed) {
     {
         WORD           groupNumber = info->Cache.GroupMask.Group;
         const CpuIndex c           = static_cast<CpuIndex>(groupNumber) * WIN_PROCESSOR_GROUP_SIZE
-                         + static_cast<CpuIndex>(number);
+                                   + static_cast<CpuIndex>(number);
         if (!(info->Cache.GroupMask.Mask & (1ULL << number)) || !is_cpu_allowed(c))
             continue;
         cpus.insert(c);
@@ -1136,7 +1136,7 @@ class NumaConfig {
 
                 const BOOL     status = GetNumaProcessorNodeEx(&procnum, &nodeNumber);
                 const CpuIndex c      = static_cast<CpuIndex>(procGroup) * WIN_PROCESSOR_GROUP_SIZE
-                                 + static_cast<CpuIndex>(number);
+                                      + static_cast<CpuIndex>(number);
                 if (status != 0 && nodeNumber != std::numeric_limits<USHORT>::max()
                     && is_cpu_allowed(c))
                 {
