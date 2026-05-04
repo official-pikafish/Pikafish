@@ -431,8 +431,6 @@ bool Search::Worker::iterative_deepening() {
 
         if (!threads.stop)
         {
-            completedDepth = rootDepth;
-
             if (lastIterationPV.empty() || rootMoves[0].pv[0] != lastIterationPV[0])
                 lastBestMoveDepth = rootDepth;
 
@@ -491,9 +489,9 @@ bool Search::Worker::iterative_deepening() {
             fallingEval        = std::clamp(fallingEval, 0.610, 1.860);
 
             // If the bestMove is stable over several iterations, reduce time accordingly
-            timeReduction = std::clamp(
-              interpolate(double(completedDepth - lastBestMoveDepth), 8.0, 17.0, 0.67, 1.44), 0.67,
-              1.44);
+            timeReduction =
+              std::clamp(interpolate(double(rootDepth - lastBestMoveDepth), 8.0, 17.0, 0.67, 1.44),
+                         0.67, 1.44);
 
             double reduction = (2.1 + mainThread->previousTimeReduction) / (2.480 * timeReduction);
 
