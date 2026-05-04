@@ -824,7 +824,9 @@ Value Search::Worker::search(
     if (!ss->ttPv && depth < 15 && eval >= beta && (!ttData.move || ttCapture) && !is_loss(beta)
         && !is_win(eval))
     {
-        Value futilityMult   = 129 - 33 * !ss->ttHit;
+        Value futilityMult = interpolate(std::min(int(depth), 10), 1, 10, 40, 129);
+        futilityMult -= 33 * !ss->ttHit;
+
         Value futilityMargin = futilityMult * depth
                              - (2512 * improving + 340 * opponentWorsening) * futilityMult / 1024
                              + std::abs(correctionValue) / 132109;
@@ -1150,8 +1152,8 @@ moves_loop:  // When in check, search starts here
             r += 256 + 1024 * ((ss + 1)->cutoffCnt > 2) + 1024 * allNode;
 
         // For first picked move (ttMove) reduce reduction
-        if (move == ttData.move)
-            r -= 2953;
+        else if (move == ttData.move)
+            r = std::max(-10, r - 2730 + 150 * cutNode);
 
         if (capture)
             ss->statScore = 953 * int(PieceValue[pos.captured_piece()]) / 128
