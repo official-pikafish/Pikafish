@@ -53,16 +53,16 @@ void format_cp_aligned_dot(Value v, std::stringstream& stream, const Position& p
 // Returns a string with the value of each piece on a board,
 // and a table for (PSQT, Layers) values bucket by bucket.
 std::string
-trace(Position& pos, const Eval::NNUE::Networks& networks, Eval::NNUE::AccumulatorCaches& caches) {
+trace(Position& pos, const Eval::NNUE::Network& network, Eval::NNUE::AccumulatorCaches& caches) {
 
     std::stringstream ss;
 
     auto accumulators = std::make_unique<AccumulatorStack>();
-
     accumulators->reset();
-    auto tBig = networks.big.trace_evaluate(pos, *accumulators, caches.big);
 
-    ss << "(Big net) NNUE network contributions (Normalized, "
+    auto t = network.trace_evaluate(pos, *accumulators, caches);
+
+    ss << "NNUE network contributions (Normalized, "
        << (pos.side_to_move() == WHITE ? "White to move)" : "Black to move)") << std::endl
        << "+------------+------------+------------+------------+\n"
        << "|   Bucket   |  Material  | Positional |   Total    |\n"
@@ -73,16 +73,16 @@ trace(Position& pos, const Eval::NNUE::Networks& networks, Eval::NNUE::Accumulat
     {
         ss << "|  " << std::left << std::setw(9) << bucket  //
            << " |  ";
-        format_cp_aligned_dot(tBig.psqt[bucket], ss, pos);
+        format_cp_aligned_dot(t.psqt[bucket], ss, pos);
         ss << "  "  //
            << " |  ";
-        format_cp_aligned_dot(tBig.positional[bucket], ss, pos);
+        format_cp_aligned_dot(t.positional[bucket], ss, pos);
         ss << "  "  //
            << " |  ";
-        format_cp_aligned_dot(tBig.psqt[bucket] + tBig.positional[bucket], ss, pos);
+        format_cp_aligned_dot(t.psqt[bucket] + t.positional[bucket], ss, pos);
         ss << "  "  //
            << " |";
-        if (bucket == tBig.correctBucket)
+        if (bucket == t.correctBucket)
             ss << " <-- this bucket is used";
         ss << '\n';
     }

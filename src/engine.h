@@ -83,14 +83,14 @@ class Engine {
     void set_on_update_full(std::function<void(const InfoFull&)>&&);
     void set_on_iter(std::function<void(const InfoIter&)>&&);
     void set_on_bestmove(std::function<void(std::string_view, std::string_view)>&&);
-    void set_on_verify_networks(std::function<void(std::string_view)>&&);
+    void set_on_verify_network(std::function<void(std::string_view)>&&);
 
     // network related
 
-    void                                  verify_networks() const;
-    std::unique_ptr<Eval::NNUE::Networks> get_default_networks() const;
-    void                                  load_big_network(const std::string& file);
-    void save_network(const std::pair<std::optional<std::string>, std::string> files);
+    void                                 verify_network() const;
+    std::unique_ptr<Eval::NNUE::Network> get_default_network() const;
+    void                                 load_network(const std::string& file);
+    void save_network(std::pair<std::optional<std::string>, std::string> file);
 
     // utility functions
 
@@ -118,13 +118,13 @@ class Engine {
     Position     pos;
     StateListPtr states;
 
-    OptionsMap                                         options;
-    ThreadPool                                         threads;
-    TranspositionTable                                 tt;
-    LazyNumaReplicatedSystemWide<Eval::NNUE::Networks> networks;
+    OptionsMap                                        options;
+    ThreadPool                                        threads;
+    TranspositionTable                                tt;
+    LazyNumaReplicatedSystemWide<Eval::NNUE::Network> network;
 
     Search::SearchManager::UpdateContext  updateContext;
-    std::function<void(std::string_view)> onVerifyNetworks;
+    std::function<void(std::string_view)> onVerifyNetwork;
     std::map<NumaIndex, SharedHistories>  sharedHists;
 };
 
