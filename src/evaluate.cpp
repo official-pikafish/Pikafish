@@ -24,7 +24,6 @@
 #include <iomanip>
 #include <memory>
 #include <sstream>
-#include <tuple>
 
 #include "nnue/network.h"
 #include "nnue/nnue_misc.h"
@@ -37,7 +36,7 @@ namespace Stockfish {
 
 // Evaluate is the evaluator for the outer world. It returns a static evaluation
 // of the position from the point of view of the side to move.
-Value Eval::evaluate(const Eval::NNUE::Networks&    networks,
+Value Eval::evaluate(const Eval::NNUE::Network&     network,
                      const Position&                pos,
                      Eval::NNUE::AccumulatorStack&  accumulators,
                      Eval::NNUE::AccumulatorCaches& caches,
@@ -45,7 +44,7 @@ Value Eval::evaluate(const Eval::NNUE::Networks&    networks,
 
     assert(!pos.checkers());
 
-    auto [psqt, positional] = networks.big.evaluate(pos, accumulators, caches.big);
+    auto [psqt, positional] = network.evaluate(pos, accumulators, caches);
 
     Value nnue = psqt + positional;
 
@@ -70,31 +69,30 @@ Value Eval::evaluate(const Eval::NNUE::Networks&    networks,
 // a string (suitable for outputting to stdout) that contains the detailed
 // descriptions and values of each evaluation term. Useful for debugging.
 // Trace scores are from white's point of view
-std::string Eval::trace(Position& pos, const Eval::NNUE::Networks& networks) {
+std::string Eval::trace(Position& pos, const Eval::NNUE::Network& network) {
 
     if (pos.checkers())
         return "Final evaluation: none (in check)";
 
     auto accumulators = std::make_unique<Eval::NNUE::AccumulatorStack>();
-    auto caches       = std::make_unique<Eval::NNUE::AccumulatorCaches>(networks);
+    auto caches       = std::make_unique<Eval::NNUE::AccumulatorCaches>(network);
 
     std::stringstream ss;
     ss << std::showpoint << std::noshowpos << std::fixed << std::setprecision(2);
-    ss << '\n' << NNUE::trace(pos, networks, *caches) << '\n';
+    ss << '\n' << NNUE::trace(pos, network, *caches) << '\n';
 
     ss << std::showpoint << std::showpos << std::fixed << std::setprecision(2) << std::setw(15);
 
-    auto [psqtBig, positionalBig] = networks.big.evaluate(pos, *accumulators, caches->big);
-    Value vBig                    = psqtBig + positionalBig;
-    ss << "(Big net) NNUE evaluation          " << vBig << " (side to move, internal units)\n";
-    vBig = pos.side_to_move() == WHITE ? vBig : -vBig;
-    ss << "(Big net) NNUE evaluation          " << 0.01 * UCIEngine::to_cp(vBig, pos)
-       << " (white side)\n";
+    auto [psqt, positional] = network.evaluate(pos, *accumulators, *caches);
+    Value v                 = psqt + positional;
+    ss << "NNUE evaluation          " << v << " (side to move, internal units)\n";
+    v = pos.side_to_move() == WHITE ? v : -v;
+    ss << "NNUE evaluation        " << 0.01 * UCIEngine::to_cp(v, pos) << " (white side)\n";
 
-    Value v = evaluate(networks, pos, *accumulators, *caches, VALUE_ZERO);
-    v       = pos.side_to_move() == WHITE ? v : -v;
+    v = evaluate(network, pos, *accumulators, *caches, VALUE_ZERO);
+    v = pos.side_to_move() == WHITE ? v : -v;
 
-    ss << "Final evaluation " << "(using big net)   ";
+    ss << "Final evaluation      ";
     ss << 0.01 * UCIEngine::to_cp(v, pos) << " (white side)";
     ss << " [with scaled NNUE, ...]\n";
 

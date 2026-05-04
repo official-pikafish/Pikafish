@@ -40,9 +40,9 @@ using ThreatFeatureSet = Features::FullThreats;
 using PSQFeatureSet    = Features::HalfKAv2_hm;
 
 // Number of input feature dimensions after conversion
-constexpr IndexType TransformedFeatureDimensionsBig = 1024;
-constexpr int       L2Big                           = 31;
-constexpr int       L3Big                           = 32;
+constexpr IndexType L1 = 1024;
+constexpr int       L2 = 31;
+constexpr int       L3 = 32;
 
 constexpr IndexType PSQTBuckets = 16;
 constexpr IndexType LayerStacks = 16;
@@ -54,7 +54,6 @@ static_assert(
   PSQTBuckets % 16 == 0,
   "Per feature PSQT values cannot be processed at granularity lower than 16 at a time.");
 
-template<IndexType L1, int L2, int L3>
 struct NetworkArchitecture {
     static constexpr IndexType TransformedFeatureDimensions = L1;
     static constexpr int       FC_0_OUTPUTS                 = L2;
@@ -144,10 +143,9 @@ struct NetworkArchitecture {
 
 }  // namespace Stockfish::Eval::NNUE
 
-template<Stockfish::Eval::NNUE::IndexType L1, int L2, int L3>
-struct std::hash<Stockfish::Eval::NNUE::NetworkArchitecture<L1, L2, L3>> {
-    std::size_t
-    operator()(const Stockfish::Eval::NNUE::NetworkArchitecture<L1, L2, L3>& arch) const noexcept {
+template<>
+struct std::hash<Stockfish::Eval::NNUE::NetworkArchitecture> {
+    std::size_t operator()(const Stockfish::Eval::NNUE::NetworkArchitecture& arch) const noexcept {
         return arch.get_content_hash();
     }
 };

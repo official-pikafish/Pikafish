@@ -78,21 +78,18 @@ void permute(std::array<T, N>& data, const std::array<std::size_t, OrderSize>& o
 }
 
 // Input feature converter
-template<IndexType TransformedFeatureDimensions>
 class FeatureTransformer {
-
     // Number of output dimensions for one side
-    static constexpr IndexType HalfDimensions = TransformedFeatureDimensions;
+    static constexpr IndexType HalfDimensions = L1;
 
    public:
     // Output type
     using OutputType = TransformedFeatureType;
 
     // Number of input/output dimensions
-    static constexpr IndexType InputDimensions       = PSQFeatureSet::Dimensions;
-    static constexpr IndexType ThreatInputDimensions = ThreatFeatureSet::Dimensions;
-    static constexpr IndexType TotalInputDimensions  = InputDimensions + ThreatInputDimensions;
-    static constexpr IndexType OutputDimensions      = HalfDimensions;
+    static constexpr IndexType InputDimensions =
+      PSQFeatureSet::Dimensions + ThreatFeatureSet::Dimensions;
+    static constexpr IndexType OutputDimensions = HalfDimensions;
 
     // Size of forward propagation buffer
     static constexpr std::size_t BufferSize = OutputDimensions * sizeof(OutputType);
@@ -153,12 +150,13 @@ class FeatureTransformer {
         read_leb_128(stream, biases);
 
         read_little_endian<ThreatWeightType>(stream, threatWeights.data(),
-                                             ThreatInputDimensions * HalfDimensions);
-        read_little_endian<WeightType>(stream, weights.data(), InputDimensions * HalfDimensions);
-
+                                             ThreatFeatureSet::Dimensions * HalfDimensions);
+        read_little_endian<WeightType>(stream, weights.data(),
+                                       PSQFeatureSet::Dimensions * HalfDimensions);
         read_leb_128(stream, threatPsqtWeights, psqtWeights);
 
         permute_weights();
+
         return !stream.fail();
     }
 
@@ -169,21 +167,22 @@ class FeatureTransformer {
         copy->unpermute_weights();
 
         write_leb_128<BiasType>(stream, copy->biases);
+
         write_little_endian<ThreatWeightType>(stream, copy->threatWeights.data(),
-                                              ThreatInputDimensions * HalfDimensions);
+                                              ThreatFeatureSet::Dimensions * HalfDimensions);
         write_little_endian<WeightType>(stream, copy->weights.data(),
-                                        InputDimensions * HalfDimensions);
+                                        PSQFeatureSet::Dimensions * HalfDimensions);
 
         auto combinedPsqtWeights =
-          std::make_unique<std::array<PSQTWeightType, TotalInputDimensions * PSQTBuckets>>();
+          std::make_unique<std::array<PSQTWeightType, InputDimensions * PSQTBuckets>>();
 
         std::copy(std::begin(copy->threatPsqtWeights),
-                  std::begin(copy->threatPsqtWeights) + ThreatInputDimensions * PSQTBuckets,
+                  std::begin(copy->threatPsqtWeights) + ThreatFeatureSet::Dimensions * PSQTBuckets,
                   combinedPsqtWeights->begin());
 
         std::copy(std::begin(copy->psqtWeights),
-                  std::begin(copy->psqtWeights) + InputDimensions * PSQTBuckets,
-                  combinedPsqtWeights->begin() + ThreatInputDimensions * PSQTBuckets);
+                  std::begin(copy->psqtWeights) + PSQFeatureSet::Dimensions * PSQTBuckets,
+                  combinedPsqtWeights->begin() + ThreatFeatureSet::Dimensions * PSQTBuckets);
 
         write_leb_128<PSQTWeightType>(stream, *combinedPsqtWeights);
 
@@ -196,6 +195,7 @@ class FeatureTransformer {
         hash_combine(h, get_raw_data_hash(biases));
         hash_combine(h, get_raw_data_hash(weights));
         hash_combine(h, get_raw_data_hash(psqtWeights));
+
         hash_combine(h, get_raw_data_hash(threatWeights));
         hash_combine(h, get_raw_data_hash(threatPsqtWeights));
 
@@ -205,11 +205,11 @@ class FeatureTransformer {
     }
 
     // Convert input features
-    std::int32_t transform(const Position&                           pos,
-                           AccumulatorStack&                         accumulatorStack,
-                           AccumulatorCaches::Cache<HalfDimensions>& cache,
-                           OutputType*                               output,
-                           int                                       bucket) const {
+    std::int32_t transform(const Position&    pos,
+                           AccumulatorStack&  accumulatorStack,
+                           AccumulatorCaches& cache,
+                           OutputType*        output,
+                           int                bucket) const {
 
         using namespace SIMD;
         accumulatorStack.evaluate(pos, *this, cache);
@@ -217,19 +217,17 @@ class FeatureTransformer {
         const auto& threatAccumulatorState = accumulatorStack.latest<ThreatFeatureSet>();
 
         const Color perspectives[2]  = {pos.side_to_move(), ~pos.side_to_move()};
-        const auto& psqtAccumulation = (accumulatorState.acc<HalfDimensions>()).psqtAccumulation;
+        const auto& psqtAccumulation = accumulatorState.psqtAccumulation;
         auto        psqt =
           (psqtAccumulation[perspectives[0]][bucket] - psqtAccumulation[perspectives[1]][bucket]);
 
-        const auto& threatPsqtAccumulation =
-          (threatAccumulatorState.acc<HalfDimensions>()).psqtAccumulation;
-        psqt = (psqt + threatPsqtAccumulation[perspectives[0]][bucket]
-                - threatPsqtAccumulation[perspectives[1]][bucket])
-             / 2;
+        const auto& threatPsqtAccumulation = threatAccumulatorState.psqtAccumulation;
+        psqt                               = (psqt + threatPsqtAccumulation[perspectives[0]][bucket]
+                                              - threatPsqtAccumulation[perspectives[1]][bucket])
+                                           / 2;
 
-        const auto& accumulation = (accumulatorState.acc<HalfDimensions>()).accumulation;
-        const auto& threatAccumulation =
-          (threatAccumulatorState.acc<HalfDimensions>()).accumulation;
+        const auto& accumulation       = accumulatorState.accumulation;
+        const auto& threatAccumulation = threatAccumulatorState.accumulation;
 
         for (IndexType p = 0; p < 2; ++p)
         {
@@ -338,11 +336,14 @@ class FeatureTransformer {
                 BiasType sum0 = accumulation[static_cast<int>(perspectives[p])][j + 0];
                 BiasType sum1 =
                   accumulation[static_cast<int>(perspectives[p])][j + HalfDimensions / 2];
+
                 sum0 += threatAccumulation[static_cast<int>(perspectives[p])][j + 0];
                 sum1 +=
                   threatAccumulation[static_cast<int>(perspectives[p])][j + HalfDimensions / 2];
-                sum0               = std::clamp<BiasType>(sum0, 0, 255);
-                sum1               = std::clamp<BiasType>(sum1, 0, 255);
+
+                sum0 = std::clamp<BiasType>(sum0, 0, 255);
+                sum1 = std::clamp<BiasType>(sum1, 0, 255);
+
                 output[offset + j] = static_cast<OutputType>(unsigned(sum0 * sum1) / 512);
             }
 
@@ -353,22 +354,21 @@ class FeatureTransformer {
     }  // end of function transform()
 
     alignas(CacheLineSize) std::array<BiasType, HalfDimensions> biases;
-    alignas(CacheLineSize) std::array<WeightType, HalfDimensions * InputDimensions> weights;
+    alignas(
+      CacheLineSize) std::array<WeightType, HalfDimensions * PSQFeatureSet::Dimensions> weights;
     alignas(CacheLineSize)
-      std::array<ThreatWeightType, HalfDimensions * ThreatInputDimensions> threatWeights;
-    alignas(CacheLineSize) std::array<PSQTWeightType, InputDimensions * PSQTBuckets> psqtWeights;
+      std::array<ThreatWeightType, HalfDimensions * ThreatFeatureSet::Dimensions> threatWeights;
     alignas(CacheLineSize)
-      std::array<PSQTWeightType, ThreatInputDimensions * PSQTBuckets> threatPsqtWeights;
+      std::array<PSQTWeightType, PSQFeatureSet::Dimensions * PSQTBuckets> psqtWeights;
+    alignas(CacheLineSize)
+      std::array<PSQTWeightType, ThreatFeatureSet::Dimensions * PSQTBuckets> threatPsqtWeights;
 };
 
 }  // namespace Stockfish::Eval::NNUE
 
-
-template<Stockfish::Eval::NNUE::IndexType TransformedFeatureDimensions>
-struct std::hash<Stockfish::Eval::NNUE::FeatureTransformer<TransformedFeatureDimensions>> {
-    std::size_t
-    operator()(const Stockfish::Eval::NNUE::FeatureTransformer<TransformedFeatureDimensions>& ft)
-      const noexcept {
+template<>
+struct std::hash<Stockfish::Eval::NNUE::FeatureTransformer> {
+    std::size_t operator()(const Stockfish::Eval::NNUE::FeatureTransformer& ft) const noexcept {
         return ft.get_content_hash();
     }
 };
