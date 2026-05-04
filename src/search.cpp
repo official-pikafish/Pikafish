@@ -439,10 +439,11 @@ bool Search::Worker::iterative_deepening() {
             lastIterationPV = rootMoves[0].pv;
         }
 
-        // A mated-in/TB-loss score from an aborted search cannot be trusted: the loss
-        // could be delayed or refuted upon exploring the remaining root-moves.
+        // An exact mated-in/TB-loss score from an aborted search cannot be trusted: the
+        // loss could be delayed or refuted upon exploring the remaining root-moves.
         // Thus here we roll back to the score from the previous iteration.
-        else if (!pvIdx && rootMoves[0].score != -VALUE_INFINITE && is_loss(rootMoves[0].score))
+        else if (!pvIdx && rootMoves[0].score != -VALUE_INFINITE && is_loss(rootMoves[0].score)
+                 && !rootMoves[0].scoreLowerbound && !rootMoves[0].scoreUpperbound)
         {
             // Bring the last best move to the front for best thread selection.
             if (!lastIterationPV.empty())
@@ -453,11 +454,11 @@ bool Search::Worker::iterative_deepening() {
                 rootMoves[0].score = rootMoves[0].uciScore = rootMoves[0].previousScore;
 
                 if (mainThread)
-                    uciPvSent = true;
+                    uciPvSent = false;
             }
-            // For an aborted d1 search we label the loss score as inexact.
-            else if (!rootMoves[0].scoreLowerbound)
-                rootMoves[0].scoreUpperbound = true;
+            // For an aborted d1 search we label the loss score as a lower bound.
+            else
+                rootMoves[0].scoreLowerbound = true;
         }
 
         // Have we found a "mate in x" after a completed iteration?
@@ -1868,18 +1869,17 @@ void SearchManager::pv(Search::Worker&           worker,
     const auto  nodes     = threads.nodes_searched();
     const auto& rootMoves = worker.rootMoves;
     const auto& pos       = worker.rootPos;
-    size_t      pvIdx     = worker.pvIdx;
     size_t      multiPV   = std::min(size_t(worker.options["MultiPV"]), rootMoves.size());
 
     for (size_t i = 0; i < multiPV; ++i)
     {
-        bool updated = rootMoves[i].score != -VALUE_INFINITE;
+        bool usePreviousScore = rootMoves[i].score == -VALUE_INFINITE;
 
-        if (depth == 1 && !updated && i > 0)
+        if (depth == 1 && usePreviousScore && i > 0)
             continue;
 
-        Depth d = updated ? depth : std::max(1, depth - 1);
-        Value v = updated ? rootMoves[i].uciScore : rootMoves[i].previousScore;
+        Depth d = usePreviousScore ? std::max(1, depth - 1) : depth;
+        Value v = usePreviousScore ? rootMoves[i].previousScore : rootMoves[i].uciScore;
 
         if (v == -VALUE_INFINITE)
             v = VALUE_ZERO;
@@ -1905,7 +1905,8 @@ void SearchManager::pv(Search::Worker&           worker,
         info.score    = {v, pos};
         info.wdl      = wdl;
 
-        if (i == pvIdx && updated)  // previous-scores are exact
+        // TB and previous scores are exact, even though their bound flags may say otherwise.
+        if (!usePreviousScore)
             info.bound = bound;
 
         TimePoint time = std::max(TimePoint(1), tm.elapsed_time());
