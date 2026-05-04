@@ -1103,7 +1103,7 @@ moves_loop:  // When in check, search starts here
             // subtree by returning a softbound.
             else if (value >= beta && !is_decisive(value))
             {
-                ttMoveHistory << std::max(-397 - 103 * depth, -4055);
+                ttMoveHistory << -397 - 103 * depth;
                 return value;
             }
 
