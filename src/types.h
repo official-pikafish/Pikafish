@@ -172,18 +172,6 @@ constexpr bool is_loss(Value value) {
 
 constexpr bool is_decisive(Value value) { return is_win(value) || is_loss(value); }
 
-constexpr bool is_mate(Value value) {
-    assert(is_valid(value));
-    return value >= VALUE_MATE_IN_MAX_PLY;
-}
-
-constexpr bool is_mated(Value value) {
-    assert(is_valid(value));
-    return value <= VALUE_MATED_IN_MAX_PLY;
-}
-
-constexpr bool is_mate_or_mated(Value value) { return is_mate(value) || is_mated(value); }
-
 constexpr Value RookValue    = 1305;
 constexpr Value AdvisorValue = 219;
 constexpr Value CannonValue  = 773;

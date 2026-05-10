@@ -77,11 +77,13 @@ int correction_value(const Worker& w, const Position& pos, const Stack* const ss
     const int   wnpcv  = shared.nonpawn_correction_entry<WHITE>(pos)[us].nonPawnWhite;
     const int   bnpcv  = shared.nonpawn_correction_entry<BLACK>(pos)[us].nonPawnBlack;
     const int   cntcv =
-      m.is_ok() ? (*(ss - 2)->continuationCorrectionHistory)[pos.piece_on(m.to_sq())][m.to_sq()]
-                    + (*(ss - 4)->continuationCorrectionHistory)[pos.piece_on(m.to_sq())][m.to_sq()]
-                : 8;
+      m.is_ok()
+        ? 8982
+            * ((*(ss - 2)->continuationCorrectionHistory)[pos.piece_on(m.to_sq())][m.to_sq()]
+               + (*(ss - 4)->continuationCorrectionHistory)[pos.piece_on(m.to_sq())][m.to_sq()])
+        : 71856;
 
-    return 4547 * pcv + 3804 * micv + 8213 * (wnpcv + bnpcv) + 8982 * cntcv;
+    return 4547 * pcv + 3804 * micv + 8213 * (wnpcv + bnpcv) + cntcv;
 }
 
 // Add correctionHistory value to raw staticEval and guarantee evaluation
@@ -132,9 +134,9 @@ void update_all_stats(const Position& pos,
                       Move            ttMove);
 
 bool is_shuffling(Move move, Stack* const ss, const Position& pos) {
-    if (pos.capture(move) || pos.rule60_count() < 11)
+    if (pos.capture(move) || pos.rule60_count() < 10)
         return false;
-    if (pos.state()->pliesFromNull <= 6 || ss->ply < 19)
+    if (pos.state()->pliesFromNull < 6 || ss->ply < 20)
         return false;
     return move.from_sq() == (ss - 2)->currentMove.to_sq()
         && (ss - 2)->currentMove.from_sq() == (ss - 4)->currentMove.to_sq();
@@ -297,7 +299,7 @@ bool Search::Worker::iterative_deepening() {
 
     for (Color c : {WHITE, BLACK})
         for (int i = 0; i < UINT_16_HISTORY_SIZE; i++)
-            mainHistory[c][i] = mainHistory[c][i] * 768 / 1024;
+            mainHistory[c][i] = (mainHistory[c][i] + 5) * 768 / 1024;
 
     // Iterative deepening loop until requested to stop or the target depth is reached
     while (rootDepth + 1 < MAX_PLY && !threads.stop
@@ -393,7 +395,7 @@ bool Search::Worker::iterative_deepening() {
                 else
                     break;
 
-                delta += delta / 3;
+                delta += 44 * delta / 128;
 
                 assert(alpha >= -VALUE_INFINITE && beta <= VALUE_INFINITE);
             }
@@ -461,8 +463,8 @@ bool Search::Worker::iterative_deepening() {
 
         // Have we found a "mate in x" after a completed iteration?
         if (limits.mate && !threads.stop
-            && ((is_mate(rootMoves[0].score) && VALUE_MATE - rootMoves[0].score <= 2 * limits.mate)
-                || (is_mated(rootMoves[0].score)
+            && ((is_win(rootMoves[0].score) && VALUE_MATE - rootMoves[0].score <= 2 * limits.mate)
+                || (is_loss(rootMoves[0].score)
                     && VALUE_MATE + rootMoves[0].score <= 2 * limits.mate)))
             threads.stop = true;
 
@@ -482,8 +484,8 @@ bool Search::Worker::iterative_deepening() {
             uint64_t nodesEffort =
               rootMoves[0].effort * 100000 / std::max(uint64_t(1), uint64_t(nodes));
 
-            double fallingEval = (16.93 + 2.730 * (mainThread->bestPreviousAverageScore - bestValue)
-                                  + 0.81 * (mainThread->iterValue[iterIdx] - bestValue))
+            double fallingEval = (16.93 + 2.73 * (mainThread->bestPreviousAverageScore - bestValue)
+                                  + 0.8 * (mainThread->iterValue[iterIdx] - bestValue))
                                / 100.0;
             fallingEval        = std::clamp(fallingEval, 0.610, 1.860);
 
@@ -492,13 +494,13 @@ bool Search::Worker::iterative_deepening() {
               std::clamp(interpolate(double(rootDepth - lastBestMoveDepth), 8.0, 17.0, 0.67, 1.44),
                          0.67, 1.44);
 
-            double reduction = (2.1 + mainThread->previousTimeReduction) / (2.480 * timeReduction);
+            double reduction = (2.10 + mainThread->previousTimeReduction) / (2.480 * timeReduction);
 
-            double bestMoveInstability = 0.960 + 1.630 * totBestMoveChanges / threads.size();
+            double bestMoveInstability = 0.960 + 1.63 * totBestMoveChanges / threads.size();
 
             double highBestMoveEffort = std::clamp(
-              interpolate(int64_t(nodesEffort), int64_t(78000), int64_t(94000), 0.96, 0.74), 0.74,
-              0.96);
+              interpolate(int64_t(nodesEffort), int64_t(78000), int64_t(94000), 0.960, 0.74), 0.74,
+              0.960);
 
             double totalTime = mainThread->tm.optimum() * fallingEval * reduction
                              * bestMoveInstability * highBestMoveEffort;
@@ -572,11 +574,11 @@ void Search::Worker::undo_null_move(Position& pos) { pos.undo_null_move(); }
 
 // Reset histories, usually before a new game
 void Search::Worker::clear() {
-    mainHistory.fill(0);
+    mainHistory.fill(-5);
     captureHistory.fill(-607);
 
     // Each thread is responsible for clearing their part of shared history
-    sharedHistory.correctionHistory.clear_range(0, numaThreadIdx, numaTotal);
+    sharedHistory.correctionHistory.clear_range(-6, numaThreadIdx, numaTotal);
     sharedHistory.pawnHistory.clear_range(-1247, numaThreadIdx, numaTotal);
 
     ttMoveHistory = 0;
@@ -830,7 +832,7 @@ Value Search::Worker::search(
                              + std::abs(correctionValue) / 132109;
 
         if (eval - futilityMargin >= beta)
-            return (2 * beta + eval) / 3;
+            return (716 * beta + 308 * eval) / 1024;
     }
 
     // Step 8. Null move search with verification search
@@ -1121,12 +1123,13 @@ moves_loop:  // When in check, search starts here
                 extension = -2;
         }
 
+        uint64_t nodeCount = rootNode ? uint64_t(nodes) : 0;
+
         // Step 15. Make the move
         do_move(pos, move, st, givesCheck, ss);
 
         // Add extension to new depth
         newDepth += extension;
-        uint64_t nodeCount = rootNode ? uint64_t(nodes) : 0;
 
         // Decrease reduction for PvNodes (*Scaler)
         if (ss->ttPv)
@@ -1543,7 +1546,7 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
         if (bestValue >= beta)
         {
             if (!is_decisive(bestValue))
-                bestValue = (bestValue + beta) / 2;
+                bestValue = (467 * bestValue + 557 * beta) / 1024;
 
             if (!ss->ttHit)
                 ttWriter.write(posKey, VALUE_NONE, false, BOUND_LOWER, DEPTH_UNSEARCHED,
@@ -1661,7 +1664,7 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
     }
 
     if (!is_decisive(bestValue) && bestValue > beta)
-        bestValue = (bestValue + beta) / 2;
+        bestValue = (481 * bestValue + 543 * beta) / 1024;
 
     // Save gathered info in transposition table. The static evaluation
     // is saved as it was before adjustment by correction history.
@@ -1824,7 +1827,7 @@ void update_quiet_histories(
     update_continuation_histories(ss, pos.moved_piece(move), move.to_sq(), bonus * 972 / 1024);
 
     workerThread.sharedHistory.pawn_entry(pos)[pos.moved_piece(move)][move.to_sq()]
-      << bonus * (bonus > 0 ? 913 : 553) / 1024;
+      << bonus * (bonus > -7 ? 913 : 553) / 1024;
 }
 }
 
