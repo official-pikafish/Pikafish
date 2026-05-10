@@ -411,8 +411,8 @@ bool Search::Worker::iterative_deepening() {
                    && rootMoves[pvIdx].previousScore < rootMoves[pvIdx - 1].score)
                     ? rootMoves[pvIdx].previousScore
                     : rootMoves[pvIdx - 1].score;
-                rootMoves[pvIdx].previousScore   = -VALUE_INFINITE;
-                rootMoves[pvIdx].scoreLowerbound = rootMoves[pvIdx].scoreUpperbound = false;
+                rootMoves[pvIdx].previousScore = -VALUE_INFINITE;
+                rootMoves[pvIdx].unset_bound_flags();
                 rootMoves[pvIdx].pv.resize(1);
             }
 
@@ -441,7 +441,7 @@ bool Search::Worker::iterative_deepening() {
         // loss could be delayed or refuted upon exploring the remaining root-moves.
         // Thus here we roll back to the score from the previous iteration.
         else if (!pvIdx && rootMoves[0].score != -VALUE_INFINITE && is_loss(rootMoves[0].score)
-                 && !rootMoves[0].scoreLowerbound && !rootMoves[0].scoreUpperbound)
+                 && !rootMoves[0].score_is_bound())
         {
             // Bring the last best move to the front for best thread selection.
             if (!lastIterationPV.empty())
@@ -461,9 +461,8 @@ bool Search::Worker::iterative_deepening() {
 
         // Have we found a "mate in x" after a completed iteration?
         if (limits.mate && !threads.stop
-            && ((rootMoves[0].score >= VALUE_MATE_IN_MAX_PLY
-                 && VALUE_MATE - rootMoves[0].score <= 2 * limits.mate)
-                || (rootMoves[0].score <= VALUE_MATED_IN_MAX_PLY
+            && ((is_mate(rootMoves[0].score) && VALUE_MATE - rootMoves[0].score <= 2 * limits.mate)
+                || (is_mated(rootMoves[0].score)
                     && VALUE_MATE + rootMoves[0].score <= 2 * limits.mate)))
             threads.stop = true;
 
@@ -1261,7 +1260,7 @@ moves_loop:  // When in check, search starts here
             {
                 rm.score = rm.uciScore = value;
                 rm.selDepth            = selDepth;
-                rm.scoreLowerbound = rm.scoreUpperbound = false;
+                rm.unset_bound_flags();
 
                 if (value >= beta)
                 {
