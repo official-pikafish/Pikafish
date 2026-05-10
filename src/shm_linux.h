@@ -141,23 +141,6 @@ class CleanupHooks {
 inline std::once_flag CleanupHooks::register_once_;
 
 
-inline int portable_fallocate(int fd, off_t offset, off_t length) {
-#ifdef __APPLE__
-    fstore_t store = {F_ALLOCATECONTIG, F_PEOFPOSMODE, offset, length, 0};
-    int      ret   = fcntl(fd, F_PREALLOCATE, &store);
-    if (ret == -1)
-    {
-        store.fst_flags = F_ALLOCATEALL;
-        ret             = fcntl(fd, F_PREALLOCATE, &store);
-    }
-    if (ret != -1)
-        ret = ftruncate(fd, offset + length);
-    return ret;
-#else
-    return posix_fallocate(fd, offset, length);
-#endif
-}
-
 }  // namespace detail
 
 template<typename T>
@@ -599,12 +582,26 @@ class SharedMemory: public detail::SharedMemoryBase {
         if (ftruncate(fd_, static_cast<off_t>(total_size_)) == -1)
             return false;
 
-        if (detail::portable_fallocate(fd_, 0, static_cast<off_t>(total_size_)) != 0)
-            return false;
-
         mapped_ptr_ = mmap(nullptr, total_size_, PROT_READ | PROT_WRITE, MAP_SHARED, fd_, 0);
         if (mapped_ptr_ == MAP_FAILED)
         {
+            mapped_ptr_ = nullptr;
+            return false;
+        }
+
+#ifdef MADV_POPULATE_WRITE
+        // Pre-populate, attempting first with THP, to guarantee that the memory
+        // is allocated and avoid crashing on the first write.
+        madvise(mapped_ptr_, total_size_, MADV_HUGEPAGE);
+
+        const bool populated = madvise(mapped_ptr_, total_size_, MADV_POPULATE_WRITE) == 0;
+#else
+        const bool populated = false;
+#endif
+        // If the THP population failed, try with fallocate
+        if (!populated && posix_fallocate(fd_, 0, static_cast<off_t>(total_size_)) != 0)
+        {
+            munmap(mapped_ptr_, total_size_);
             mapped_ptr_ = nullptr;
             return false;
         }
@@ -641,6 +638,10 @@ class SharedMemory: public detail::SharedMemoryBase {
             mapped_ptr_ = nullptr;
             return false;
         }
+
+#ifdef MADV_HUGEPAGE
+        madvise(mapped_ptr_, total_size_, MADV_HUGEPAGE);
+#endif
 
         data_ptr_   = static_cast<T*>(mapped_ptr_);
         header_ptr_ = std::launder(
