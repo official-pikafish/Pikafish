@@ -90,6 +90,36 @@ class SqrClippedReLU {
         }
         constexpr IndexType Start = NumChunks * 16;
 
+#elif defined(USE_LASX)
+        constexpr IndexType NumChunks = InputDimensions / 32;
+        const auto          in        = reinterpret_cast<const __m256i*>(input);
+        const auto          out       = reinterpret_cast<__m256i*>(output);
+        for (IndexType i = 0; i < NumChunks; ++i)
+        {
+            const __m256i words0 = __lasx_xvssrani_h_w(in[i * 4 + 1], in[i * 4 + 0], 0);
+            const __m256i words1 = __lasx_xvssrani_h_w(in[i * 4 + 3], in[i * 4 + 2], 0);
+            const __m256i sqr0   = __lasx_xvmuh_h(words0, words0);
+            const __m256i sqr1   = __lasx_xvmuh_h(words1, words1);
+            const __m256i packed = __lasx_xvssrlni_b_h(sqr1, sqr0, 3);
+            const __m256i permed = __lasx_xvpermi_d(packed, 0xD8);
+            __lasx_xvst(__lasx_xvshuf4i_w(permed, 0xD8), out + i, 0);
+        }
+        constexpr IndexType Start = NumChunks * 32;
+
+#elif defined(USE_LSX)
+        constexpr IndexType NumChunks = InputDimensions / 16;
+        const auto          in        = reinterpret_cast<const __m128i*>(input);
+        const auto          out       = reinterpret_cast<__m128i*>(output);
+        for (IndexType i = 0; i < NumChunks; ++i)
+        {
+            const __m128i words0 = __lsx_vssrani_h_w(in[i * 4 + 1], in[i * 4 + 0], 0);
+            const __m128i words1 = __lsx_vssrani_h_w(in[i * 4 + 3], in[i * 4 + 2], 0);
+            const __m128i sqr0   = __lsx_vmuh_h(words0, words0);
+            const __m128i sqr1   = __lsx_vmuh_h(words1, words1);
+            out[i]               = __lsx_vssrlni_b_h(sqr1, sqr0, 3);
+        }
+        constexpr IndexType Start = NumChunks * 16;
+
 #else
         constexpr IndexType Start = 0;
 #endif

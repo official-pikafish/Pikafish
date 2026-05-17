@@ -265,6 +265,12 @@ std::string compiler_info() {
 #elif defined(USE_NEON)
     compiler += " NEON";
 #endif
+#if defined(USE_LASX)
+    compiler += " LASX";
+#endif
+#if defined(USE_LSX)
+    compiler += " LSX";
+#endif
     compiler += (HasPopCnt ? " POPCNT" : "");
 
 #if !defined(NDEBUG)

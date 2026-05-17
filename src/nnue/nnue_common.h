@@ -42,6 +42,13 @@
 #elif defined(USE_SSE2)
     #include <emmintrin.h>
 
+#elif defined(USE_LASX)
+    #include <lasxintrin.h>
+    #include <lsxintrin.h>
+
+#elif defined(USE_LSX)
+    #include <lsxintrin.h>
+
 #elif defined(USE_NEON)
     #include <arm_neon.h>
 #endif
@@ -71,10 +78,16 @@ constexpr const std::size_t Leb128MagicStringSize = sizeof(Leb128MagicString) - 
 #if defined(USE_AVX2)
 constexpr std::size_t SimdWidth = 32;
 
+#elif defined(USE_LASX)
+constexpr std::size_t SimdWidth = 32;
+
 #elif defined(USE_SSE2)
 constexpr std::size_t SimdWidth = 16;
 
 #elif defined(USE_NEON)
+constexpr std::size_t SimdWidth = 16;
+
+#elif defined(USE_LSX)
 constexpr std::size_t SimdWidth = 16;
 #endif
 

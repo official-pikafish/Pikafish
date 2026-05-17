@@ -810,12 +810,14 @@ ifeq ($(dotprod),yes)
 endif
 
 ifeq ($(lasx),yes)
+	CXXFLAGS += -DUSE_LASX
 	ifeq ($(comp),$(filter $(comp),gcc clang mingw icx))
 		CXXFLAGS += -mlasx
 	endif
 endif
 
 ifeq ($(lsx),yes)
+	CXXFLAGS += -DUSE_LSX
 	ifeq ($(comp),$(filter $(comp),gcc clang mingw icx))
 		CXXFLAGS += -mlsx
 	endif

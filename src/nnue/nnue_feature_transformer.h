@@ -104,7 +104,7 @@ class FeatureTransformer {
         // |   1   |   3   |   5   |   7   | // Vector 1
         // | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | // Packed Result
         return {0, 2, 4, 6, 1, 3, 5, 7};
-#elif defined(USE_AVX2)
+#elif defined(USE_AVX2) || defined(USE_LASX)
         // _mm256_packus_epi16 after permutation:
         // |   0   |   2   |  |   4   |   6   | // Vector 0, 2
         // |   1   |   3   |  |   5   |   7   | // Vector 1, 3
@@ -301,7 +301,7 @@ class FeatureTransformer {
             // the multiplication.
 
             constexpr int shift =
-    #if defined(USE_SSE2)
+    #if defined(USE_SSE2) || defined(USE_LASX) || defined(USE_LSX)
               7;
     #else
               6;

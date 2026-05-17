@@ -538,6 +538,41 @@ Bitboard get_changed_pieces(const std::array<Piece, SQUARE_NB>& oldPieces,
         sameBB |= static_cast<Bitboard>(equalMask) << i;
     }
     return ~sameBB;
+#elif defined(USE_LASX)
+    static_assert(sizeof(Piece) == 1);
+
+    Bitboard changed = 0;
+
+    for (int i : {0, 32, 58})
+    {
+        const __m256i old_v = __lasx_xvld(reinterpret_cast<const void*>(&oldPieces[i]), 0);
+        const __m256i new_v = __lasx_xvld(reinterpret_cast<const void*>(&newPieces[i]), 0);
+        const __m256i diff  = __lasx_xvxor_v(old_v, new_v);
+        const __m256i mask  = __lasx_xvmsknz_b(diff);
+        const auto    lo    = static_cast<std::uint16_t>(__lasx_xvpickve2gr_d(mask, 0));
+        const auto    hi    = static_cast<std::uint16_t>(__lasx_xvpickve2gr_d(mask, 2));
+
+        changed |= (static_cast<Bitboard>(lo) | (static_cast<Bitboard>(hi) << 16)) << i;
+    }
+
+    return changed;
+#elif defined(USE_LSX)
+    static_assert(sizeof(Piece) == 1);
+
+    Bitboard changed = 0;
+
+    for (int i : {0, 16, 32, 48, 64, 74})
+    {
+        const __m128i old_v = __lsx_vld(reinterpret_cast<const void*>(&oldPieces[i]), 0);
+        const __m128i new_v = __lsx_vld(reinterpret_cast<const void*>(&newPieces[i]), 0);
+        const __m128i diff  = __lsx_vxor_v(old_v, new_v);
+        const __m128i mask  = __lsx_vmsknz_b(diff);
+
+        changed |= static_cast<Bitboard>(static_cast<std::uint16_t>(__lsx_vpickve2gr_d(mask, 0)))
+                << i;
+    }
+
+    return changed;
 #elif defined(USE_NEON)
     Bitboard sameBB = 0;
 

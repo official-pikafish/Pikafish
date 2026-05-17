@@ -40,7 +40,7 @@
 
 namespace Stockfish::Eval::NNUE::Layers {
 
-#if defined(USE_SSSE3) || defined(USE_NEON_DOTPROD)
+#if defined(USE_SSSE3) || defined(USE_NEON_DOTPROD) || defined(USE_LSX) || defined(USE_LASX)
     #define ENABLE_SEQ_OPT
 #endif
 
@@ -218,6 +218,16 @@ class AffineTransform {
         #define vec_add_dpbusd_32(acc, a, b) \
             SIMD::dotprod_m128_add_dpbusd_epi32(acc, vreinterpretq_s8_s32(a), \
                                                 vreinterpretq_s8_s32(b))
+    #elif defined(USE_LASX)
+            using vec_t = __m256i;
+        #define vec_set_32 __lasx_xvreplgr2vr_w
+        #define vec_add_32 __lasx_xvadd_w
+        #define vec_add_dpbusd_32 SIMD::lasx_m256_add_dpbusd_epi32
+    #elif defined(USE_LSX)
+            using vec_t = __m128i;
+        #define vec_set_32 __lsx_vreplgr2vr_w
+        #define vec_add_32 __lsx_vadd_w
+        #define vec_add_dpbusd_32 SIMD::lsx_m128_add_dpbusd_epi32
     #endif
 
             static constexpr IndexType OutputSimdWidth = sizeof(vec_t) / sizeof(OutputType);
@@ -302,6 +312,16 @@ class AffineTransform {
             SIMD::dotprod_m128_add_dpbusd_epi32(acc, vreinterpretq_s8_s32(a), \
                                                 vreinterpretq_s8_s32(b))
         #define vec_hadd SIMD::neon_m128_hadd
+    #elif defined(USE_LASX)
+            using vec_t = __m256i;
+        #define vec_setzero() __lasx_xvldi(0)
+        #define vec_add_dpbusd_32 SIMD::lasx_m256_add_dpbusd_epi32
+        #define vec_hadd SIMD::lasx_m256_hadd
+    #elif defined(USE_LSX)
+            using vec_t = __m128i;
+        #define vec_setzero() __lsx_vldi(0)
+        #define vec_add_dpbusd_32 SIMD::lsx_m128_add_dpbusd_epi32
+        #define vec_hadd SIMD::lsx_m128_hadd
     #endif
 
             const auto inputVector = reinterpret_cast<const vec_t*>(input);
