@@ -7,12 +7,12 @@ on:
 
 jobs:
   Pikafish-x86-64:
-    name: ${{ matrix.config.name }}
+    name: ${{ matrix.config.name }}-x86-64-universal
     runs-on: ${{ matrix.config.os }}
     env:
       ARCH: x86-64-universal
       COMP: clang
-      EXE: pikafish${{ matrix.config.ext }}
+      EXE: Pikafish-${{ matrix.config.name }}-x86-64-universal${{ matrix.config.ext }}
     strategy:
       matrix:
         config:
@@ -58,7 +58,7 @@ jobs:
       # To avoid double-zipping, we use the unzipped directory
       - uses: actions/upload-artifact@v7
         with:	
-          name: Pikafish-${{ matrix.config.name }}
+          name: ${{ env.EXE }}
           path: ${{ env.EXE }}
 
   Pikafish-MacOS:
@@ -67,7 +67,7 @@ jobs:
     env:
       ARCH: apple-silicon
       COMP: clang
-      EXE: pikafish-apple-silicon
+      EXE: Pikafish-MacOS-apple-silicon
     defaults:
       run:
         working-directory: src
@@ -86,20 +86,17 @@ jobs:
       # To avoid double-zipping, we use the unzipped directory
       - uses: actions/upload-artifact@v7
         with:
-          name: Pikafish-MacOS-apple-silicon
+          name: ${{ env.EXE }}
           path: ${{ env.EXE }}
 
   Pikafish-Android:
-    name: Android-${{ matrix.arch }}
+    name: Android-armv8-universal
     runs-on: ubuntu-latest
     env:
-      ARCH: ${{ matrix.arch }}
+      ARCH: armv8-universal
       COMP: ndk
-      EXE: pikafish-${{ matrix.arch }}
+      EXE: Pikafish-Android-armv8-universal
       LDFLAGS: "-static -Wno-unused-command-line-argument"
-    strategy:
-      matrix:
-        arch: ["armv8-dotprod", "armv8"]
     defaults:
       run:
         working-directory: src
@@ -118,7 +115,7 @@ jobs:
           ANDROID_NDK_BIN=$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin
           echo "ANDROID_NDK_BIN=$ANDROID_NDK_BIN" >> $GITHUB_ENV
 
-      - name: Compile ${{ matrix.arch }} build
+      - name: Compile universal build
         run: |
           export PATH=${{ env.ANDROID_NDK_BIN }}:$PATH
           make -j build EXE=$EXE
@@ -129,7 +126,7 @@ jobs:
       # To avoid double-zipping, we use the unzipped directory
       - uses: actions/upload-artifact@v7
         with:	
-          name: Pikafish-Android-${{ matrix.arch }}
+          name: ${{ env.EXE }}
           path: ${{ env.EXE }}
 
   Pikafish:
@@ -141,17 +138,12 @@ jobs:
       - uses: actions/checkout@v6
 
       - uses: actions/download-artifact@v8
-      
-      - name: Put binaries into OS-specific directories
-        run: |
-          mkdir Windows
-          mv Pikafish-Windows*/* Windows
-          mkdir Linux
-          mv Pikafish-Linux*/* Linux
-          mkdir MacOS
-          mv Pikafish-MacOS*/* MacOS
-          mkdir Android
-          mv Pikafish-Android*/* Android
+        with:
+          pattern: Pikafish-*
+          path: Artifacts
+
+      - name: Put binaries into release root
+        run: cp Artifacts/Pikafish-*/* .
 
       - name: Download wiki
         run: |
@@ -165,10 +157,7 @@ jobs:
         with:
           name: Pikafish
           path: |
-            Windows
-            Linux
-            MacOS
-            Android
+            Pikafish-*
             Wiki
             AUTHORS
             CONTRIBUTING.md

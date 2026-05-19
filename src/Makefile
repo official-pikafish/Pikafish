@@ -359,6 +359,14 @@ ifeq ($(ARCH),armv8-dotprod)
 	arm_version = 8
 endif
 
+ifeq ($(ARCH),armv8-universal)
+	arch = armv8
+	prefetch = yes
+	popcnt = yes
+	neon = yes
+	arm_version = 8
+endif
+
 ifeq ($(ARCH),apple-silicon)
 	arch = arm64
 	prefetch = yes
@@ -576,6 +584,7 @@ ifeq ($(COMP),ndk)
 			STRIP=llvm-strip
 		endif
 	endif
+	OBJCOPY=llvm-objcopy
 	LDFLAGS += -static-libstdc++
 endif
 
@@ -1300,7 +1309,11 @@ UNIVERSAL_COMMON_OBJ := $(patsubst %,$(TEMP_DIR)/$(BASELINE_ARCH)/%,$(notdir $(p
 UNIVERSAL_FINAL_FLAGS := -fno-exceptions -Os
 
 ifeq ($(KERNEL),Linux)
-  UNIVERSAL_FINAL_FLAGS += -fuse-ld=lld -nostdlib++ -stdlib=libc++ -rtlib=compiler-rt -unwindlib=libunwind -Wl,-Bstatic -lc++ -lc++abi -lunwind -Wl,-Bdynamic
+  ifeq ($(COMP),ndk)
+    UNIVERSAL_FINAL_FLAGS += -static
+  else
+    UNIVERSAL_FINAL_FLAGS += -fuse-ld=lld -nostdlib++ -stdlib=libc++ -rtlib=compiler-rt -unwindlib=libunwind -Wl,-Bstatic -lc++ -lc++abi -lunwind -Wl,-Bdynamic
+  endif
 else    # windows
   UNIVERSAL_FINAL_FLAGS += -Wl,--allow-multiple-definition -static
   ifeq ($(COMP),clang)
@@ -1322,7 +1335,8 @@ else
   arch-defmain = -Wl,--defsym=main=$(call arch-mangled,$(1))
 endif
 
-arch-cxxflags   = -DStockfish=$(call arch-namespace,$(1)) -DUNIVERSAL_BINARY $(call arch-defmain,$(1))
+arch-cxxflags   = -DStockfish=$(call arch-namespace,$(1)) -DUNIVERSAL_BINARY $(call arch-defmain,$(1)) \
+                  -Wno-unused-command-line-argument
 
 UOBJ_TGT ?= universal-object-pgo
 OBJCOPY  ?= objcopy
