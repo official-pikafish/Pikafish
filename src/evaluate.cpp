@@ -33,6 +33,8 @@
 #include "nnue/nnue_accumulator.h"
 
 namespace Stockfish {
+int evaluate_52_0 = 465, evaluate_53_0 = 11743, evaluate_56_0 = 17380, evaluate_56_1 = 3061, evaluate_56_2 = 20582, evaluate_59_0 = 253;
+TUNE(evaluate_52_0, evaluate_53_0, evaluate_56_0, evaluate_56_1, evaluate_56_2, evaluate_59_0);
 
 // Evaluate is the evaluator for the outer world. It returns a static evaluation
 // of the position from the point of view of the side to move.
@@ -50,14 +52,14 @@ Value Eval::evaluate(const Eval::NNUE::Network&     network,
 
     // Blend optimism and eval with nnue complexity
     int nnueComplexity = std::abs(psqt - positional);
-    optimism += optimism * nnueComplexity / 465;
-    nnue -= nnue * nnueComplexity / 11743;
+    optimism += optimism * nnueComplexity / (evaluate_52_0);
+    nnue -= nnue * nnueComplexity / (evaluate_53_0);
 
     int material = pos.major_material();
-    int v        = (nnue * (17380 + material) + optimism * (3061 + material)) / 20582;
+    int v        = (nnue * ((evaluate_56_0) + material) + optimism * ((evaluate_56_1) + material)) / (evaluate_56_2);
 
     // Damp down the evaluation linearly when shuffling
-    v -= (v * pos.rule60_count()) / 253;
+    v -= (v * pos.rule60_count()) / (evaluate_59_0);
 
     // Guarantee evaluation does not hit the mate range
     v = std::clamp(v, VALUE_MATED_IN_MAX_PLY + 1, VALUE_MATE_IN_MAX_PLY - 1);
