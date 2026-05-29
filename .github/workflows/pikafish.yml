@@ -50,7 +50,7 @@ jobs:
 
       - name: Compile universal build
         run: |
-          make -j build EXE=$EXE
+          make -j4 build EXE=$EXE
           make strip EXE=$EXE
           cp $EXE ../
 
@@ -62,12 +62,11 @@ jobs:
           path: ${{ env.EXE }}
 
   Pikafish-MacOS:
-    name: MacOS-apple-silicon
+    name: MacOS-universal
     runs-on: macos-latest
     env:
-      ARCH: apple-silicon
       COMP: clang
-      EXE: Pikafish-MacOS-apple-silicon
+      EXE: Pikafish-MacOS-universal
     defaults:
       run:
         working-directory: src
@@ -76,9 +75,9 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Compile apple-silicon build
+      - name: Compile universal build
         run: |
-          make -j build EXE=$EXE
+          make -j3 macos-lipo EXE=$EXE
           make strip EXE=$EXE
           cp $EXE ../
 
@@ -90,12 +89,12 @@ jobs:
           path: ${{ env.EXE }}
 
   Pikafish-Android:
-    name: Android-armv8-universal
+    name: Android-arm64-universal
     runs-on: ubuntu-latest
     env:
-      ARCH: armv8-universal
+      ARCH: arm64-universal
       COMP: ndk
-      EXE: Pikafish-Android-armv8-universal
+      EXE: Pikafish-Android-arm64-universal
       LDFLAGS: "-static -Wno-unused-command-line-argument"
     defaults:
       run:
@@ -118,7 +117,7 @@ jobs:
       - name: Compile universal build
         run: |
           export PATH=${{ env.ANDROID_NDK_BIN }}:$PATH
-          make -j build EXE=$EXE
+          make -j4 build EXE=$EXE
           make strip EXE=$EXE
           cp $EXE ../
 

@@ -29,7 +29,7 @@ jobs:
           echo "/usr/lib/llvm-$LLVM_VERSION/bin" >> $GITHUB_PATH
 
       - name: make
-        run: make -j build && make strip
+        run: make -j4 build && make strip
 
       - name: upload to fishtest
         run: curl https://test.pikafish.org/api/pre_upload -F file=@pikafish -F "file_type=engine" -F "password=${{ secrets.NOTHING }}"
