@@ -519,6 +519,10 @@ bool Search::Worker::iterative_deepening() {
             double totalTime = mainThread->tm.optimum() * fallingEval * reduction
                              * bestMoveInstability * highBestMoveEffort;
 
+            // Cap used time in case of a single legal move for a better viewer experience
+            if (rootMoves.size() == 1)
+                threads.stop = true;
+
             auto elapsedTime = elapsed();
 
             // Stop the search if we have exceeded the totalTime or maximum

@@ -370,9 +370,9 @@ Thread* ThreadPool::get_best_thread() const {
         const bool bestThreadDecisive = bestThreadMove.score != -VALUE_INFINITE
                                      && is_decisive(bestThreadMove.score)
                                      && !bestThreadMove.score_is_bound();
-        const bool newThreadDecisive = newThreadMove.score != -VALUE_INFINITE
-                                    && is_decisive(newThreadMove.score)
-                                    && !newThreadMove.score_is_bound();
+        const bool newThreadDecisive  = newThreadMove.score != -VALUE_INFINITE
+                                     && is_decisive(newThreadMove.score)
+                                     && !newThreadMove.score_is_bound();
 
         // We make sure not to pick a thread with a truncated principal variation.
         const bool betterVotingValue =
