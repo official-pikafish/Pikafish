@@ -18,8 +18,6 @@
 #ifndef NNUE_FEATURES_FULL_THREATS_INCLUDED
 #define NNUE_FEATURES_FULL_THREATS_INCLUDED
 
-#include <cstdint>
-
 #include "../../misc.h"
 #include "../../types.h"
 #include "../nnue_common.h"
@@ -36,7 +34,7 @@ class FullThreats {
     static constexpr const char* Name = "Full_Threats(Friend)";
 
     // Hash value embedded in the evaluation file
-    static constexpr std::uint32_t HashValue = 0x8f234cb8u;
+    static constexpr u32 HashValue = 0x8f234cb8u;
 
     // Number of feature dimensions
     static constexpr IndexType Dimensions = 45547;

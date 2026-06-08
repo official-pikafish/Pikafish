@@ -34,7 +34,7 @@ namespace Stockfish::Eval::NNUE::Features {
 
 // Lookup array for indexing threats
 auto ThreatOffsets = []() {
-    MultiArray<uint16_t, PIECE_NB, SQUARE_NB, SQUARE_NB, PIECE_NB> ThreatOffsets{};
+    MultiArray<u16, PIECE_NB, SQUARE_NB, SQUARE_NB, PIECE_NB> ThreatOffsets{};
     // clang-format off
     constexpr bool ValidPairs[PIECE_NB][PIECE_NB] = {
       //    R   A   C   P   N   B   K   _   r   a   c   p   n   b   k
@@ -58,10 +58,10 @@ auto ThreatOffsets = []() {
     // clang-format on
 
     // Initialize threat offsets to be all Dimension
-    for (uint8_t i = 0; i < PIECE_NB; ++i)
-        for (uint8_t j = 0; j < SQUARE_NB; ++j)
-            for (uint8_t k = 0; k < SQUARE_NB; ++k)
-                for (uint8_t l = 0; l < PIECE_NB; ++l)
+    for (u8 i = 0; i < PIECE_NB; ++i)
+        for (u8 j = 0; j < SQUARE_NB; ++j)
+            for (u8 k = 0; k < SQUARE_NB; ++k)
+                for (u8 l = 0; l < PIECE_NB; ++l)
                     ThreatOffsets[i][j][k][l] = FullThreats::Dimensions;
 
     int cumulativeOffset = 0;

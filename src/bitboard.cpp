@@ -25,7 +25,7 @@
 
 namespace Stockfish {
 
-uint8_t PopCnt16[1 << 16];
+u8 PopCnt16[1 << 16];
 
 Bitboard LineBB[SQUARE_NB][SQUARE_NB];
 Bitboard BetweenBB[SQUARE_NB][SQUARE_NB];
@@ -78,7 +78,7 @@ std::string Bitboards::pretty(Bitboard b) {
 void Bitboards::init() {
 
     for (unsigned i = 0; i < (1 << 16); ++i)
-        PopCnt16[i] = uint8_t(std::bitset<16>(i).count());
+        PopCnt16[i] = u8(std::bitset<16>(i).count());
 
     init_magics<ROOK>(RookTable.data(), RookMagics IF_NOT_PEXT(, RookMagicsInit));
     init_magics<CANNON>(CannonTable.data(), CannonMagics IF_NOT_PEXT(, RookMagicsInit));
@@ -129,7 +129,7 @@ template<PieceType pt>
 void init_magics(MagicMask table[], Magic magics[] IF_NOT_PEXT(, const Bitboard magicsInit[])) {
 
     Bitboard edges, b;
-    uint64_t size = 0;
+    u64      size = 0;
 
     for (Square s = SQ_A0; s <= SQ_I9; ++s)
     {
@@ -153,7 +153,7 @@ void init_magics(MagicMask table[], Magic magics[] IF_NOT_PEXT(, const Bitboard 
         else
             m.pseudoAttacks = Bitboards::lame_leaper_attack<pt>(s, 0);
 
-        m.shift = popcount(uint64_t(m.mask));
+        m.shift = popcount(u64(m.mask));
 #else
         m.magic = magicsInit[s];
         m.shift = 128 - popcount(m.mask);
@@ -172,7 +172,7 @@ void init_magics(MagicMask table[], Magic magics[] IF_NOT_PEXT(, const Bitboard 
                                                           : Bitboards::lame_leaper_attack<pt>(s, b);
 
 #ifdef USE_PEXT
-            m.attacks[m.index(b)] = uint32_t(pext(attacks, m.pseudoAttacks, 16));
+            m.attacks[m.index(b)] = u32(pext(attacks, m.pseudoAttacks, 16));
 #else
             m.attacks[m.index(b)] = attacks;
 #endif

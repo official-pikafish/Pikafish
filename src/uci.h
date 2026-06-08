@@ -19,7 +19,6 @@
 #ifndef UCI_H_INCLUDED
 #define UCI_H_INCLUDED
 
-#include <cstdint>
 #include <iostream>
 #include <string>
 #include <string_view>
@@ -33,7 +32,7 @@ namespace Stockfish {
 class Position;
 class Move;
 class Score;
-enum Square : uint8_t;
+enum Square : u8;
 using Value = int;
 
 constexpr auto StartFEN = "rnbakabnr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C5C1/9/RNBAKABNR w - - 0 1";
@@ -61,12 +60,12 @@ class UCIEngine {
 
     static void print_info_string(std::string_view str);
 
-    void          go(std::istringstream& is);
-    void          bench(std::istream& args);
-    void          benchmark(std::istream& args);
-    void          position(std::istringstream& is);
-    void          setoption(std::istringstream& is);
-    std::uint64_t perft(const Search::LimitsType&);
+    void go(std::istringstream& is);
+    void bench(std::istream& args);
+    void benchmark(std::istream& args);
+    void position(std::istringstream& is);
+    void setoption(std::istringstream& is);
+    u64  perft(const Search::LimitsType&);
 
     static void on_update_no_moves(const Engine::InfoShort& info);
     static void on_update_full(const Engine::InfoFull& info, bool showWDL);

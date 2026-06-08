@@ -175,7 +175,7 @@ std::optional<PositionSetError> Position::set(const string& fenStr, StateInfo* s
             if (file >= FILE_NB)
                 return PositionSetError("Invalid FEN. Invalid file reached.");
 
-            const size_t idx = PieceToChar.find(token);
+            const usize idx = PieceToChar.find(token);
             if (idx == string::npos)
                 return PositionSetError(std::string("Invalid FEN. Invalid piece: ")
                                         + std::string(1, token));
@@ -1118,9 +1118,9 @@ bool Position::chase_legal(Move m) const {
 
 
 // Calculates the chase information for a given color.
-uint16_t Position::chased(Color c) {
+u16 Position::chased(Color c) {
 
-    uint16_t chase = 0;
+    u16 chase = 0;
 
     std::swap(c, sideToMove);
 
@@ -1208,7 +1208,7 @@ Value Position::detect_chases(int d, int ply) {
     Color us = sideToMove, them = ~us;
 
     // Rollback until we reached st - d
-    uint16_t chase[COLOR_NB] = {0xFFFF, 0xFFFF};
+    u16 chase[COLOR_NB] = {0xFFFF, 0xFFFF};
     for (int i = 0; i < d; ++i)
     {
         if (st->checkersBB)
@@ -1222,7 +1222,7 @@ Value Position::detect_chases(int d, int ply) {
         }
         else
         {
-            uint16_t after = chased(~sideToMove);
+            u16 after = chased(~sideToMove);
             undo_move(st->move, st->capturedPiece);
             st = st->previous;
             // Take the exact diff to detect the chase

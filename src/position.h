@@ -53,7 +53,7 @@ struct StateInfo {
     Key     minorPieceKey;
     Key     nonPawnKey[COLOR_NB];
     Value   majorMaterial[COLOR_NB];
-    int16_t check10[COLOR_NB];
+    i16 check10[COLOR_NB];
     int     rule60;
     int     pliesFromNull;
 
@@ -114,7 +114,7 @@ class Position {
     template<PieceType Pt>
     int      count() const;
     Square   king_square(Color c) const;
-    uint64_t mid_encoding(Color c) const;
+    u64 mid_encoding(Color c) const;
 
     // Checking
     Bitboard checkers() const;
@@ -168,7 +168,7 @@ class Position {
     int      game_ply() const;
     bool     rule_judge(Value& result, int ply = 0);
     int      rule60_count() const;
-    uint16_t chased(Color c);
+    u16 chased(Color c);
     Value    major_material(Color c) const;
     Value    major_material() const;
 
@@ -203,7 +203,7 @@ class Position {
     std::array<Bitboard, COLOR_NB>      byColorBB;
 
     int        pieceCount[PIECE_NB];
-    uint64_t   midEncoding[COLOR_NB];
+    u64        midEncoding[COLOR_NB];
     StateInfo* st;
     int        gamePly;
     Color      sideToMove;
@@ -258,11 +258,10 @@ inline int Position::count() const {
 }
 
 inline Square Position::king_square(Color c) const {
-    return c == WHITE ? lsb(uint64_t(pieces(KING)))
-                      : Square(64 + lsb(uint64_t(pieces(KING) >> 64)));
+    return c == WHITE ? lsb(u64(pieces(KING))) : Square(64 + lsb(u64(pieces(KING) >> 64)));
 }
 
-inline uint64_t Position::mid_encoding(Color c) const { return midEncoding[c]; }
+inline u64 Position::mid_encoding(Color c) const { return midEncoding[c]; }
 
 inline Bitboard Position::attackers_to(Square s) const { return attackers_to(s, pieces()); }
 

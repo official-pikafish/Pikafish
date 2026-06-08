@@ -23,7 +23,6 @@
 #include <atomic>
 #include <cassert>
 #include <cmath>
-#include <cstdint>
 #include <cstdlib>
 #include <initializer_list>
 #include <string>
@@ -54,7 +53,7 @@ using namespace Search;
 
 namespace {
 
-constexpr uint64_t NODES_LIMIT_OUTPUT = 10'000'000;
+constexpr u64 NODES_LIMIT_OUTPUT = 10'000'000;
 
 constexpr int SEARCHEDLIST_CAPACITY = 32;
 using SearchedList                  = ValueList<Move, SEARCHEDLIST_CAPACITY>;
@@ -117,7 +116,7 @@ void update_correction_history(const Position& pos,
 }
 
 // Add a small random component to draw evaluations to avoid 3-fold blindness
-Value value_draw(size_t nodes) { return VALUE_DRAW - 1 + Value(nodes & 0x2); }
+Value value_draw(usize nodes) { return VALUE_DRAW - 1 + Value(nodes & 0x2); }
 Value value_to_tt(Value v, int ply);
 Value value_from_tt(Value v, int ply, int r60c);
 void  update_continuation_histories(Stack* ss, Piece pc, Square to, int bonus);
@@ -147,9 +146,9 @@ bool is_shuffling(Move move, Stack* const ss, const Position& pos) {
 
 Search::Worker::Worker(SharedState&                    sharedState,
                        std::unique_ptr<ISearchManager> sm,
-                       size_t                          threadId,
-                       size_t                          numaThreadId,
-                       size_t                          numaTotalThreads,
+                       usize                           threadId,
+                       usize                           numaThreadId,
+                       usize                           numaTotalThreads,
                        NumaReplicatedAccessToken       token) :
     // Unpack the SharedState struct into member variables
     sharedHistory(sharedState.sharedHistories.at(token.get_numa_index())),
@@ -290,7 +289,7 @@ bool Search::Worker::iterative_deepening() {
             mainThread->iterValue.fill(mainThread->bestPreviousScore);
     }
 
-    size_t multiPV = size_t(options["MultiPV"]);
+    usize multiPV = usize(options["MultiPV"]);
 
     multiPV = std::min(multiPV, rootMoves.size());
 
@@ -321,8 +320,8 @@ bool Search::Worker::iterative_deepening() {
         for (RootMove& rm : rootMoves)
             rm.previousScore = rm.score;
 
-        size_t pvFirst = 0;
-        pvLast         = rootMoves.size();
+        usize pvFirst = 0;
+        pvLast        = rootMoves.size();
 
         if (!threads.increaseDepth)
             searchAgainCounter++;
@@ -496,8 +495,7 @@ bool Search::Worker::iterative_deepening() {
         // Do we have time for the next iteration? Can we stop searching now?
         if (limits.use_time_management() && !threads.stop && !mainThread->stopOnPonderhit)
         {
-            uint64_t nodesEffort =
-              rootMoves[0].effort * 100000 / std::max(uint64_t(1), uint64_t(nodes));
+            u64 nodesEffort = rootMoves[0].effort * 100000 / std::max(u64(1), u64(nodes));
 
             double fallingEval = (16.93 + 2.73 * (mainThread->bestPreviousAverageScore - bestValue)
                                   + 0.8 * (mainThread->iterValue[iterIdx] - bestValue))
@@ -514,8 +512,7 @@ bool Search::Worker::iterative_deepening() {
             double bestMoveInstability = 0.960 + 1.63 * totBestMoveChanges / threads.size();
 
             double highBestMoveEffort = std::clamp(
-              interpolate(int64_t(nodesEffort), int64_t(78000), int64_t(94000), 0.960, 0.74), 0.74,
-              0.960);
+              interpolate(i64(nodesEffort), i64(78000), i64(94000), 0.960, 0.74), 0.74, 0.960);
 
             double totalTime = mainThread->tm.optimum() * fallingEval * reduction
                              * bestMoveInstability * highBestMoveEffort;
@@ -612,7 +609,7 @@ void Search::Worker::clear() {
                 for (auto& h : to)
                     h.fill(-436);
 
-    for (size_t i = 1; i < reductions.size(); ++i)
+    for (usize i = 1; i < reductions.size(); ++i)
         reductions[i] = int(1740 / 100.0 * std::log(i));
 
     refreshTable.clear(network[numaAccessToken]);
@@ -664,7 +661,7 @@ Value Search::Worker::search(
     maxValue      = VALUE_INFINITE;
 
     ss->followPV = rootNode
-                || ((ss - 1)->followPV && static_cast<size_t>(ss->ply - 1) < lastIterationPV.size()
+                || ((ss - 1)->followPV && static_cast<usize>(ss->ply - 1) < lastIterationPV.size()
                     && (ss - 1)->currentMove == lastIterationPV[ss->ply - 1]);
 
     // Check for the available remaining time
@@ -1149,7 +1146,7 @@ moves_loop:  // When in check, search starts here
                 extension = -2;
         }
 
-        uint64_t nodeCount = rootNode ? uint64_t(nodes) : 0;
+        u64 nodeCount = rootNode ? u64(nodes) : 0;
 
         // Step 15. Make the move
         do_move(pos, move, st, givesCheck, ss);
@@ -1781,7 +1778,7 @@ void update_all_stats(const Position& pos,
     if (!PvNode)
         // Important: don't remove the cast to a 64-bit number else the multiplication
         // can overflow on 32-bit platforms which would change the bench signature
-        bonus += bonus * uint64_t(quietsSearched.size() + capturesSearched.size()) / 256;
+        bonus += bonus * u64(quietsSearched.size() + capturesSearched.size()) / 256;
 
     if (!pos.capture(bestMove))
     {
@@ -1898,12 +1895,12 @@ void SearchManager::pv(Search::Worker&           worker,
                        const TranspositionTable& tt,
                        Depth                     depth) const {
 
-    const auto  nodes     = threads.nodes_searched();
-    const auto& rootMoves = worker.rootMoves;
-    const auto& pos       = worker.rootPos;
-    size_t      multiPV   = std::min(size_t(worker.options["MultiPV"]), rootMoves.size());
+    const auto nodes     = threads.nodes_searched();
+    auto&      rootMoves = worker.rootMoves;
+    auto&      pos       = worker.rootPos;
+    usize      multiPV   = std::min(usize(worker.options["MultiPV"]), rootMoves.size());
 
-    for (size_t i = 0; i < multiPV; ++i)
+    for (usize i = 0; i < multiPV; ++i)
     {
         bool usePreviousScore = rootMoves[i].score == -VALUE_INFINITE;
 

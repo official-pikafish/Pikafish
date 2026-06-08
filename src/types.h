@@ -125,19 +125,19 @@ constexpr bool Is64Bit = true;
 constexpr bool Is64Bit = false;
     #endif
 
-using Key      = uint64_t;
-using Bitboard = __uint128_t;
+using Key      = u64;
+using Bitboard = u128;
 
 constexpr int MAX_MOVES = 128;
 constexpr int MAX_PLY   = 246;
 
-enum Color : uint8_t {
+enum Color : u8 {
     WHITE,
     BLACK,
     COLOR_NB = 2
 };
 
-enum Bound : uint8_t {
+enum Bound : u8 {
     BOUND_NONE,
     BOUND_UPPER,
     BOUND_LOWER,
@@ -180,13 +180,13 @@ constexpr Value KnightValue  = 720;
 constexpr Value BishopValue  = 187;
 
 // clang-format off
-enum PieceType : std::uint8_t {
+enum PieceType : u8 {
     NO_PIECE_TYPE, ROOK, ADVISOR, CANNON, PAWN, KNIGHT, BISHOP, KING, KNIGHT_TO, PAWN_TO,
     ALL_PIECES = 0,
     PIECE_TYPE_NB = 8
 };
 
-enum Piece : std::uint8_t {
+enum Piece : u8 {
     NO_PIECE,
     W_ROOK           , W_ADVISOR, W_CANNON, W_PAWN, W_KNIGHT, W_BISHOP, W_KING,
     B_ROOK = ROOK + 8, B_ADVISOR, B_CANNON, B_PAWN, B_KNIGHT, B_BISHOP, B_KING,
@@ -218,7 +218,7 @@ constexpr Depth DEPTH_UNSEARCHED = -2;
 constexpr Depth DEPTH_NONE       = -3;
 
 // clang-format off
-enum Square : uint8_t {
+enum Square : u8 {
     SQ_A0, SQ_B0, SQ_C0, SQ_D0, SQ_E0, SQ_F0, SQ_G0, SQ_H0, SQ_I0,
     SQ_A1, SQ_B1, SQ_C1, SQ_D1, SQ_E1, SQ_F1, SQ_G1, SQ_H1, SQ_I1,
     SQ_A2, SQ_B2, SQ_C2, SQ_D2, SQ_E2, SQ_F2, SQ_G2, SQ_H2, SQ_I2,
@@ -236,7 +236,7 @@ enum Square : uint8_t {
 };
 // clang-format on
 
-enum Direction : int8_t {
+enum Direction : i8 {
     NORTH = 9,
     EAST  = 1,
     SOUTH = -NORTH,
@@ -248,7 +248,7 @@ enum Direction : int8_t {
     NORTH_WEST = NORTH + WEST
 };
 
-enum File : uint8_t {
+enum File : u8 {
     FILE_A,
     FILE_B,
     FILE_C,
@@ -261,7 +261,7 @@ enum File : uint8_t {
     FILE_NB
 };
 
-enum Rank : uint8_t {
+enum Rank : u8 {
     RANK_0,
     RANK_1,
     RANK_2,
@@ -277,12 +277,12 @@ enum Rank : uint8_t {
 
 // For fast repetition checks
 struct BloomFilter {
-    constexpr static uint64_t FILTER_SIZE = 1 << 14;
-    uint8_t                   operator[](Key key) const { return table[key & (FILTER_SIZE - 1)]; }
-    uint8_t&                  operator[](Key key) { return table[key & (FILTER_SIZE - 1)]; }
+    constexpr static u64 FILTER_SIZE = 1 << 14;
+    u8                   operator[](Key key) const { return table[key & (FILTER_SIZE - 1)]; }
+    u8&                  operator[](Key key) { return table[key & (FILTER_SIZE - 1)]; }
 
    private:
-    uint8_t table[1 << 14];
+    u8 table[1 << 14];
 };
 
 // Keep track of what a move changes on the board (used by NNUE)
@@ -301,8 +301,8 @@ struct DirtyPiece {
 struct DirtyThreat {
     DirtyThreat() { /* don't initialize data */ }
     DirtyThreat(Piece pc, Piece threatened_pc, Square pc_sq, Square threatened_sq, bool add) {
-        data = (uint32_t(add) << 31) | (pc << 20) | (threatened_pc << 16) | (threatened_sq << 8)
-             | (pc_sq);
+        data =
+          (u32(add) << 31) | (pc << 20) | (threatened_pc << 16) | (threatened_sq << 8) | (pc_sq);
     }
 
     Piece  pc() const { return static_cast<Piece>(data >> 20 & 0xf); }
@@ -312,7 +312,7 @@ struct DirtyThreat {
     bool   add() const { return data >> 31; }
 
    private:
-    uint32_t data;
+    u32 data;
 };
 
 using DirtyThreatList = ValueList<DirtyThreat, 64>;
@@ -377,9 +377,7 @@ constexpr Square flip_rank(Square s) { return make_square(file_of(s), Rank(RANK_
 constexpr Square flip_file(Square s) { return make_square(File(FILE_I - file_of(s)), rank_of(s)); }
 
 // Based on a congruential pseudo-random number generator
-constexpr Key make_key(uint64_t seed) {
-    return seed * 6364136223846793005ULL + 1442695040888963407ULL;
-}
+constexpr Key make_key(u64 seed) { return seed * 6364136223846793005ULL + 1442695040888963407ULL; }
 
 // A move needs 16 bits to be stored
 //
@@ -393,7 +391,7 @@ constexpr Key make_key(uint64_t seed) {
 class Move {
    public:
     Move() = default;
-    constexpr explicit Move(std::uint16_t d) :
+    constexpr explicit Move(u16 d) :
         data(d) {}
 
     constexpr Move(Square from, Square to) :
@@ -425,14 +423,14 @@ class Move {
 
     constexpr explicit operator bool() const { return data != 0; }
 
-    constexpr std::uint16_t raw() const { return data; }
+    constexpr u16 raw() const { return data; }
 
     struct MoveHash {
-        std::size_t operator()(const Move& m) const { return make_key(m.data); }
+        usize operator()(const Move& m) const { return make_key(m.data); }
     };
 
    protected:
-    std::uint16_t data;
+    u16 data;
 };
 
 template<typename T, typename... Ts>

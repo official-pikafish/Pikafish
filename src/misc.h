@@ -23,6 +23,7 @@
 #include <array>
 #include <cassert>
 #include <chrono>
+#include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <exception>  // IWYU pragma: keep
@@ -45,6 +46,24 @@
 #define stringify(x) stringify2(x)
 
 namespace Stockfish {
+
+using u64 = std::uint64_t;
+using u32 = std::uint32_t;
+using u16 = std::uint16_t;
+using u8  = std::uint8_t;
+
+using i64 = std::int64_t;
+using i32 = std::int32_t;
+using i16 = std::int16_t;
+using i8  = std::int8_t;
+
+using usize = std::size_t;
+using isize = std::ptrdiff_t;
+
+#if defined(__GNUC__) && defined(IS_64BIT)
+__extension__ using u128 = unsigned __int128;
+__extension__ using i128 = signed __int128;
+#endif
 
 std::string engine_version_info();
 std::string engine_info(bool to_uci = false);
@@ -114,7 +133,7 @@ void prefetch(const void* addr) {
 
 void start_logger(const std::string& fname);
 
-size_t str_to_size_t(const std::string& s);
+usize str_to_size_t(const std::string& s);
 
 std::stringstream read_compressed_nnue(const std::string& fpath);
 
@@ -136,15 +155,15 @@ struct PipeDeleter {
 std::optional<std::string> read_file_to_string(const std::string& path);
 
 void dbg_hit_on(bool cond, int slot = 0);
-void dbg_mean_of(int64_t value, int slot = 0);
-void dbg_stdev_of(int64_t value, int slot = 0);
-void dbg_extremes_of(int64_t value, int slot = 0);
-void dbg_correl_of(int64_t value1, int64_t value2, int slot = 0);
+void dbg_mean_of(i64 value, int slot = 0);
+void dbg_stdev_of(i64 value, int slot = 0);
+void dbg_extremes_of(i64 value, int slot = 0);
+void dbg_correl_of(i64 value1, i64 value2, int slot = 0);
 void dbg_print();
 void dbg_clear();
 
 using TimePoint = std::chrono::milliseconds::rep;  // A value in milliseconds
-static_assert(sizeof(TimePoint) == sizeof(int64_t), "TimePoint should be 64 bits");
+static_assert(sizeof(TimePoint) == sizeof(i64), "TimePoint should be 64 bits");
 inline TimePoint now() {
     return std::chrono::duration_cast<std::chrono::milliseconds>(
              std::chrono::steady_clock::now().time_since_epoch())
@@ -157,10 +176,10 @@ inline std::vector<std::string_view> split(std::string_view s, std::string_view 
     if (s.empty())
         return res;
 
-    size_t begin = 0;
+    usize begin = 0;
     for (;;)
     {
-        const size_t end = s.find(delimiter, begin);
+        const usize end = s.find(delimiter, begin);
         if (end == std::string::npos)
             break;
 
@@ -189,17 +208,17 @@ void sync_cout_start();
 void sync_cout_end();
 
 // True if and only if the binary is compiled on a little-endian machine
-static inline const std::uint16_t Le             = 1;
-static inline const bool          IsLittleEndian = *reinterpret_cast<const char*>(&Le) == 1;
+static inline const u16  Le             = 1;
+static inline const bool IsLittleEndian = *reinterpret_cast<const char*>(&Le) == 1;
 
 
-template<typename T, std::size_t MaxSize>
+template<typename T, usize MaxSize>
 class ValueList {
 
    public:
-    std::size_t size() const { return size_; }
-    int         ssize() const { return int(size_); }
-    void        push_back(const T& value) {
+    usize size() const { return size_; }
+    int   ssize() const { return int(size_); }
+    void  push_back(const T& value) {
         assert(size_ < MaxSize);
         values_[size_++] = value;
     }
@@ -214,22 +233,22 @@ class ValueList {
     const T& operator[](int index) const { return values_[index]; }
 
    private:
-    T           values_[MaxSize];
-    std::size_t size_ = 0;
+    T     values_[MaxSize];
+    usize size_ = 0;
 };
 
 
-template<typename T, std::size_t Size, std::size_t... Sizes>
+template<typename T, usize Size, usize... Sizes>
 class MultiArray;
 
 namespace Detail {
 
-template<typename T, std::size_t Size, std::size_t... Sizes>
+template<typename T, usize Size, usize... Sizes>
 struct MultiArrayHelper {
     using ChildType = MultiArray<T, Sizes...>;
 };
 
-template<typename T, std::size_t Size>
+template<typename T, usize Size>
 struct MultiArrayHelper<T, Size> {
     using ChildType = T;
 };
@@ -242,7 +261,7 @@ constexpr bool is_strictly_assignable_v =
 
 // MultiArray is a generic N-dimensional array.
 // The template parameters (Size and Sizes) encode the dimensions of the array.
-template<typename T, std::size_t Size, std::size_t... Sizes>
+template<typename T, usize Size, usize... Sizes>
 class MultiArray {
     using ChildType = typename Detail::MultiArrayHelper<T, Size, Sizes...>::ChildType;
     using ArrayType = std::array<ChildType, Size>;
@@ -333,16 +352,16 @@ class MultiArray {
 
 class PRNG {
 
-    uint64_t s;
+    u64 s;
 
-    uint64_t rand64() {
+    u64 rand64() {
 
         s ^= s >> 12, s ^= s << 25, s ^= s >> 27;
         return s * 2685821657736338717LL;
     }
 
    public:
-    PRNG(uint64_t seed) :
+    PRNG(u64 seed) :
         s(seed) {
         assert(seed);
     }
@@ -360,16 +379,15 @@ class PRNG {
     }
 };
 
-inline uint64_t mul_hi64(uint64_t a, uint64_t b) {
+inline u64 mul_hi64(u64 a, u64 b) {
 #if defined(__GNUC__) && defined(IS_64BIT)
-    __extension__ using uint128 = unsigned __int128;
-    return (uint128(a) * uint128(b)) >> 64;
+    return (u128(a) * u128(b)) >> 64;
 #else
-    uint64_t aL = uint32_t(a), aH = a >> 32;
-    uint64_t bL = uint32_t(b), bH = b >> 32;
-    uint64_t c1 = (aL * bL) >> 32;
-    uint64_t c2 = aH * bL + c1;
-    uint64_t c3 = aL * bH + uint32_t(c2);
+    u64 aL = u32(a), aH = a >> 32;
+    u64 bL = u32(b), bH = b >> 32;
+    u64 c1 = (aL * bL) >> 32;
+    u64 c2 = aH * bL + c1;
+    u64 c3 = aL * bH + u32(c2);
     return aH * bH + (c2 >> 32) + (c3 >> 32);
 #endif
 }
@@ -380,20 +398,19 @@ inline constexpr T2 interpolate(T1 x, T1 x0, T1 x1, T2 y0, T2 y1) {
     return T2(y0 + (y1 - y0) * (x - x0) / (x1 - x0));
 }
 
-uint64_t hash_bytes(const char*, size_t);
+u64 hash_bytes(const char*, usize);
 
 template<typename T>
-inline std::size_t get_raw_data_hash(const T& value) {
+inline usize get_raw_data_hash(const T& value) {
     // We must have no padding bytes because we're reinterpreting as char
     static_assert(std::has_unique_object_representations<T>());
 
-    return static_cast<std::size_t>(
-      hash_bytes(reinterpret_cast<const char*>(&value), sizeof(value)));
+    return static_cast<usize>(hash_bytes(reinterpret_cast<const char*>(&value), sizeof(value)));
 }
 
 template<typename T>
-inline void hash_combine(std::size_t& seed, const T& v) {
-    std::size_t x;
+inline void hash_combine(usize& seed, const T& v) {
+    usize x;
     // For primitive types we avoid using the default hasher, which may be
     // nondeterministic across program invocations
     if constexpr (std::is_integral<T>())
@@ -403,9 +420,9 @@ inline void hash_combine(std::size_t& seed, const T& v) {
     seed ^= x + 0x9e3779b9 + (seed << 6) + (seed >> 2);
 }
 
-inline std::uint64_t hash_string(const std::string& sv) { return hash_bytes(sv.data(), sv.size()); }
+inline u64 hash_string(const std::string& sv) { return hash_bytes(sv.data(), sv.size()); }
 
-template<std::size_t Capacity>
+template<usize Capacity>
 class FixedString {
    public:
     FixedString() :
@@ -414,7 +431,7 @@ class FixedString {
     }
 
     FixedString(const char* str) {
-        size_t len = std::strlen(str);
+        usize len = std::strlen(str);
         if (len > Capacity)
             std::terminate();
         std::memcpy(data_, str, len);
@@ -430,18 +447,18 @@ class FixedString {
         data_[length_] = '\0';
     }
 
-    std::size_t size() const { return length_; }
-    std::size_t capacity() const { return Capacity; }
+    usize size() const { return length_; }
+    usize capacity() const { return Capacity; }
 
     const char* c_str() const { return data_; }
     const char* data() const { return data_; }
 
-    char& operator[](std::size_t i) { return data_[i]; }
+    char& operator[](usize i) { return data_[i]; }
 
-    const char& operator[](std::size_t i) const { return data_[i]; }
+    const char& operator[](usize i) const { return data_[i]; }
 
     FixedString& operator+=(const char* str) {
-        size_t len = std::strlen(str);
+        usize len = std::strlen(str);
         if (length_ + len > Capacity)
             std::terminate();
         std::memcpy(data_ + length_, str, len);
@@ -472,8 +489,8 @@ class FixedString {
     }
 
    private:
-    char        data_[Capacity + 1];  // +1 for null terminator
-    std::size_t length_;
+    char  data_[Capacity + 1];  // +1 for null terminator
+    usize length_;
 };
 
 struct CommandLine {
@@ -541,9 +558,9 @@ void move_to_front(std::vector<T>& vec, Predicate pred) {
 
 }  // namespace Stockfish
 
-template<std::size_t N>
+template<Stockfish::usize N>
 struct std::hash<Stockfish::FixedString<N>> {
-    std::size_t operator()(const Stockfish::FixedString<N>& fstr) const noexcept {
+    Stockfish::usize operator()(const Stockfish::FixedString<N>& fstr) const noexcept {
         return Stockfish::hash_bytes(fstr.data(), fstr.size());
     }
 };
