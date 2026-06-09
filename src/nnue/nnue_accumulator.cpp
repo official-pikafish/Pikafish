@@ -588,6 +588,19 @@ Bitboard get_changed_pieces(const std::array<Piece, SQUARE_NB>& oldPieces,
     }
 
     return ~sameBB;
+#elif defined(USE_SSE2)
+    Bitboard sameBB = 0;
+
+    for (int i : {0, 16, 32, 48, 64, 74})
+    {
+        const __m128i old_v = _mm_loadu_si128(reinterpret_cast<const __m128i*>(&oldPieces[i]));
+        const __m128i new_v = _mm_loadu_si128(reinterpret_cast<const __m128i*>(&newPieces[i]));
+        const __m128i same  = _mm_cmpeq_epi8(old_v, new_v);
+
+        sameBB |= static_cast<Bitboard>(_mm_movemask_epi8(same)) << i;
+    }
+
+    return ~sameBB;
 #else
     Bitboard changed = 0;
 

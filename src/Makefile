@@ -55,6 +55,8 @@ endif
 ### Executable name
 ifeq ($(target_windows),yes)
 	EXE = pikafish.exe
+else ifneq (,$(findstring wasm,$(ARCH)))
+	EXE = pikafish.js
 else
 	EXE = pikafish
 endif
@@ -109,7 +111,8 @@ VPATH = $(shell find -L . \( -path './universal' -o -path './temp_builds' \) -pr
 # neon = yes/no       --- -DUSE_NEON         --- Use ARM SIMD architecture
 # dotprod = yes/no    --- -DUSE_NEON_DOTPROD --- Use ARM advanced SIMD Int8 dot product instructions
 # lsx = yes/no        --- -mlsx              --- Use Loongson SIMD eXtension
-# lasx = yes/no       --- -mlasx             --- use Loongson Advanced SIMD eXtension
+# lasx = yes/no       --- -mlasx             --- Use Loongson Advanced SIMD eXtension
+# relaxedsimd = y/n   --- -mrelaxed-simd     --- Use WebAssembly relaxed SIMD extension
 #
 # Note that Makefile is space sensitive, so when adding new architectures
 # or modifying existing flags, you have to make sure there are no extra spaces
@@ -136,7 +139,7 @@ ifeq ($(ARCH), $(filter $(ARCH), \
                  x86-64-bmi2 x86-64-avx2 x86-64-sse41-popcnt x86-64-modern x86-64-ssse3 x86-64-sse3-popcnt \
                  x86-64 x86-32-sse41-popcnt x86-32-sse2 x86-32 ppc-64 ppc-64-altivec ppc-64-vsx ppc-32 e2k \
                  armv7 armv7-neon armv8 armv8-dotprod arm64-universal apple-silicon general-64 general-32 riscv64 \
-                 loongarch64 loongarch64-lsx loongarch64-lasx))
+                 loongarch64 loongarch64-lsx loongarch64-lasx wasm32 wasm32-relaxed-simd))
    SUPPORTED_ARCH=true
 else
    SUPPORTED_ARCH=false
@@ -173,6 +176,7 @@ dotprod = no
 arm_version = 0
 lsx = no
 lasx = no
+relaxedsimd = no
 STRIP = strip
 
 ifneq ($(shell which clang-format-20 2> /dev/null),)
@@ -376,6 +380,25 @@ ifeq ($(ARCH),apple-silicon)
 	arm_version = 8
 endif
 
+# WASM is largely compiled using emcc's x86 compatibility layer, with occasional
+# WASM-specific intrinsics
+ifeq ($(ARCH),wasm32)
+	arch = wasm32
+	sse = yes
+	sse2 = yes
+	ssse3 = yes
+	sse41 = yes
+endif
+
+ifeq ($(ARCH),wasm32-relaxed-simd)
+	arch = wasm32
+	sse = yes
+	sse2 = yes
+	ssse3 = yes
+	sse41 = yes
+	relaxedsimd = yes
+endif
+
 ifeq ($(ARCH),ppc-32)
 	arch = ppc
 	bits = 32
@@ -467,7 +490,7 @@ ifeq ($(COMP),gcc)
 		endif
 	else ifeq ($(arch),loongarch64)
 		CXXFLAGS += -latomic
-	else
+	else ifneq ($(arch),wasm32)
 		CXXFLAGS += -m$(bits)
 		LDFLAGS += -m$(bits)
 	endif
@@ -477,7 +500,9 @@ ifeq ($(COMP),gcc)
 	endif
 
 	ifneq ($(KERNEL),Darwin)
+	ifneq ($(arch),wasm32)
 	   LDFLAGS += -Wl,--no-as-needed
+	endif
 	endif
 endif
 
@@ -641,6 +666,7 @@ ifneq ($(comp),mingw)
 		# Haiku has pthreads in its libroot, so only link it in on other platforms
 		ifneq ($(KERNEL),Haiku)
 			ifneq ($(COMP),ndk)
+			ifneq ($(arch),wasm32)
 				LDFLAGS += -lpthread
 
 				add_lrt = yes
@@ -655,6 +681,7 @@ ifneq ($(comp),mingw)
 				ifeq ($(add_lrt),yes)
 					LDFLAGS += -lrt
 				endif
+			endif
 			endif
 		endif
 	endif
@@ -833,6 +860,14 @@ ifeq ($(lsx),yes)
 	endif
 endif
 
+ifeq ($(arch),wasm32)
+	CXXFLAGS += -pthread -msimd128 -DUSE_POPCNT
+	LDFLAGS += -pthread -sINITIAL_MEMORY=64MB -sALLOW_MEMORY_GROWTH -sSTACK_SIZE=3MB
+	ifeq ($(relaxedsimd),yes)
+		CXXFLAGS += -mrelaxed-simd
+	endif
+endif
+
 ### 3.7 pext
 ifeq ($(pext),yes)
 	CXXFLAGS += -DUSE_PEXT
@@ -872,7 +907,8 @@ endif
 ### needs access to the optimization flags.
 ifeq ($(optimize),yes)
 ifeq ($(debug),no)
-	ifneq ($(KERNEL),Darwin)
+	ifeq ($(arch),wasm32)
+	else ifneq ($(KERNEL),Darwin)
 		LLD_BIN := $(shell command -v ld.lld 2>/dev/null)
 		ifeq ($(LLD_BIN),)
 			LLD_BIN := $(shell command -v lld 2>/dev/null)
@@ -1204,7 +1240,8 @@ config-sanity: net
 	(test "$(arch)" = "any" || test "$(arch)" = "x86_64" || test "$(arch)" = "i386" || \
 	 test "$(arch)" = "ppc64" || test "$(arch)" = "ppc" || test "$(arch)" = "e2k" || \
 	 test "$(arch)" = "armv7" || test "$(arch)" = "armv8" || test "$(arch)" = "arm64" || \
-	 test "$(arch)" = "riscv64" || test "$(arch)" = "loongarch64") && \
+	 test "$(arch)" = "riscv64" || test "$(arch)" = "loongarch64" || \
+	 test "$(arch)" = "wasm32") && \
 	(test "$(bits)" = "32" || test "$(bits)" = "64") && \
 	(test "$(prefetch)" = "yes" || test "$(prefetch)" = "no") && \
 	(test "$(popcnt)" = "yes" || test "$(popcnt)" = "no") && \

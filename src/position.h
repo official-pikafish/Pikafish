@@ -49,13 +49,13 @@ struct SharedHistories;
 struct StateInfo {
 
     // Copied when making a move
-    Key     pawnKey;
-    Key     minorPieceKey;
-    Key     nonPawnKey[COLOR_NB];
-    Value   majorMaterial[COLOR_NB];
-    i16 check10[COLOR_NB];
-    int     rule60;
-    int     pliesFromNull;
+    Key   pawnKey;
+    Key   minorPieceKey;
+    Key   nonPawnKey[COLOR_NB];
+    Value majorMaterial[COLOR_NB];
+    i16   check10[COLOR_NB];
+    int   rule60;
+    int   pliesFromNull;
 
     // Not copied when making a move (will be recomputed anyhow)
     Key        key;
@@ -112,9 +112,9 @@ class Position {
     template<PieceType Pt>
     int count(Color c) const;
     template<PieceType Pt>
-    int      count() const;
-    Square   king_square(Color c) const;
-    u64 mid_encoding(Color c) const;
+    int    count() const;
+    Square king_square(Color c) const;
+    u64    mid_encoding(Color c) const;
 
     // Checking
     Bitboard checkers() const;
@@ -164,13 +164,13 @@ class Position {
     Key non_pawn_key(Color c) const;
 
     // Other properties of the position
-    Color    side_to_move() const;
-    int      game_ply() const;
-    bool     rule_judge(Value& result, int ply = 0);
-    int      rule60_count() const;
-    u16 chased(Color c);
-    Value    major_material(Color c) const;
-    Value    major_material() const;
+    Color side_to_move() const;
+    int   game_ply() const;
+    bool  rule_judge(Value& result, int ply = 0);
+    int   rule60_count() const;
+    u16   chased(Color c);
+    Value major_material(Color c) const;
+    Value major_material() const;
 
     // Position consistency check, for debugging
     bool pos_is_ok() const;
