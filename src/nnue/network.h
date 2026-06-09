@@ -39,6 +39,9 @@ class Position;
 
 namespace Stockfish::Eval::NNUE {
 
+class AccumulatorStack;
+struct AccumulatorCaches;
+
 using NetworkOutput = std::tuple<Value, Value>;
 
 // The network must be a trivial type, i.e. the memory must be in-line.

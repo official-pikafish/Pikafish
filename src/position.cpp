@@ -23,8 +23,10 @@
 #include <cassert>
 #include <cctype>
 #include <cstddef>
+#include <initializer_list>
 #include <cstring>
 #include <iomanip>
+#include <iostream>
 #include <sstream>
 #include <string_view>
 #include <utility>
@@ -33,6 +35,7 @@
 #include "history.h"
 #include "misc.h"
 #include "movegen.h"
+#include "nnue/nnue_common.h"
 #include "nnue/nnue_architecture.h"
 #include "tt.h"
 #include "uci.h"

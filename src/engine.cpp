@@ -21,6 +21,7 @@
 #include <algorithm>
 #include <cassert>
 #include <deque>
+#include <iostream>
 #include <memory>
 #include <sstream>
 #include <string_view>
@@ -31,6 +32,7 @@
 #include "misc.h"
 #include "nnue/network.h"
 #include "nnue/nnue_misc.h"
+#include "nnue/nnue_common.h"
 #include "numa.h"
 #include "perft.h"
 #include "position.h"

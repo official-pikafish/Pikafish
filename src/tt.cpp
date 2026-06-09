@@ -22,7 +22,6 @@
 #include <cassert>
 #include <cstdlib>
 #include <cstring>
-#include <functional>
 #include <iostream>
 #include <numeric>
 #include <vector>

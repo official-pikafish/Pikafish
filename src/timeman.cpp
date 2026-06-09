@@ -21,7 +21,6 @@
 #include <algorithm>
 #include <cassert>
 #include <cmath>
-#include <string>
 
 #include "search.h"
 #include "ucioption.h"

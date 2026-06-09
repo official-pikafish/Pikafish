@@ -23,6 +23,7 @@
 #include <iostream>
 #include <sstream>
 #include <optional>
+#include <type_traits>
 #include <vector>
 
 #include "../misc.h"
