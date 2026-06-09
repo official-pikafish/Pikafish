@@ -343,9 +343,9 @@ class Worker {
 
     LimitsType limits;
 
-    usize            pvIdx, pvLast;
-    std::atomic<u64> nodes, bestMoveChanges;
-    int              selDepth, nmpMinPly;
+    size_t             pvIdx, pvLast;
+    RelaxedAtomic<u64> nodes, bestMoveChanges;
+    int                selDepth, nmpMinPly;
 
     Value optimism[COLOR_NB];
 

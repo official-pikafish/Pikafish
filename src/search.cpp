@@ -582,8 +582,7 @@ void Search::Worker::do_move(Position& pos, const Move move, StateInfo& st, Stac
 void Search::Worker::do_move(
   Position& pos, const Move move, StateInfo& st, const bool givesCheck, Stack* const ss) {
     bool capture = pos.capture(move);
-    // Preferable over fetch_add to avoid locking instructions
-    nodes.store(nodes.load(std::memory_order_relaxed) + 1, std::memory_order_relaxed);
+    ++nodes;
 
     auto [dirtyPiece, dirtyThreats] = accumulatorStack.push();
     pos.do_move(move, st, givesCheck, dirtyPiece, dirtyThreats, &tt, &sharedHistory);
