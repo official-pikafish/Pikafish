@@ -319,7 +319,6 @@ using DirtyThreatList = ValueList<DirtyThreat, 64>;
 
 struct DirtyThreats {
     DirtyThreatList list;
-    bool            requires_refresh[2];
 };
 
     #define ENABLE_INCR_OPERATORS_ON(T) \

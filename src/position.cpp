@@ -666,8 +666,8 @@ void Position::do_move(Move                      m,
       PSQFeatureSet::KingBuckets[king_square(them)][king_square(us)]
                                 [PSQFeatureSet::requires_mid_mirror(*this, them)]
                                   .second};
-    dp.requires_refresh[us] |= dts.requires_refresh[us]     = (mirror_before[0] != mirror_after[0]);
-    dp.requires_refresh[them] |= dts.requires_refresh[them] = (mirror_before[1] != mirror_after[1]);
+    dp.requires_refresh[us] |= (mirror_before[0] != mirror_after[0]);
+    dp.requires_refresh[them] |= (mirror_before[1] != mirror_after[1]);
 
     // Set capture piece
     st->capturedPiece = captured;

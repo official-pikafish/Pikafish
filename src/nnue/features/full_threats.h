@@ -58,10 +58,6 @@ class FullThreats {
                                        IndexList&              added,
                                        const ThreatWeightType* prefetchBase   = nullptr,
                                        IndexType               prefetchStride = 0);
-
-    // Returns whether the change stored in this DirtyPiece means
-    // that a full accumulator refresh is required.
-    static bool requires_refresh(const DiffType& diff, Color perspective);
 };
 
 }  // namespace Stockfish::Eval::NNUE::Features

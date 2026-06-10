@@ -178,8 +178,4 @@ void FullThreats::append_changed_indices(Color                   perspective,
     }
 }
 
-bool FullThreats::requires_refresh(const DiffType& diff, Color perspective) {
-    return diff.requires_refresh[perspective];
-}
-
 }  // namespace Stockfish::Eval::NNUE::Features
