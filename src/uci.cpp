@@ -129,8 +129,6 @@ void UCIEngine::loop() {
         }
         else if (token == "position")
             position(is);
-        else if (token == "fen" || token == "startpos")
-            is.seekg(0), position(is);
         else if (token == "ucinewgame")
             engine.search_clear();
         else if (token == "isready")
