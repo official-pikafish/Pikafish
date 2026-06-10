@@ -1153,8 +1153,8 @@ u16 Position::chased(Color c) {
                 if ((attackerType == KNIGHT || attackerType == CANNON)
                     && type_of(piece_on(to)) == ROOK)
                     chase |= (1 << idBoard[to]);
-                if ((attackerType == ADVISOR || attackerType == BISHOP)
-                    && type_of(piece_on(to)) & 1)
+                else if ((attackerType == ADVISOR || attackerType == BISHOP)
+                         && type_of(piece_on(to)) & 1)
                     chase |= (1 << idBoard[to]);
                 // Attacks against potentially unprotected pieces
                 else
