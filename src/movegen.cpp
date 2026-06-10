@@ -47,7 +47,7 @@ Move* generate_moves(const Position& pos, Move* moveList, Bitboard target) {
             if (Type != QUIETS)
                 b |= attacks_bb<CANNON>(from, pos.pieces()) & pos.pieces(~Us);
 
-            // Generate cannon quite moves.
+            // Generate cannon quiet moves.
             if (Type != CAPTURES)
                 b |= attacks_bb<ROOK>(from, pos.pieces()) & ~pos.pieces();
 
