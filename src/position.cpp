@@ -614,6 +614,8 @@ void Position::do_move(Move                      m,
     k ^= Zobrist::psq[pc][from] ^ Zobrist::psq[pc][to];
     if (tt)
         prefetch(tt->first_entry(adjust_key60(k)));
+    // Update the key with the final value
+    st->key = k;
 
     // If the moving piece is a pawn, update pawn hash key.
     if (type_of(pc) == PAWN)
@@ -680,9 +682,6 @@ void Position::do_move(Move                      m,
 
     // Update king attacks used for fast check detection
     set_check_info();
-
-    // Update the key with the final value
-    st->key = k;
 
     assert(pos_is_ok());
 
