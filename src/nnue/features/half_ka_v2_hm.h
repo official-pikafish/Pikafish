@@ -31,6 +31,10 @@
 #include "../../types.h"
 #include "../nnue_common.h"
 
+namespace Stockfish {
+class Position;
+}
+
 namespace Stockfish::Eval::NNUE::Features {
 
 // Feature HalfKAv2_hm: Combination of the position of own king and the
