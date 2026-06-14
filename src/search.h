@@ -343,7 +343,7 @@ class Worker {
 
     LimitsType limits;
 
-    size_t             pvIdx, pvLast;
+    usize              pvIdx, pvLast;
     RelaxedAtomic<u64> nodes, bestMoveChanges;
     int                selDepth, nmpMinPly;
 

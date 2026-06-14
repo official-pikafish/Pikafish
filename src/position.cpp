@@ -1424,7 +1424,7 @@ void Position::flip() {
 // This is meant to be helpful when debugging.
 bool Position::pos_is_ok() const {
 
-    constexpr bool Fast = true;  // Quick (default) or full check?
+    constexpr bool Fast = false;  // fast or full check?
 
     if ((sideToMove != WHITE && sideToMove != BLACK) || piece_on(king_square(WHITE)) != W_KING
         || piece_on(king_square(BLACK)) != B_KING)
