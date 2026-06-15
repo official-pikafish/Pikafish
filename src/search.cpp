@@ -85,7 +85,7 @@ int correction_value(const Worker& w, const Position& pos, const Stack* const ss
 }
 
 // Add correctionHistory value to raw staticEval and guarantee evaluation
-// does not hit the tablebase range.
+// does not hit the mate range.
 Value to_corrected_static_eval(const Value v, const int cv) {
     return std::clamp(v + cv / 131072, VALUE_MATED_IN_MAX_PLY + 1, VALUE_MATE_IN_MAX_PLY - 1);
 }
@@ -234,7 +234,6 @@ void Search::Worker::start_searching() {
     if (!uciPvSent || bestThread != this)
         main_manager()->pv(*bestThread, threads, tt, bestThread->rootDepth);
 
-    // In rare cases, pv() may change the ponder move through syzygy_extend_pv().
     std::string ponder;
     if (bestThread->rootMoves[0].pv.size() > 1)
         ponder = UCIEngine::move(bestThread->rootMoves[0].pv[1]);
