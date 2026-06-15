@@ -13,7 +13,7 @@
   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-//Definition of input features Simplified_Threats of NNUE evaluation function
+//Definition of input features Full_Threats of NNUE evaluation function
 
 #ifndef NNUE_FEATURES_FULL_THREATS_INCLUDED
 #define NNUE_FEATURES_FULL_THREATS_INCLUDED
@@ -30,9 +30,6 @@ namespace Stockfish::Eval::NNUE::Features {
 
 class FullThreats {
    public:
-    // Feature name
-    static constexpr const char* Name = "Full_Threats(Friend)";
-
     // Hash value embedded in the evaluation file
     static constexpr u32 HashValue = 0x8f234cb8u;
 

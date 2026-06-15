@@ -31,19 +31,12 @@
 #include "../../types.h"
 #include "../nnue_common.h"
 
-namespace Stockfish {
-class Position;
-}
-
 namespace Stockfish::Eval::NNUE::Features {
 
 // Feature HalfKAv2_hm: Combination of the position of own king and the
 // position of pieces. Position mirrored such that king is always on d..e files.
 class HalfKAv2_hm {
    public:
-    // Feature name
-    static constexpr const char* Name = "HalfKAv2_hm(Friend)";
-
     // Hash value embedded in the evaluation file
     static constexpr u32 HashValue = 0x7f234cb8u;
 
