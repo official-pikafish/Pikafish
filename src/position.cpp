@@ -888,6 +888,21 @@ void Position::update_piece_threats(Piece pc, bool putPiece, Square s, DirtyThre
     }
 }
 
+Key Position::prefetch_key(Move m) const {
+    Square from     = m.from_sq();
+    Square to       = m.to_sq();
+    Piece  pc       = piece_on(from);
+    Piece  captured = piece_on(to);
+    Key    k        = st->key ^ Zobrist::side;
+
+    k ^= Zobrist::psq[captured][to] ^ Zobrist::psq[pc][to] ^ Zobrist::psq[pc][from];
+
+    if (captured)
+        return k;
+
+    return adjust_key60<true>(k);
+}
+
 
 // Used to do a "null move": it flips
 // the side to move without executing any move on the board.

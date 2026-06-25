@@ -158,6 +158,7 @@ class Position {
 
     // Accessing hash keys
     Key key() const;
+    Key prefetch_key(Move m) const;
     Key pawn_key() const;
     Key minor_piece_key() const;
     Key defender_piece_key() const;
@@ -195,7 +196,8 @@ class Position {
     void                  undo_move(Move m, Piece captured, int id = 0);
     Value                 detect_chases(int d, int ply = 0);
     bool                  chase_legal(Move m) const;
-    Key                   adjust_key60(Key k) const;
+    template<bool AfterMove = false>
+    Key adjust_key60(Key k) const;
 
     // Data members
     std::array<Piece, SQUARE_NB>        board;
@@ -292,9 +294,10 @@ inline Bitboard Position::check_squares(PieceType pt) const { return st->checkSq
 
 inline Key Position::key() const { return adjust_key60(st->key); }
 
+template<bool AfterMove>
 inline Key Position::adjust_key60(Key k) const {
-    return (st->rule60 < 14 ? k : k ^ make_key((st->rule60 - 14) / 8))
-         ^ (filter[st->key] ? make_key(14) : 0);
+    return (st->rule60 < (14 - AfterMove) ? k : k ^ make_key((st->rule60 - (14 - AfterMove)) / 8))
+         ^ (filter[k] ? make_key(14) : 0);
 }
 
 inline Key Position::pawn_key() const { return st->pawnKey; }
