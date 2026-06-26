@@ -482,11 +482,22 @@ bool Position::pseudo_legal(const Move m) const {
 
     // Handle the special cases
     if (type_of(pc) == PAWN)
-        return bool(attacks_bb<PAWN>(from, us) & to);
+    {
+        if (!(attacks_bb<PAWN>(from, us) & to))
+            return false;
+    }
     else if (type_of(pc) == CANNON && !capture(m))
-        return bool(attacks_bb<ROOK>(from, pieces()) & to);
-    else
-        return bool(attacks_bb(type_of(pc), from, pieces()) & to);
+    {
+        if (!(attacks_bb<ROOK>(from, pieces()) & to))
+            return false;
+    }
+    else if (!(attacks_bb(type_of(pc), from, pieces()) & to))
+        return false;
+
+    if (checkers())
+        return MoveList<EVASIONS>(*this).contains(m);
+
+    return true;
 }
 
 
