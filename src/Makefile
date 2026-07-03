@@ -25,6 +25,13 @@ ifeq ($(KERNEL),Linux)
 	OS := $(shell uname -o)
 endif
 
+### Target operating system (may differ from KERNEL when cross-compiling)
+TARGET_KERNEL := $(KERNEL)
+ifeq ($(COMP),ndk)
+	TARGET_KERNEL := Linux
+	OS := Android
+endif
+
 ### Command prefix to run the built executable (e.g. wine, sde, qemu)
 ### Backward compatible alias: WINE_PATH (deprecated)
 ifneq ($(strip $(WINE_PATH)),)
@@ -499,7 +506,7 @@ ifeq ($(COMP),gcc)
 		LDFLAGS += -latomic
 	endif
 
-	ifneq ($(KERNEL),Darwin)
+	ifneq ($(TARGET_KERNEL),Darwin)
 	ifneq ($(arch),wasm32)
 	   LDFLAGS += -Wl,--no-as-needed
 	endif
@@ -546,7 +553,7 @@ ifeq ($(COMP),clang)
 	CXXFLAGS += -pedantic -Wextra -Wshadow -Wmissing-prototypes \
 	            -Wconditional-uninitialized -flax-vector-conversions=none -fconstexpr-steps=500000000
 
-	ifeq ($(filter $(KERNEL),Darwin OpenBSD FreeBSD),)
+	ifeq ($(filter $(TARGET_KERNEL),Darwin OpenBSD FreeBSD),)
 	ifeq ($(target_windows),)
 	ifneq ($(RTLIB),compiler-rt)
 		LDFLAGS += -latomic
@@ -570,7 +577,7 @@ ifeq ($(COMP),clang)
 	endif
 endif
 
-ifeq ($(KERNEL),Darwin)
+ifeq ($(TARGET_KERNEL),Darwin)
 	mac_target_flags := -mmacosx-version-min=10.15
 	ifneq ($(arch),any)
 		mac_target_flags += -arch $(arch)
@@ -640,7 +647,7 @@ else ifeq ($(comp),clang)
 else
 	profile_make = gcc-profile-make
 	profile_use = gcc-profile-use
-	ifeq ($(KERNEL),Darwin)
+	ifeq ($(TARGET_KERNEL),Darwin)
 		EXTRAPROFILEFLAGS = -fvisibility=hidden
 	endif
 endif
@@ -674,7 +681,7 @@ ifneq ($(comp),mingw)
 					add_lrt = no
 				endif
 
-				ifeq ($(KERNEL),Darwin)
+				ifeq ($(TARGET_KERNEL),Darwin)
 					add_lrt = no
 				endif
 
@@ -712,7 +719,7 @@ ifeq ($(optimize),yes)
 		endif
 	endif
 
-	ifeq ($(KERNEL),Darwin)
+	ifeq ($(TARGET_KERNEL),Darwin)
 		ifeq ($(comp),$(filter $(comp),clang icx))
 			CXXFLAGS += -mdynamic-no-pic
 		endif
@@ -833,7 +840,7 @@ endif
 
 ifeq ($(neon),yes)
 	CXXFLAGS += -DUSE_NEON=$(arm_version)
-	ifeq ($(KERNEL),Linux)
+	ifeq ($(TARGET_KERNEL),Linux)
 	ifneq ($(COMP),ndk)
 	ifneq ($(arch),armv8)
 		CXXFLAGS += -mfpu=neon
@@ -908,7 +915,7 @@ endif
 ifeq ($(optimize),yes)
 ifeq ($(debug),no)
 	ifeq ($(arch),wasm32)
-	else ifneq ($(KERNEL),Darwin)
+	else ifneq ($(TARGET_KERNEL),Darwin)
 		LLD_BIN := $(shell command -v ld.lld 2>/dev/null)
 		ifeq ($(LLD_BIN),)
 			LLD_BIN := $(shell command -v lld 2>/dev/null)
@@ -1097,7 +1104,7 @@ macos-lipo:
 	@rm -f $(EXE)-x86_64 $(EXE)-arm64
 	@echo "Universal macOS binary built: $(EXE)"
 
-ifeq ($(KERNEL),Darwin)
+ifeq ($(TARGET_KERNEL),Darwin)
 # Apple uses ld64 which doesn't have --save-temps
   LTO_OBJ_SUFFIX := .lto.o
   SAVE_TEMPS := -Wl,-object_path_lto,$(basename $(EXE)).lto.o
@@ -1368,9 +1375,9 @@ UNIVERSAL_COMMON_OBJ := $(patsubst %,$(TEMP_DIR)/$(BASELINE_ARCH)/%,$(notdir $(p
 
 UNIVERSAL_FINAL_FLAGS := -fno-exceptions -Os
 
-ifeq ($(KERNEL),Darwin)
+ifeq ($(TARGET_KERNEL),Darwin)
   UNIVERSAL_FINAL_FLAGS += $(mac_target_flags)
-else ifeq ($(KERNEL),Linux)
+else ifeq ($(TARGET_KERNEL),Linux)
   ifeq ($(COMP),ndk)
     UNIVERSAL_FINAL_FLAGS += -static
   else
@@ -1392,7 +1399,7 @@ arch-mangled    = _ZN$(shell printf %s '$(call arch-namespace,$(1))' | wc -c | t
 # (Mach-O section names are restricted to <=16 chars, hence this naming scheme)
 arch-mac-section = _i_$(subst -,_,$(patsubst x86-64,,$(patsubst x86-64-%,%,$(1))))
 
-ifeq ($(KERNEL),Darwin)
+ifeq ($(TARGET_KERNEL),Darwin)
   arch-defmain = -Wl,-alias,_$(call arch-mangled,$(1)),_main
 # lld-link, used on Windows+clang, doesn't accept --defsym, so
 # we define main directly in main.cpp instead and delete it later.
@@ -1439,7 +1446,7 @@ $(TEMP_DIR)/%/pikafish.o: $(TEMP_DIR)/%/.setup $(NET_SENTINEL)
 	+ENV_CXXFLAGS='$(ENV_CXXFLAGS) $(call arch-cxxflags,$*)' \
 	    $(MAKE) -C $(TEMP_DIR)/$* $(UOBJ_TGT) \
 	        ARCH=$* CXX=$(CXX) COMP=$(COMP)
-ifeq ($(KERNEL),Darwin)
+ifeq ($(TARGET_KERNEL),Darwin)
 # Rename the initializer section
 	ld -r -rename_section __DATA __mod_init_func __DATA $(call arch-mac-section,$*) $@ -o $@.tmp
 	mv $@.tmp $@
