@@ -22,7 +22,6 @@
 #define NNUE_ARCHITECTURE_H_INCLUDED
 
 #include <cstdint>
-#include <cstring>
 #include <iosfwd>
 
 #include "features/half_ka_v2_hm.h"
@@ -105,27 +104,19 @@ struct NetworkArchitecture {
             alignas(CacheLineSize) typename decltype(fc_0)::OutputBuffer fc_0_out;
             alignas(CacheLineSize) typename decltype(ac_sqr_0)::OutputType
               concat_buffer[ceil_to_multiple<IndexType>(FC_0_OUTPUTS * 2 + FC_1_OUTPUTS * 2, 32)];
-            alignas(CacheLineSize) typename decltype(ac_0)::OutputBuffer ac_0_out;
             alignas(CacheLineSize) typename decltype(fc_1)::OutputBuffer fc_1_out;
-            alignas(CacheLineSize) typename decltype(ac_1)::OutputBuffer ac_1_out;
             alignas(CacheLineSize) typename decltype(fc_2)::OutputBuffer fc_2_out;
-
-            Buffer() { std::memset(concat_buffer, 0, sizeof(concat_buffer)); }
         };
 
         Buffer buffer;
 
         fc_0.propagate(transformedFeatures, buffer.fc_0_out, nnzInfo);
         ac_sqr_0.propagate(buffer.fc_0_out, buffer.concat_buffer);
-        ac_0.propagate(buffer.fc_0_out, buffer.ac_0_out);
-        std::memcpy(buffer.concat_buffer + FC_0_OUTPUTS, buffer.ac_0_out,
-                    FC_0_OUTPUTS * sizeof(typename decltype(ac_0)::OutputType));
+        ac_0.propagate(buffer.fc_0_out, buffer.concat_buffer + FC_0_OUTPUTS);
 
         fc_1.propagate(buffer.concat_buffer, buffer.fc_1_out);
         ac_sqr_1.propagate(buffer.fc_1_out, buffer.concat_buffer + FC_0_OUTPUTS * 2);
-        ac_1.propagate(buffer.fc_1_out, buffer.ac_1_out);
-        std::memcpy(buffer.concat_buffer + FC_0_OUTPUTS * 2 + FC_1_OUTPUTS, buffer.ac_1_out,
-                    FC_1_OUTPUTS * sizeof(typename decltype(ac_1)::OutputType));
+        ac_1.propagate(buffer.fc_1_out, buffer.concat_buffer + FC_0_OUTPUTS * 2 + FC_1_OUTPUTS);
 
         fc_2.propagate(buffer.concat_buffer, buffer.fc_2_out);
 
