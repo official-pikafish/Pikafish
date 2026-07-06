@@ -24,6 +24,7 @@
 #include <cstdlib>
 #include <iostream>
 #include <iomanip>
+#include <memory>
 #include <sstream>
 
 #include "../position.h"
