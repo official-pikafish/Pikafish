@@ -887,7 +887,7 @@ Value Search::Worker::search(
     if (!ss->ttPv && depth < 15 && eval >= beta && (!ttData.move || ttCapture) && !is_loss(beta)
         && !is_win(eval))
     {
-        Value futilityMult = interpolate(std::min(int(depth), 10), 1, 10, 40, 129);
+        Value futilityMult = std::min(40 + depth * 4, 129);
         futilityMult -= 33 * !ss->ttHit;
 
         Value futilityMargin = futilityMult * depth
