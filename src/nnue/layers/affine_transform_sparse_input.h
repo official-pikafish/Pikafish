@@ -169,7 +169,7 @@ class AffineTransformSparseInput {
         // If we're using high-latency dot product instructions, split the accumulators
         // to create 3 separate dependency chains and merge at the end
         constexpr IndexType NumRegs =
-    #if defined(USE_VNNI) && defined(USE_AVX512)
+    #if (defined(USE_VNNI) && defined(USE_AVX512)) || defined(USE_NEON_DOTPROD)
           3 * NumAccums;
     #else
           NumAccums;
@@ -179,6 +179,11 @@ class AffineTransformSparseInput {
         outvec_t        acc[NumRegs];
         for (IndexType k = 0; k < NumAccums; ++k)
             acc[k] = biasvec[k];
+
+    #if defined(USE_NEON_DOTPROD)
+        for (IndexType k = NumAccums; k < NumRegs; ++k)
+            acc[k] = vdupq_n_s32(0);
+    #endif
 
         // convince GCC to not do weird pointer arithmetic in the following loops
         const i8* weights_cp = weights;
@@ -250,6 +255,55 @@ class AffineTransformSparseInput {
             asm("" : "+r"(base_addr), "+r"(weights_base));  // opt barrier
         #endif
 
+        #if defined(USE_NEON_DOTPROD)
+            while (bits)
+            {
+                const isize i0 = pop_lsb(bits);
+                if (!bits)
+                {
+                    const invec_t in0  = vec_set_32(load_as<i32>(base_addr + i0 * sizeof(i32)));
+                    const auto    col0 = reinterpret_cast<const invec_t*>(
+                      &weights_base[i0 * OutputDimensions * ChunkSize]);
+                    for (IndexType l = 0; l < NumAccums; ++l)
+                        vec_add_dpbusd_32(acc[l], in0, col0[l]);
+                    break;
+                }
+
+                const isize i1 = pop_lsb(bits);
+                if (!bits)
+                {
+                    const invec_t in0  = vec_set_32(load_as<i32>(base_addr + i0 * sizeof(i32)));
+                    const invec_t in1  = vec_set_32(load_as<i32>(base_addr + i1 * sizeof(i32)));
+                    const auto    col0 = reinterpret_cast<const invec_t*>(
+                      &weights_base[i0 * OutputDimensions * ChunkSize]);
+                    const auto col1 = reinterpret_cast<const invec_t*>(
+                      &weights_base[i1 * OutputDimensions * ChunkSize]);
+                    for (IndexType l = 0; l < NumAccums; ++l)
+                    {
+                        vec_add_dpbusd_32(acc[l], in0, col0[l]);
+                        vec_add_dpbusd_32(acc[l + NumAccums], in1, col1[l]);
+                    }
+                    break;
+                }
+
+                const isize   i2   = pop_lsb(bits);
+                const invec_t in0  = vec_set_32(load_as<i32>(base_addr + i0 * sizeof(i32)));
+                const invec_t in1  = vec_set_32(load_as<i32>(base_addr + i1 * sizeof(i32)));
+                const invec_t in2  = vec_set_32(load_as<i32>(base_addr + i2 * sizeof(i32)));
+                const auto    col0 = reinterpret_cast<const invec_t*>(
+                  &weights_base[i0 * OutputDimensions * ChunkSize]);
+                const auto col1 = reinterpret_cast<const invec_t*>(
+                  &weights_base[i1 * OutputDimensions * ChunkSize]);
+                const auto col2 = reinterpret_cast<const invec_t*>(
+                  &weights_base[i2 * OutputDimensions * ChunkSize]);
+                for (IndexType l = 0; l < NumAccums; ++l)
+                {
+                    vec_add_dpbusd_32(acc[l], in0, col0[l]);
+                    vec_add_dpbusd_32(acc[l + NumAccums], in1, col1[l]);
+                    vec_add_dpbusd_32(acc[l + 2 * NumAccums], in2, col2[l]);
+                }
+            }
+        #else
             while (bits)
             {
                 isize       i          = pop_lsb(bits);
@@ -257,16 +311,22 @@ class AffineTransformSparseInput {
                 auto        col =
                   reinterpret_cast<const invec_t*>(&weights_base[i * OutputDimensions * ChunkSize]);
 
-        #ifdef FIX_GCC15_MISOPTIMIZATION
+            #ifdef FIX_GCC15_MISOPTIMIZATION
                 asm("" : "+r"(col), "+r"(input_addr));
-            #undef FIX_GCC15_MISOPTIMIZATION
-        #endif
+                #undef FIX_GCC15_MISOPTIMIZATION
+            #endif
 
                 const invec_t in = vec_set_32(load_as<i32>(input_addr));
                 for (IndexType l = 0; l < NumAccums; ++l)
                     vec_add_dpbusd_32(acc[l], in, col[l]);
             }
+        #endif
         }
+
+        #if defined(USE_NEON_DOTPROD)
+        for (IndexType l = 0; l < NumAccums; ++l)
+            acc[l] = vaddq_s32(vaddq_s32(acc[l], acc[l + NumAccums]), acc[l + 2 * NumAccums]);
+        #endif
     #endif
         outvec_t* outptr = reinterpret_cast<outvec_t*>(output);
         for (IndexType k = 0; k < NumAccums; ++k)
