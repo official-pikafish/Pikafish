@@ -27,6 +27,7 @@
 #include <string_view>
 #include <filesystem>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "benchmark.h"
@@ -97,6 +98,7 @@ void UCIEngine::loop() {
             && !getline(std::cin, cmd))  // Wait for an input or an end-of-file (EOF) indication
             cmd = "quit";
 
+        currentCmd = cmd;
         std::istringstream is(cmd);
 
         token.clear();  // Avoid a stale if getline() returns nothing or a blank line
@@ -137,9 +139,13 @@ void UCIEngine::loop() {
             sync_cout << "readyok" << sync_endl;
 
         // Add custom non-UCI commands, mainly for debugging purposes.
-        // These commands must not be used during a search!
         else if (token == "flip")
-            engine.flip();
+        {
+            if (auto err = engine.flip())
+            {
+                terminate_on_critical_error(err->what());
+            }
+        }
         else if (token == "bench")
             bench(is);
         else if (token == BenchmarkCommand)
@@ -183,9 +189,13 @@ Search::LimitsType UCIEngine::parse_limits(std::istream& is) {
     limits.startTime = now();  // The search starts as early as possible
 
     while (is >> token)
+    {
         if (token == "searchmoves")  // Needs to be the last command on the line
+        {
             while (is >> token)
-                limits.searchmoves.push_back(token);
+                limits.searchmoves.push_back(to_lower(token));
+            break;
+        }
 
         else if (token == "wtime")
             is >> limits.time[WHITE];
@@ -211,6 +221,10 @@ Search::LimitsType UCIEngine::parse_limits(std::istream& is) {
             limits.infinite = 1;
         else if (token == "ponder")
             limits.ponderMode = true;
+
+        if (is.fail())
+            terminate_on_critical_error("Invalid argument for '" + token + "'");
+    }
 
     return limits;
 }
@@ -456,7 +470,11 @@ void UCIEngine::setoption(std::istringstream& is) {
 }
 
 u64 UCIEngine::perft(const Search::LimitsType& limits) {
-    auto nodes = engine.perft(engine.fen(), limits.perft);
+    auto result = engine.perft(engine.fen(), limits.perft);
+    if (auto err = std::get_if<PositionSetError>(&result))
+        terminate_on_critical_error(err->what());
+
+    auto nodes = std::get<u64>(result);
     sync_cout << "\nNodes searched: " << nodes << "\n" << sync_endl;
     return nodes;
 }
@@ -489,7 +507,7 @@ void UCIEngine::position(std::istringstream& is) {
     auto err = engine.set_position(fen, moves);
     if (err.has_value())
     {
-        terminate_on_critical_error(fullCommand, err->what());
+        terminate_on_critical_error(err->what());
     }
 }
 
@@ -584,6 +602,14 @@ std::string UCIEngine::move(Move m) {
     return move;
 }
 
+
+std::string UCIEngine::to_lower(std::string str) {
+    std::transform(str.begin(), str.end(), str.begin(),
+                   [](unsigned char c) { return std::tolower(c); });
+
+    return str;
+}
+
 Move UCIEngine::to_move(const Position& pos, std::string str) {
     for (const auto& m : MoveList<LEGAL>(pos))
         if (str == move(m))
@@ -639,9 +665,8 @@ void UCIEngine::on_bestmove(std::string_view bestmove, std::string_view ponder) 
     std::cout << sync_endl;
 }
 
-void UCIEngine::terminate_on_critical_error(const std::string& fullCommand,
-                                            const std::string& message) {
-    sync_cout << "info string CRITICAL ERROR: Command `" << fullCommand
+void UCIEngine::terminate_on_critical_error(const std::string& message) {
+    sync_cout << "info string CRITICAL ERROR: Command `" << currentCmd
               << "` failed. Reason: " << message << '\n'
               << sync_endl;
     std::exit(1);

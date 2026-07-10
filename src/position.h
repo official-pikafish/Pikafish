@@ -174,8 +174,8 @@ class Position {
     Value major_material() const;
 
     // Position consistency check, for debugging
-    bool pos_is_ok() const;
-    void flip();
+    bool                            pos_is_ok() const;
+    std::optional<PositionSetError> flip();
 
     StateInfo* state() const;
 

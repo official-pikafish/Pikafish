@@ -1412,7 +1412,7 @@ bool Position::rule_judge(Value& result, int ply) {
 
 // Flips position with the white and black sides reversed. This
 // is only useful for debugging e.g. for finding evaluation symmetry bugs.
-void Position::flip() {
+std::optional<PositionSetError> Position::flip() {
 
     string            f, token;
     std::stringstream ss(fen());
@@ -1441,9 +1441,7 @@ void Position::flip() {
     std::getline(ss, token);  // Half and full moves
     f += token;
 
-    set(f, st);
-
-    assert(pos_is_ok());
+    return set(f, st);
 }
 
 
