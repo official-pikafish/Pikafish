@@ -1452,21 +1452,16 @@ void Position::flip() {
 // This is meant to be helpful when debugging.
 bool Position::pos_is_ok() const {
 
-    constexpr bool Fast = false;  // fast or full check?
-
     if ((sideToMove != WHITE && sideToMove != BLACK) || piece_on(king_square(WHITE)) != W_KING
         || piece_on(king_square(BLACK)) != B_KING)
         assert(0 && "pos_is_ok: Default");
 
-    if (Fast)
-        return true;
-
-    if (pieceCount[W_KING] != 1 || pieceCount[B_KING] != 1
+    if (count<KING>(WHITE) != 1 || count<KING>(BLACK) != 1
         || checkers_to(sideToMove, king_square(~sideToMove)))
         assert(0 && "pos_is_ok: Kings");
 
     if ((pieces(WHITE, PAWN) & ~PawnBB[WHITE]) || (pieces(BLACK, PAWN) & ~PawnBB[BLACK])
-        || pieceCount[W_PAWN] > 5 || pieceCount[B_PAWN] > 5)
+        || count<PAWN>(WHITE) > 5 || count<PAWN>(BLACK) > 5)
         assert(0 && "pos_is_ok: Pawns");
 
     if ((pieces(WHITE) & pieces(BLACK)) || (pieces(WHITE) | pieces(BLACK)) != pieces()

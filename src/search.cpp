@@ -132,6 +132,8 @@ void update_all_stats(const Position& pos,
                       Move            ttMove,
                       bool            PvNode);
 
+// Detect shuffling moves in order to limit search explosions
+// Added in #6447 as non-regression, and so its parameters should not be tuned
 bool is_shuffling(Move move, Stack* const ss, const Position& pos) {
     if (pos.capture(move) || pos.rule60_count() < 10)
         return false;
@@ -232,7 +234,7 @@ void Search::Worker::start_searching() {
 
     // Send PV info if it has changed since last output in iterative_deepening().
     if (!uciPvSent || bestThread != this)
-        main_manager()->pv(*bestThread, threads, tt, bestThread->rootDepth);
+        main_manager()->output_pv(*bestThread, threads, tt, bestThread->rootDepth);
 
     std::string ponder;
     if (bestThread->rootMoves[0].pv.size() > 1)
@@ -379,7 +381,7 @@ bool Search::Worker::iterative_deepening() {
                 // (rather than depth N, which can be reached quickly)
                 if (mainThread && multiPV == 1 && (bestValue <= alpha || bestValue >= beta)
                     && nodes > NODES_LIMIT_OUTPUT)
-                    main_manager()->pv(*this, threads, tt, rootDepth);
+                    main_manager()->output_pv(*this, threads, tt, rootDepth);
 
                 // In case of failing low/high increase aspiration window and re-search,
                 // otherwise exit the loop.
@@ -459,7 +461,7 @@ bool Search::Worker::iterative_deepening() {
 
             if (mainThread && !threads.stop && (pvIdx + 1 == multiPV || nodes > NODES_LIMIT_OUTPUT))
             {
-                main_manager()->pv(*this, threads, tt, rootDepth);
+                main_manager()->output_pv(*this, threads, tt, rootDepth);
                 uciPvSent = (pvIdx + 1 == multiPV);
             }
 
@@ -551,7 +553,6 @@ bool Search::Worker::iterative_deepening() {
             double totalTime = mainThread->tm.optimum() * fallingEval * reduction
                              * bestMoveInstability * highBestMoveEffort;
 
-            // Cap used time in case of a single legal move for a better viewer experience
             if (rootMoves.size() == 1)
                 threads.stop = true;
 
@@ -658,7 +659,7 @@ void Search::Worker::clear() {
 // Main search function for both PV and non-PV nodes
 template<NodeType nodeType>
 Value Search::Worker::search(
-  Position& pos, Stack* ss, Value alpha, Value beta, Depth depth, bool cutNode) {
+  Position& pos, Stack* ss, Value alpha, Value beta, Depth depth, const bool cutNode) {
 
     constexpr bool PvNode   = nodeType != NonPV;
     constexpr bool rootNode = nodeType == Root;
@@ -1812,7 +1813,7 @@ void update_all_stats(const Position& pos,
     if (!PvNode)
         // Important: don't remove the cast to a 64-bit number else the multiplication
         // can overflow on 32-bit platforms which would change the bench signature
-        bonus += bonus * u64(quietsSearched.size() + capturesSearched.size()) / 256;
+        bonus += int(bonus * u64(quietsSearched.size() + capturesSearched.size()) / 256);
 
     if (!pos.capture(bestMove))
     {
@@ -1924,10 +1925,10 @@ void SearchManager::check_time(Search::Worker& worker) {
         worker.threads.stop = true;
 }
 
-void SearchManager::pv(Search::Worker&           worker,
-                       const ThreadPool&         threads,
-                       const TranspositionTable& tt,
-                       Depth                     depth) const {
+void SearchManager::output_pv(Search::Worker&           worker,
+                              const ThreadPool&         threads,
+                              const TranspositionTable& tt,
+                              Depth                     depth) {
 
     const auto nodes     = threads.nodes_searched();
     auto&      rootMoves = worker.rootMoves;
@@ -1968,7 +1969,7 @@ void SearchManager::pv(Search::Worker&           worker,
         info.score    = {v, pos};
         info.wdl      = wdl;
 
-        // TB and previous scores are exact, even though their bound flags may say otherwise.
+        // Previous scores are exact, even though their bound flags may say otherwise.
         if (!usePreviousScore)
             info.bound = bound;
 

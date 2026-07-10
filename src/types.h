@@ -172,6 +172,13 @@ constexpr bool is_loss(Value value) {
 
 constexpr bool is_decisive(Value value) { return is_win(value) || is_loss(value); }
 
+constexpr Value mate_in(int ply) { return VALUE_MATE - ply; }
+
+constexpr Value mated_in(int ply) { return -VALUE_MATE + ply; }
+
+// In the code, we make the assumption that these values
+// are such that major_material() can be used to uniquely
+// identify the material on the board.
 constexpr Value RookValue    = 1305;
 constexpr Value AdvisorValue = 219;
 constexpr Value CannonValue  = 773;
@@ -348,10 +355,6 @@ constexpr Color operator~(Color c) { return Color(c ^ BLACK); }
 // Swap color of piece B_KNIGHT <-> W_KNIGHT
 constexpr Piece operator~(Piece pc) { return Piece(pc ^ 8); }
 
-constexpr Value mate_in(int ply) { return VALUE_MATE - ply; }
-
-constexpr Value mated_in(int ply) { return -VALUE_MATE + ply; }
-
 constexpr Square make_square(File f, Rank r) { return Square(r * FILE_NB + f); }
 
 constexpr Piece make_piece(Color c, PieceType pt) { return Piece((c << 3) + pt); }
@@ -407,10 +410,6 @@ class Move {
         assert(is_ok());
         return Square(data & 0x7F);
     }
-
-    // Same as to_sq() but without assertion, for branchless code paths
-    // where the result is masked/ignored when move is not ok
-    constexpr Square to_sq_unchecked() const { return Square(data & 0x7F); }
 
     constexpr bool is_ok() const { return none().data != data && null().data != data; }
 
