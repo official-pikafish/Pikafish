@@ -5,6 +5,7 @@ src/.depend
 src/temp_builds
 .build_sha.txt
 .build_date.txt
+.build_diffindex.txt
 
 # Built binary
 src/pikafish*

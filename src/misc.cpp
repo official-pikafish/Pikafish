@@ -159,6 +159,10 @@ std::string engine_version_info() {
            << std::setw(2) << std::setfill('0') << day;
 #endif
 
+#ifdef GIT_DIFFINDEX
+        ss << "-m";
+#endif
+
         ss << "-";
 
 #ifdef GIT_SHA

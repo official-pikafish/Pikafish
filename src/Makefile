@@ -888,13 +888,15 @@ ifeq ($(pext),yes)
 endif
 
 ### 3.8.1 Try to include git info for versioning and avoid recompiles if nothing changes
-BUILD_SHA_FILE  := .build_sha.txt
-BUILD_DATE_FILE := .build_date.txt
-GIT_SHA         := $(shell git rev-parse HEAD 2>/dev/null | cut -c 1-8 || true)
-GIT_DATE        := $(shell git show -s --date=format:%Y%m%d --format=%cd HEAD 2>/dev/null || true)
-COMPILER_DATE   := $(shell date +%Y%m%d 2>/dev/null)
+BUILD_SHA_FILE       := .build_sha.txt
+BUILD_DATE_FILE      := .build_date.txt
+BUILD_DIFFINDEX_FILE := .build_diffindex.txt
+GIT_SHA              := $(shell git rev-parse HEAD 2>/dev/null | cut -c 1-8 || true)
+GIT_DATE             := $(shell git show -s --date=format:%Y%m%d --format=%cd HEAD 2>/dev/null || true)
+GIT_DIFFINDEX        := $(shell git diff-index --quiet HEAD -- 2>/dev/null; [ $$? -eq 1 ] && echo 1 || true)
+COMPILER_DATE        := $(shell date +%Y%m%d 2>/dev/null)
 
-BUILD_DATE      := $(if $(GIT_DATE),$(GIT_DATE),$(COMPILER_DATE))
+BUILD_DATE           := $(if $(GIT_DATE),$(GIT_DATE),$(COMPILER_DATE))
 
 define cache_file_contents
 $(shell \
@@ -906,6 +908,7 @@ endef
 ifneq ($(filter $(MAKECMDGOALS),help strip install clean net objclean profileclean format config-sanity),$(MAKECMDGOALS))
 _ := $(call cache_file_contents,$(BUILD_SHA_FILE),$(GIT_SHA))
 _ := $(call cache_file_contents,$(BUILD_DATE_FILE),$(BUILD_DATE))
+_ := $(call cache_file_contents,$(BUILD_DIFFINDEX_FILE),$(BUILD_DIFFINDEX))
 endif
 
 ### 3.8.2 Try to include architecture
@@ -1180,7 +1183,7 @@ clean: objclean profileclean universalclean
 
 # clean binaries and objects
 objclean:
-	@rm -f pikafish pikafish.exe $(shell find . -name '*.o') $(BUILD_SHA_FILE) $(BUILD_DATE_FILE)
+	@rm -f pikafish pikafish.exe $(shell find . -name '*.o') $(BUILD_SHA_FILE) $(BUILD_DATE_FILE) $(BUILD_DIFFINDEX_FILE)
 
 # clean auxiliary profiling files
 profileclean:
@@ -1286,8 +1289,8 @@ $(EXE): $(OBJS)
 %.o: %.cpp
 	$(strip $(CXX) $(CPPFLAGS) $(CXXFLAGS)) -c -o $@ $<
 
-misc.o: misc.cpp $(BUILD_SHA_FILE) $(BUILD_DATE_FILE)
-	$(strip $(CXX) $(CPPFLAGS) $(CXXFLAGS) $(if $(GIT_SHA),-DGIT_SHA=$(GIT_SHA)) $(if $(GIT_DATE),-DGIT_DATE=$(GIT_DATE))) -c -o $@ $<
+misc.o: misc.cpp $(BUILD_SHA_FILE) $(BUILD_DATE_FILE) $(BUILD_DIFFINDEX_FILE)
+	$(strip $(CXX) $(CPPFLAGS) $(CXXFLAGS) $(if $(GIT_SHA),-DGIT_SHA=$(GIT_SHA)) $(if $(GIT_DATE),-DGIT_DATE=$(GIT_DATE))) $(if $(GIT_DIFFINDEX),-DGIT_DIFFINDEX=$(GIT_DIFFINDEX)) -c -o $@ $<
 
 clang-profile-make:
 	$(MAKE) ARCH=$(ARCH) COMP=$(COMP) \
