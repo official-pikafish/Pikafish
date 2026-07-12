@@ -20,6 +20,7 @@
 #include <memory>
 #include <utility>
 
+#include "attacks.h"
 #include "bitboard.h"
 #include "misc.h"
 #include "position.h"
@@ -40,6 +41,7 @@ int main(int argc, char* argv[]) {
     std::cout << engine_info() << std::endl;
 
     Bitboards::init();
+    Attacks::init();
     Position::init();
 
     auto cli = CommandLine(argc, argv);

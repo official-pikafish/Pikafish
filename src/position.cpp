@@ -31,6 +31,7 @@
 #include <string_view>
 #include <utility>
 
+#include "attacks.h"
 #include "bitboard.h"
 #include "history.h"
 #include "misc.h"
@@ -43,6 +44,8 @@
 using std::string;
 
 namespace Stockfish {
+
+using namespace Attacks;
 
 namespace Zobrist {
 

@@ -20,10 +20,13 @@
 
 #include <cassert>
 
+#include "attacks.h"
 #include "bitboard.h"
 #include "position.h"
 
 namespace Stockfish {
+
+using namespace Attacks;
 
 namespace {
 

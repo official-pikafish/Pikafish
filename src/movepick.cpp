@@ -21,6 +21,7 @@
 #include <cassert>
 #include <limits>
 
+#include "attacks.h"
 #include "bitboard.h"
 #include "misc.h"
 #include "position.h"
@@ -236,12 +237,12 @@ ExtMove* MovePicker::score(const MoveList<Type>& ml) {
             m.value += (*continuationHistory[5])[pc][to];
 
             // bonus for checks
-            m.value +=
-              (((pt == CANNON ? pos.check_squares(pt) & ~line_bb(from, pos.king_square(~us))
-                              : pos.check_squares(pt))
-                & to)
-               && pos.see_ge(m, -75))
-              * 16384;
+            m.value += (((pt == CANNON
+                            ? pos.check_squares(pt) & ~Attacks::line_bb(from, pos.king_square(~us))
+                            : pos.check_squares(pt))
+                         & to)
+                        && pos.see_ge(m, -75))
+                     * 16384;
 
             // penalty for moving to a square threatened by a lesser piece
             // or bonus for escaping an attack by a lesser piece.

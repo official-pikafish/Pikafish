@@ -23,6 +23,7 @@
 #include <array>
 #include <utility>
 
+#include "../../attacks.h"
 #include "../../bitboard.h"
 #include "../../misc.h"
 #include "../../position.h"
@@ -74,12 +75,12 @@ auto ThreatOffsets = []() {
             {
                 Bitboard attacks = Bitboard(0);
                 if (pt == PAWN)
-                    attacks = attacks_bb<PAWN>(from, color_of(attacker));
+                    attacks = Attacks::attacks_bb<PAWN>(from, color_of(attacker));
                 else if (pt == CANNON)
-                    attacks =
-                      Bitboards::sliding_attack<CANNON>(from, unconstrained_attacks_bb<KING>(from));
+                    attacks = Attacks::sliding_attack<CANNON>(
+                      from, Attacks::unconstrained_attacks_bb<KING>(from));
                 else
-                    attacks = PseudoAttacks[pt][from];
+                    attacks = Attacks::PseudoAttacks[pt][from];
 
                 for (Piece attacked : HalfKAv2_hm::AllPieces)
                     if (ValidPairs[attacker][attacked])
@@ -138,8 +139,9 @@ void FullThreats::append_active_indices(Color perspective, const Position& pos, 
         Piece     attacker = pos.piece_on(from);
         PieceType pt       = type_of(attacker);
         Color     c        = color_of(attacker);
-        Bitboard  attacks =
-          (pt == PAWN ? attacks_bb<PAWN>(from, c) : attacks_bb(pt, from, occupied)) & occupied;
+        Bitboard  attacks  = (pt == PAWN ? Attacks::attacks_bb<PAWN>(from, c)
+                                         : Attacks::attacks_bb(pt, from, occupied))
+                           & occupied;
 
         while (attacks)
         {

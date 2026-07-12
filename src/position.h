@@ -32,6 +32,7 @@
 #include <string>
 #include <utility>
 
+#include "attacks.h"
 #include "bitboard.h"
 #include "misc.h"
 #include "nnue/features/half_ka_v2_hm.h"
@@ -278,9 +279,9 @@ inline Bitboard Position::attacks_by(Color c) const {
     Bitboard attackers = pieces(c, Pt);
     while (attackers)
         if (Pt == PAWN)
-            threats |= attacks_bb<PAWN>(pop_lsb(attackers), c);
+            threats |= Attacks::attacks_bb<PAWN>(pop_lsb(attackers), c);
         else
-            threats |= attacks_bb<Pt>(pop_lsb(attackers), pieces());
+            threats |= Attacks::attacks_bb<Pt>(pop_lsb(attackers), pieces());
     return threats;
 }
 
