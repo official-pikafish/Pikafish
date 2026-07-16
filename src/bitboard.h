@@ -22,8 +22,8 @@
 #include <algorithm>
 #include <array>
 #include <cassert>
-#include <cstring>
 #include <string>
+#include <type_traits>
 
 #include "types.h"
 #include "misc.h"
@@ -32,7 +32,6 @@ namespace Stockfish {
 
 namespace Bitboards {
 
-void        init();
 std::string pretty(Bitboard b);
 
 }  // namespace Stockfish::Bitboards
@@ -66,8 +65,6 @@ constexpr Bitboard HalfBB[2]  = {Rank0BB | Rank1BB | Rank2BB | Rank3BB | Rank4BB
                                  Rank5BB | Rank6BB | Rank7BB | Rank8BB | Rank9BB};
 constexpr Bitboard PawnBB[2]  = {HalfBB[BLACK] | ((Rank3BB | Rank4BB) & PawnFileBB),
                                  HalfBB[WHITE] | ((Rank6BB | Rank5BB) & PawnFileBB)};
-
-extern u8 PopCnt16[1 << 16];
 
 constexpr auto SquareBB = [] {
     std::array<Bitboard, SQUARE_NB> SquareBB{};
@@ -164,15 +161,7 @@ constexpr int distance<Square>(Square x, Square y) {
 // Counts the number of non-zero bits in a bitboard
 inline int popcount(Bitboard b) {
 
-#ifndef USE_POPCNT
-
-    u16 indices[8];
-    std::memcpy(indices, &b, sizeof(b));
-    return PopCnt16[indices[0]] + PopCnt16[indices[1]] + PopCnt16[indices[2]] + PopCnt16[indices[3]]
-         + PopCnt16[indices[4]] + PopCnt16[indices[5]] + PopCnt16[indices[6]]
-         + PopCnt16[indices[7]];
-
-#elif defined(_MSC_VER)
+#ifdef _MSC_VER
 
     return int(_mm_popcnt_u64(b._Word[1])) + int(_mm_popcnt_u64(b._Word[0]));
 

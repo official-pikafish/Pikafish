@@ -80,7 +80,7 @@ using __uint128_t = std::_Unsigned128;
         #define IS_64BIT
     #endif
 
-    #if defined(USE_POPCNT) && defined(_MSC_VER)
+    #if defined(_MSC_VER)
         #include <nmmintrin.h>  // Microsoft header for _mm_popcnt_u64()
     #endif
 
