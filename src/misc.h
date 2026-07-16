@@ -26,7 +26,6 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
-#include <cstdio>
 #include <exception>  // IWYU pragma: keep
 // IWYU pragma: no_include <__exception/terminate.h>
 #include <functional>
@@ -137,19 +136,6 @@ std::optional<usize> str_to_size_t(const std::string& s);
 
 std::string           utf8_from_wstring(std::wstring_view s);
 std::filesystem::path path_from_utf8(const std::string& path);
-
-#if defined(__linux__)
-
-struct PipeDeleter {
-    void operator()(FILE* file) const {
-        if (file != nullptr)
-        {
-            pclose(file);
-        }
-    }
-};
-
-#endif
 
 // Reads the file as bytes.
 // Returns std::nullopt if the file does not exist.
