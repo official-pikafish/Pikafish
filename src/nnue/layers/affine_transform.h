@@ -142,7 +142,7 @@ affine_transform_non_ssse3(i32* output, const i8* weights, const i32* biases, co
 
 #endif  // !ENABLE_SEQ_OPT
 
-template<IndexType InDims, IndexType OutDims>
+template<IndexType InDims, IndexType OutDims, bool ScrambledInput = false>
 class AffineTransform {
    public:
     // Input/output type
@@ -170,8 +170,21 @@ class AffineTransform {
     }
 
     static constexpr IndexType get_weight_index_scrambled(IndexType i) {
-        return (i / 4) % (PaddedInputDimensions / 4) * OutputDimensions * 4
-             + i / PaddedInputDimensions * 4 + i % 4;
+        IndexType inputIndex = i % PaddedInputDimensions;
+
+#if defined(USE_AVX2_PAIR_ACTIVATIONS)
+        if constexpr (ScrambledInput)
+        {
+            // AVX2 packs operate independently on 128-bit lanes. Keep their interleaved output
+            // order and rearrange the following layer's weights instead of issuing VPERMD.
+            const IndexType block = inputIndex / 32;
+            const IndexType chunk = (inputIndex % 32) / 4;
+            inputIndex            = block * 32 + ((chunk % 2) * 4 + chunk / 2) * 4 + inputIndex % 4;
+        }
+#endif
+
+        return inputIndex / 4 * OutputDimensions * 4 + i / PaddedInputDimensions * 4
+             + inputIndex % 4;
     }
 
     static constexpr IndexType get_weight_index(IndexType i) {

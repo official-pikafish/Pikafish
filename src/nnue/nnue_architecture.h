@@ -58,14 +58,19 @@ struct NetworkArchitecture {
     static constexpr IndexType TransformedFeatureDimensions = L1;
     static constexpr int       FC_0_OUTPUTS                 = L2;
     static constexpr int       FC_1_OUTPUTS                 = L3;
+#if defined(USE_AVX2_PAIR_ACTIVATIONS)
+    static constexpr bool UsePairedActivations = true;
+#else
+    static constexpr bool UsePairedActivations = false;
+#endif
 
-    Layers::AffineTransformSparseInput<TransformedFeatureDimensions, FC_0_OUTPUTS> fc_0;
-    Layers::SqrClippedReLU<FC_0_OUTPUTS, WeightScaleBits + 1>                      ac_sqr_0;
-    Layers::ClippedReLU<FC_0_OUTPUTS, WeightScaleBits + 1>                         ac_0;
-    Layers::AffineTransform<FC_0_OUTPUTS * 2, FC_1_OUTPUTS>                        fc_1;
-    Layers::SqrClippedReLU<FC_1_OUTPUTS, WeightScaleBits>                          ac_sqr_1;
-    Layers::ClippedReLU<FC_1_OUTPUTS, WeightScaleBits>                             ac_1;
-    Layers::AffineTransform<FC_0_OUTPUTS * 2 + FC_1_OUTPUTS * 2, 1>                fc_2;
+    Layers::AffineTransformSparseInput<TransformedFeatureDimensions, FC_0_OUTPUTS>        fc_0;
+    Layers::SqrClippedReLU<FC_0_OUTPUTS, WeightScaleBits + 1>                             ac_sqr_0;
+    Layers::ClippedReLU<FC_0_OUTPUTS, WeightScaleBits + 1>                                ac_0;
+    Layers::AffineTransform<FC_0_OUTPUTS * 2, FC_1_OUTPUTS, UsePairedActivations>         fc_1;
+    Layers::SqrClippedReLU<FC_1_OUTPUTS, WeightScaleBits>                                 ac_sqr_1;
+    Layers::ClippedReLU<FC_1_OUTPUTS, WeightScaleBits>                                    ac_1;
+    Layers::AffineTransform<FC_0_OUTPUTS * 2 + FC_1_OUTPUTS * 2, 1, UsePairedActivations> fc_2;
 
     // Hash value embedded in the evaluation file
     static constexpr u32 get_hash_value() {
@@ -111,12 +116,22 @@ struct NetworkArchitecture {
         Buffer buffer;
 
         fc_0.propagate(transformedFeatures, buffer.fc_0_out, nnzInfo);
+#if defined(USE_AVX2_PAIR_ACTIVATIONS)
+        ac_sqr_0.propagate_pair(buffer.fc_0_out, buffer.concat_buffer,
+                                buffer.concat_buffer + FC_0_OUTPUTS);
+#else
         ac_sqr_0.propagate(buffer.fc_0_out, buffer.concat_buffer);
         ac_0.propagate(buffer.fc_0_out, buffer.concat_buffer + FC_0_OUTPUTS);
+#endif
 
         fc_1.propagate(buffer.concat_buffer, buffer.fc_1_out);
+#if defined(USE_AVX2_PAIR_ACTIVATIONS)
+        ac_sqr_1.propagate_pair(buffer.fc_1_out, buffer.concat_buffer + FC_0_OUTPUTS * 2,
+                                buffer.concat_buffer + FC_0_OUTPUTS * 2 + FC_1_OUTPUTS);
+#else
         ac_sqr_1.propagate(buffer.fc_1_out, buffer.concat_buffer + FC_0_OUTPUTS * 2);
         ac_1.propagate(buffer.fc_1_out, buffer.concat_buffer + FC_0_OUTPUTS * 2 + FC_1_OUTPUTS);
+#endif
 
         fc_2.propagate(buffer.concat_buffer, buffer.fc_2_out);
 

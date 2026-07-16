@@ -67,6 +67,47 @@ class SqrClippedReLU {
         return h;
     }
 
+#if defined(USE_AVX2_PAIR_ACTIVATIONS)
+    // Produce the squared and linear clipped activations together, sharing the input loads and
+    // the initial signed 32-to-16-bit saturating packs.
+    void propagate_pair(const InputType* input, OutputType* squared, OutputType* clipped) const {
+        static_assert(WeightScaleBitsLocal >= 5 && WeightScaleBitsLocal <= 8,
+                      "SqrClippedReLU only support WeightScaleBitsLocal between 5 and 8");
+        static_assert(InputDimensions % 32 == 0);
+
+        constexpr IndexType NumChunks       = InputDimensions / 32;
+        constexpr int       SimdShiftAmount = WeightScaleBitsLocal * 2 + 7 - 16;
+
+        const auto in      = reinterpret_cast<const __m256i*>(input);
+        auto       sqrOut  = reinterpret_cast<__m256i*>(squared);
+        auto       clipOut = reinterpret_cast<__m256i*>(clipped);
+
+        const __m256i zero = _mm256_setzero_si256();
+
+        for (IndexType i = 0; i < NumChunks; ++i)
+        {
+            const __m256i words0 = _mm256_packs_epi32(_mm256_load_si256(&in[i * 4 + 0]),
+                                                      _mm256_load_si256(&in[i * 4 + 1]));
+            const __m256i words1 = _mm256_packs_epi32(_mm256_load_si256(&in[i * 4 + 2]),
+                                                      _mm256_load_si256(&in[i * 4 + 3]));
+
+            const __m256i sqr0 =
+              _mm256_srli_epi16(_mm256_mulhi_epi16(words0, words0), SimdShiftAmount);
+            const __m256i sqr1 =
+              _mm256_srli_epi16(_mm256_mulhi_epi16(words1, words1), SimdShiftAmount);
+            const __m256i sqrPacked = _mm256_packs_epi16(sqr0, sqr1);
+            _mm256_store_si256(&sqrOut[i], sqrPacked);
+
+            const __m256i clip0 =
+              _mm256_srli_epi16(_mm256_max_epi16(words0, zero), WeightScaleBitsLocal);
+            const __m256i clip1 =
+              _mm256_srli_epi16(_mm256_max_epi16(words1, zero), WeightScaleBitsLocal);
+            const __m256i clipPacked = _mm256_packs_epi16(clip0, clip1);
+            _mm256_store_si256(&clipOut[i], clipPacked);
+        }
+    }
+#endif
+
     // Forward propagation
     void propagate(const InputType* input, OutputType* output) const {
         static_assert(WeightScaleBitsLocal >= 5 && WeightScaleBitsLocal <= 8,
