@@ -75,7 +75,24 @@ class SqrClippedReLU {
         // MulHi strips the lower 16 bits (i.e. shift by 16) so we need to shift out the remaining.
         [[maybe_unused]] constexpr int SimdShiftAmount = WeightScaleBitsLocal * 2 + 7 - 16;
 
-#if defined(USE_SSE2)
+#if defined(USE_AVX512)
+        static_assert(InputDimensions % 32 == 0);
+        constexpr IndexType NumChunks = InputDimensions / 32;
+        const auto          in        = reinterpret_cast<const __m512i*>(input);
+        const auto          out       = reinterpret_cast<__m256i*>(output);
+        for (IndexType i = 0; i < NumChunks; ++i)
+        {
+            const __m256i words0 = _mm512_cvtsepi32_epi16(_mm512_load_si512(&in[i * 2 + 0]));
+            const __m256i words1 = _mm512_cvtsepi32_epi16(_mm512_load_si512(&in[i * 2 + 1]));
+            __m512i       words  = _mm512_inserti64x4(_mm512_castsi256_si512(words0), words1, 1);
+
+            words = _mm512_srli_epi16(_mm512_mulhi_epi16(words, words), SimdShiftAmount);
+
+            _mm256_store_si256(&out[i], _mm512_cvtsepi16_epi8(words));
+        }
+        constexpr IndexType Start = NumChunks * 32;
+
+#elif defined(USE_SSE2)
         constexpr IndexType NumChunks = InputDimensions / 16;
         const auto          in        = reinterpret_cast<const __m128i*>(input);
         const auto          out       = reinterpret_cast<__m128i*>(output);
