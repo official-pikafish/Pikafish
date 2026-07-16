@@ -663,6 +663,8 @@ ifeq ($(COMP),gcc)
 	else
 		CXXFLAGS += -Wstack-usage=128000 -fno-ipa-cp-clone
 	endif
+else ifeq ($(COMP),mingw)
+	CXXFLAGS += -fno-ipa-cp-clone
 endif
 
 ### On mingw use Windows threads, otherwise POSIX
