@@ -340,64 +340,6 @@ inline __m128i vec_convert_8_16(u64 x) {
 
 #endif
 
-struct Vec16Wrapper {
-#ifdef VECTOR
-    using type = vec_t;
-    static type add(const type& lhs, const type& rhs) { return vec_add_16(lhs, rhs); }
-    static type sub(const type& lhs, const type& rhs) { return vec_sub_16(lhs, rhs); }
-#else
-    using type = BiasType;
-    static type add(const type& lhs, const type& rhs) { return lhs + rhs; }
-    static type sub(const type& lhs, const type& rhs) { return lhs - rhs; }
-#endif
-};
-
-struct Vec32Wrapper {
-#ifdef VECTOR
-    using type = psqt_vec_t;
-    static type add(const type& lhs, const type& rhs) { return vec_add_psqt_32(lhs, rhs); }
-    static type sub(const type& lhs, const type& rhs) { return vec_sub_psqt_32(lhs, rhs); }
-#else
-    using type = PSQTWeightType;
-    static type add(const type& lhs, const type& rhs) { return lhs + rhs; }
-    static type sub(const type& lhs, const type& rhs) { return lhs - rhs; }
-#endif
-};
-
-enum UpdateOperation {
-    Add,
-    Sub
-};
-
-template<typename VecWrapper,
-         UpdateOperation... ops,
-         std::enable_if_t<sizeof...(ops) == 0, bool> = true>
-typename VecWrapper::type fused(const typename VecWrapper::type& in) {
-    return in;
-}
-
-template<typename VecWrapper,
-         UpdateOperation update_op,
-         UpdateOperation... ops,
-         typename T,
-         typename... Ts,
-         std::enable_if_t<is_all_same_v<typename VecWrapper::type, T, Ts...>, bool> = true,
-         std::enable_if_t<sizeof...(ops) == sizeof...(Ts), bool>                    = true>
-typename VecWrapper::type
-fused(const typename VecWrapper::type& in, const T& operand, const Ts&... operands) {
-    switch (update_op)
-    {
-    case Add :
-        return fused<VecWrapper, ops...>(VecWrapper::add(in, operand), operands...);
-    case Sub :
-        return fused<VecWrapper, ops...>(VecWrapper::sub(in, operand), operands...);
-    default :
-        static_assert(update_op == Add || update_op == Sub,
-                      "Only Add and Sub are currently supported.");
-        return typename VecWrapper::type();
-    }
-}
-
 #if defined(USE_AVX512)
 
 [[maybe_unused]] static int m512_hadd(__m512i sum, int bias) {
