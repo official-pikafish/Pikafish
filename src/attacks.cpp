@@ -26,12 +26,12 @@
 
 namespace Stockfish::Attacks {
 
-namespace {
-
 Bitboard LineBB[SQUARE_NB][SQUARE_NB];
 Bitboard BetweenBB[SQUARE_NB][SQUARE_NB];
 Bitboard RayPassBB[SQUARE_NB][SQUARE_NB];
 Bitboard LeaperPassBB[SQUARE_NB][SQUARE_NB];
+
+namespace {
 
 Magic RookMagics[SQUARE_NB];
 Magic CannonMagics[SQUARE_NB];
@@ -110,30 +110,6 @@ const Magic& magic(Square s, PieceType pt) {
     default :
         sf_unreachable();
     }
-}
-
-Bitboard line_bb(Square s1, Square s2) {
-
-    assert(is_ok(s1) && is_ok(s2));
-    return LineBB[s1][s2];
-}
-
-Bitboard between_bb(Square s1, Square s2) {
-
-    assert(is_ok(s1) && is_ok(s2));
-    return BetweenBB[s1][s2];
-}
-
-Bitboard ray_pass_bb(Square s1, Square s2) {
-
-    assert(is_ok(s1) && is_ok(s2));
-    return RayPassBB[s1][s2];
-}
-
-Bitboard leaper_pass_bb(Square s1, Square s2) {
-
-    assert(is_ok(s1) && is_ok(s2));
-    return LeaperPassBB[s1][s2];
 }
 
 namespace {
