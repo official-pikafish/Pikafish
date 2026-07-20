@@ -540,16 +540,17 @@ bool Search::Worker::iterative_deepening() {
             fallingEval        = std::clamp(fallingEval, 0.610, 1.860);
 
             // If the bestMove is stable over several iterations, reduce time accordingly
-            timeReduction =
-              std::clamp(interpolate(double(rootDepth - lastBestMoveDepth), 8.0, 17.0, 0.67, 1.44),
-                         0.67, 1.44);
+            timeReduction = std::clamp(
+              interpolate(double(rootDepth - lastBestMoveDepth), 8.00, 17.00, 0.670, 1.440), 0.670,
+              1.440);
 
-            double reduction = (2.10 + mainThread->previousTimeReduction) / (2.480 * timeReduction);
+            double reduction =
+              (2.100 + mainThread->previousTimeReduction) / (2.480 * timeReduction);
 
-            double bestMoveInstability = 0.960 + 1.63 * totBestMoveChanges / threads.size();
+            double bestMoveInstability = 0.960 + 1.630 * totBestMoveChanges / threads.size();
 
             double highBestMoveEffort = std::clamp(
-              interpolate(i64(nodesEffort), i64(78000), i64(94000), 0.960, 0.74), 0.74, 0.960);
+              interpolate(i64(nodesEffort), i64(78000), i64(94000), 0.960, 0.740), 0.740, 0.960);
 
             double totalTime = mainThread->tm.optimum() * fallingEval * reduction
                              * bestMoveInstability * highBestMoveEffort;
@@ -956,7 +957,7 @@ Value Search::Worker::search(
         assert(probCutBeta < VALUE_INFINITE && probCutBeta > beta);
 
         MovePicker mp(pos, ttData.move, probCutBeta - ss->staticEval, &captureHistory);
-        Depth      probCutDepth = depth - 4 - improving;
+        Depth      probCutDepth = depth - (improving ? 5 : 3);
 
         while ((move = mp.next_move()) != Move::none())
         {
@@ -1225,9 +1226,10 @@ moves_loop:  // When in check, search starts here
             ss->statScore = 953 * int(PieceValue[pos.captured_piece()]) / 128
                           + captureHistory[movedPiece][move.to_sq()][type_of(pos.captured_piece())];
         else
-            ss->statScore = 2 * mainHistory[us][move.raw()]
-                          + (*contHist[0])[movedPiece][move.to_sq()]
-                          + (*contHist[1])[movedPiece][move.to_sq()];
+            ss->statScore =
+              (2048 * mainHistory[us][move.raw()] + 1126 * (*contHist[0])[movedPiece][move.to_sq()]
+               + 1024 * (*contHist[1])[movedPiece][move.to_sq()])
+              / 1024;
 
         // Decrease/increase reduction for moves with a good/bad history
         r -= ss->statScore * 946 / 8192;
@@ -1406,8 +1408,8 @@ moves_loop:  // When in check, search starts here
                 }
 
                 // Reduce other moves if we have found at least one score improvement
-                if (depth > 2 && depth < 11 && !is_decisive(value))
-                    depth -= 2;
+                if (depth > 3 && depth < 11 && !is_decisive(value))
+                    depth -= 3;
 
                 assert(depth > 0);
                 alpha = value;  // Update alpha! Always alpha < beta
