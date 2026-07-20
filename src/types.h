@@ -327,6 +327,11 @@ struct DirtyThreats {
     DirtyThreatList list;
 };
 
+struct Dirties {
+    DirtyPiece   dirtyPiece;
+    DirtyThreats dirtyThreats;
+};
+
     #define ENABLE_INCR_OPERATORS_ON(T) \
         constexpr T& operator++(T& d) { return d = T(int(d) + 1); } \
         constexpr T& operator--(T& d) { return d = T(int(d) - 1); }

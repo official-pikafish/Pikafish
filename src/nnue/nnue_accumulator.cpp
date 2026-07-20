@@ -63,13 +63,13 @@ void AccumulatorStack::reset() noexcept {
     size = 1;
 }
 
-std::pair<DirtyPiece&, DirtyThreats&> AccumulatorStack::push() noexcept {
+Dirties& AccumulatorStack::push() noexcept {
     assert(size < MaxSize);
     auto& st = accumulators[size];
     st.computed.fill(false);
     new (&st.dirtyThreats) DirtyThreats;
     size++;
-    return {st.dirtyPiece, st.dirtyThreats};
+    return st;
 }
 
 void AccumulatorStack::pop() noexcept {
@@ -431,20 +431,21 @@ void update_accumulator_incremental(Color                     perspective,
     const auto& dirtyPiece   = Forward ? target_state.dirtyPiece : computed.dirtyPiece;
     const auto& dirtyThreats = Forward ? target_state.dirtyThreats : computed.dirtyThreats;
 
-    const auto* pfBase   = &featureTransformer.threatWeights[0];
-    IndexType   pfStride = FeatureTransformer::OutputDimensions;
+    // Used solely for prefetching
+    const auto* threatBase = &featureTransformer.threatWeights[0];
+    IndexType   pfStride   = FeatureTransformer::OutputDimensions;
 
     if constexpr (Forward)
     {
         ThreatFeatureSet::append_changed_indices(perspective, mirror, dirtyThreats, thrRemoved,
-                                                 thrAdded, pfBase, pfStride);
+                                                 thrAdded, threatBase, pfStride);
         PSQFeatureSet::append_changed_indices(perspective, bucket, mirror, dirtyPiece, psqRemoved,
                                               psqAdded);
     }
     else
     {
         ThreatFeatureSet::append_changed_indices(perspective, mirror, dirtyThreats, thrAdded,
-                                                 thrRemoved, pfBase, pfStride);
+                                                 thrRemoved, threatBase, pfStride);
         PSQFeatureSet::append_changed_indices(perspective, bucket, mirror, dirtyPiece, psqAdded,
                                               psqRemoved);
     }
