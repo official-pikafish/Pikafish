@@ -231,6 +231,24 @@ inline Square pop_lsb(Bitboard& b) {
     return s;
 }
 
+// Visits the squares of a bitboard in ascending order using 64-bit scans.
+template<typename F>
+inline void for_each_square(Bitboard b, F&& f) {
+    u64 bits = u64(b);
+    while (bits)
+    {
+        f(lsb(Bitboard(bits)));
+        bits &= bits - 1;
+    }
+
+    bits = u64(b >> 64);
+    while (bits)
+    {
+        f(Square(lsb(Bitboard(bits)) + 64));
+        bits &= bits - 1;
+    }
+}
+
 }  // namespace Stockfish
 
 #endif  // #ifndef BITBOARD_H_INCLUDED

@@ -35,12 +35,8 @@ Move* generate_moves(const Position& pos, Move* moveList, Bitboard target) {
 
     static_assert(Pt != KING, "Unsupported piece type in generate_moves()");
 
-    Bitboard bb = pos.pieces(Us, Pt);
-
-    while (bb)
-    {
-        Square   from = pop_lsb(bb);
-        Bitboard b    = 0;
+    for_each_square(pos.pieces(Us, Pt), [&](Square from) {
+        Bitboard b = 0;
         if constexpr (Pt != CANNON)
             b = (Pt != PAWN ? attacks_bb<Pt>(from, pos.pieces()) : attacks_bb<PAWN>(from, Us))
               & target;
@@ -59,9 +55,8 @@ Move* generate_moves(const Position& pos, Move* moveList, Bitboard target) {
                 b &= target;
         }
 
-        while (b)
-            *moveList++ = Move(from, pop_lsb(b));
-    }
+        for_each_square(b, [&](Square to) { *moveList++ = Move(from, to); });
+    });
 
     return moveList;
 }
@@ -88,11 +83,8 @@ Move* generate_all(const Position& pos, Move* moveList) {
     moveList = generate_moves<Us, Type>(pos, moveList, target);
 
     if (Type != EVASIONS)
-    {
-        Bitboard b = attacks_bb<KING>(ksq) & target;
-        while (b)
-            *moveList++ = Move(ksq, pop_lsb(b));
-    }
+        for_each_square(attacks_bb<KING>(ksq) & target,
+                        [&](Square to) { *moveList++ = Move(ksq, to); });
 
     return moveList;
 }
@@ -149,8 +141,7 @@ Move* generate<EVASIONS>(const Position& pos, Move* moveList) {
     // useless legality checks later on.
     if (pt == ROOK || pt == CANNON)
         b &= ~line_bb(checksq, ksq) | pos.pieces(~us);
-    while (b)
-        *moveList++ = Move(ksq, pop_lsb(b));
+    for_each_square(b, [&](Square to) { *moveList++ = Move(ksq, to); });
 
     // Generate move away hurdle piece evasions for cannon
     if (pt == CANNON)
@@ -169,8 +160,7 @@ Move* generate<EVASIONS>(const Position& pos, Move* moveList) {
             else
                 b = attacks_bb(pt, hurdleSq, pos.pieces()) & ~line_bb(checksq, hurdleSq)
                   & ~pos.pieces(us);
-            while (b)
-                *moveList++ = Move(hurdleSq, pop_lsb(b));
+            for_each_square(b, [&](Square to) { *moveList++ = Move(hurdleSq, to); });
         }
     }
 
