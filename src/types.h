@@ -70,11 +70,6 @@
 
     #define ASSERT_ALIGNED(ptr, alignment) assert(reinterpret_cast<uintptr_t>(ptr) % alignment == 0)
 
-    #if defined(_MSC_VER) && !defined(__clang__)
-        #include <__msvc_int128.hpp>  // Microsoft header for std::_Unsigned128
-using __uint128_t = std::_Unsigned128;
-    #endif
-
     #if defined(_WIN64) && defined(_MSC_VER)  // No Makefile used
         #include <intrin.h>                   // Microsoft header for _BitScanForward64()
         #define IS_64BIT
@@ -90,14 +85,14 @@ using __uint128_t = std::_Unsigned128;
 
     #if defined(USE_PEXT)
         #include <immintrin.h>  // Header for _pext_u64() intrinsic
-        #if defined(_MSC_VER) && !defined(__clang__)
+        #if defined(_MSC_VER)
             #define pext(b, m, s) \
                 ((_pext_u64(b._Word[1], m._Word[1]) << s) | _pext_u64(b._Word[0], m._Word[0]))
             #define pdep(b, m) \
-                ((__uint128_t(_pdep_u64(b >> 16, m._Word[1])) << 64) | _pdep_u64(b, m._Word[0]))
+                ((u128(_pdep_u64(b >> 16, m._Word[1])) << 64) | _pdep_u64(b, m._Word[0]))
         #else
             #define pext(b, m, s) ((_pext_u64(b >> 64, m >> 64) << s) | _pext_u64(b, m))
-            #define pdep(b, m) ((__uint128_t(_pdep_u64(b >> 16, m >> 64)) << 64) | _pdep_u64(b, m))
+            #define pdep(b, m) ((u128(_pdep_u64(b >> 16, m >> 64)) << 64) | _pdep_u64(b, m))
         #endif
     #else
         #define pext(b, m, s) 0

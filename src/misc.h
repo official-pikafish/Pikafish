@@ -41,6 +41,10 @@
     #include <immintrin.h>
 #endif
 
+#if defined(_MSC_VER)
+    #include <__msvc_int128.hpp>
+#endif
+
 #define stringify2(x) #x
 #define stringify(x) stringify2(x)
 
@@ -62,6 +66,9 @@ using isize = std::ptrdiff_t;
 #if defined(__GNUC__) && defined(IS_64BIT)
 __extension__ using u128 = unsigned __int128;
 __extension__ using i128 = signed __int128;
+#elif defined(_MSC_VER)
+using u128 = std::_Unsigned128;
+using i128 = std::_Signed128;
 #endif
 
 std::string engine_version_info();

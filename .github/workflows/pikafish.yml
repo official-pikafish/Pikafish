@@ -17,7 +17,7 @@ jobs:
       matrix:
         config:
           - name: Linux
-            os: ubuntu-22.04 
+            os: ubuntu-24.04
             shell: bash
           - name: Windows
             os: windows-latest
