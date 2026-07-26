@@ -905,12 +905,12 @@ Value Search::Worker::search(
 
     // Step 8. Null move search with verification search
     if (cutNode && ss->staticEval >= beta - 8 * depth - 50 * improving + 187 && !excludedMove
-        && pos.major_material(us) && ss->ply >= nmpMinPly && !is_loss(beta))
+        && pos.major_material(us) && ss->ply >= nmpMinPly && beta >= -2000)
     {
         assert((ss - 1)->currentMove != Move::null());
 
         // Null move dynamic reduction based on depth
-        Depth R = 8 + depth / 3;
+        Depth R = 8 + depth / 3 + std::max((ss->staticEval - beta) / 256, 0);
         do_null_move(pos, st, ss);
 
         Value nullValue = -search<NonPV>(pos, ss + 1, -beta, -beta + 1, depth - R, false);
