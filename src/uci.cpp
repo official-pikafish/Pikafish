@@ -19,6 +19,8 @@
 #include "uci.h"
 
 #include <algorithm>
+#include <cctype>
+#include <chrono>
 #include <cmath>
 #include <cstdlib>
 #include <iterator>
@@ -41,6 +43,9 @@
 #include "ucioption.h"
 
 namespace Stockfish {
+
+using Time = std::chrono::steady_clock;
+using ms   = std::chrono::milliseconds;
 
 constexpr auto BenchmarkCommand = "speedtest";
 
@@ -81,6 +86,7 @@ void UCIEngine::init_search_update_listeners() {
     engine.set_on_update_no_moves([](const auto& i) { on_update_no_moves(i); });
     engine.set_on_update_full(
       [this](const auto& i) { on_update_full(i, engine.get_options()["UCI_ShowWDL"]); });
+    engine.set_on_start([]() {});
     engine.set_on_bestmove([](const auto& bm, const auto& p) { on_bestmove(bm, p); });
     engine.set_on_verify_network([](const auto& s) { print_info_string(s); });
 }
@@ -313,11 +319,9 @@ void UCIEngine::benchmark(std::istream& args) {
     static constexpr int NUM_WARMUP_POSITIONS = 3;
 
     std::string token;
-    u64         nodes = 0, cnt = 1;
-    u64         nodesSearched = 0;
+    u64         cnt = 1;
 
-    engine.set_on_update_full([&](const Engine::InfoFull& i) { nodesSearched = i.nodes; });
-
+    engine.set_on_update_full([](const auto&) {});
     engine.set_on_iter([](const auto&) {});
     engine.set_on_update_no_moves([](const auto&) {});
     engine.set_on_bestmove([](const auto&, const auto&) {});
@@ -328,7 +332,6 @@ void UCIEngine::benchmark(std::istream& args) {
     const auto numGoCommands = count_if(setup.commands.begin(), setup.commands.end(),
                                         [](const std::string& s) { return s.find("go ") == 0; });
 
-    TimePoint totalTime = 0;
 
     // Set options once at the start.
     auto ss = std::istringstream("name Threads value " + std::to_string(setup.threads));
@@ -366,8 +369,7 @@ void UCIEngine::benchmark(std::istream& args) {
 
     std::cerr << "\n";
 
-    cnt   = 1;
-    nodes = 0;
+    cnt = 1;
 
     int           numHashfullReadings = 0;
     constexpr int hashfullAges[]      = {0, 999};  // Only normal hashfull and touched hash.
@@ -388,6 +390,24 @@ void UCIEngine::benchmark(std::istream& args) {
 
     engine.search_clear();  // search_clear may take a while
 
+    Time::time_point elapsed;
+    Time::duration   totalTime(0);
+
+    u64 nodes = 0, nodesSearched = 0;
+
+    engine.set_on_update_full([&](const Engine::InfoFull& i) { nodesSearched = i.nodes; });
+
+    engine.set_on_start([&elapsed, &nodesSearched]() {
+        elapsed       = Time::now();
+        nodesSearched = 0;
+    });
+
+    engine.set_on_bestmove(
+      [&totalTime, &elapsed, &nodes, &nodesSearched](const auto&, const auto&) {
+          totalTime += Time::now() - elapsed;
+          nodes += nodesSearched;
+      });
+
     for (const auto& cmd : setup.commands)
     {
         std::istringstream is(cmd);
@@ -400,18 +420,11 @@ void UCIEngine::benchmark(std::istream& args) {
 
             Search::LimitsType limits = parse_limits(is);
 
-            nodesSearched     = 0;
-            TimePoint elapsed = now();
-
             // Run with silenced network verification
             engine.go(limits);
             engine.wait_for_search_finished();
 
-            totalTime += now() - elapsed;
-
             updateHashfullReadings();
-
-            nodes += nodesSearched;
         }
         else if (token == "position")
             position(is);
@@ -421,7 +434,8 @@ void UCIEngine::benchmark(std::istream& args) {
         }
     }
 
-    totalTime = std::max<TimePoint>(totalTime, 1);  // Ensure positivity to avoid a 'divide by zero'
+    // Ensure positivity to avoid a 'divide by zero'
+    const auto totalTimeMs = std::max<i64>(std::chrono::duration_cast<ms>(totalTime).count(), 1LL);
 
     dbg_print();
 
@@ -456,8 +470,8 @@ void UCIEngine::benchmark(std::istream& args) {
               << "\n    single game            : " << maxHashfull[1] << ", "
               << totalHashfull[1] / numHashfullReadings
               << "\nTotal nodes searched       : " << nodes
-              << "\nTotal search time [s]      : " << totalTime / 1000.0
-              << "\nNodes/second               : " << 1000 * nodes / totalTime << std::endl;
+              << "\nTotal search time [s]      : " << totalTimeMs / 1000.0
+              << "\nNodes/second               : " << 1000 * nodes / totalTimeMs << std::endl;
 
     // clang-format on
 
