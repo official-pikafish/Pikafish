@@ -293,18 +293,17 @@ void ThreadPool::start_thinking(Position& pos, StateListPtr& states, Search::Lim
     increaseDepth = true;
 
     Search::RootMoves rootMoves;
-    const auto        legalmoves = MoveList<LEGAL>(pos);
 
     for (const auto& uciMove : limits.searchmoves)
     {
         auto move = UCIEngine::to_move(pos, uciMove);
 
-        if (std::find(legalmoves.begin(), legalmoves.end(), move) != legalmoves.end())
+        if (move != Move::none())
             rootMoves.emplace_back(move);
     }
 
     if (rootMoves.empty())
-        for (const auto& m : legalmoves)
+        for (const auto& m : MoveList<LEGAL>(pos))
             rootMoves.emplace_back(m);
 
     // After ownership transfer 'states' becomes empty, so if we stop the search
