@@ -55,6 +55,16 @@ class FullThreats {
                                        IndexList&              added,
                                        const ThreatWeightType* prefetchBase   = nullptr,
                                        IndexType               prefetchStride = 0);
+
+    static void append_changed_indices_both(bool                    white_mirror,
+                                            bool                    black_mirror,
+                                            const DiffType&         diff,
+                                            IndexList&              white_removed,
+                                            IndexList&              white_added,
+                                            IndexList&              black_removed,
+                                            IndexList&              black_added,
+                                            const ThreatWeightType* prefetchBase   = nullptr,
+                                            IndexType               prefetchStride = 0);
 };
 
 }  // namespace Stockfish::Eval::NNUE::Features

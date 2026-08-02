@@ -18,6 +18,7 @@
 
 #include "nnue_accumulator.h"
 
+#include <algorithm>
 #include <cassert>
 #include <new>
 #include <utility>
@@ -44,6 +45,14 @@ void update_accumulator_incremental(Color                     perspective,
                                     const bool                mirror,
                                     AccumulatorState&         target_state,
                                     const AccumulatorState&   computed);
+
+void update_accumulator_incremental_both(const FeatureTransformer& featureTransformer,
+                                         int                       white_bucket,
+                                         bool                      white_mirror,
+                                         int                       black_bucket,
+                                         bool                      black_mirror,
+                                         AccumulatorState&         target_state,
+                                         const AccumulatorState&   computed);
 
 void update_accumulator_refresh_cache(Color                     perspective,
                                       const FeatureTransformer& featureTransformer,
@@ -81,16 +90,23 @@ void AccumulatorStack::evaluate(const Position&           pos,
                                 const FeatureTransformer& featureTransformer,
                                 // Silence spurious warning on GCC 10
                                 [[maybe_unused]] AccumulatorCaches& cache) noexcept {
-    evaluate_side(WHITE, pos, featureTransformer, cache);
-    evaluate_side(BLACK, pos, featureTransformer, cache);
+    const usize last_white = find_last_usable_accumulator(WHITE);
+    const usize last_black = find_last_usable_accumulator(BLACK);
+
+    if (accumulators[last_white].computed[WHITE] && accumulators[last_black].computed[BLACK])
+        forward_update_incremental_both(pos, featureTransformer, last_white, last_black);
+    else
+    {
+        evaluate_side(WHITE, pos, featureTransformer, cache, last_white);
+        evaluate_side(BLACK, pos, featureTransformer, cache, last_black);
+    }
 }
 
 void AccumulatorStack::evaluate_side(Color                     perspective,
                                      const Position&           pos,
                                      const FeatureTransformer& featureTransformer,
-                                     AccumulatorCaches&        cache) noexcept {
-
-    const auto last_usable_accum = find_last_usable_accumulator(perspective);
+                                     AccumulatorCaches&        cache,
+                                     usize                     last_usable_accum) noexcept {
 
     if (accumulators[last_usable_accum].computed[perspective])
         forward_update_incremental(perspective, pos, featureTransformer, last_usable_accum);
@@ -153,6 +169,37 @@ void AccumulatorStack::backward_update_incremental(Color                     per
                                               accumulators[next], accumulators[next + 1]);
 
     assert(accumulators[end].computed[perspective]);
+}
+
+void AccumulatorStack::forward_update_incremental_both(const Position&           pos,
+                                                       const FeatureTransformer& featureTransformer,
+                                                       usize                     white_begin,
+                                                       usize black_begin) noexcept {
+
+    assert(white_begin < size);
+    assert(black_begin < size);
+    assert(accumulators[white_begin].computed[WHITE]);
+    assert(accumulators[black_begin].computed[BLACK]);
+
+    auto [white_bucket, white_mirror, _w] = PSQFeatureSet::make_feature_bucket(WHITE, pos);
+    auto [black_bucket, black_mirror, _b] = PSQFeatureSet::make_feature_bucket(BLACK, pos);
+    const usize shared_begin              = std::max(white_begin, black_begin);
+
+    // Catch up the lagging perspective, then traverse the common suffix once.
+    for (usize next = white_begin + 1; next <= shared_begin; ++next)
+        update_accumulator_incremental<true>(WHITE, featureTransformer, white_bucket, white_mirror,
+                                             accumulators[next], accumulators[next - 1]);
+    for (usize next = black_begin + 1; next <= shared_begin; ++next)
+        update_accumulator_incremental<true>(BLACK, featureTransformer, black_bucket, black_mirror,
+                                             accumulators[next], accumulators[next - 1]);
+
+    for (usize next = shared_begin + 1; next < size; ++next)
+        update_accumulator_incremental_both(featureTransformer, white_bucket, white_mirror,
+                                            black_bucket, black_mirror, accumulators[next],
+                                            accumulators[next - 1]);
+
+    assert(latest().computed[WHITE]);
+    assert(latest().computed[BLACK]);
 }
 
 namespace {
@@ -482,6 +529,44 @@ void update_accumulator_incremental(Color                     perspective,
                    thrAdded, thrRemoved);
 
     target_state.computed[perspective] = true;
+}
+
+void update_accumulator_incremental_both(const FeatureTransformer& featureTransformer,
+                                         int                       white_bucket,
+                                         bool                      white_mirror,
+                                         int                       black_bucket,
+                                         bool                      black_mirror,
+                                         AccumulatorState&         target_state,
+                                         const AccumulatorState&   computed) {
+
+    assert(computed.computed[WHITE]);
+    assert(computed.computed[BLACK]);
+    assert(!target_state.computed[WHITE]);
+    assert(!target_state.computed[BLACK]);
+
+    PSQFeatureSet::IndexList    psq_removed[COLOR_NB], psq_added[COLOR_NB];
+    ThreatFeatureSet::IndexList thr_removed[COLOR_NB], thr_added[COLOR_NB];
+
+    const auto* threat_base = &featureTransformer.threatWeights[0];
+    const auto  pf_stride   = FeatureTransformer::OutputDimensions;
+
+    ThreatFeatureSet::append_changed_indices_both(
+      white_mirror, black_mirror, target_state.dirtyThreats, thr_removed[WHITE],
+      thr_added[WHITE], thr_removed[BLACK], thr_added[BLACK], threat_base, pf_stride);
+    PSQFeatureSet::append_changed_indices(WHITE, white_bucket, white_mirror,
+                                          target_state.dirtyPiece, psq_removed[WHITE],
+                                          psq_added[WHITE]);
+    PSQFeatureSet::append_changed_indices(BLACK, black_bucket, black_mirror,
+                                          target_state.dirtyPiece, psq_removed[BLACK],
+                                          psq_added[BLACK]);
+
+    apply_combined(WHITE, featureTransformer, computed, target_state, psq_added[WHITE],
+                   psq_removed[WHITE], thr_added[WHITE], thr_removed[WHITE]);
+    apply_combined(BLACK, featureTransformer, computed, target_state, psq_added[BLACK],
+                   psq_removed[BLACK], thr_added[BLACK], thr_removed[BLACK]);
+
+    target_state.computed[WHITE] = true;
+    target_state.computed[BLACK] = true;
 }
 
 Bitboard get_changed_pieces(const std::array<Piece, SQUARE_NB>& oldPieces,

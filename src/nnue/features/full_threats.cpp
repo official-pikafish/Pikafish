@@ -175,8 +175,47 @@ void FullThreats::append_changed_indices(Color                   perspective,
 
         if (prefetchBase)
             prefetch<PrefetchRw::READ, PrefetchLoc::LOW>(reinterpret_cast<const void*>(
-              reinterpret_cast<uintptr_t>(prefetchBase) + index * prefetchStride));
+              reinterpret_cast<uintptr_t>(prefetchBase) + uintptr_t(index) * prefetchStride));
         insert.push_back_if_lt(index, Dimensions);
+    }
+}
+
+void FullThreats::append_changed_indices_both(bool                    white_mirror,
+                                              bool                    black_mirror,
+                                              const DiffType&         diff,
+                                              IndexList&              white_removed,
+                                              IndexList&              white_added,
+                                              IndexList&              black_removed,
+                                              IndexList&              black_added,
+                                              const ThreatWeightType* prefetchBase,
+                                              IndexType               prefetchStride) {
+
+    for (const auto& dirty : diff.list)
+    {
+        const Piece  attacker = dirty.pc();
+        const Piece  attacked = dirty.threatened_pc();
+        const Square from     = dirty.pc_sq();
+        const Square to       = dirty.threatened_sq();
+        const bool   add      = dirty.add();
+
+        auto& white_insert = add ? white_added : white_removed;
+        auto& black_insert = add ? black_added : black_removed;
+
+        const IndexType white_index =
+          make_index(WHITE, attacker, from, to, attacked, white_mirror);
+        const IndexType black_index =
+          make_index(BLACK, attacker, from, to, attacked, black_mirror);
+
+        if (prefetchBase)
+        {
+            prefetch<PrefetchRw::READ, PrefetchLoc::LOW>(reinterpret_cast<const void*>(
+              reinterpret_cast<uintptr_t>(prefetchBase) + uintptr_t(white_index) * prefetchStride));
+            prefetch<PrefetchRw::READ, PrefetchLoc::LOW>(reinterpret_cast<const void*>(
+              reinterpret_cast<uintptr_t>(prefetchBase) + uintptr_t(black_index) * prefetchStride));
+        }
+
+        white_insert.push_back_if_lt(white_index, Dimensions);
+        black_insert.push_back_if_lt(black_index, Dimensions);
     }
 }
 
