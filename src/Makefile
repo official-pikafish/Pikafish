@@ -1194,6 +1194,9 @@ profileclean:
 	@rm -f ./-lstdc++.res
 
 universalclean:
+# On Windows "ln -s" to a directory makes a native directory symlink that rm
+# cannot unlink; rmdir unlinks it without following it. No-op elsewhere.
+	@find $(TEMP_DIR) -type l -exec rmdir {} + 2>/dev/null || true
 	@rm -rf $(TEMP_DIR)
 
 # evaluation network (nnue)
