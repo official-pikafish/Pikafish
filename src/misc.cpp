@@ -479,7 +479,7 @@ u64 hash_bytes(const char* data, usize size) {
     {
         u64 k = 0;
         for (int i = (size & 7) - 1; i >= 0; i--)
-            k = (k << 8) | u64(end[i]);
+            k = (k << 8) | u8(end[i]);
 
         h ^= k;
         h *= m;
