@@ -56,7 +56,10 @@ void TimeManagement::init(Search::LimitsType& limits,
     useNodesTime = npmsec != 0;
 
     if (limits.time[us] == 0)
+    {
+        optimumTime = maximumTime = NoBound;
         return;
+    }
 
     TimePoint moveOverhead = TimePoint(options["Move Overhead"]);
 

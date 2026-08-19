@@ -288,6 +288,28 @@ class TestInteractive(metaclass=OrderedClassMembers):
 
         self.stockfish.check_output(callback)
 
+    def test_go_depth_3_with_mismatched_clock(self):
+        self.stockfish.send_command("ucinewgame")
+        self.stockfish.send_command("position startpos")
+        self.stockfish.send_command("go depth 3 btime 1000")
+
+        max_depth = 0
+
+        def callback(output):
+            nonlocal max_depth
+            if output.startswith("info depth"):
+                match = re.search(r"info depth (\d+)", output)
+                if match:
+                    max_depth = max(max_depth, int(match.group(1)))
+
+            if output.startswith("bestmove"):
+                assert max_depth == 3
+                return True
+
+            return False
+
+        self.stockfish.check_output(callback)
+
     def test_clear_hash(self):
         self.stockfish.send_command("setoption name Clear Hash")
 

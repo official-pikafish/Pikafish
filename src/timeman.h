@@ -20,6 +20,8 @@
 #define TIMEMAN_H_INCLUDED
 
 
+#include <limits>
+
 #include "misc.h"
 
 namespace Stockfish {
@@ -53,9 +55,11 @@ class TimeManagement {
     void advance_nodes_time(i64 nodes);
 
    private:
+    static constexpr TimePoint NoBound = std::numeric_limits<TimePoint>::max() / 2;
+
     TimePoint startTime;
-    TimePoint optimumTime;
-    TimePoint maximumTime;
+    TimePoint optimumTime = NoBound;
+    TimePoint maximumTime = NoBound;
 
     i64  availableNodes = -1;     // When in 'nodes as time' mode
     bool useNodesTime   = false;  // True if we are in 'nodes as time' mode
