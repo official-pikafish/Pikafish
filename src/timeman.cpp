@@ -55,6 +55,9 @@ void TimeManagement::init(Search::LimitsType& limits,
     startTime    = limits.startTime;
     useNodesTime = npmsec != 0;
 
+    if (useNodesTime)
+        limits.movetime *= npmsec;
+
     if (limits.time[us] == 0)
     {
         optimumTime = maximumTime = NoBound;
