@@ -18,6 +18,7 @@
 
 #include "network.h"
 
+#include <algorithm>
 #include <cstdlib>
 #include <fstream>
 #include <iostream>
@@ -247,8 +248,21 @@ bool Network::read_header(std::istream& stream, u32* hashValue, std::string* des
     size       = read_little_endian<u32>(stream);
     if (!stream || version != Version)
         return false;
-    desc->resize(size);
-    stream.read(&(*desc)[0], size);
+
+    constexpr u32 Chunk = 4096;
+    char          buf[Chunk];
+
+    desc->clear();
+    for (u32 remaining = size; remaining > 0;)
+    {
+        const u32 want = std::min(remaining, Chunk);
+        stream.read(buf, want);
+        const u32 got = u32(stream.gcount());
+        desc->append(buf, got);
+        if (got != want)
+            return false;
+        remaining -= want;
+    }
     return !stream.fail();
 }
 

@@ -188,33 +188,46 @@ inline void write_little_endian(std::ostream& stream, const IntType* values, usi
 // The stream is assumed to be compressed using the signed LEB128 format.
 // See https://en.wikipedia.org/wiki/LEB128 for a description of the compression scheme.
 template<typename BufType, typename IntType>
-inline void read_leb_128_detail(
-  std::istream& stream, IntType* out, usize Count, u32& bytes_left, BufType& buf, u32& buf_pos) {
+inline void read_leb_128_detail(std::istream& stream,
+                                IntType*      out,
+                                usize         Count,
+                                u32&          bytes_left,
+                                BufType&      buf,
+                                u32&          buf_pos,
+                                u32&          buf_end) {
 
     static_assert(std::is_signed_v<IntType>, "Not implemented for unsigned types");
     static_assert(sizeof(IntType) <= 4, "Not implemented for types larger than 32 bit");
 
-    IntType result = 0;
-    usize   shift = 0, i = 0;
+    u32   result = 0;
+    usize shift = 0, i = 0;
     while (i < Count)
     {
-        if (buf_pos == buf.size())
+        if (buf_pos == buf_end)
         {
             stream.read(reinterpret_cast<char*>(buf.data()),
                         std::min(usize(bytes_left), buf.size()));
             buf_pos = 0;
+            buf_end = u32(stream.gcount());
+
+            if (buf_end == 0)
+            {
+                stream.setstate(std::ios::failbit);
+                return;
+            }
         }
 
         u8 byte = buf[buf_pos++];
         --bytes_left;
-        result |= (byte & 0x7f) << (shift % 32);
+        result |= u32(byte & 0x7f) << (shift % 32);
         shift += 7;
 
         if ((byte & 0x80) == 0)
         {
-            out[i++] = (shift >= 32 || (byte & 0x40) == 0) ? result : result | ~((1 << shift) - 1);
-            result   = 0;
-            shift    = 0;
+            out[i++] = IntType(
+              (shift >= 32 || (byte & 0x40) == 0) ? result : result | ~((u32(1) << shift) - 1));
+            result = 0;
+            shift  = 0;
         }
     }
 }
@@ -224,15 +237,21 @@ inline void read_leb_128(std::istream& stream, Arrays&... outs) {
     // Check the presence of our LEB128 magic string
     char leb128MagicString[Leb128MagicStringSize];
     stream.read(leb128MagicString, Leb128MagicStringSize);
-    assert(strncmp(Leb128MagicString, leb128MagicString, Leb128MagicStringSize) == 0);
+    if (stream.gcount() != Leb128MagicStringSize
+        || strncmp(Leb128MagicString, leb128MagicString, Leb128MagicStringSize) != 0)
+    {
+        stream.setstate(std::ios::failbit);
+        return;
+    }
 
     auto                 bytes_left = read_little_endian<u32>(stream);
     std::array<u8, 8192> buf;
-    u32                  buf_pos = u32(buf.size());
+    u32                  buf_pos = 0, buf_end = 0;
 
-    (read_leb_128_detail(stream, outs.data(), outs.size(), bytes_left, buf, buf_pos), ...);
+    (read_leb_128_detail(stream, outs.data(), outs.size(), bytes_left, buf, buf_pos, buf_end), ...);
 
-    assert(bytes_left == 0);
+    if (bytes_left != 0)
+        stream.setstate(std::ios::failbit);
 }
 
 
@@ -241,15 +260,21 @@ inline void read_leb_128(std::istream& stream, IntType* out, usize expected) {
     // Check the presence of our LEB128 magic string
     char leb128MagicString[Leb128MagicStringSize];
     stream.read(leb128MagicString, Leb128MagicStringSize);
-    assert(strncmp(Leb128MagicString, leb128MagicString, Leb128MagicStringSize) == 0);
+    if (stream.gcount() != Leb128MagicStringSize
+        || strncmp(Leb128MagicString, leb128MagicString, Leb128MagicStringSize) != 0)
+    {
+        stream.setstate(std::ios::failbit);
+        return;
+    }
 
     auto                 bytes_left = read_little_endian<u32>(stream);
     std::array<u8, 8192> buf;
-    u32                  buf_pos = u32(buf.size());
+    u32                  buf_pos = 0, buf_end = 0;
 
-    read_leb_128_detail(stream, out, expected, bytes_left, buf, buf_pos);
+    read_leb_128_detail(stream, out, expected, bytes_left, buf, buf_pos, buf_end);
 
-    assert(bytes_left == 0);
+    if (bytes_left != 0)
+        stream.setstate(std::ios::failbit);
 }
 
 
