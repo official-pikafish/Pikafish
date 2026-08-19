@@ -22,11 +22,13 @@
 #include <algorithm>
 #include <cassert>
 #include <cstdint>
+#include <cstdlib>
+#include <cstring>
+#include <iostream>
 #include <memory>
 #include <new>
 #include <type_traits>
 #include <utility>
-#include <cstring>
 
 #include "types.h"
 #include "misc.h"
@@ -64,6 +66,11 @@ using AdjustTokenPrivileges_t =
 namespace Stockfish {
 
 constexpr usize HugePageSize = usize(1) << 30;
+
+[[noreturn]] inline void report_failed_allocation(usize bytes) {
+    std::cerr << "Failed to allocate " << bytes << " bytes." << std::endl;
+    std::exit(EXIT_FAILURE);
+}
 
 void* std_aligned_alloc(usize alignment, usize size);
 void  std_aligned_free(void* ptr);
@@ -118,6 +125,8 @@ template<typename T, typename ALLOC_FUNC, typename... Args>
 inline std::enable_if_t<!std::is_array_v<T>, T*> memory_allocator(ALLOC_FUNC alloc_func,
                                                                   Args&&... args) {
     void* raw_memory = alloc_func(sizeof(T));
+    if (raw_memory == nullptr)
+        report_failed_allocation(sizeof(T));
     ASSERT_ALIGNED(raw_memory, alignof(T));
     return new (raw_memory) T(std::forward<Args>(args)...);
 }
@@ -131,8 +140,10 @@ memory_allocator(ALLOC_FUNC alloc_func, usize num) {
     const usize array_offset = std::max(sizeof(usize), alignof(ElementType));
 
     // Save the array size in the memory location
-    char* raw_memory =
-      reinterpret_cast<char*>(alloc_func(array_offset + num * sizeof(ElementType)));
+    const usize bytes      = array_offset + num * sizeof(ElementType);
+    char*       raw_memory = reinterpret_cast<char*>(alloc_func(bytes));
+    if (raw_memory == nullptr)
+        report_failed_allocation(bytes);
     ASSERT_ALIGNED(raw_memory, alignof(T));
 
     new (raw_memory) usize(num);
