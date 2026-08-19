@@ -44,6 +44,9 @@
 
 namespace Stockfish {
 
+constexpr int MaxHashMB = Is64Bit ? 33554432 : 2048;
+extern int    MaxThreads;
+
 class Engine {
    public:
     using InfoShort = Search::InfoShort;
