@@ -50,11 +50,58 @@
 
 #define SF_MAX_SEM_NAME_LEN NAME_MAX
 
+#include "memory.h"
 #include "misc.h"
+
+#if defined(__linux__) && !defined(MADV_COLLAPSE)
+    #define MADV_COLLAPSE 25
+#endif
 
 namespace Stockfish::shm {
 
 namespace detail {
+
+inline void* map_shared(int fd, usize size) noexcept {
+#if defined(__linux__)
+    constexpr usize Alignment = 2 * 1024 * 1024;
+    const long      pageSize  = sysconf(_SC_PAGESIZE);
+
+    if (size >= Alignment && pageSize > 0)
+    {
+        // File-backed huge pages require matching virtual-address and file-offset alignment.
+        // Reserve the address range first so MAP_FIXED cannot replace an unrelated mapping.
+        const usize mappingSize =
+          ((size + static_cast<usize>(pageSize) - 1) / static_cast<usize>(pageSize))
+          * static_cast<usize>(pageSize);
+        const usize reservationSize = mappingSize + Alignment;
+        void*       reservation =
+          mmap(nullptr, reservationSize, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+
+        if (reservation != MAP_FAILED)
+        {
+            char* const base        = static_cast<char*>(reservation);
+            char* const alignedBase = align_ptr_up<Alignment>(base);
+            void*       mapped =
+              mmap(alignedBase, size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_FIXED, fd, 0);
+
+            if (mapped != MAP_FAILED)
+            {
+                const usize prefixSize = static_cast<usize>(alignedBase - base);
+                const usize suffixSize = reservationSize - prefixSize - mappingSize;
+                if (prefixSize)
+                    munmap(reservation, prefixSize);
+                if (suffixSize)
+                    munmap(alignedBase + mappingSize, suffixSize);
+                return mapped;
+            }
+
+            munmap(reservation, reservationSize);
+        }
+    }
+#endif
+
+    return mmap(nullptr, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+}
 
 class SharedMemoryRegistry {
    private:
@@ -512,8 +559,7 @@ class SharedMemory {
             assert(memfd.is_valid());
 
             // Try to map the memfd
-            T* mapped_mem = static_cast<T*>(
-              mmap(NULL, sizeof(T), PROT_READ | PROT_WRITE, MAP_SHARED, memfd.get(), 0));
+            T* mapped_mem = static_cast<T*>(detail::map_shared(memfd.get(), sizeof(T)));
             if (mapped_mem == MAP_FAILED)
                 return false;
 
@@ -525,6 +571,10 @@ class SharedMemory {
             {
                 // Creator is responsible for initialization
                 *mapped_mem = initial_value;
+
+#if defined(__linux__)
+                (void) madvise(mapped_mem, sizeof(T), MADV_COLLAPSE);
+#endif
             }
 
             mapped_ptr_ = data_ptr_ = mapped_mem;
