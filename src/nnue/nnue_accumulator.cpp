@@ -206,135 +206,227 @@ namespace {
 
 constexpr IndexType Dimensions = FeatureTransformer::OutputDimensions;
 
-#ifdef VECTOR
+#ifdef USE_RVV
+
+struct Tiling {
+    static constexpr int NumRegs     = 1;
+    static constexpr int NumPsqtRegs = 1;
+};
+
+using Tile     = vint16m8_t;
+using PsqtTile = vint32m1_t;
+
+sf_always_inline inline Tile load_tile(IndexType j, const i16* data) {
+    usize vl = __riscv_vsetvl_e16m8(Dimensions - j);
+    return __riscv_vle16_v_i16m8(data + j, vl);
+}
+
+sf_always_inline inline void store_tile(IndexType j, i16* dest, Tile acc) {
+    usize vl = __riscv_vsetvl_e16m8(Dimensions - j);
+    __riscv_vse16_v_i16m8(dest + j, acc, vl);
+}
+
+sf_always_inline inline PsqtTile load_psqt(IndexType j, const i32* data) {
+    usize vl = __riscv_vsetvl_e32m1(PSQTBuckets - j);
+    return __riscv_vle32_v_i32m1(data + j, vl);
+}
+
+sf_always_inline inline void store_psqt(IndexType j, i32* dest, PsqtTile psqt) {
+    usize vl = __riscv_vsetvl_e32m1(PSQTBuckets - j);
+    __riscv_vse32_v_i32m1(dest + j, psqt, vl);
+}
+
+sf_always_inline inline void increment_index(IndexType& j) {
+    j += __riscv_vsetvl_e16m8(Dimensions - j);
+}
+
+sf_always_inline inline void increment_psqt_index(IndexType& j) {
+    j += __riscv_vsetvl_e32m1(PSQTBuckets - j);
+}
+
+template<int sign>
+sf_always_inline inline Tile apply(IndexType j, Tile acc, const i8* data) {
+    static_assert(sign == 1 || sign == -1);
+    usize     vl       = __riscv_vsetvl_e16m8(Dimensions - j);
+    vint8m4_t data_vec = __riscv_vle8_v_i8m4(data + j, vl);
+    if constexpr (sign == +1)
+        acc = __riscv_vwadd_wv_i16m8(acc, data_vec, vl);
+    else
+        acc = __riscv_vwsub_wv_i16m8(acc, data_vec, vl);
+    return acc;
+}
+
+template<int sign>
+sf_always_inline inline PsqtTile apply(IndexType j, PsqtTile acc, const i32* data) {
+    static_assert(sign == 1 || sign == -1);
+    usize      vl       = __riscv_vsetvl_e32m1(PSQTBuckets - j);
+    vint32m1_t data_vec = __riscv_vle32_v_i32m1(data + j, vl);
+    if constexpr (sign == +1)
+        acc = __riscv_vadd_vv_i32m1(acc, data_vec, vl);
+    else
+        acc = __riscv_vsub_vv_i32m1(acc, data_vec, vl);
+    return acc;
+}
+
+#else  // VECTOR or non VECTOR
+
+    #ifdef VECTOR
 
 using Tiling = SIMDTiling<Dimensions, Dimensions, PSQTBuckets>;
 
-template<int sign>
-sf_always_inline inline void apply_psq_features(IndexType                       j,
-                                                vec_t                           acc[],
-                                                const PSQFeatureSet::IndexList& list,
-                                                const FeatureTransformer&       ft) {
-    static_assert(sign == 1 || sign == -1);
-
-    const usize tileOff = j * Tiling::TileHeight;
-    for (int i = 0; i < list.ssize(); ++i)
-    {
-        auto* column =
-          reinterpret_cast<const vec_i8_t*>(&ft.weights[list[i] * Dimensions + tileOff]);
-    #ifdef USE_NEON
-        for (IndexType k = 0; k < Tiling::NumRegs; k += 2)
-        {
-            if constexpr (sign == +1)
-            {
-                acc[k]     = vaddw_s8(acc[k], vget_low_s8(column[k / 2]));
-                acc[k + 1] = vaddw_high_s8(acc[k + 1], column[k / 2]);
-            }
-            else
-            {
-                acc[k]     = vsubw_s8(acc[k], vget_low_s8(column[k / 2]));
-                acc[k + 1] = vsubw_high_s8(acc[k + 1], column[k / 2]);
-            }
-        }
-    #elif defined(USE_LSX) && !defined(USE_LASX)
-        for (IndexType k = 0; k < Tiling::NumRegs; k += 2)
-        {
-            if constexpr (sign == +1)
-            {
-                const __m128i weight = __lsx_vld(reinterpret_cast<const void*>(&column[k]), 0);
-                acc[k]               = vec_add_16(acc[k], __lsx_vsllwil_h_b(weight, 0));
-                acc[k + 1]           = vec_add_16(acc[k + 1], __lsx_vexth_h_b(weight));
-            }
-            else
-            {
-                const __m128i weight = __lsx_vld(reinterpret_cast<const void*>(&column[k]), 0);
-                acc[k]               = vec_sub_16(acc[k], __lsx_vsllwil_h_b(weight, 0));
-                acc[k + 1]           = vec_sub_16(acc[k + 1], __lsx_vexth_h_b(weight));
-            }
-        }
     #else
-        for (IndexType k = 0; k < Tiling::NumRegs; ++k)
-            if constexpr (sign == +1)
-                acc[k] = vec_add_16(acc[k], vec_convert_8_16(column[k]));
-            else
-                acc[k] = vec_sub_16(acc[k], vec_convert_8_16(column[k]));
+
+// Treat scalar impl as degenerate size-1 vector
+struct Tiling {
+    static constexpr int NumRegs        = 1;
+    static constexpr int NumPsqtRegs    = 1;
+    static constexpr int TileHeight     = 1;
+    static constexpr int PsqtTileHeight = 1;
+};
+
+using vec_t      = i16;
+using vec_i8_t   = i8;
+using psqt_vec_t = i32;
+
+        #define vec_add_16(a, b) ((a) + (b))
+        #define vec_sub_16(a, b) ((a) - (b))
+        #define vec_add_psqt_32(a, b) ((a) + (b))
+        #define vec_sub_psqt_32(a, b) ((a) - (b))
+        #define vec_convert_8_16(a) (i16(a))
+
     #endif
+
+struct PsqtTile {
+    psqt_vec_t inner[Tiling::NumPsqtRegs];
+    auto&      operator[](int i) { return inner[i]; }
+};
+
+struct Tile {
+    vec_t inner[Tiling::NumRegs];
+    auto& operator[](int i) { return inner[i]; }
+};
+
+sf_always_inline inline Tile load_tile(IndexType j, const i16* data) {
+    Tile  acc;
+    auto* column = reinterpret_cast<const vec_t*>(&data[j]);
+    for (IndexType k = 0; k < Tiling::NumRegs; ++k)
+        acc[k] = column[k];
+    return acc;
+}
+
+sf_always_inline inline void store_tile(IndexType j, i16* dest, Tile acc) {
+    auto* column = reinterpret_cast<vec_t*>(&dest[j]);
+    for (IndexType k = 0; k < Tiling::NumRegs; ++k)
+        column[k] = acc[k];
+}
+
+sf_always_inline inline PsqtTile load_psqt(IndexType j, const i32* data) {
+    PsqtTile psqt;
+    auto*    column = reinterpret_cast<const psqt_vec_t*>(&data[j]);
+    for (IndexType k = 0; k < Tiling::NumPsqtRegs; ++k)
+        psqt[k] = column[k];
+    return psqt;
+}
+
+sf_always_inline inline void store_psqt(IndexType j, i32* dest, PsqtTile psqt) {
+    auto* column = reinterpret_cast<psqt_vec_t*>(&dest[j]);
+    for (IndexType k = 0; k < Tiling::NumPsqtRegs; ++k)
+        column[k] = psqt[k];
+}
+
+sf_always_inline inline void increment_index(IndexType& j) { j += Tiling::TileHeight; }
+
+sf_always_inline inline void increment_psqt_index(IndexType& j) { j += Tiling::PsqtTileHeight; }
+
+template<int sign>
+sf_always_inline inline Tile apply(IndexType j, Tile acc, const i8* data) {
+    static_assert(sign == 1 || sign == -1);
+    const auto* column = reinterpret_cast<const vec_i8_t*>(data + j);
+    #ifdef USE_NEON
+    for (IndexType k = 0; k < Tiling::NumRegs; k += 2)
+    {
+        if constexpr (sign == +1)
+        {
+            acc[k]     = vaddw_s8(acc[k], vget_low_s8(column[k / 2]));
+            acc[k + 1] = vaddw_high_s8(acc[k + 1], column[k / 2]);
+        }
+        else
+        {
+            acc[k]     = vsubw_s8(acc[k], vget_low_s8(column[k / 2]));
+            acc[k + 1] = vsubw_high_s8(acc[k + 1], column[k / 2]);
+        }
     }
+    #elif defined(USE_LSX) && !defined(USE_LASX)
+    for (IndexType k = 0; k < Tiling::NumRegs; k += 2)
+    {
+        const __m128i weight = __lsx_vld(reinterpret_cast<const void*>(&column[k]), 0);
+        if constexpr (sign == +1)
+        {
+            acc[k]     = vec_add_16(acc[k], __lsx_vsllwil_h_b(weight, 0));
+            acc[k + 1] = vec_add_16(acc[k + 1], __lsx_vexth_h_b(weight));
+        }
+        else
+        {
+            acc[k]     = vec_sub_16(acc[k], __lsx_vsllwil_h_b(weight, 0));
+            acc[k + 1] = vec_sub_16(acc[k + 1], __lsx_vexth_h_b(weight));
+        }
+    }
+    #else
+    for (IndexType k = 0; k < Tiling::NumRegs; ++k)
+        if constexpr (sign == +1)
+            acc[k] = vec_add_16(acc[k], vec_convert_8_16(column[k]));
+        else
+            acc[k] = vec_sub_16(acc[k], vec_convert_8_16(column[k]));
+    #endif
+    return acc;
 }
 
 template<int sign>
-sf_always_inline inline void apply_threat_features(IndexType j,
-                                                   vec_t     acc[Tiling::NumRegs],
-                                                   const ThreatFeatureSet::IndexList& list,
-                                                   const FeatureTransformer&          ft) {
+sf_always_inline inline PsqtTile apply(IndexType j, PsqtTile acc, const i32* data) {
     static_assert(sign == 1 || sign == -1);
-
-    const usize tileOff = j * Tiling::TileHeight;
-    for (int i = 0; i < list.ssize(); ++i)
-    {
-        auto* column =
-          reinterpret_cast<const vec_i8_t*>(&ft.threatWeights[list[i] * Dimensions + tileOff]);
-    #ifdef USE_NEON
-        for (IndexType k = 0; k < Tiling::NumRegs; k += 2)
-        {
-            if constexpr (sign == +1)
-            {
-                acc[k]     = vaddw_s8(acc[k], vget_low_s8(column[k / 2]));
-                acc[k + 1] = vaddw_high_s8(acc[k + 1], column[k / 2]);
-            }
-            else
-            {
-                acc[k]     = vsubw_s8(acc[k], vget_low_s8(column[k / 2]));
-                acc[k + 1] = vsubw_high_s8(acc[k + 1], column[k / 2]);
-            }
-        }
-    #elif defined(USE_LSX) && !defined(USE_LASX)
-        for (IndexType k = 0; k < Tiling::NumRegs; k += 2)
-        {
-            if constexpr (sign == +1)
-            {
-                const __m128i weight = __lsx_vld(reinterpret_cast<const void*>(&column[k]), 0);
-                acc[k]               = vec_add_16(acc[k], __lsx_vsllwil_h_b(weight, 0));
-                acc[k + 1]           = vec_add_16(acc[k + 1], __lsx_vexth_h_b(weight));
-            }
-            else
-            {
-                const __m128i weight = __lsx_vld(reinterpret_cast<const void*>(&column[k]), 0);
-                acc[k]               = vec_sub_16(acc[k], __lsx_vsllwil_h_b(weight, 0));
-                acc[k + 1]           = vec_sub_16(acc[k + 1], __lsx_vexth_h_b(weight));
-            }
-        }
-    #else
-        for (IndexType k = 0; k < Tiling::NumRegs; ++k)
-            if constexpr (sign == +1)
-                acc[k] = vec_add_16(acc[k], vec_convert_8_16(column[k]));
-            else
-                acc[k] = vec_sub_16(acc[k], vec_convert_8_16(column[k]));
-    #endif
-    }
-}
-
-template<int sign, usize MaxLen, typename IdxType>
-sf_always_inline inline void apply_psqt(IndexType                         j,
-                                        psqt_vec_t                        psqt[Tiling::NumPsqtRegs],
-                                        const ValueList<IdxType, MaxLen>& list,
-                                        const PSQTWeightType*             weights) {
-    static_assert(sign == 1 || sign == -1);
-
-    const usize psqtTileOff = j * Tiling::PsqtTileHeight;
-    for (int i = 0; i < list.ssize(); ++i)
-    {
-        auto* column =
-          reinterpret_cast<const psqt_vec_t*>(&weights[list[i] * PSQTBuckets + psqtTileOff]);
-        for (IndexType k = 0; k < Tiling::NumPsqtRegs; ++k)
-            if constexpr (sign == +1)
-                psqt[k] = vec_add_psqt_32(psqt[k], column[k]);
-            else
-                psqt[k] = vec_sub_psqt_32(psqt[k], column[k]);
-    }
+    const auto* column = reinterpret_cast<const psqt_vec_t*>(data + j);
+    for (IndexType k = 0; k < Tiling::NumPsqtRegs; ++k)
+        if constexpr (sign == +1)
+            acc[k] = vec_add_psqt_32(acc[k], column[k]);
+        else
+            acc[k] = vec_sub_psqt_32(acc[k], column[k]);
+    return acc;
 }
 
 #endif
+
+template<int sign>
+sf_always_inline inline Tile apply_psq_features(IndexType                       j,
+                                                Tile                            acc,
+                                                const PSQFeatureSet::IndexList& list,
+                                                const FeatureTransformer&       ft) {
+    static_assert(sign == 1 || sign == -1);
+    for (int i = 0; i < list.ssize(); ++i)
+        acc = apply<sign>(j, acc, &ft.weights[list[i] * Dimensions]);
+    return acc;
+}
+
+template<int sign>
+sf_always_inline inline Tile apply_threat_features(IndexType                          j,
+                                                   Tile                               acc,
+                                                   const ThreatFeatureSet::IndexList& list,
+                                                   const FeatureTransformer&          ft) {
+    static_assert(sign == 1 || sign == -1);
+    for (int i = 0; i < list.ssize(); ++i)
+        acc = apply<sign>(j, acc, &ft.threatWeights[list[i] * Dimensions]);
+    return acc;
+}
+
+template<int sign, typename IdxType, usize MaxLen>
+sf_always_inline inline PsqtTile apply_psqt(IndexType                         j,
+                                            PsqtTile                          acc,
+                                            const ValueList<IdxType, MaxLen>& list,
+                                            const PSQTWeightType*             weights) {
+    static_assert(sign == 1 || sign == -1);
+    for (int i = 0; i < list.ssize(); ++i)
+        acc = apply<sign>(j, acc, &weights[list[i] * PSQTBuckets]);
+    return acc;
+}
 
 void apply_combined(Color                              perspective,
                     const FeatureTransformer&          featureTransformer,
@@ -351,149 +443,34 @@ void apply_combined(Color                              perspective,
     const auto& fromPsqtAcc = from.psqtAccumulation[perspective];
     auto&       toPsqtAcc   = to.psqtAccumulation[perspective];
 
-#ifdef VECTOR
+    Tile     acc;
+    PsqtTile psqt;
 
-    vec_t      acc[Tiling::NumRegs];
-    psqt_vec_t psqt[Tiling::NumPsqtRegs];
-
-    for (IndexType j = 0; j < Dimensions / Tiling::TileHeight; ++j)
+    for (IndexType j = 0; j < Dimensions; increment_index(j))
     {
-        const usize tileOff  = j * Tiling::TileHeight;
-        auto*       fromTile = reinterpret_cast<const vec_t*>(&fromAcc[tileOff]);
-        auto*       toTile   = reinterpret_cast<vec_t*>(&toAcc[tileOff]);
+        acc = load_tile(j, fromAcc.data());
 
-        for (IndexType k = 0; k < Tiling::NumRegs; ++k)
-            acc[k] = fromTile[k];
+        acc = apply_psq_features<-1>(j, acc, psqRemoved, featureTransformer);
+        acc = apply_psq_features<+1>(j, acc, psqAdded, featureTransformer);
 
-        apply_psq_features<-1>(j, acc, psqRemoved, featureTransformer);
-        apply_psq_features<+1>(j, acc, psqAdded, featureTransformer);
+        acc = apply_threat_features<-1>(j, acc, thrRemoved, featureTransformer);
+        acc = apply_threat_features<+1>(j, acc, thrAdded, featureTransformer);
 
-        apply_threat_features<-1>(j, acc, thrRemoved, featureTransformer);
-        apply_threat_features<+1>(j, acc, thrAdded, featureTransformer);
-
-        for (IndexType k = 0; k < Tiling::NumRegs; k++)
-            vec_store(&toTile[k], acc[k]);
+        store_tile(j, toAcc.data(), acc);
     }
 
-    for (IndexType j = 0; j < PSQTBuckets / Tiling::PsqtTileHeight; ++j)
+    for (IndexType j = 0; j < PSQTBuckets; increment_psqt_index(j))
     {
-        const usize psqtTileOff  = j * Tiling::PsqtTileHeight;
-        auto*       fromTilePsqt = reinterpret_cast<const psqt_vec_t*>(&fromPsqtAcc[psqtTileOff]);
-        auto*       toTilePsqt   = reinterpret_cast<psqt_vec_t*>(&toPsqtAcc[psqtTileOff]);
+        psqt = load_psqt(j, fromPsqtAcc.data());
 
-        for (IndexType k = 0; k < Tiling::NumPsqtRegs; ++k)
-            psqt[k] = fromTilePsqt[k];
+        psqt = apply_psqt<-1>(j, psqt, psqRemoved, featureTransformer.psqtWeights.data());
+        psqt = apply_psqt<+1>(j, psqt, psqAdded, featureTransformer.psqtWeights.data());
 
-        apply_psqt<-1>(j, psqt, psqRemoved, featureTransformer.psqtWeights.data());
-        apply_psqt<+1>(j, psqt, psqAdded, featureTransformer.psqtWeights.data());
+        psqt = apply_psqt<-1>(j, psqt, thrRemoved, featureTransformer.threatPsqtWeights.data());
+        psqt = apply_psqt<+1>(j, psqt, thrAdded, featureTransformer.threatPsqtWeights.data());
 
-        apply_psqt<-1>(j, psqt, thrRemoved, featureTransformer.threatPsqtWeights.data());
-        apply_psqt<+1>(j, psqt, thrAdded, featureTransformer.threatPsqtWeights.data());
-
-        for (IndexType k = 0; k < Tiling::NumPsqtRegs; ++k)
-            vec_store_psqt(&toTilePsqt[k], psqt[k]);
+        store_psqt(j, toPsqtAcc.data(), psqt);
     }
-
-#elif defined(USE_RVV)
-
-    usize tileOffset = 0;
-
-    const auto* psqWeights        = &featureTransformer.weights[0];
-    const auto* threatWeights     = &featureTransformer.threatWeights[0];
-    const auto* psqtWeights       = &featureTransformer.psqtWeights[0];
-    const auto* threatPsqtWeights = &featureTransformer.threatPsqtWeights[0];
-
-    while (tileOffset < Dimensions)
-    {
-        usize vl = __riscv_vsetvl_e16m8(Dimensions - tileOffset);
-
-        vint16m8_t accum = __riscv_vle16_v_i16m8(&fromAcc[tileOffset], vl);
-        for (int i : psqRemoved)
-            accum = __riscv_vwsub_wv_i16m8(
-              accum, __riscv_vle8_v_i8m4(&psqWeights[i * Dimensions + tileOffset], vl), vl);
-        for (int i : psqAdded)
-            accum = __riscv_vwadd_wv_i16m8(
-              accum, __riscv_vle8_v_i8m4(&psqWeights[i * Dimensions + tileOffset], vl), vl);
-        for (int i : thrRemoved)
-            accum = __riscv_vwsub_wv_i16m8(
-              accum, __riscv_vle8_v_i8m4(&threatWeights[i * Dimensions + tileOffset], vl), vl);
-        for (int i : thrAdded)
-            accum = __riscv_vwadd_wv_i16m8(
-              accum, __riscv_vle8_v_i8m4(&threatWeights[i * Dimensions + tileOffset], vl), vl);
-        __riscv_vse16_v_i16m8(&toAcc[tileOffset], accum, vl);
-
-        tileOffset += vl;
-    }
-
-    tileOffset = 0;
-
-    while (tileOffset < PSQTBuckets)
-    {
-        usize vl = __riscv_vsetvl_e32m1(PSQTBuckets - tileOffset);
-
-        vint32m1_t accum = __riscv_vle32_v_i32m1(&fromPsqtAcc[tileOffset], vl);
-        for (int i : psqRemoved)
-            accum = __riscv_vsub_vv_i32m1(
-              accum, __riscv_vle32_v_i32m1(&psqtWeights[i * PSQTBuckets + tileOffset], vl), vl);
-        for (int i : psqAdded)
-            accum = __riscv_vadd_vv_i32m1(
-              accum, __riscv_vle32_v_i32m1(&psqtWeights[i * PSQTBuckets + tileOffset], vl), vl);
-        for (int i : thrRemoved)
-            accum = __riscv_vsub_vv_i32m1(
-              accum, __riscv_vle32_v_i32m1(&threatPsqtWeights[i * PSQTBuckets + tileOffset], vl),
-              vl);
-        for (int i : thrAdded)
-            accum = __riscv_vadd_vv_i32m1(
-              accum, __riscv_vle32_v_i32m1(&threatPsqtWeights[i * PSQTBuckets + tileOffset], vl),
-              vl);
-
-        __riscv_vse32_v_i32m1(&toPsqtAcc[tileOffset], accum, vl);
-
-        tileOffset += vl;
-    }
-
-#else
-
-    toAcc     = fromAcc;
-    toPsqtAcc = fromPsqtAcc;
-
-    for (const auto index : psqRemoved)
-    {
-        const IndexType offset = Dimensions * index;
-        for (IndexType j = 0; j < Dimensions; ++j)
-            toAcc[j] -= featureTransformer.weights[offset + j];
-        for (usize k = 0; k < PSQTBuckets; ++k)
-            toPsqtAcc[k] -= featureTransformer.psqtWeights[index * PSQTBuckets + k];
-    }
-
-    for (const auto index : psqAdded)
-    {
-        const IndexType offset = Dimensions * index;
-        for (IndexType j = 0; j < Dimensions; ++j)
-            toAcc[j] += featureTransformer.weights[offset + j];
-        for (usize k = 0; k < PSQTBuckets; ++k)
-            toPsqtAcc[k] += featureTransformer.psqtWeights[index * PSQTBuckets + k];
-    }
-
-    for (const auto index : thrRemoved)
-    {
-        const IndexType offset = Dimensions * index;
-        for (IndexType j = 0; j < Dimensions; ++j)
-            toAcc[j] -= featureTransformer.threatWeights[offset + j];
-        for (usize k = 0; k < PSQTBuckets; ++k)
-            toPsqtAcc[k] -= featureTransformer.threatPsqtWeights[index * PSQTBuckets + k];
-    }
-
-    for (const auto index : thrAdded)
-    {
-        const IndexType offset = Dimensions * index;
-        for (IndexType j = 0; j < Dimensions; ++j)
-            toAcc[j] += featureTransformer.threatWeights[offset + j];
-        for (usize k = 0; k < PSQTBuckets; ++k)
-            toPsqtAcc[k] += featureTransformer.threatPsqtWeights[index * PSQTBuckets + k];
-    }
-
-#endif
 }
 
 template<bool Forward>
@@ -743,151 +720,36 @@ void update_accumulator_refresh_cache(Color                     perspective,
 
     accumulator.computed[perspective] = true;
 
-#ifdef VECTOR
-    vec_t      acc[Tiling::NumRegs];
-    psqt_vec_t psqt[Tiling::NumPsqtRegs];
+    Tile     acc;
+    PsqtTile psqt;
 
-    for (IndexType j = 0; j < Dimensions / Tiling::TileHeight; ++j)
+    for (IndexType j = 0; j < Dimensions; increment_index(j))
     {
-        const usize tileOff = j * Tiling::TileHeight;
-        auto* accTile   = reinterpret_cast<vec_t*>(&accumulator.accumulation[perspective][tileOff]);
-        auto* entryTile = reinterpret_cast<vec_t*>(&entry.accumulation[tileOff]);
+        acc = load_tile(j, entry.accumulation.data());
 
-        for (IndexType k = 0; k < Tiling::NumRegs; ++k)
-            acc[k] = entryTile[k];
+        acc = apply_psq_features<-1>(j, acc, removed, featureTransformer);
+        acc = apply_psq_features<+1>(j, acc, added, featureTransformer);
 
-        apply_psq_features<-1>(j, acc, removed, featureTransformer);
-        apply_psq_features<+1>(j, acc, added, featureTransformer);
+        store_tile(j, entry.accumulation.data(), acc);
 
-        for (IndexType k = 0; k < Tiling::NumRegs; k++)
-            vec_store(&entryTile[k], acc[k]);
+        acc = apply_threat_features<+1>(j, acc, active, featureTransformer);
 
-        apply_threat_features<+1>(j, acc, active, featureTransformer);
-
-        for (IndexType k = 0; k < Tiling::NumRegs; k++)
-            vec_store(&accTile[k], acc[k]);
+        store_tile(j, accumulator.accumulation[perspective].data(), acc);
     }
 
-    for (IndexType j = 0; j < PSQTBuckets / Tiling::PsqtTileHeight; ++j)
+    for (IndexType j = 0; j < PSQTBuckets; increment_psqt_index(j))
     {
-        const usize psqtTileOff = j * Tiling::PsqtTileHeight;
-        auto*       accTilePsqt =
-          reinterpret_cast<psqt_vec_t*>(&accumulator.psqtAccumulation[perspective][psqtTileOff]);
-        auto* entryTilePsqt = reinterpret_cast<psqt_vec_t*>(&entry.psqtAccumulation[psqtTileOff]);
+        psqt = load_psqt(j, entry.psqtAccumulation.data());
 
-        for (IndexType k = 0; k < Tiling::NumPsqtRegs; ++k)
-            psqt[k] = entryTilePsqt[k];
+        psqt = apply_psqt<-1>(j, psqt, removed, featureTransformer.psqtWeights.data());
+        psqt = apply_psqt<+1>(j, psqt, added, featureTransformer.psqtWeights.data());
 
-        apply_psqt<-1>(j, psqt, removed, featureTransformer.psqtWeights.data());
-        apply_psqt<+1>(j, psqt, added, featureTransformer.psqtWeights.data());
+        store_psqt(j, entry.psqtAccumulation.data(), psqt);
 
-        for (IndexType k = 0; k < Tiling::NumPsqtRegs; ++k)
-            vec_store_psqt(&entryTilePsqt[k], psqt[k]);
+        psqt = apply_psqt<+1>(j, psqt, active, featureTransformer.threatPsqtWeights.data());
 
-        apply_psqt<+1>(j, psqt, active, featureTransformer.threatPsqtWeights.data());
-
-        for (IndexType k = 0; k < Tiling::NumPsqtRegs; ++k)
-            vec_store_psqt(&accTilePsqt[k], psqt[k]);
+        store_psqt(j, accumulator.psqtAccumulation[perspective].data(), psqt);
     }
-
-#elif defined(USE_RVV)
-
-    const auto* weights           = &featureTransformer.weights[0];
-    const auto* threatWeights     = &featureTransformer.threatWeights[0];
-    const auto* psqtWeights       = &featureTransformer.psqtWeights[0];
-    const auto* threatPsqtWeights = &featureTransformer.threatPsqtWeights[0];
-
-    usize tileOffset = 0;
-
-    while (tileOffset < Dimensions)
-    {
-        usize vl = __riscv_vsetvl_e16m8(Dimensions - tileOffset);
-
-        vint16m8_t accum = __riscv_vle16_v_i16m8(&entry.accumulation[tileOffset], vl);
-        for (int i : removed)
-            accum = __riscv_vwsub_wv_i16m8(
-              accum, __riscv_vle8_v_i8m4(&weights[i * Dimensions + tileOffset], vl), vl);
-        for (int i : added)
-            accum = __riscv_vwadd_wv_i16m8(
-              accum, __riscv_vle8_v_i8m4(&weights[i * Dimensions + tileOffset], vl), vl);
-
-        __riscv_vse16_v_i16m8(&entry.accumulation[tileOffset], accum, vl);
-
-        for (int i : active)
-            accum = __riscv_vwadd_wv_i16m8(
-              accum, __riscv_vle8_v_i8m4(&threatWeights[i * Dimensions + tileOffset], vl), vl);
-
-        __riscv_vse16_v_i16m8(&accumulator.accumulation[perspective][tileOffset], accum, vl);
-
-        tileOffset += vl;
-    }
-
-    tileOffset = 0;
-
-    while (tileOffset < PSQTBuckets)
-    {
-        usize vl = __riscv_vsetvl_e32m1(PSQTBuckets - tileOffset);
-
-        vint32m1_t accum = __riscv_vle32_v_i32m1(&entry.psqtAccumulation[tileOffset], vl);
-        for (int i : removed)
-            accum = __riscv_vsub_vv_i32m1(
-              accum, __riscv_vle32_v_i32m1(&psqtWeights[i * PSQTBuckets + tileOffset], vl), vl);
-        for (int i : added)
-            accum = __riscv_vadd_vv_i32m1(
-              accum, __riscv_vle32_v_i32m1(&psqtWeights[i * PSQTBuckets + tileOffset], vl), vl);
-
-        __riscv_vse32_v_i32m1(&entry.psqtAccumulation[tileOffset], accum, vl);
-
-        for (int i : active)
-            accum = __riscv_vadd_vv_i32m1(
-              accum, __riscv_vle32_v_i32m1(&threatPsqtWeights[i * PSQTBuckets + tileOffset], vl),
-              vl);
-
-        __riscv_vse32_v_i32m1(&accumulator.psqtAccumulation[perspective][tileOffset], accum, vl);
-
-        tileOffset += vl;
-    }
-
-#else
-
-    for (const auto index : removed)
-    {
-        const IndexType offset = Dimensions * index;
-        for (IndexType j = 0; j < Dimensions; ++j)
-            entry.accumulation[j] -= featureTransformer.weights[offset + j];
-
-        for (usize k = 0; k < PSQTBuckets; ++k)
-            entry.psqtAccumulation[k] -= featureTransformer.psqtWeights[index * PSQTBuckets + k];
-    }
-    for (const auto index : added)
-    {
-        const IndexType offset = Dimensions * index;
-        for (IndexType j = 0; j < Dimensions; ++j)
-            entry.accumulation[j] += featureTransformer.weights[offset + j];
-
-        for (usize k = 0; k < PSQTBuckets; ++k)
-            entry.psqtAccumulation[k] += featureTransformer.psqtWeights[index * PSQTBuckets + k];
-    }
-
-    // The accumulator of the refresh entry has been updated.
-    // Now copy its content to the actual accumulator we were refreshing.
-    accumulator.accumulation[perspective]     = entry.accumulation;
-    accumulator.psqtAccumulation[perspective] = entry.psqtAccumulation;
-
-    for (const auto index : active)
-    {
-        const IndexType offset = Dimensions * index;
-
-        for (IndexType j = 0; j < Dimensions; ++j)
-            accumulator.accumulation[perspective][j] +=
-              featureTransformer.threatWeights[offset + j];
-
-        for (usize k = 0; k < PSQTBuckets; ++k)
-            accumulator.psqtAccumulation[perspective][k] +=
-              featureTransformer.threatPsqtWeights[index * PSQTBuckets + k];
-    }
-
-#endif
 }
 
 }
