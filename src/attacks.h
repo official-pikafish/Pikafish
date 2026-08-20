@@ -108,9 +108,9 @@ inline bool aligned(Square s1, Square s2, Square s3) { return bool(line_bb(s1, s
 template<Color C>
 constexpr Bitboard pawn_attacks_bb(Square s) {
     Bitboard b      = square_bb(s);
-    Bitboard attack = shift<C == WHITE ? NORTH : SOUTH>(b);
+    Bitboard attack = shift(b, C == WHITE ? NORTH : SOUTH);
     if ((C == WHITE && rank_of(s) > RANK_4) || (C == BLACK && rank_of(s) < RANK_5))
-        attack |= shift<WEST>(b) | shift<EAST>(b);
+        attack |= shift(b, WEST) | shift(b, EAST);
     return attack;
 }
 
@@ -119,9 +119,9 @@ constexpr Bitboard pawn_attacks_bb(Square s) {
 template<Color C>
 constexpr Bitboard pawn_attacks_to_bb(Square s) {
     Bitboard b      = square_bb(s);
-    Bitboard attack = shift<C == WHITE ? SOUTH : NORTH>(b);
+    Bitboard attack = shift(b, C == WHITE ? SOUTH : NORTH);
     if ((C == WHITE && rank_of(s) > RANK_4) || (C == BLACK && rank_of(s) < RANK_5))
-        attack |= shift<WEST>(b) | shift<EAST>(b);
+        attack |= shift(b, WEST) | shift(b, EAST);
     return attack;
 }
 

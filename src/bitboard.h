@@ -109,20 +109,19 @@ constexpr Bitboard file_bb(File f) { return FileABB << u8(f); }
 constexpr Bitboard file_bb(Square s) { return file_bb(file_of(s)); }
 
 
-// Moves a bitboard one or two steps as specified by the direction D
-template<Direction D>
-constexpr Bitboard shift(Bitboard b) {
-    return D == NORTH         ? (b & ~Rank9BB) << u8(NORTH)
-         : D == SOUTH         ? b >> u8(NORTH)
-         : D == NORTH + NORTH ? (b & ~Rank9BB & ~Rank8BB) << u8(NORTH + NORTH)
-         : D == SOUTH + SOUTH ? b >> u8(NORTH + NORTH)
-         : D == EAST          ? (b & ~FileIBB) << u8(EAST)
-         : D == WEST          ? (b & ~FileABB) >> u8(EAST)
-         : D == NORTH_EAST    ? (b & ~FileIBB) << u8(NORTH_EAST)
-         : D == NORTH_WEST    ? (b & ~FileABB) << u8(NORTH_WEST)
-         : D == SOUTH_EAST    ? (b & ~FileIBB) >> u8(NORTH_WEST)
-         : D == SOUTH_WEST    ? (b & ~FileABB) >> u8(NORTH_EAST)
-                              : Bitboard(0);
+// Moves a bitboard one or two steps as specified by the direction dir
+inline constexpr Bitboard shift(Bitboard b, Direction dir) {
+    return dir == NORTH         ? (b & ~Rank9BB) << u8(NORTH)
+         : dir == SOUTH         ? b >> u8(NORTH)
+         : dir == NORTH + NORTH ? (b & ~Rank9BB & ~Rank8BB) << u8(NORTH + NORTH)
+         : dir == SOUTH + SOUTH ? b >> u8(NORTH + NORTH)
+         : dir == EAST          ? (b & ~FileIBB) << u8(EAST)
+         : dir == WEST          ? (b & ~FileABB) >> u8(EAST)
+         : dir == NORTH_EAST    ? (b & ~FileIBB) << u8(NORTH_EAST)
+         : dir == NORTH_WEST    ? (b & ~FileABB) << u8(NORTH_WEST)
+         : dir == SOUTH_EAST    ? (b & ~FileIBB) >> u8(NORTH_WEST)
+         : dir == SOUTH_WEST    ? (b & ~FileABB) >> u8(NORTH_EAST)
+                                : Bitboard(0);
 }
 
 
