@@ -516,11 +516,22 @@ std::string utf8_from_wstring(std::wstring_view s) {
 fs::path path_from_utf8(const std::string& path) {
 #ifdef _WIN32
     int u8len = static_cast<int>(path.size());
-    int wlen  = MultiByteToWideChar(CP_UTF8, 0, path.c_str(), u8len, NULL, 0);
 
-    std::wstring wstr(static_cast<usize>(wlen), L'\0');
-    MultiByteToWideChar(CP_UTF8, 0, path.c_str(), u8len, wstr.data(), wlen);
-    return {wstr};
+    // First attempt UTF-8, then fall back to ANSI for old GUIs like Arena
+    constexpr int CodePages[2] = {CP_UTF8, CP_ACP};
+    for (int cp : CodePages)
+    {
+        int flags = cp == CP_UTF8 ? MB_ERR_INVALID_CHARS : 0;
+        int wlen  = MultiByteToWideChar(cp, flags, path.c_str(), u8len, NULL, 0);
+        if (wlen > 0)
+        {
+            std::wstring wstr(static_cast<usize>(wlen), L'\0');
+            MultiByteToWideChar(cp, 0, path.c_str(), u8len, wstr.data(), wlen);
+            return {wstr};
+        }
+    }
+
+    return {path};
 #else
     return {path};
 #endif
