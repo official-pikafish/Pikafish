@@ -19,9 +19,9 @@ PATH = pathlib.Path(__file__).parent.resolve()
 CWD = os.getcwd()
 
 
-def get_prefix():
+def get_prefix(expect_failure=False):
     if args.valgrind:
-        return Valgrind.get_valgrind_command()
+        return Valgrind.get_valgrind_command(expect_failure)
     if args.valgrind_thread:
         return Valgrind.get_valgrind_thread_command()
 
@@ -59,11 +59,17 @@ def postfix_check(output):
                         print(output[debug_idx])
                 return False
 
+    if args.valgrind or args.valgrind_thread:
+        for line in output:
+            match = re.search(r"ERROR SUMMARY:\s*(\d+) errors", line)
+            if match and int(match.group(1)) > 0:
+                return False
+
     return True
 
 
-def Stockfish(*args, **kwargs):
-    return Engine(get_prefix(), get_path(), *args, **kwargs)
+def Stockfish(*args, expect_failure=False, **kwargs):
+    return Engine(get_prefix(expect_failure), get_path(), *args, expect_failure=expect_failure, **kwargs)
 
 
 class TestCLI(metaclass=OrderedClassMembers):
@@ -600,7 +606,7 @@ class TestInvalidFEN(metaclass=OrderedClassMembers):
         self.stockfish.clear_output()
 
     def _expect_critical(self, fen):
-        self.stockfish = Stockfish(f"position fen {fen}".split(" "), True)
+        self.stockfish = Stockfish(f"position fen {fen}".split(" "), True, expect_failure=True)
         assert self.stockfish.process.returncode != 0
         assert "CRITICAL ERROR" in self.stockfish.process.stdout
 
@@ -674,10 +680,10 @@ class TestBenchFile(metaclass=OrderedClassMembers):
         assert postfix_check(self.stockfish.get_output()) == True
         self.stockfish.clear_output()
 
-    def _bench(self, name, content):
+    def _bench(self, name, content, expect_failure=False):
         with open(name, "w") as f:
             f.write(content)
-        self.stockfish = Stockfish(f"bench 16 1 4 {name} depth".split(" "), True)
+        self.stockfish = Stockfish(f"bench 16 1 4 {name} depth".split(" "), True, expect_failure=expect_failure)
 
     def test_valid_file(self):
         self._bench("good.epd", "4k3/8/4K3/8/8/8/8/8 w - - 0 1\n")
@@ -689,13 +695,13 @@ class TestBenchFile(metaclass=OrderedClassMembers):
         assert self.stockfish.process.returncode == 0
 
     def test_malformed_fen(self):
-        self._bench("bad.epd", "not a valid fen\n")
+        self._bench("bad.epd", "not a valid fen\n", expect_failure=True)
         assert self.stockfish.process.returncode != 0
         assert "CRITICAL ERROR" in self.stockfish.process.stdout
 
     def test_missing_file(self):
         self.stockfish = Stockfish(
-            "bench 16 1 4 does_not_exist.epd depth".split(" "), True
+            "bench 16 1 4 does_not_exist.epd depth".split(" "), True, expect_failure=True
         )
         assert self.stockfish.process.returncode != 0
 
