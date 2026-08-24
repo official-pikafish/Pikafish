@@ -110,7 +110,7 @@ auto ThreatOffsets = []() {
 }();
 
 // Index of a feature for a given king position and another piece on some square
-IndexType FullThreats::make_index(
+sf_always_inline IndexType FullThreats::make_index(
   Color perspective, Piece attacker, Square from, Square to, Piece attacked, bool mirror) {
     from = (Square) HalfKAv2_hm::IndexMap[mirror][perspective == BLACK][from];
     to   = (Square) HalfKAv2_hm::IndexMap[mirror][perspective == BLACK][to];
@@ -201,10 +201,8 @@ void FullThreats::append_changed_indices_both(bool                    white_mirr
         auto& white_insert = add ? white_added : white_removed;
         auto& black_insert = add ? black_added : black_removed;
 
-        const IndexType white_index =
-          make_index(WHITE, attacker, from, to, attacked, white_mirror);
-        const IndexType black_index =
-          make_index(BLACK, attacker, from, to, attacked, black_mirror);
+        const IndexType white_index = make_index(WHITE, attacker, from, to, attacked, white_mirror);
+        const IndexType black_index = make_index(BLACK, attacker, from, to, attacked, black_mirror);
 
         if (prefetchBase)
         {

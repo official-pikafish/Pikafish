@@ -216,36 +216,34 @@ struct Tiling {
 using Tile     = vint16m8_t;
 using PsqtTile = vint32m1_t;
 
-sf_always_inline inline Tile load_tile(IndexType j, const i16* data) {
+sf_always_inline Tile load_tile(IndexType j, const i16* data) {
     usize vl = __riscv_vsetvl_e16m8(Dimensions - j);
     return __riscv_vle16_v_i16m8(data + j, vl);
 }
 
-sf_always_inline inline void store_tile(IndexType j, i16* dest, Tile acc) {
+sf_always_inline void store_tile(IndexType j, i16* dest, Tile acc) {
     usize vl = __riscv_vsetvl_e16m8(Dimensions - j);
     __riscv_vse16_v_i16m8(dest + j, acc, vl);
 }
 
-sf_always_inline inline PsqtTile load_psqt(IndexType j, const i32* data) {
+sf_always_inline PsqtTile load_psqt(IndexType j, const i32* data) {
     usize vl = __riscv_vsetvl_e32m1(PSQTBuckets - j);
     return __riscv_vle32_v_i32m1(data + j, vl);
 }
 
-sf_always_inline inline void store_psqt(IndexType j, i32* dest, PsqtTile psqt) {
+sf_always_inline void store_psqt(IndexType j, i32* dest, PsqtTile psqt) {
     usize vl = __riscv_vsetvl_e32m1(PSQTBuckets - j);
     __riscv_vse32_v_i32m1(dest + j, psqt, vl);
 }
 
-sf_always_inline inline void increment_index(IndexType& j) {
-    j += __riscv_vsetvl_e16m8(Dimensions - j);
-}
+sf_always_inline void increment_index(IndexType& j) { j += __riscv_vsetvl_e16m8(Dimensions - j); }
 
-sf_always_inline inline void increment_psqt_index(IndexType& j) {
+sf_always_inline void increment_psqt_index(IndexType& j) {
     j += __riscv_vsetvl_e32m1(PSQTBuckets - j);
 }
 
 template<int sign>
-sf_always_inline inline Tile apply(IndexType j, Tile acc, const i8* data) {
+sf_always_inline Tile apply(IndexType j, Tile acc, const i8* data) {
     static_assert(sign == 1 || sign == -1);
     usize     vl       = __riscv_vsetvl_e16m8(Dimensions - j);
     vint8m4_t data_vec = __riscv_vle8_v_i8m4(data + j, vl);
@@ -257,7 +255,7 @@ sf_always_inline inline Tile apply(IndexType j, Tile acc, const i8* data) {
 }
 
 template<int sign>
-sf_always_inline inline PsqtTile apply(IndexType j, PsqtTile acc, const i32* data) {
+sf_always_inline PsqtTile apply(IndexType j, PsqtTile acc, const i32* data) {
     static_assert(sign == 1 || sign == -1);
     usize      vl       = __riscv_vsetvl_e32m1(PSQTBuckets - j);
     vint32m1_t data_vec = __riscv_vle32_v_i32m1(data + j, vl);
@@ -306,7 +304,7 @@ struct Tile {
     auto& operator[](int i) { return inner[i]; }
 };
 
-sf_always_inline inline Tile load_tile(IndexType j, const i16* data) {
+sf_always_inline Tile load_tile(IndexType j, const i16* data) {
     Tile  acc;
     auto* column = reinterpret_cast<const vec_t*>(&data[j]);
     for (IndexType k = 0; k < Tiling::NumRegs; ++k)
@@ -314,13 +312,13 @@ sf_always_inline inline Tile load_tile(IndexType j, const i16* data) {
     return acc;
 }
 
-sf_always_inline inline void store_tile(IndexType j, i16* dest, Tile acc) {
+sf_always_inline void store_tile(IndexType j, i16* dest, Tile acc) {
     auto* column = reinterpret_cast<vec_t*>(&dest[j]);
     for (IndexType k = 0; k < Tiling::NumRegs; ++k)
         column[k] = acc[k];
 }
 
-sf_always_inline inline PsqtTile load_psqt(IndexType j, const i32* data) {
+sf_always_inline PsqtTile load_psqt(IndexType j, const i32* data) {
     PsqtTile psqt;
     auto*    column = reinterpret_cast<const psqt_vec_t*>(&data[j]);
     for (IndexType k = 0; k < Tiling::NumPsqtRegs; ++k)
@@ -328,18 +326,18 @@ sf_always_inline inline PsqtTile load_psqt(IndexType j, const i32* data) {
     return psqt;
 }
 
-sf_always_inline inline void store_psqt(IndexType j, i32* dest, PsqtTile psqt) {
+sf_always_inline void store_psqt(IndexType j, i32* dest, PsqtTile psqt) {
     auto* column = reinterpret_cast<psqt_vec_t*>(&dest[j]);
     for (IndexType k = 0; k < Tiling::NumPsqtRegs; ++k)
         column[k] = psqt[k];
 }
 
-sf_always_inline inline void increment_index(IndexType& j) { j += Tiling::TileHeight; }
+sf_always_inline void increment_index(IndexType& j) { j += Tiling::TileHeight; }
 
-sf_always_inline inline void increment_psqt_index(IndexType& j) { j += Tiling::PsqtTileHeight; }
+sf_always_inline void increment_psqt_index(IndexType& j) { j += Tiling::PsqtTileHeight; }
 
 template<int sign>
-sf_always_inline inline Tile apply(IndexType j, Tile acc, const i8* data) {
+sf_always_inline Tile apply(IndexType j, Tile acc, const i8* data) {
     static_assert(sign == 1 || sign == -1);
     const auto* column = reinterpret_cast<const vec_i8_t*>(data + j);
     #ifdef USE_NEON
@@ -382,7 +380,7 @@ sf_always_inline inline Tile apply(IndexType j, Tile acc, const i8* data) {
 }
 
 template<int sign>
-sf_always_inline inline PsqtTile apply(IndexType j, PsqtTile acc, const i32* data) {
+sf_always_inline PsqtTile apply(IndexType j, PsqtTile acc, const i32* data) {
     static_assert(sign == 1 || sign == -1);
     const auto* column = reinterpret_cast<const psqt_vec_t*>(data + j);
     for (IndexType k = 0; k < Tiling::NumPsqtRegs; ++k)
@@ -396,10 +394,10 @@ sf_always_inline inline PsqtTile apply(IndexType j, PsqtTile acc, const i32* dat
 #endif
 
 template<int sign>
-sf_always_inline inline Tile apply_psq_features(IndexType                       j,
-                                                Tile                            acc,
-                                                const PSQFeatureSet::IndexList& list,
-                                                const FeatureTransformer&       ft) {
+sf_always_inline Tile apply_psq_features(IndexType                       j,
+                                         Tile                            acc,
+                                         const PSQFeatureSet::IndexList& list,
+                                         const FeatureTransformer&       ft) {
     static_assert(sign == 1 || sign == -1);
     for (int i = 0; i < list.ssize(); ++i)
         acc = apply<sign>(j, acc, &ft.weights[list[i] * Dimensions]);
@@ -407,10 +405,10 @@ sf_always_inline inline Tile apply_psq_features(IndexType                       
 }
 
 template<int sign>
-sf_always_inline inline Tile apply_threat_features(IndexType                          j,
-                                                   Tile                               acc,
-                                                   const ThreatFeatureSet::IndexList& list,
-                                                   const FeatureTransformer&          ft) {
+sf_always_inline Tile apply_threat_features(IndexType                          j,
+                                            Tile                               acc,
+                                            const ThreatFeatureSet::IndexList& list,
+                                            const FeatureTransformer&          ft) {
     static_assert(sign == 1 || sign == -1);
     for (int i = 0; i < list.ssize(); ++i)
         acc = apply<sign>(j, acc, &ft.threatWeights[list[i] * Dimensions]);
@@ -418,10 +416,10 @@ sf_always_inline inline Tile apply_threat_features(IndexType                    
 }
 
 template<int sign, typename IdxType, usize MaxLen>
-sf_always_inline inline PsqtTile apply_psqt(IndexType                         j,
-                                            PsqtTile                          acc,
-                                            const ValueList<IdxType, MaxLen>& list,
-                                            const PSQTWeightType*             weights) {
+sf_always_inline PsqtTile apply_psqt(IndexType                         j,
+                                     PsqtTile                          acc,
+                                     const ValueList<IdxType, MaxLen>& list,
+                                     const PSQTWeightType*             weights) {
     static_assert(sign == 1 || sign == -1);
     for (int i = 0; i < list.ssize(); ++i)
         acc = apply<sign>(j, acc, &weights[list[i] * PSQTBuckets]);
