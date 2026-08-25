@@ -368,22 +368,21 @@ class SharedMemory {
 
         if (ret == 0)
         {
-            msghdr msg = {};
+            struct msghdr   msg                = {};
+            const usize     space              = CMSG_SPACE(sizeof(int));
+            constexpr usize alignement         = alignof(struct cmsghdr);
+            auto            v                  = std::make_unique<std::byte[]>(space + alignement);
+            std::byte*      control_msg_buffer = align_ptr_up<alignement>(v.get());
 
             char         buf[1];
             struct iovec iov[1];
             iov[0].iov_base = buf;
             iov[0].iov_len  = 1;
-            msg.msg_iov     = iov;
-            msg.msg_iovlen  = 1;
 
-            union {
-                char           buf[CMSG_SPACE(sizeof(int))];
-                struct cmsghdr align;
-            } control_msg = {};
-
-            msg.msg_control    = control_msg.buf;
-            msg.msg_controllen = sizeof(control_msg.buf);
+            msg.msg_iov        = iov;
+            msg.msg_iovlen     = 1;
+            msg.msg_control    = control_msg_buffer;
+            msg.msg_controllen = space;
 
             ssize_t bytes_recv;
 #ifdef MSG_CMSG_CLOEXEC
@@ -468,21 +467,22 @@ class SharedMemory {
                       if (!client_fd.is_valid())
                           continue;  // including EINTR
 
-                      msghdr msg    = {};
-                      char   buf[1] = {};
-                      iovec  iov[1];
+                      struct msghdr   msg        = {};
+                      const usize     space      = CMSG_SPACE(sizeof(int));
+                      constexpr usize alignement = alignof(struct cmsghdr);
+                      auto            v = std::make_unique<std::byte[]>(space + alignement);
+                      std::byte*      control_msg_buffer = align_ptr_up<alignement>(v.get());
+
+
+                      char  buf[1] = {};
+                      iovec iov[1];
                       iov[0].iov_base = buf;
                       iov[0].iov_len  = 1;
-                      msg.msg_iov     = iov;
-                      msg.msg_iovlen  = 1;
 
-                      union {
-                          char           buf[CMSG_SPACE(sizeof(int))];
-                          struct cmsghdr align;
-                      } control_msg = {};
-
-                      msg.msg_control    = control_msg.buf;
-                      msg.msg_controllen = sizeof(control_msg.buf);
+                      msg.msg_iov        = iov;
+                      msg.msg_iovlen     = 1;
+                      msg.msg_control    = control_msg_buffer;
+                      msg.msg_controllen = space;
 
                       // Send over rights to the memfd (SCM_RIGHTS). The fd may be given a different number, but
                       // will refer to the same underlying file. Once it's mmapped then it will share physical memory
