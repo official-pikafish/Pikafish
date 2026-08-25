@@ -96,8 +96,8 @@ class FeatureTransformer {
     using BiasesArray       = std::array<BiasType, HalfDimensions>;
     using WeightArray       = std::array<WeightType, HalfDimensions * PsqDimensions>;
     using ThreatWeightArray = std::array<ThreatWeightType, ThreatWeightSize>;
-    using PsqtWeightArray    = std::array<PSQTWeightType, PSQTBuckets * PsqDimensions>;
-    using ThreatPsqtArray    = std::array<PSQTWeightType, ThreatPsqtWeightSize>;
+    using PsqtWeightArray   = std::array<PSQTWeightType, PSQTBuckets * PsqDimensions>;
+    using ThreatPsqtArray   = std::array<PSQTWeightType, ThreatPsqtWeightSize>;
 
     // Size of forward propagation buffer
     static constexpr usize BufferSize = OutputDimensions * sizeof(OutputType);
