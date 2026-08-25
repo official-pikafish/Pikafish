@@ -128,11 +128,13 @@ void* aligned_large_pages_alloc_with_hint(usize allocSize, bool) {
 
 #else
 
+    #if defined(__linux__) && !defined(__ANDROID__)
+static std::map<void*, usize> large_page_sizes;
+static std::mutex             large_page_sizes_mtx;
+    #endif
+
     #if defined(__linux__) && defined(MAP_HUGE_SHIFT) && defined(__x86_64__)
         #define HAS_HUGE_PAGES
-
-static std::map<void*, usize> huge_pages;
-static std::mutex             huge_pages_mtx;
 
 static void* try_huge_pages_alloc(usize allocSize) {
     usize size = ((allocSize + HugePageSize - 1) / HugePageSize) * HugePageSize;
@@ -142,8 +144,8 @@ static void* try_huge_pages_alloc(usize allocSize) {
     if (mem == MAP_FAILED)
         return nullptr;
 
-    std::lock_guard lg(huge_pages_mtx);
-    huge_pages[mem] = size;
+    std::lock_guard lg(large_page_sizes_mtx);
+    large_page_sizes[mem] = size;
     return mem;
 }
     #endif  // defined(__linux__) && defined(MAP_HUGE_SHIFT) && defined(__x86_64__)
@@ -158,19 +160,31 @@ void* aligned_large_pages_alloc_with_hint(usize allocSize, [[maybe_unused]] bool
     }
     #endif
 
-    #if defined(__linux__)
+    #if defined(__linux__) && !defined(__ANDROID__)
     constexpr usize alignment = 2 * 1024 * 1024;  // 2MB page size assumed
-    #else
-    constexpr usize alignment = 4096;  // small page size assumed
-    #endif
 
     // Round up to multiples of alignment
     usize size = ((allocSize + alignment - 1) / alignment) * alignment;
-    void* mem  = std_aligned_alloc(alignment, size);
-    #if defined(MADV_HUGEPAGE)
+    void* mem  = mmap_huge_aligned(size, MAP_PRIVATE | MAP_ANONYMOUS);
+        #if defined(MADV_HUGEPAGE)
     madvise(mem, size, MADV_HUGEPAGE);
-    #endif
+        #endif
+
+    if (mem)
+    {
+        std::lock_guard lg(large_page_sizes_mtx);
+        large_page_sizes[mem] = size;
+    }
     return mem;
+    #else
+    constexpr usize alignment = 4096;  // small page size assumed
+    usize           size      = ((allocSize + alignment - 1) / alignment) * alignment;
+    void*           mem       = std_aligned_alloc(alignment, size);
+        #if defined(MADV_HUGEPAGE)
+    madvise(mem, size, MADV_HUGEPAGE);
+        #endif
+    return mem;
+    #endif
 }
 
 #endif
@@ -233,17 +247,19 @@ void aligned_large_pages_free(void* mem) {
     if (!mem)
         return;
 
-    #ifdef HAS_HUGE_PAGES
-    std::lock_guard lg(huge_pages_mtx);
-    if (auto it = huge_pages.find(mem); it != huge_pages.end())
+    #if defined(__linux__) && !defined(__ANDROID__)
     {
-        if (munmap(mem, it->second) != 0)
+        std::lock_guard lg(large_page_sizes_mtx);
+        if (auto it = large_page_sizes.find(mem); it != large_page_sizes.end())
         {
-            std::cerr << "munmap failed: " << strerror(errno) << std::endl;
-            exit(EXIT_FAILURE);
+            if (munmap(mem, it->second) != 0)
+            {
+                std::cerr << "munmap failed: " << strerror(errno) << std::endl;
+                exit(EXIT_FAILURE);
+            }
+            large_page_sizes.erase(it);
+            return;
         }
-        huge_pages.erase(it);
-        return;
     }
     #endif
 

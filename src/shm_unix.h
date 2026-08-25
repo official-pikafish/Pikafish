@@ -63,45 +63,11 @@ namespace Stockfish::shm {
 namespace detail {
 
 inline void* map_shared(int fd, usize size) noexcept {
-#if defined(__linux__)
-    constexpr usize Alignment = 2 * 1024 * 1024;
-    const long      pageSize  = sysconf(_SC_PAGESIZE);
-
-    if (size >= Alignment && pageSize > 0)
-    {
-        // File-backed huge pages require matching virtual-address and file-offset alignment.
-        // Reserve the address range first so MAP_FIXED cannot replace an unrelated mapping.
-        const usize mappingSize =
-          ((size + static_cast<usize>(pageSize) - 1) / static_cast<usize>(pageSize))
-          * static_cast<usize>(pageSize);
-        const usize reservationSize = mappingSize + Alignment;
-        void*       reservation =
-          mmap(nullptr, reservationSize, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-
-        if (reservation != MAP_FAILED)
-        {
-            char* const base        = static_cast<char*>(reservation);
-            char* const alignedBase = align_ptr_up<Alignment>(base);
-            void*       mapped =
-              mmap(alignedBase, size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_FIXED, fd, 0);
-
-            if (mapped != MAP_FAILED)
-            {
-                const usize prefixSize = static_cast<usize>(alignedBase - base);
-                const usize suffixSize = reservationSize - prefixSize - mappingSize;
-                if (prefixSize)
-                    munmap(reservation, prefixSize);
-                if (suffixSize)
-                    munmap(alignedBase + mappingSize, suffixSize);
-                return mapped;
-            }
-
-            munmap(reservation, reservationSize);
-        }
-    }
-#endif
-
+#if defined(__linux__) && !defined(__ANDROID__)
+    return Stockfish::mmap_huge_aligned(size, MAP_SHARED, fd);
+#else
     return mmap(nullptr, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+#endif
 }
 
 class SharedMemoryRegistry {
