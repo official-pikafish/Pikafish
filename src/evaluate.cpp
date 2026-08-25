@@ -55,7 +55,7 @@ Value Eval::evaluate(const Eval::NNUE::Network&     network,
     nnue -= nnue * i64(nnueComplexity) / 11743;
 
     int material = pos.major_material();
-    int v        = (nnue * i64(36139 + material) + optimism * i64(13268)) / 36139;
+    int v        = nnue + (nnue * i64(material) + optimism * i64(13268)) / 36139;
 
     // Damp down the evaluation linearly when shuffling
     v -= (v * pos.rule60_count()) / 253;
