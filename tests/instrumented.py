@@ -593,7 +593,7 @@ class TestEnPassantSanitization(metaclass=OrderedClassMembers):
         def check_output(output):
             if fnmatch.fnmatch(output, "* score cp 0 * pv d8d7*"):
                 return True
-        
+
         self.stockfish.check_output(check_output)
         self.stockfish.expect("bestmove d8d7*")
 

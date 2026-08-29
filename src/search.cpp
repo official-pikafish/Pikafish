@@ -65,7 +65,7 @@ using SearchedList                  = ValueList<Move, SEARCHEDLIST_CAPACITY>;
 // tests at these types of time controls.
 
 // (*Scaler) All tuned parameters at time controls shorter than
-// optimized for require verifications at longer time controls
+// optimized for require verifications at longer time controls.
 
 int correction_value(const Worker& w, const Position& pos, const Stack* const ss) {
     const Color us     = pos.side_to_move();
@@ -133,8 +133,8 @@ void update_all_stats(const Position& pos,
                       Move            ttMove,
                       bool            PvNode);
 
-// Detect shuffling moves in order to limit search explosions
-// Added in #6447 as non-regression, and so its parameters should not be tuned
+// Detect shuffling moves in order to limit search explosions. This code was
+// added in #6447 as non-regression, and so its parameters should not be tuned.
 bool is_shuffling(Move move, Stack* const ss, const Position& pos) {
     if (pos.capture(move) || pos.rule60_count() < 10)
         return false;
@@ -169,8 +169,7 @@ Search::Worker::Worker(SharedState&                    sharedState,
 }
 
 void Search::Worker::ensure_network_replicated() {
-    // Access once to force lazy initialization.
-    // We do this because we want to avoid initialization during search.
+    // Access once to force lazy initialization, avoiding initialization during search
     (void) (network[numaAccessToken]);
 }
 
@@ -197,7 +196,7 @@ void Search::Worker::start_searching() {
         return;
     }
 
-    // Main thread starts non-main threads, and begins own search.
+    // Main thread starts non-main threads, and begins own search
     threads.start_searching();
     bool uciPvSent = iterative_deepening();
 
@@ -207,10 +206,10 @@ void Search::Worker::start_searching() {
     // GUI sends a "stop" or "ponderhit" command. We therefore simply wait here
     // until the GUI sends one of those commands.
     while (!threads.stop && (main_manager()->ponder || limits.infinite))
-    {}  // Busy wait for a stop or a ponder reset
+    {}
 
-    // Stop the threads if not already stopped (also raise the stop if
-    // "ponderhit" just reset threads.ponder)
+    // Stop the threads if not already stopped (also raise the stop if "ponderhit"
+    // just reset threads.ponder).
     threads.stop = true;
 
     // Wait until all threads have finished
@@ -234,7 +233,7 @@ void Search::Worker::start_searching() {
         && bestThread->rootMoves[0].extract_ponder_from_tt(tt, rootPos))
         uciPvSent = false;
 
-    // Send PV info if it has changed since last output in iterative_deepening().
+    // Send PV info if it has changed since last output in iterative_deepening()
     if (!uciPvSent || bestThread != this)
         main_manager()->output_pv(*bestThread, threads, tt, bestThread->rootDepth);
 
@@ -246,9 +245,9 @@ void Search::Worker::start_searching() {
     main_manager()->updates.onBestmove(bestmove, ponder);
 }
 
-// Main iterative deepening loop. It calls search()
-// repeatedly with increasing depth until the allocated thinking time has been
-// consumed, the user stops the search, or the maximum search depth is reached.
+// Main iterative deepening loop. It calls search() repeatedly with increasing
+// depth until the allocated thinking time has been consumed, the user stops
+// the search, or the maximum search depth is reached.
 bool Search::Worker::iterative_deepening() {
 
     SearchManager* mainThread = (is_mainthread() ? main_manager() : nullptr);
@@ -311,7 +310,7 @@ bool Search::Worker::iterative_deepening() {
     {
         rootDepth++;
 
-        // Age out PV variability metric and signal the start of a new iteration.
+        // Age out PV variability metric and signal the start of a new iteration
         if (mainThread)
         {
             totBestMoveChanges /= 2;
@@ -333,7 +332,7 @@ bool Search::Worker::iterative_deepening() {
         if (!threads.increaseDepth)
             searchAgainCounter++;
 
-        // MultiPV loop. We perform a full root search for each PV line
+        // MultiPV loop: we perform a full root search for each PV line
         for (pvIdx = 0; pvIdx < multiPV; ++pvIdx)
         {
             lastIterationIdxPV = rootMoves[pvIdx].previousPV;
@@ -352,8 +351,7 @@ bool Search::Worker::iterative_deepening() {
             optimism[~us] = -optimism[us];
 
             // Start with a small aspiration window and, in the case of a fail
-            // high/low, re-search with a bigger window until we don't fail
-            // high/low anymore.
+            // high/low, enlarge the window progressively.
             int failedHighCnt = 0;
             while (true)
             {
@@ -379,8 +377,8 @@ bool Search::Worker::iterative_deepening() {
                     break;
 
                 // When failing high/low give some update before a re-search. To avoid
-                // excessive output that could hang GUIs, only start at nodes > 10M
-                // (rather than depth N, which can be reached quickly)
+                // excessive output that could hang GUIs like Fritz 19, only start
+                // at nodes > 10M (rather than depth N, which can be reached quickly).
                 if (mainThread && multiPV == 1 && (bestValue <= alpha || bestValue >= beta)
                     && nodes > NODES_LIMIT_OUTPUT)
                     main_manager()->output_pv(*this, threads, tt, rootDepth);
@@ -412,16 +410,17 @@ bool Search::Worker::iterative_deepening() {
 
             if (threads.stop && pvIdx)
             {
-                // In multiPV analysis we do not let aborted searches spoil mated-in/
-                // TB loss scores from a completed search in an earlier PV line.
-                // Hence we guard against an aborted pvIdx line overtaking pvIdx - 1
-                // when pvIdx - 1 is a proven loss.
-                // Moreover, we do not trust an exact loss score from an aborted search.
+                // In multiPV analysis we do not let aborted searches spoil
+                // mated-in/TB loss scores from a completed search in an earlier
+                // PV line. Hence we guard against an aborted pvIdx line overtaking
+                // pvIdx - 1 when pvIdx - 1 is a proven loss. Moreover, we do not
+                // trust an exact loss score from an aborted search.
                 if ((is_loss(rootMoves[pvIdx - 1].score) && rootMoves[pvIdx] < rootMoves[pvIdx - 1])
                     || rootMoves[pvIdx].is_exact_loss())
                 {
-                    // If previousScore is exact and worse than pvIdx - 1, we can safely use it.
-                    // If it is equal, we make sure it cannot overtake pvIdx - 1.
+                    // If previousScore is exact and worse than pvIdx - 1, we
+                    // can safely use it. If it is equal, we make sure it cannot
+                    // overtake pvIdx - 1.
                     if (rootMoves[pvIdx].previousScore != -VALUE_INFINITE
                         && rootMoves[pvIdx].previousScoreExact
                         && rootMoves[pvIdx].previousScore <= rootMoves[pvIdx - 1].score)
@@ -434,7 +433,7 @@ bool Search::Worker::iterative_deepening() {
                     }
 
                     // Otherwise, if we can, we cap the score to the best possible, and mark
-                    // the score as inexact (also a valid excuse for the incomplete PV.)
+                    // the score as inexact (also a valid excuse for the incomplete PV).
                     else
                     {
                         if (is_loss(rootMoves[pvIdx - 1].score))
@@ -481,7 +480,7 @@ bool Search::Worker::iterative_deepening() {
             if (lastBestMovePV.empty() || lastBestMovePV[0] != rootMoves[0].pv[0])
                 lastBestMoveDepth = rootDepth;
 
-            // Do not replace (shorter) mate scores from a previous iteration.
+            // Do not replace (shorter) mate scores from a previous iteration
             if (!forgottenMate)
             {
                 lastBestMovePV    = rootMoves[0].pv;
@@ -491,14 +490,14 @@ bool Search::Worker::iterative_deepening() {
 
         const bool abortedLossSearch = threads.stop && !pvIdx && rootMoves[0].is_exact_loss();
 
-        // An exact mated-in/TB-loss score from an aborted search cannot be trusted: the
-        // loss could be delayed or refuted upon exploring the remaining root-moves.
-        // Thus here we roll back to the score from the previous iteration.
-        // We do the same if a search has failed to recover a mate score that was found
-        // in a previous iteration.
+        // An exact mated-in/TB-loss score from an aborted search cannot be
+        // trusted: the loss could be delayed or refuted upon exploring the
+        // remaining root-moves. Thus here we roll back to the score from the
+        // previous iteration. We do the same if a search has failed to recover
+        // a mate score that was found in a previous iteration.
         if (abortedLossSearch || (rootMoves[0].score != -VALUE_INFINITE && forgottenMate))
         {
-            // Bring the last best move to the front for best thread selection.
+            // Bring the last best move to the front for best thread selection
             if (!lastBestMovePV.empty())
             {
                 Utility::move_to_front(rootMoves, [&lastPV = std::as_const(lastBestMovePV)](
@@ -510,7 +509,7 @@ bool Search::Worker::iterative_deepening() {
                 if (mainThread)
                     uciPvSent = false;
             }
-            // For an aborted d1 search we label the loss score as inexact.
+            // For an aborted d1 search we label the loss score as inexact
             else if (abortedLossSearch)
                 rootMoves[0].inexactLower = true;
         }
@@ -562,7 +561,7 @@ bool Search::Worker::iterative_deepening() {
             auto elapsedTime = elapsed();
 
             // Stop the search if we have exceeded totalTime or maximum time,
-            // or if we know that there are no better moves in the analysed line(s)
+            // or if we know that there are no better moves in the analysed line(s).
             if (elapsedTime > std::min(totalTime, double(mainThread->tm.maximum()))
                 || rootMoves[multiPV - 1].score >= mate_in(3) || rootMoves[0].score == mated_in(2))
             {
@@ -596,9 +595,10 @@ void Search::Worker::do_move(Position& pos, const Move move, StateInfo& st, Stac
 
 void Search::Worker::do_move(
   Position& pos, const Move move, StateInfo& st, const bool givesCheck, Stack* const ss) {
-    // prefetch_key does not model castling, en passant or promotion exactly.
-    // The correction-history prefetches also approximate castling and promotion;
-    // for these rare moves the prefetches land on unused lines.
+
+    // prefetch_key() does not model castling, en passant or promotion exactly.
+    // The correction-history prefetches also approximate castling and promotion.
+    // For these rare moves the prefetches land on unused lines.
     prefetch(tt.first_entry(pos.prefetch_key(move)));
 
     bool capture = pos.capture(move);
@@ -780,7 +780,7 @@ Value Search::Worker::search(
     excludedMove                   = ss->excludedMove;
     posKey                         = pos.key();
     auto [ttHit, ttData, ttWriter] = tt.probe(posKey);
-    // Need further processing of the saved data
+
     ss->ttHit    = ttHit;
     ttData.move  = rootNode ? rootMoves[pvIdx].pv[0] : ttHit ? ttData.move : Move::none();
     ttData.value = ttHit ? value_from_tt(ttData.value, ss->ply, pos.rule60_count()) : VALUE_NONE;
@@ -828,15 +828,16 @@ Value Search::Worker::search(
     improving         = ss->staticEval > (ss - 2)->staticEval;
     opponentWorsening = ss->staticEval > -(ss - 1)->staticEval;
 
-    // Hindsight adjustment of reductions based on static evaluation difference.
+    // Hindsight adjustment of reductions based on static evaluation difference
     if (priorReduction >= 3 && !opponentWorsening)
         depth++;
     if (priorReduction >= 2 && depth >= 2 && ss->staticEval + (ss - 1)->staticEval > 193)
         depth--;
 
-    // Step 6. At non-PV nodes we check for an early TT cutoff
+    // Step 6. At non-PV nodes we check for an early TT cutoff. Note that we
+    //         always check the validity of the TT value because of access races.
     if (!PvNode && !excludedMove && ttData.depth > depth - (ttData.value <= beta)
-        && is_valid(ttData.value)  // Can happen when !ttHit or when access race in probe()
+        && is_valid(ttData.value)
         && (ttData.bound & (ttData.value >= beta ? BOUND_LOWER : BOUND_UPPER))
         && (cutNode == (ttData.value >= beta) || depth > 5))
     {
@@ -852,7 +853,7 @@ Value Search::Worker::search(
                 update_continuation_histories(ss - 1, pos.piece_on(prevSq), prevSq, -2218);
         }
 
-        // Partial workaround for the graph history interaction problem
+        // Partial workaround for the graph history interaction problem.
         // For high rule60 counts don't produce transposition table cutoffs.
         if (pos.rule60_count() < 116)
         {
@@ -878,7 +879,8 @@ Value Search::Worker::search(
     else if (!PvNode && !excludedMove && ttData.depth > depth - (ttData.value <= beta)
              && is_valid(ttData.value) && ttData.bound != BOUND_EXACT
              && ttData.bound & (ttData.value >= beta ? BOUND_UPPER : BOUND_LOWER) && depth > 5)
-    {  // If such a mismatch is the only reason cutoff failed, the tte is now useless
+    {
+        // If such a mismatch is the only reason cutoff failed, the TT entry is now useless
         ttWriter.penalize(1);
     }
 
@@ -895,13 +897,12 @@ Value Search::Worker::search(
     }
 
     // Step 8. Razoring
-    // If eval is really low, skip search entirely and return the qsearch value.
-    // For PvNodes, we must have a guard against mates being returned.
+    // If eval is really low, skip search entirely and return the qsearch value
     if (!PvNode && eval < alpha - 709 * depth * depth)
         return qsearch<NonPV>(pos, ss, alpha, beta);
 
     // Step 9. Futility pruning: child node
-    // The depth condition is important for mate finding. It shouldn't be tuned.
+    // The depth condition is important for mate finding. It should NOT be tuned.
     if (!ss->ttPv && depth < (seekMate ? 6 : 15) && eval >= beta && (!ttData.move || ttCapture)
         && !is_loss(beta) && !is_win(eval))
     {
@@ -936,10 +937,11 @@ Value Search::Worker::search(
             if (nmpMinPly || depth < 15)
                 return nullValue;
 
-            assert(!nmpMinPly);  // Recursive verification is not allowed
+            // Recursive verification is not allowed
+            assert(!nmpMinPly);
 
-            // Do verification search at high depths, with null move pruning disabled
-            // until ply exceeds nmpMinPly.
+            // Do verification search at high depths, with null move pruning
+            // disabled until ply exceeds nmpMinPly.
             nmpMinPly = ss->ply + 3 * (depth - R) / 4;
 
             Value v = search<NonPV>(pos, ss, beta - 1, beta, depth - R, false);
@@ -963,11 +965,7 @@ Value Search::Worker::search(
     // If we have a good enough capture (or queen promotion) and a reduced search
     // returns a value much above beta, we can (almost) safely prune the previous move.
     probCutBeta = beta + 251 - 66 * improving;
-    if (depth >= 3
-        && !is_decisive(beta)
-        // If value from transposition table is lower than probCutBeta, don't attempt
-        // probCut there
-        && !(is_valid(ttData.value) && ttData.value < probCutBeta))
+    if (depth >= 3 && !is_decisive(beta) && !(is_valid(ttData.value) && ttData.value < probCutBeta))
     {
         assert(probCutBeta < VALUE_INFINITE && probCutBeta > beta);
 
@@ -1066,8 +1064,8 @@ moves_loop:  // When in check, search starts here
 
         int r = reduction(improving, depth, moveCount, delta);
 
-        // Increase reduction for ttPv nodes (*Scaler)
-        // Larger values scale well
+        // Increase reduction for ttPv nodes
+        // (*Scaler) Larger values scale well.
         if (ss->ttPv)
             r += 931;
 
@@ -1097,7 +1095,7 @@ moves_loop:  // When in check, search starts here
                         continue;
                 }
 
-                // SEE based pruning for captures and checks
+                // SEE based pruning for captures and checks.
                 int margin = 256 * depth + captHist * 34 / 1024;
                 if (!pos.see_ge(move, -margin))
                     continue;
@@ -1122,8 +1120,7 @@ moves_loop:  // When in check, search starts here
                   ss->staticEval + 129 * lmrDepth + 112 * (ss->staticEval > alpha) + 319;
 
                 // Futility pruning: parent node
-                // (*Scaler): Generally, more frequent futility pruning
-                // scales well
+                // (*Scaler): Generally, more frequent futility pruning scales well
                 if (!ss->inCheck && lmrDepth < 10 && futilityValue <= alpha)
                 {
                     if (bestValue <= futilityValue && !is_decisive(bestValue)
@@ -1219,14 +1216,16 @@ moves_loop:  // When in check, search starts here
         // Add extension to new depth
         newDepth += extension;
 
-        // Step 18. Compute and apply late moves reduction (LMR) (or possibly extension)
+        // Step 18. Compute and apply late moves reductions/extensions (LMR)
 
         // Decrease reduction for PvNodes (*Scaler)
         if (ss->ttPv)
             r -= 2363 + PvNode * 963 + (ttData.value > alpha) * 1121
                + (ttData.depth >= depth) * (1137 + cutNode * 922);
 
-        r += 855;  // Base reduction offset to compensate for other tweaks
+        // Base reduction offset to compensate for other tweaks
+        r += 855;
+
         r -= moveCount * 64;
         r -= std::abs(correctionValue) / 30558;
 
@@ -1305,20 +1304,22 @@ moves_loop:  // When in check, search starts here
             if (!ttData.move)
                 r += 979;
 
-            // Note that if expected reduction is high, we reduce search depth here
+            // If expected reduction is high, we reduce search depth here
             value = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha,
                                    newDepth - (r > 3135) - (r > 4840 && newDepth > 2), !cutNode);
         }
 
-        // Step 20. For PV nodes only, do a full PV search on the first move or after a fail high,
-        // otherwise let the parent node fail low with value <= alpha and try another move.
+        // Step 20. For PV nodes only, do a full PV search on the first move
+        // or after a fail high, otherwise let the parent node fail low with
+        // value <= alpha and try another move.
         if (PvNode && (moveCount == 1 || value > alpha))
         {
             (ss + 1)->pv = &pv;
             (ss + 1)->pv->clear();
 
-            // Extend move from transposition table if we are about to dive into qsearch.
-            // decisive score handling improves mate finding and retrograde analysis.
+            // Extend move from transposition table if we are about to dive
+            // into qsearch. Decisive score handling improves mate finding
+            // and retrograde analysis.
             if (move == ttData.move
                 && ((is_valid(ttData.value) && is_decisive(ttData.value) && ttData.depth > 0)
                     || ttData.depth > 1))
@@ -1333,9 +1334,9 @@ moves_loop:  // When in check, search starts here
         assert(value > -VALUE_INFINITE && value < VALUE_INFINITE);
 
         // Step 22. Check for a new best move
-        // If a stop occurred, the value of the search cannot be trusted, and we
-        // return immediately without updating the best move, principal variation
-        // or transposition table.
+        // If a stop occurred, the value of the search cannot be trusted,
+        // and we return immediately without updating the best move,
+        // principal variation or transposition table.
         if (threads.stop.load(std::memory_order_relaxed))
             return VALUE_ZERO;
 
@@ -1348,7 +1349,7 @@ moves_loop:  // When in check, search starts here
             u64 N      = nodes - nodeCount;
             u64 E_prev = std::max(u64(1), rm.effort - N);
 
-            // Dynamic EMA parameters for root move
+            // Exponential moving average parameters for root move
             constexpr u64 Scale          = 32;
             constexpr u64 ChiNumerator   = 3;
             constexpr u64 ChiDenominator = 2;   // Chi = 3/2 = 1.5
@@ -1410,9 +1411,10 @@ moves_loop:  // When in check, search starts here
                 rm.score = -VALUE_INFINITE;
         }
 
-        // If we have an alternative move equal in value to the current bestmove, we (sometimes)
-        // promote it to bestmove by pretending it just exceeds alpha (but not beta).
-        int inc = (value == bestValue && ss->ply + 2 >= rootDepth && (int(nodes) & 15) == 0
+        // If we have an alternative move equal in value to the current bestmove,
+        // we sometimes promote it to bestmove by pretending it just exceeds
+        // alpha (but not beta).
+        int inc = (value == bestValue && ss->ply + 2 >= rootDepth && (int(nodes) & 14) == 0
                    && !is_win(std::abs(value) + 1));
 
         if (value + inc > bestValue)
@@ -1423,7 +1425,8 @@ moves_loop:  // When in check, search starts here
             {
                 bestMove = move;
 
-                if (PvNode && !rootNode)  // Update pv even in fail-high case
+                // Update PV even in fail-high case
+                if (PvNode && !rootNode)
                     ss->pv->update(move, (ss + 1)->pv);
 
                 if (value >= beta)
@@ -1454,11 +1457,7 @@ moves_loop:  // When in check, search starts here
         }
     }
 
-    // Step 23. Check for mate and stalemate
-    // All legal moves have been searched and if there are no legal moves, it
-    // must be a mate or a stalemate. If we are in a singular extension search then
-    // return a fail low score.
-    // Otherwise, update histories and stats.
+    // Step 23. Check for mate and stalemate, otherwise update bestmove/countermove stats
 
     assert(moveCount || !ss->inCheck || excludedMove || !MoveList<LEGAL>(pos).size());
 
@@ -1466,6 +1465,9 @@ moves_loop:  // When in check, search starts here
     if (bestValue >= beta && !is_decisive(bestValue) && !is_decisive(alpha))
         bestValue = (bestValue * depth + beta) / (depth + 1);
 
+    // All legal moves have been searched: if there are no legal moves, it
+    // must be a mate or a stalemate (just a fail low score if we are in a
+    // singular extension search).
     if (!moveCount)
         bestValue = excludedMove ? alpha : mated_in(ss->ply);
 
@@ -1491,7 +1493,8 @@ moves_loop:  // When in check, search starts here
 
         bonusScale = std::max(bonusScale, 0);
 
-        // scaledBonus ranges from 0 to roughly 2.3M, overflows happen for multipliers larger than 900
+        // scaledBonus ranges from 0 to roughly 2.3M, overflows happen for
+        // multipliers larger than 900
         const int scaledBonus = std::min(148 * depth - 86, 2188) * bonusScale;
 
         update_continuation_histories(ss - 1, pos.piece_on(prevSq), prevSq,
@@ -1529,8 +1532,8 @@ moves_loop:  // When in check, search starts here
                        moveCount != 0 ? depth : std::min(MAX_PLY - 1, depth + 6), bestMove,
                        unadjustedStaticEval, tt.generation());
 
-    // Adjust correction history if the best move is not a capture
-    // and the error direction matches whether we are above/below bounds.
+    // Adjust correction history if the best move is not a capture and
+    // the error direction matches whether we are above/below bounds.
     if (!ss->inCheck && !(bestMove && pos.capture(bestMove))
         && (bestValue > ss->staticEval) == bool(bestMove))
     {
@@ -1540,7 +1543,7 @@ moves_loop:  // When in check, search starts here
         update_correction_history(pos, ss, *this, 1069 * bonus / 1024);
     }
 
-    // The search is now complete.
+    // The search is now complete
     assert(-VALUE_INFINITE < bestValue && bestValue < VALUE_INFINITE);
     return bestValue;
 }
@@ -1614,15 +1617,14 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
     // Step 3. Transposition table lookup
     posKey                         = pos.key();
     auto [ttHit, ttData, ttWriter] = tt.probe(posKey);
-    // Need further processing of the saved data
+
     ss->ttHit    = ttHit;
     ttData.move  = ttHit ? ttData.move : Move::none();
     ttData.value = ttHit ? value_from_tt(ttData.value, ss->ply, pos.rule60_count()) : VALUE_NONE;
     pvHit        = ttHit && ttData.is_pv;
 
     // At non-PV nodes we check for an early TT cutoff
-    if (!PvNode && ttData.depth >= DEPTH_QS
-        && is_valid(ttData.value)  // Can happen when !ttHit or when access race in probe()
+    if (!PvNode && ttData.depth >= DEPTH_QS && is_valid(ttData.value)
         && (ttData.bound & (ttData.value >= beta ? BOUND_LOWER : BOUND_UPPER)))
         return ttData.value;
 
@@ -1679,14 +1681,14 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
 
     Square prevSq = ((ss - 1)->currentMove).is_ok() ? ((ss - 1)->currentMove).to_sq() : SQ_NONE;
 
-    // Initialize a MovePicker object for the current position, and prepare to search
-    // the moves. We presently use two stages of move generator in quiescence search:
-    // captures, or evasions only when in check.
+    // Initialize a MovePicker object for the current position, and prepare
+    // to search the moves. We presently use two stages of move generator in
+    // quiescence search: captures, or evasions only when in check.
     MovePicker mp(pos, ttData.move, DEPTH_QS, &mainHistory, &lowPlyHistory, &captureHistory,
                   contHist, &sharedHistory, ss->ply);
 
-    // Step 5. Loop through all pseudo-legal moves until no moves remain or a beta
-    // cutoff occurs.
+    // Step 5. Loop through all pseudo-legal moves until no moves remain
+    // or a beta cutoff occurs.
     while ((move = mp.next_move()) != Move::none())
     {
         assert(move.is_ok());
@@ -1718,8 +1720,7 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
                     continue;
                 }
 
-                // If static exchange evaluation is low enough
-                // we can prune this move.
+                // If static exchange evaluation is low enough, we can prune
                 if (!pos.see_ge(move, alpha - futilityBase))
                 {
                     bestValue = std::max(bestValue, std::min(alpha, futilityBase));
@@ -1753,7 +1754,8 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
             {
                 bestMove = move;
 
-                if (PvNode)  // Update pv even in fail-high case
+                // Update pv even in fail-high case
+                if (PvNode)
                     ss->pv->update(move, (ss + 1)->pv);
 
                 if (value < beta)  // Update alpha here!
@@ -1787,7 +1789,7 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
                    bestValue >= beta ? BOUND_LOWER : BOUND_UPPER, DEPTH_QS, bestMove,
                    unadjustedStaticEval, tt.generation());
 
-    // The search is now complete.
+    // The search is now complete
     assert(-VALUE_INFINITE < bestValue && bestValue < VALUE_INFINITE);
     return bestValue;
 }
@@ -1805,13 +1807,17 @@ TimePoint Search::Worker::elapsed() const {
     return main_manager()->tm.elapsed([this]() { return threads.nodes_searched(); });
 }
 
+
+// Evaluate the current position of the game tree, from the point of view of
+// the side to move.
 Value Search::Worker::evaluate(const Position& pos) {
     return Eval::evaluate(network[numaAccessToken], pos, accumulatorStack, refreshTable,
                           optimism[pos.side_to_move()]);
 }
 
 namespace {
-// Adjusts a mate from "plies to mate from the root" to
+
+// Adjusts a mate score from "plies to mate from the root" to
 // "plies to mate from the current position". Standard scores are unchanged.
 // The function is called before storing a value in the transposition table.
 Value value_to_tt(Value v, int ply) { return is_win(v) ? v + ply : is_loss(v) ? v - ply : v; }
@@ -1834,7 +1840,7 @@ Value value_from_tt(Value v, int ply, int r60c) {
 
     // Handle loss
     if (is_loss(v))
-        // Downgrade a potentially false mate score.
+        // Downgrade a potentially false mate score
         return VALUE_MATE + v > 120 - r60c ? VALUE_MATED_IN_MAX_PLY + 1 : v + ply;
 
     return v;
@@ -1870,8 +1876,8 @@ void update_all_stats(const Position& pos,
     {
         update_quiet_histories(pos, ss, workerThread, bestMove, bonus * 899 / 1024);
 
-        int actualMalus = malus * 1100 / 1024;
         // Decrease stats for all non-best quiet moves
+        int actualMalus = malus * 1100 / 1024;
         for (Move move : quietsSearched)
         {
             actualMalus = actualMalus * 950 / 1024;
@@ -1946,9 +1952,10 @@ void update_quiet_histories(
 }
 }
 
-// Used to print debug info and, more importantly, to detect
-// when we are out of available time and thus stop the search.
+// Function to detect when we are out of available time and stop the search,
+// and to print debug info.
 void SearchManager::check_time(Search::Worker& worker) {
+
     if (--callsCnt > 0)
         return;
 
@@ -2009,7 +2016,7 @@ void SearchManager::output_pv(Search::Worker&           worker,
 
         auto wdl = worker.options["UCI_ShowWDL"] ? UCIEngine::wdl(v, pos) : "";
 
-        // Scores can't be both exact and inexact
+        // Scores cannot be both exact and inexact
         assert(!(rootMoves[i].inexactLower && rootMoves[i].inexactUpper));
         auto bound = rootMoves[i].inexactLower ? "lowerbound"
                    : rootMoves[i].inexactUpper ? "upperbound"
@@ -2023,7 +2030,7 @@ void SearchManager::output_pv(Search::Worker&           worker,
         info.score    = {v, pos};
         info.wdl      = wdl;
 
-        // Previous scores are exact, even though their flags may say otherwise.
+        // Previous scores are exact, even though their flags may say otherwise
         if (!usePreviousScore)
             info.bound = bound;
 
@@ -2041,8 +2048,8 @@ void SearchManager::output_pv(Search::Worker&           worker,
 
 // Called in case we have no ponder move before exiting the search,
 // for instance, in case we stop the search during a fail high at root.
-// We try hard to have a ponder move to return to the GUI,
-// otherwise in case of 'ponder on' we have nothing to think about.
+// We try hard to have a ponder move to return to the GUI, otherwise
+// in case of 'ponder on' we have nothing to think about.
 bool RootMove::extract_ponder_from_tt(const TranspositionTable& tt, Position& pos) {
 
     assert(pv.size() == 1 && pv[0] != Move::none());
