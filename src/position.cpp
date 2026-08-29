@@ -199,12 +199,15 @@ std::optional<PositionSetError> Position::set(const string& fenStr, StateInfo* s
     if (rank != RANK_0 || file != FILE_NB)
         return PositionSetError("Invalid FEN. Board state encoding ended but cursor not at end.");
 
+    if (count<KING>(WHITE) != 1 || count<KING>(BLACK) != 1)
+        return PositionSetError("Unsupported position. Incorrect number of kings.");
+
     const std::string PieceTypeToStr[PIECE_TYPE_NB] = {"",     "rook",   "advisor", "cannon",
                                                        "pawn", "knight", "bishop",  "king"};
-    constexpr int     MaxPieces[PIECE_TYPE_NB]      = {0, 2, 2, 2, 5, 2, 2, 1};
+    constexpr int     MaxPieces[PIECE_TYPE_NB - 1]  = {0, 2, 2, 2, 5, 2, 2};
     for (Color c : {WHITE, BLACK})
     {
-        for (PieceType pt = ROOK; pt <= KING; ++pt)
+        for (PieceType pt = ROOK; pt < KING; ++pt)
             if (popcount(pieces(c, pt)) > MaxPieces[pt])
                 return PositionSetError(std::string("Unsupported position. ")
                                         + (c == WHITE ? "WHITE " : "BLACK ") + "has more than "
