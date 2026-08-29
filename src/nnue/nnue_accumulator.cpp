@@ -393,12 +393,20 @@ sf_always_inline PsqtTile apply(IndexType j, PsqtTile acc, const i32* data) {
 
 #endif
 
-template<int sign>
+template<int sign, bool Incremental = false>
 sf_always_inline Tile apply_psq_features(IndexType                       j,
                                          Tile                            acc,
                                          const PSQFeatureSet::IndexList& list,
                                          const FeatureTransformer&       ft) {
     static_assert(sign == 1 || sign == -1);
+    if constexpr (Incremental)
+    {
+        assert(list.size() == 1 || list.size() == 2);
+        acc = apply<sign>(j, acc, &ft.weights[list[0] * Dimensions]);
+        if (list.size() > 1)
+            acc = apply<sign>(j, acc, &ft.weights[list[1] * Dimensions]);
+        return acc;
+    }
     for (int i = 0; i < list.ssize(); ++i)
         acc = apply<sign>(j, acc, &ft.weights[list[i] * Dimensions]);
     return acc;
@@ -448,8 +456,8 @@ void apply_combined(Color                              perspective,
     {
         acc = load_tile(j, fromAcc.data());
 
-        acc = apply_psq_features<-1>(j, acc, psqRemoved, featureTransformer);
-        acc = apply_psq_features<+1>(j, acc, psqAdded, featureTransformer);
+        acc = apply_psq_features<-1, true>(j, acc, psqRemoved, featureTransformer);
+        acc = apply_psq_features<+1, true>(j, acc, psqAdded, featureTransformer);
 
         acc = apply_threat_features<-1>(j, acc, thrRemoved, featureTransformer);
         acc = apply_threat_features<+1>(j, acc, thrAdded, featureTransformer);
