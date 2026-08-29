@@ -166,14 +166,17 @@ void* aligned_large_pages_alloc_with_hint(usize allocSize, [[maybe_unused]] bool
     // Round up to multiples of alignment
     usize size = ((allocSize + alignment - 1) / alignment) * alignment;
     void* mem  = mmap_huge_aligned(size, MAP_PRIVATE | MAP_ANONYMOUS);
-        #if defined(MADV_HUGEPAGE)
-    madvise(mem, size, MADV_HUGEPAGE);
-        #endif
-
-    if (mem)
+    if (mem != MAP_FAILED)
     {
+        #if defined(MADV_HUGEPAGE)
+        madvise(mem, size, MADV_HUGEPAGE);
+        #endif
         std::lock_guard lg(large_page_sizes_mtx);
         large_page_sizes[mem] = size;
+    }
+    else
+    {
+        mem = nullptr;
     }
     return mem;
     #else
@@ -181,7 +184,8 @@ void* aligned_large_pages_alloc_with_hint(usize allocSize, [[maybe_unused]] bool
     usize           size      = ((allocSize + alignment - 1) / alignment) * alignment;
     void*           mem       = std_aligned_alloc(alignment, size);
         #if defined(MADV_HUGEPAGE)
-    madvise(mem, size, MADV_HUGEPAGE);
+    if (mem)
+        madvise(mem, size, MADV_HUGEPAGE);
         #endif
     return mem;
     #endif
