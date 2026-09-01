@@ -23,7 +23,6 @@
 #include <array>
 #include <cassert>
 #include <string>
-#include <type_traits>
 
 #include "types.h"
 #include "misc.h"

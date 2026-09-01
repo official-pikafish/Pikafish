@@ -24,6 +24,8 @@
     #include "magics.h"
 #endif
 
+#include "misc.h"
+
 namespace Stockfish::Attacks {
 
 Bitboard LineBB[SQUARE_NB][SQUARE_NB];

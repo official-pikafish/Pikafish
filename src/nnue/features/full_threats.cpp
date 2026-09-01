@@ -21,6 +21,7 @@
 #include "full_threats.h"
 
 #include <array>
+#include <cstdint>
 #include <utility>
 
 #include "../../attacks.h"
