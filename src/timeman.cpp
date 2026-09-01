@@ -94,8 +94,9 @@ void TimeManagement::init(Search::LimitsType& limits,
     // Maximum move horizon
     int mtg = limits.movestogo ? std::min(limits.movestogo, 50) : 50;
 
-    // If less than one second, gradually reduce mtg
-    if (scaledTime < 1000)
+    // If less than one second, gradually reduce mtg.
+    // In cyclic time controls we keep the actual movestogo as horizon.
+    if (scaledTime < 1000 && limits.movestogo == 0)
         mtg = int(scaledTime * 0.05);
 
     // Make sure timeLeft is > 0 since we may use it as a divisor
