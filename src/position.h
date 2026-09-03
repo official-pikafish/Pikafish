@@ -21,6 +21,7 @@
 
 #include <array>
 #include <cassert>
+#include <cstdint>
 #include <cstring>
 #include <deque>
 #include <iosfwd>
@@ -38,6 +39,71 @@
 #include "types.h"
 
 namespace Stockfish {
+
+namespace RuleConfig {
+
+enum class RepetitionRule {
+    ASIAN,
+    CHINESE,
+    SKY,
+    COMPUTER,
+    YITIAN,
+    ALLOW_CHASE,
+    NO_JUDGEMENT
+};
+
+enum class DrawRule {
+    NONE,
+    BLACK_WIN,
+    RED_WIN,
+    REP_BLACK_WIN,
+    REP_RED_WIN
+};
+
+extern RepetitionRule repetitionRule;
+extern DrawRule       drawRule;
+extern int            mateThreatDepth;
+extern bool           sixtyMoveRule;
+extern int            rule60MaxPly;
+
+inline bool chinese_like() {
+    return repetitionRule == RepetitionRule::CHINESE || repetitionRule == RepetitionRule::SKY;
+}
+
+}  // namespace RuleConfig
+
+
+
+struct SkyChaseMap {
+    u16 attackers[16]{};
+
+    void add(int victim, int attacker) {
+        if (victim >= 0 && victim < 16 && attacker >= 0 && attacker < 16)
+            attackers[victim] |= u16(1u << attacker);
+    }
+
+    SkyChaseMap exact_diff(const SkyChaseMap& before) const {
+        SkyChaseMap ret;
+        for (int i = 0; i < 16; ++i)
+            ret.attackers[i] = attackers[i] & ~before.attackers[i];
+        return ret;
+    }
+
+    u16 victims() const {
+        u16 ret = 0;
+        for (int i = 0; i < 16; ++i)
+            if (attackers[i])
+                ret |= u16(1u << i);
+        return ret;
+    }
+
+    u16 chasers() const {
+        u16 ret = 0;
+        for (u16 a : attackers)
+            ret |= a;
+        return ret;
+    }
+};
 
 class TranspositionTable;
 struct SharedHistories;
@@ -66,7 +132,18 @@ struct StateInfo {
     Bitboard   checkSquares[PIECE_TYPE_NB];
     bool       needFullCheck;
     Piece      capturedPiece;
+
+    // SkyRule historical move state reconstructed from the supplied custom binary.
+    // The three u16 masks occupy the padding that precedes Move in the stock layout:
+    // victims attacked by the move, identities of checking pieces, and identities of
+    // chasing pieces. They are filled lazily while rolling a repetition cycle back.
+    u16        skyVictims;
+    u16        skyCheckers;
+    u16        skyChasers;
     Move       move;
+
+    // Helper used only to keep our stable idBoard synchronized on full undo.
+    int        skyCapturedId;
 };
 
 
@@ -168,7 +245,12 @@ class Position {
     int   game_ply() const;
     bool  rule_judge(Value& result, int ply = 0);
     int   rule60_count() const;
-    u16   chased(Color c);
+    // chased() returns a ChaseMap (victim, attacker) pair set so that the
+    // perpetual-chase accumulation can correctly verify the SAME attacker keeps
+    // chasing the SAME victim across the repetition cycle. This is the core of
+    // the "常捉无根子" detector shared by AsianRule, SkyRule and YitianRule.
+    ChaseMap chased(Color c);
+    bool  has_mate_threat(Depth d = -1);
     Value major_material(Color c) const;
     Value major_material() const;
 
@@ -194,7 +276,13 @@ class Position {
     std::pair<Piece, int> do_move(Move m);
     void                  undo_move(Move m, Piece captured, int id = 0);
     Value                 detect_chases(int d, int ply = 0);
-    bool                  chase_legal(Move m) const;
+    void                  set_sky_info(int d);
+    Value                 detect_sky_cycle(int d, int ply = 0);
+    // The extra bitboard b masks out checkers that should be ignored (e.g. the
+    // pre-existing checkers on our own king), so that we only flag moves that
+    // create NEW attacks on the king. Shared by all chasing detectors.
+    bool                  chase_legal(Move m, Bitboard b = 0) const;
+    SkyChaseMap           sky_chased(Color c);
     template<bool AfterMove = false>
     Key adjust_key60(Key k) const;
 
