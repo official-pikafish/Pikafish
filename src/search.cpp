@@ -855,7 +855,7 @@ Value Search::Worker::search(
 
         // Partial workaround for the graph history interaction problem.
         // For high rule60 counts don't produce transposition table cutoffs.
-        if (pos.rule60_count() < 116)
+        if (pos.rule60_count() < RuleConfig::rule60MaxPly - 4)
         {
             if (depth >= 7 && ttData.move && pos.pseudo_legal(ttData.move) && pos.legal(ttData.move)
                 && !is_decisive(ttData.value))
@@ -1836,12 +1836,12 @@ Value value_from_tt(Value v, int ply, int r60c) {
     // Handle win
     if (is_win(v))
         // Downgrade a potentially false mate score
-        return VALUE_MATE - v > 120 - r60c ? VALUE_MATE_IN_MAX_PLY - 1 : v - ply;
+        return VALUE_MATE - v > RuleConfig::rule60MaxPly - r60c ? VALUE_MATE_IN_MAX_PLY - 1 : v - ply;
 
     // Handle loss
     if (is_loss(v))
         // Downgrade a potentially false mate score
-        return VALUE_MATE + v > 120 - r60c ? VALUE_MATED_IN_MAX_PLY + 1 : v + ply;
+        return VALUE_MATE + v > RuleConfig::rule60MaxPly - r60c ? VALUE_MATED_IN_MAX_PLY + 1 : v + ply;
 
     return v;
 }
@@ -1910,7 +1910,7 @@ void update_all_stats(const Position& pos,
 // the current move and the moves played in previous plies.
 void update_continuation_histories(Stack* ss, Piece pc, Square to, int bonus) {
     static constexpr std::array<ConthistBonus, 6> conthist_bonuses = {
-      {{1, 538}, {2, 319}, {3, 146}, {4, 261}, {5, 64}, {6, 222}}};
+      {{1, 1076}, {2, 639}, {3, 293}, {4, 523}, {5, 129}, {6, 445}}};
 
     // Multipliers for positive history consistency
     constexpr int CMHCMultipliers[] = {96, 100, 100, 100, 115, 118, 129};
@@ -1929,7 +1929,7 @@ void update_continuation_histories(Stack* ss, Piece pc, Square to, int bonus) {
                 positiveCount++;
 
             int multiplier = CMHCMultipliers[positiveCount];
-            historyEntry << bonus * weight * multiplier / 65536 + 83 * (i < 2);
+            historyEntry << (bonus * weight * multiplier / 131072) + 83 * (i < 2);
         }
     }
 }
