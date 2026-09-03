@@ -28,6 +28,7 @@
 #include <sstream>
 #include <string_view>
 #include <filesystem>
+#include <fstream>
 #include <utility>
 #include <variant>
 #include <vector>
@@ -57,6 +58,315 @@ struct overload: Ts... {
 template<typename... Ts>
 overload(Ts...) -> overload<Ts...>;
 
+namespace {
+
+std::filesystem::path TomlConfigPath;
+usize                 TomlConfigApplied = 0;
+bool                  TomlConfigFound   = false;
+std::vector<std::string> TomlConfigWarnings;
+
+std::string trim_toml(std::string s) {
+    const auto first = s.find_first_not_of(" \t\r\n");
+    if (first == std::string::npos)
+        return {};
+    const auto last = s.find_last_not_of(" \t\r\n");
+    return s.substr(first, last - first + 1);
+}
+
+std::string strip_toml_comment(const std::string& line) {
+    bool inDouble = false;
+    bool inSingle = false;
+    bool escaped  = false;
+
+    for (usize i = 0; i < line.size(); ++i)
+    {
+        const char c = line[i];
+        if (inDouble)
+        {
+            if (escaped)
+                escaped = false;
+            else if (c == '\\')
+                escaped = true;
+            else if (c == '"')
+                inDouble = false;
+        }
+        else if (inSingle)
+        {
+            if (c == '\'')
+                inSingle = false;
+        }
+        else if (c == '"')
+            inDouble = true;
+        else if (c == '\'')
+            inSingle = true;
+        else if (c == '#')
+            return line.substr(0, i);
+    }
+    return line;
+}
+
+std::optional<usize> find_toml_equals(const std::string& line) {
+    bool inDouble = false;
+    bool inSingle = false;
+    bool escaped  = false;
+
+    for (usize i = 0; i < line.size(); ++i)
+    {
+        const char c = line[i];
+        if (inDouble)
+        {
+            if (escaped)
+                escaped = false;
+            else if (c == '\\')
+                escaped = true;
+            else if (c == '"')
+                inDouble = false;
+        }
+        else if (inSingle)
+        {
+            if (c == '\'')
+                inSingle = false;
+        }
+        else if (c == '"')
+            inDouble = true;
+        else if (c == '\'')
+            inSingle = true;
+        else if (c == '=')
+            return i;
+    }
+    return std::nullopt;
+}
+
+std::optional<std::string> parse_toml_quoted(std::string text, std::string& error) {
+    text = trim_toml(std::move(text));
+    if (text.size() < 2 || (text.front() != '"' && text.front() != '\''))
+    {
+        error = "expected a quoted string";
+        return std::nullopt;
+    }
+
+    const char quote = text.front();
+    if (text.back() != quote)
+    {
+        error = "unterminated quoted string";
+        return std::nullopt;
+    }
+
+    std::string out;
+    out.reserve(text.size() - 2);
+
+    for (usize i = 1; i + 1 < text.size(); ++i)
+    {
+        char c = text[i];
+        if (quote == '\'' || c != '\\')
+        {
+            out += c;
+            continue;
+        }
+
+        if (++i + 1 > text.size())
+        {
+            error = "invalid escape at end of string";
+            return std::nullopt;
+        }
+
+        switch (text[i])
+        {
+        case '\\': out += '\\'; break;
+        case '"':  out += '"';  break;
+        case 'n':  out += '\n'; break;
+        case 'r':  out += '\r'; break;
+        case 't':  out += '\t'; break;
+        case 'b':  out += '\b'; break;
+        case 'f':  out += '\f'; break;
+        default:
+            error = std::string("unsupported escape \\") + text[i]
+                  + " (use a literal single-quoted TOML string for Windows paths if needed)";
+            return std::nullopt;
+        }
+    }
+
+    return out;
+}
+
+std::optional<std::string> parse_toml_key(std::string text, std::string& error) {
+    text = trim_toml(std::move(text));
+    if (text.empty())
+    {
+        error = "empty key";
+        return std::nullopt;
+    }
+
+    if (text.front() == '"' || text.front() == '\'')
+        return parse_toml_quoted(std::move(text), error);
+
+    for (unsigned char c : text)
+        if (!(std::isalnum(c) || c == '_' || c == '-'))
+        {
+            error = "invalid bare key; quote UCI option names containing spaces";
+            return std::nullopt;
+        }
+    return text;
+}
+
+std::optional<std::string> parse_toml_value(std::string text, std::string& error) {
+    text = trim_toml(std::move(text));
+    if (text.empty())
+    {
+        error = "empty value";
+        return std::nullopt;
+    }
+
+    if (text.front() == '"' || text.front() == '\'')
+        return parse_toml_quoted(std::move(text), error);
+
+    if (text == "true" || text == "false")
+        return text;
+
+    std::string integer;
+    integer.reserve(text.size());
+    for (usize i = 0; i < text.size(); ++i)
+    {
+        const char c = text[i];
+        if (c == '_')
+            continue;
+        if ((c == '+' || c == '-') && i == 0)
+        {
+            integer += c;
+            continue;
+        }
+        if (!std::isdigit(static_cast<unsigned char>(c)))
+        {
+            error = "only TOML strings, booleans, and integers are supported for UCI options";
+            return std::nullopt;
+        }
+        integer += c;
+    }
+
+    if (integer.empty() || integer == "+" || integer == "-")
+    {
+        error = "invalid integer";
+        return std::nullopt;
+    }
+    return integer;
+}
+
+void load_toml_config(Engine& engine, const CommandLine& cli) {
+    TomlConfigPath.clear();
+    TomlConfigApplied = 0;
+    TomlConfigFound   = false;
+    TomlConfigWarnings.clear();
+
+    std::error_code ec;
+    if (cli.argc > 0)
+    {
+        const auto exePath = path_from_utf8(cli.argv[0]);
+        TomlConfigPath = CommandLine::get_binary_directory(exePath) / "pikafish.toml";
+    }
+    else
+        TomlConfigPath = std::filesystem::path("pikafish.toml");
+
+    if (!std::filesystem::is_regular_file(TomlConfigPath, ec))
+    {
+        const auto fallback = std::filesystem::path("pikafish.toml");
+        ec.clear();
+        if (TomlConfigPath != fallback && std::filesystem::is_regular_file(fallback, ec))
+            TomlConfigPath = fallback;
+        else
+            return;
+    }
+
+    std::ifstream input(TomlConfigPath);
+    if (!input)
+    {
+        TomlConfigWarnings.emplace_back("cannot open config file: " + TomlConfigPath.u8string());
+        return;
+    }
+
+    TomlConfigFound = true;
+    bool inOtherTable = false;
+    std::string line;
+    usize lineNo = 0;
+
+    while (std::getline(input, line))
+    {
+        ++lineNo;
+        if (lineNo == 1 && line.size() >= 3
+            && static_cast<unsigned char>(line[0]) == 0xEF
+            && static_cast<unsigned char>(line[1]) == 0xBB
+            && static_cast<unsigned char>(line[2]) == 0xBF)
+            line.erase(0, 3);
+
+        line = trim_toml(strip_toml_comment(line));
+        if (line.empty())
+            continue;
+
+        if (line.front() == '[')
+        {
+            if (line.back() != ']')
+            {
+                TomlConfigWarnings.emplace_back("line " + std::to_string(lineNo) + ": malformed table header");
+                continue;
+            }
+            const auto table = trim_toml(line.substr(1, line.size() - 2));
+            inOtherTable = table != "options";
+            continue;
+        }
+
+        if (inOtherTable)
+            continue;
+
+        const auto eq = find_toml_equals(line);
+        if (!eq)
+        {
+            TomlConfigWarnings.emplace_back("line " + std::to_string(lineNo) + ": missing '='");
+            continue;
+        }
+
+        std::string error;
+        auto key = parse_toml_key(line.substr(0, *eq), error);
+        if (!key)
+        {
+            TomlConfigWarnings.emplace_back("line " + std::to_string(lineNo) + ": " + error);
+            continue;
+        }
+
+        auto value = parse_toml_value(line.substr(*eq + 1), error);
+        if (!value)
+        {
+            TomlConfigWarnings.emplace_back("line " + std::to_string(lineNo) + ": " + error);
+            continue;
+        }
+
+        if (!engine.get_options().count(*key))
+        {
+            TomlConfigWarnings.emplace_back("line " + std::to_string(lineNo)
+                                            + ": unknown UCI option '" + *key + "'");
+            continue;
+        }
+
+        std::istringstream optionStream("name " + *key + " value " + *value);
+        engine.get_options().setoption(optionStream);
+        ++TomlConfigApplied;
+    }
+}
+
+void show_toml_config_status() {
+    if (!TomlConfigFound)
+    {
+        sync_cout << "info string TOML config: not found (expected pikafish.toml beside the executable)"
+                  << sync_endl;
+        return;
+    }
+
+    sync_cout << "info string TOML config: " << TomlConfigPath.u8string() << " ("
+              << TomlConfigApplied << " option(s) applied)" << sync_endl;
+    for (const auto& warning : TomlConfigWarnings)
+        sync_cout << "info string TOML warning: " << warning << sync_endl;
+}
+
+}  // namespace
+
 void UCIEngine::print_info_string(std::string_view str) {
     sync_cout_start();
     for (auto& line : split(str, "\n"))
@@ -79,6 +389,7 @@ UCIEngine::UCIEngine(CommandLine cli_) :
     });
 
     init_search_update_listeners();
+    load_toml_config(engine, cli);
 }
 
 void UCIEngine::init_search_update_listeners() {
@@ -139,6 +450,12 @@ void UCIEngine::loop() {
         }
         else if (token == "position")
             position(is);
+        // Non-UCI extension ported from the "perfect Asian rule" reference:
+        // allow `fen <FEN>` and `startpos` as top-level commands (no `position`
+        // prefix needed). When `fen` is given without a FEN string, fall back
+        // to the default StartFEN.
+        else if (token == "fen" || token == "startpos")
+            is.seekg(0), position(is);
         else if (token == "ucinewgame")
             engine.search_clear();
         else if (token == "isready")
@@ -160,8 +477,15 @@ void UCIEngine::loop() {
             sync_cout << engine.visualize() << sync_endl;
         else if (token == "eval")
             engine.trace_eval();
+        else if (token == "rulecheck")
+        {
+            auto [terminal, value] = engine.debug_rule_check();
+            sync_cout << "rulecheck terminal " << int(terminal) << " value " << int(value) << sync_endl;
+        }
         else if (token == "compiler")
             sync_cout << compiler_info() << sync_endl;
+        else if (token == "config")
+            show_toml_config_status();
         else if (token == "export_net")
         {
             std::optional<std::filesystem::path> file;
@@ -506,8 +830,13 @@ void UCIEngine::position(std::istringstream& is) {
         is >> token;  // Consume the "moves" token, if any
     }
     else if (token == "fen")
+    {
         while (is >> token && token != "moves")
             fen += token + " ";
+        // Default FEN: when `fen` is given without a FEN string, use StartFEN.
+        if (fen.empty())
+            fen = StartFEN;
+    }
     else
         return;
 
