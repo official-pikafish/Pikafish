@@ -159,12 +159,20 @@ Option& Option::operator=(const std::string& v) {
 
     if (type == "combo")
     {
-        OptionsMap         comboMap;  // To have case insensitive compare
+        // defaultValue stores the complete UCI combo suffix, e.g.
+        // "AsianRule var AsianRule var ChineseRule ...".  Validate against
+        // the actual values while ignoring the repeated UCI "var" markers.
+        bool               found = false;
         std::string        token;
         std::istringstream ss(defaultValue);
         while (ss >> token)
-            comboMap.add(token, Option());
-        if (!comboMap.count(v) || v == "var")
+            if (token != "var" && !CaseInsensitiveLess()(token, v)
+                               && !CaseInsensitiveLess()(v, token))
+            {
+                found = true;
+                break;
+            }
+        if (!found || v == "var")
             return *this;
     }
 
@@ -192,17 +200,29 @@ std::ostream& operator<<(std::ostream& os, const OptionsMap& om) {
                 const Option& o = it.second;
                 os << "\noption name " << it.first << " type " << o.type;
 
-                if (o.type == "check" || o.type == "combo")
-                    os << " default " << o.defaultValue;
+                // TOML is loaded before the GUI sends `uci`, so advertise the
+                // configured current value as this process' startup default. This makes
+                // GUIs reflect pikafish.toml instead of the compile-time defaults.
+                if (o.type == "check")
+                    os << " default " << o.currentValue;
+
+                else if (o.type == "combo")
+                {
+                    os << " default " << o.currentValue;
+                    // defaultValue also stores the supported `var ...` suffix.
+                    const auto vars = o.defaultValue.find(" var ");
+                    if (vars != std::string::npos)
+                        os << o.defaultValue.substr(vars);
+                }
 
                 else if (o.type == "string")
                 {
-                    std::string defaultValue = o.defaultValue.empty() ? "<empty>" : o.defaultValue;
-                    os << " default " << defaultValue;
+                    std::string currentValue = o.currentValue.empty() ? "<empty>" : o.currentValue;
+                    os << " default " << currentValue;
                 }
 
                 else if (o.type == "spin")
-                    os << " default " << stoi(o.defaultValue) << " min " << o.min << " max "
+                    os << " default " << stoi(o.currentValue) << " min " << o.min << " max "
                        << o.max;
 
                 break;
