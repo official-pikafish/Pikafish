@@ -56,7 +56,7 @@ constexpr NumaAutoPolicy DefaultNumaPolicy = BundledL3Policy{32};
 
 Engine::Engine(std::optional<std::filesystem::path> path) :
     binaryDirectory(path ? CommandLine::get_binary_directory(*path) : std::filesystem::path{}),
-    numaContext(NumaConfig::from_system(DefaultNumaPolicy)),
+    numaContext(NumaConfig::from_system(DefaultNumaPolicy, false)),
     states(new std::deque<StateInfo>(1)),
     threads(),
     networkFile{std::nullopt, ""},
@@ -71,7 +71,7 @@ Engine::Engine(std::optional<std::filesystem::path> path) :
       }));
 
     options.add(  //
-      "NumaPolicy", Option("auto", [this](const Option& o) {
+      "NumaPolicy", Option("hardware", [this](const Option& o) {
           if (!set_numa_config_from_option(o))
               return "NumaPolicy: invalid value '" + std::string(o) + "', keeping previous config.";
           return numa_config_information_as_string() + "\n"
@@ -105,6 +105,73 @@ Engine::Engine(std::optional<std::filesystem::path> path) :
     options.add("Move Overhead", Option(10, 0, 5000));
 
     options.add("nodestime", Option(0, 0, 10000));
+
+    options.add(  //
+      "Mate Threat Depth", Option(10, 0, 10, [](const Option& o) {
+          RuleConfig::mateThreatDepth = int(o);
+          return std::nullopt;
+      }));
+
+    options.add(  //
+      "Repetition Rule",
+      Option("SkyRule var AsianRule var ChineseRule var SkyRule var ComputerRule var YitianRule var AllowChase var NoJudgement",
+             "SkyRule", [](const Option& o) {
+                 using RR = RuleConfig::RepetitionRule;
+
+                 RuleConfig::repetitionRule =
+                   o == "ChineseRule"  ? RR::CHINESE
+                   : o == "SkyRule"    ? RR::SKY
+                   : o == "ComputerRule" ? RR::COMPUTER
+                   : o == "YitianRule" ? RR::YITIAN
+                   : o == "AllowChase" ? RR::ALLOW_CHASE
+                   : o == "NoJudgement" ? RR::NO_JUDGEMENT
+                                        : RR::ASIAN;
+
+                 // Rule60MaxPly couplings: AsianRule and SkyRule default to rule120,
+                 // YitianRule defaults to rule140.
+                 if (RuleConfig::repetitionRule == RR::ASIAN
+                     || RuleConfig::repetitionRule == RR::SKY)
+                     RuleConfig::rule60MaxPly = 120;
+                 else if (RuleConfig::repetitionRule == RR::YITIAN)
+                     RuleConfig::rule60MaxPly = 140;
+                 // Sixty Move Rule is off by default for YitianRule.
+                 if (RuleConfig::repetitionRule == RR::YITIAN)
+                     RuleConfig::sixtyMoveRule = false;
+
+                 return std::nullopt;
+             }));
+
+    options.add(  //
+      "Draw Rule",
+      Option("None var None var DrawAsBlackWin var DrawAsRedWin var DrawRepAsBlackWin var DrawRepAsRedWin",
+             "None", [](const Option& o) {
+                 using DR = RuleConfig::DrawRule;
+                 RuleConfig::drawRule =
+                   o == "DrawAsBlackWin"      ? DR::BLACK_WIN
+                   : o == "DrawAsRedWin"      ? DR::RED_WIN
+                   : o == "DrawRepAsBlackWin" ? DR::REP_BLACK_WIN
+                   : o == "DrawRepAsRedWin"   ? DR::REP_RED_WIN
+                                               : DR::NONE;
+                 return std::nullopt;
+             }));
+
+    options.add(  //
+      "Sixty Move Rule", Option(true, [](const Option& o) {
+          RuleConfig::sixtyMoveRule =
+            int(o) != 0 && RuleConfig::repetitionRule != RuleConfig::RepetitionRule::YITIAN;
+          return std::nullopt;
+      }));
+
+    options.add(  //
+      "Rule60MaxPly", Option(120, 1, 150, [](const Option& o) {
+          using RR = RuleConfig::RepetitionRule;
+          // AsianRule and SkyRule are pinned to rule120.
+          RuleConfig::rule60MaxPly =
+            (RuleConfig::repetitionRule == RR::ASIAN || RuleConfig::repetitionRule == RR::SKY)
+              ? 120
+              : int(o);
+          return std::nullopt;
+      }));
 
     options.add("UCI_ShowWDL", Option(false));
 
@@ -307,6 +374,13 @@ const OptionsMap& Engine::get_options() const { return options; }
 OptionsMap&       Engine::get_options() { return options; }
 
 std::string Engine::fen() const { return pos.fen(); }
+
+std::pair<bool, Value> Engine::debug_rule_check() {
+    Value result = VALUE_NONE;
+    bool terminal = pos.rule_judge(result, 0);
+    return {terminal, result};
+}
+
 
 std::optional<PositionSetError> Engine::flip() { return pos.flip(); }
 
