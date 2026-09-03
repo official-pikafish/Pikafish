@@ -430,6 +430,44 @@ class Move {
     u16 data;
 };
 
+// For chasing detection: tracks (victim, attacker) id pairs so that the same
+// victim being chased by a different attacker is not confused with a continued
+// chase by the original attacker. This is critical for correctly handling
+// "rooted perpetual chase" (带根长捉) situations.
+// Shared by AsianRule, SkyRule and YitianRule for accurate "常捉无根子" detection,
+// without affecting each rule's own scoring system.
+union ChaseMap {
+    u64 attacks[4] {};
+    u16 victims[16];
+
+    // For adding victim <- attacker pair (encoded via make_chase)
+    void operator|=(int id) { attacks[id >> 6] |= 1ULL << (id & 63); }
+
+    // Exact diff: clears in *this the bits that are set in rhs, returns *this.
+    // Used to compute the newly created (victim, attacker) chase pairs for a move.
+    ChaseMap& operator&(const ChaseMap& rhs) {
+        attacks[0] &= ~rhs.attacks[0];
+        attacks[1] &= ~rhs.attacks[1];
+        attacks[2] &= ~rhs.attacks[2];
+        attacks[3] &= ~rhs.attacks[3];
+        return *this;
+    }
+
+    // For victims extraction: collapses the (victim, attacker) pairs into the
+    // set of victim ids that are being chased.
+    operator u16() {
+        u16 ret = 0;
+        for (int i = 0; i < 16; ++i)
+            if (this->victims[i])
+                ret |= 1 << i;
+        return ret;
+    }
+};
+
+// Encodes a (victim, attacker) id pair into a single integer used by ChaseMap.
+// Both ids are in [0, 15], so the result fits in 8 bits.
+constexpr int make_chase(int piece1, int piece2) { return (piece1 << 4) + piece2; }
+
 }  // namespace Stockfish
 
 #endif  // #ifndef TYPES_H_INCLUDED
