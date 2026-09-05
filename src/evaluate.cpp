@@ -31,11 +31,31 @@
 #include "nnue/network.h"
 #include "nnue/nnue_misc.h"
 #include "position.h"
+#include "tune.h"
 #include "types.h"
 #include "uci.h"
 #include "nnue/nnue_accumulator.h"
 
 namespace Stockfish {
+
+namespace {
+
+int EvalOptimismComplexityDivisor = 465;
+TUNE(SetRange(348, 582), EvalOptimismComplexityDivisor);
+
+int EvalNnueComplexityDivisor = 11743;
+TUNE(SetRange(8807, 14679), EvalNnueComplexityDivisor);
+
+int EvalOptimismWeight = 13268;
+TUNE(SetRange(9951, 16585), EvalOptimismWeight);
+
+int EvalMaterialDivisor = 36139;
+TUNE(SetRange(27104, 45174), EvalMaterialDivisor);
+
+int EvalRule60Divisor = 253;
+TUNE(SetRange(189, 317), EvalRule60Divisor);
+
+}  // namespace
 
 // Evaluate is the evaluator for the outer world. It returns a static evaluation
 // of the position from the point of view of the side to move.
@@ -53,14 +73,15 @@ Value Eval::evaluate(const Eval::NNUE::Network&     network,
 
     // Blend optimism and eval with nnue complexity
     int nnueComplexity = std::abs(psqt - positional);
-    optimism += optimism * i64(nnueComplexity) / 465;
-    nnue -= nnue * i64(nnueComplexity) / 11743;
+    optimism += optimism * i64(nnueComplexity) / EvalOptimismComplexityDivisor;
+    nnue -= nnue * i64(nnueComplexity) / EvalNnueComplexityDivisor;
 
     int material = pos.major_material();
-    int v        = nnue + (nnue * i64(material) + optimism * i64(13268)) / 36139;
+    int v =
+      nnue + (nnue * i64(material) + optimism * i64(EvalOptimismWeight)) / EvalMaterialDivisor;
 
     // Damp down the evaluation linearly when shuffling
-    v -= (v * pos.rule60_count()) / 253;
+    v -= (v * pos.rule60_count()) / EvalRule60Divisor;
 
     // Guarantee evaluation does not hit the mate range
     v = std::clamp(v, VALUE_MATED_IN_MAX_PLY + 1, VALUE_MATE_IN_MAX_PLY - 1);
