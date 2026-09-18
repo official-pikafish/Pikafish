@@ -130,7 +130,7 @@ jobs:
 
   Pikafish:
     name: Pikafish
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     needs: [Pikafish-x86-64, Pikafish-MacOS, Pikafish-Android]
 
     steps:
