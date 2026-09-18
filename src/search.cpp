@@ -46,8 +46,10 @@
 
 namespace Stockfish {
 
-static constexpr std::array<int, 16> lmrDivisor = {3259, 2955, 2875, 2820, 3186, 3283, 3291, 2821,
-                                                   2849, 2911, 3007, 3281, 3238, 2954, 2967, 3582};
+inline int lmr_divisor(int depth) {
+    int d = std::min(depth, 16);
+    return 3000 + 7 * (d - 8) * (d - 8);
+}
 
 using namespace Search;
 
@@ -78,9 +80,9 @@ int correction_value(const Worker& w, const Position& pos, const Stack* const ss
     const int   cntcv =
       m.is_ok()
         ? 8006
-            * ((*(ss - 2)->continuationCorrectionHistory)[pos.piece_on(m.to_sq())][m.to_sq()]
-               + (*(ss - 4)->continuationCorrectionHistory)[pos.piece_on(m.to_sq())][m.to_sq()])
-          + 6403 * (*(ss - 6)->continuationCorrectionHistory)[pos.piece_on(m.to_sq())][m.to_sq()]
+              * ((*(ss - 2)->continuationCorrectionHistory)[pos.piece_on(m.to_sq())][m.to_sq()]
+                 + (*(ss - 4)->continuationCorrectionHistory)[pos.piece_on(m.to_sq())][m.to_sq()])
+            + 6403 * (*(ss - 6)->continuationCorrectionHistory)[pos.piece_on(m.to_sq())][m.to_sq()]
         : 90287;
 
     return 4136 * pcv + 3448 * micv + 7512 * (wnpcv + bnpcv) + cntcv;
@@ -1120,7 +1122,6 @@ moves_loop:  // When in check, search starts here
             }
             else if (!ss->followPV || !PvNode)
             {
-                int dIndex  = std::min(int(depth), int(lmrDivisor.size())) - 1;
                 int history = (*contHist[0])[movedPiece][move.to_sq()]
                             + (*contHist[1])[movedPiece][move.to_sq()]
                             + sharedHistory.pawn_entry(pos)[movedPiece][move.to_sq()];
@@ -1132,7 +1133,7 @@ moves_loop:  // When in check, search starts here
                 history += 74 * mainHistory[us][move.raw()] / 32;
 
                 // (*Scaler): Generally, lower divisors scale well
-                lmrDepth += history / lmrDivisor[dIndex];
+                lmrDepth += history / lmr_divisor(depth);
 
                 Value futilityValue =
                   ss->staticEval + 132 * lmrDepth + 107 * (ss->staticEval > alpha) + 313;
