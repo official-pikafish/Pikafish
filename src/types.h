@@ -430,6 +430,15 @@ class Move {
     u16 data;
 };
 
+// Rule type for different xiangqi rule sets
+enum Rule {
+    ASIAN_RULE,
+    CHINESE_RULE,
+    SKY_RULE,      // 天天象棋规则 (SkyRule)
+    COMPUTER_RULE,
+    RULE_NB
+};
+
 }  // namespace Stockfish
 
 #endif  // #ifndef TYPES_H_INCLUDED

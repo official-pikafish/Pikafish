@@ -109,6 +109,19 @@ Engine::Engine(std::optional<std::filesystem::path> path) :
     options.add("UCI_ShowWDL", Option(false));
 
     options.add(  //
+      "Rule", Option("SkyRule", "AsianRule ChineseRule SkyRule ComputerRule", [](const Option& o) {
+          if (o == "AsianRule")
+              Position::set_rule(ASIAN_RULE);
+          else if (o == "ChineseRule")
+              Position::set_rule(CHINESE_RULE);
+          else if (o == "SkyRule")
+              Position::set_rule(SKY_RULE);
+          else if (o == "ComputerRule")
+              Position::set_rule(COMPUTER_RULE);
+          return std::nullopt;
+      }));
+
+    options.add(  //
       "EvalFile", Option(EvalFileDefaultName, [this](const Option& o) {
           load_network(path_from_utf8(std::string(o)));
           return std::nullopt;

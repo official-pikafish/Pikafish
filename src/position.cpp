@@ -27,6 +27,7 @@
 #include <cstring>
 #include <iomanip>
 #include <iostream>
+#include <set>
 #include <sstream>
 #include <string_view>
 #include <utility>
@@ -46,6 +47,9 @@ using std::string;
 namespace Stockfish {
 
 using namespace Attacks;
+
+// Default rule: SkyRule (天天象棋规则)
+Rule Position::currentRule = SKY_RULE;
 
 namespace Zobrist {
 
@@ -1236,6 +1240,10 @@ u16 Position::chased(Color c) {
 // Detects chases from state st - d to state st
 Value Position::detect_chases(int d, int ply) {
 
+    // SkyRule: 长捉最多6回合 (12步), 超过则直接按长捉处理
+    if (currentRule == SKY_RULE && d > 12)
+        d = 12;
+
     // Grant each piece on board a unique id for each side
     int whiteId = 0;
     int blackId = 0;
@@ -1308,12 +1316,165 @@ bool Position::rule_judge(Value& result, int ply) {
                     result = rollback.detect_chases(i, ply);
                 }
                 else
+                {
                     // Checking detection
-                    result = !checkUs ? mate_in(ply) : !checkThem ? mated_in(ply) : VALUE_DRAW;
+                    if (currentRule == SKY_RULE)
+                    {
+                        // SkyRule: 精确分析循环序列，实现多子长将计数和将捉交替
+                        // 用rollback副本回滚循环，分析每一步性质
+                        Position rollback;
+                        memcpy((void*) &rollback, (const void*) this, offsetof(Position, filter));
+
+                        std::set<PieceType> checkPiecesThem, checkPiecesUs;
+                        std::set<PieceType> chasePiecesThem, chasePiecesUs;
+                        bool cycleHasCheck = false;
+                        bool cycleHasChase = false;
+                        bool themAllCheck = true;
+                        bool usAllCheck   = true;
+                        bool themHasChase = false;
+                        bool usHasChase   = false;
+
+                        StateInfo* s = rollback.st;
+                        for (int step = 0; step < i && s->previous; ++step)
+                        {
+                            // 当前局面s，上一步由 ~rollback.sideToMove 走
+                            Color    mover    = ~rollback.sideToMove;
+                            bool     isCheck  = bool(s->checkersBB);
+                            Move     m        = s->move;
+                            Piece    movedPc  = rollback.piece_on(m.to_sq());
+                            PieceType pt       = type_of(movedPc);
+
+                            // 检测是否捉：mover走子后是否捉了对方
+                            bool isChase = false;
+                            if (!isCheck)  // 将军时不存在捉（天天象棋规则：循环中有将则无捉）
+                            {
+                                u16 ch = rollback.chased(mover);
+                                isChase = (ch != 0);
+                            }
+
+                            if (isCheck)
+                            {
+                                cycleHasCheck = true;
+                                if (mover == ~sideToMove)  // them方将军
+                                {
+                                    checkPiecesThem.insert(pt);
+                                    usAllCheck = false;  // us方这步没将军
+                                }
+                                else  // us方将军
+                                {
+                                    checkPiecesUs.insert(pt);
+                                    themAllCheck = false;
+                                }
+                            }
+                            else
+                            {
+                                // 这步没将军
+                                if (mover == ~sideToMove)
+                                    themAllCheck = false;
+                                else
+                                    usAllCheck = false;
+                            }
+
+                            if (isChase)
+                            {
+                                cycleHasChase = true;
+                                if (mover == ~sideToMove)
+                                {
+                                    chasePiecesThem.insert(pt);
+                                    themHasChase = true;
+                                }
+                                else
+                                {
+                                    chasePiecesUs.insert(pt);
+                                    usHasChase = true;
+                                }
+                            }
+
+                            // 回滚一步
+                            rollback.undo_move(m, s->capturedPiece);
+                            s = s->previous;
+                            rollback.st = s;
+                        }
+
+                        // 统计棋子数量
+                        int themCheckPieces = checkPiecesThem.size();
+                        int usCheckPieces   = checkPiecesUs.size();
+                        int themChasePieces = chasePiecesThem.size();
+                        int usChasePieces   = chasePiecesUs.size();
+
+                        // 判断循环类型并确定阈值
+                        // 类型1: 纯长将（一方每步都将军，无捉）
+                        // 类型2: 将捉交替（一方有将有捉）
+                        // 类型3: 双方互将
+                        // 类型4: 双方互捉
+
+                        if (themAllCheck && usAllCheck)
+                        {
+                            // 双方互将: SkyRule 6次判和
+                            result = VALUE_DRAW;
+                        }
+                        else if (themAllCheck && !usAllCheck)
+                        {
+                            // them方纯长将
+                            // 阈值: 1子=12步(6回合), 2子=24步(12回合), 3子+=36步(18回合)
+                            int threshold = themCheckPieces <= 1 ? 12 : themCheckPieces == 2 ? 24 : 36;
+                            if (i >= threshold)
+                                result = mate_in(ply);  // them长将判负，us胜
+                            else
+                                result = VALUE_NONE;  // 未达到限着，不判定
+                        }
+                        else if (usAllCheck && !themAllCheck)
+                        {
+                            // us方纯长将
+                            int threshold = usCheckPieces <= 1 ? 12 : usCheckPieces == 2 ? 24 : 36;
+                            if (i >= threshold)
+                                result = mated_in(ply);  // us长将判负
+                            else
+                                result = VALUE_NONE;
+                        }
+                        else if (cycleHasCheck && (themHasChase || usHasChase))
+                        {
+                            // 将捉交替: 一方有将有捉
+                            // 阈值: 1子=24步(12回合), 多子=36步(18回合)
+                            if (themHasChase || (cycleHasCheck && !usAllCheck && !themAllCheck))
+                            {
+                                int totalPieces = themCheckPieces + themChasePieces;
+                                int threshold    = totalPieces <= 1 ? 24 : 36;
+                                if (i >= threshold && (themCheckPieces > 0 || themHasChase))
+                                    result = mate_in(ply);
+                                else
+                                    result = VALUE_NONE;
+                            }
+                            else if (usHasChase)
+                            {
+                                int totalPieces = usCheckPieces + usChasePieces;
+                                int threshold    = totalPieces <= 1 ? 24 : 36;
+                                if (i >= threshold)
+                                    result = mated_in(ply);
+                                else
+                                    result = VALUE_NONE;
+                            }
+                            else
+                                result = VALUE_DRAW;
+                        }
+                        else
+                        {
+                            // 其他情况暂判和
+                            result = VALUE_DRAW;
+                        }
+                    }
+                    else
+                        result = !checkUs ? mate_in(ply) : !checkThem ? mated_in(ply) : VALUE_DRAW;
+                }
 
                 // 3 folds and 2 fold draws can be judged immediately
                 if (result == VALUE_DRAW || cnt == 2)
+                {
+                    // SkyRule: 3-fold但未达到限着时，暂判和（防止搜索无限循环）
+                    if (currentRule == SKY_RULE && result == VALUE_NONE)
+                        result = VALUE_DRAW;
                     return true;
+                }
 
                 // 2 fold mates need further investigations
                 if (filter[st->key] <= 1)
@@ -1339,8 +1500,15 @@ bool Position::rule_judge(Value& result, int ply) {
         }
     }
 
-    // 60 move rule
+    // 60 move rule (120 plies without capture)
     if (st->rule60 >= 120)
+    {
+        result = MoveList<LEGAL>(*this).size() ? VALUE_DRAW : mated_in(ply);
+        return true;
+    }
+
+    // SkyRule: 总步数达到400步(200回合)自动判和
+    if (currentRule == SKY_RULE && gamePly >= 400)
     {
         result = MoveList<LEGAL>(*this).size() ? VALUE_DRAW : mated_in(ply);
         return true;

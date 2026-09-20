@@ -172,6 +172,10 @@ class Position {
     Value major_material(Color c) const;
     Value major_material() const;
 
+    // Rule setting (SkyRule / AsianRule / etc.)
+    static void set_rule(Rule r) { currentRule = r; }
+    static Rule get_rule() { return currentRule; }
+
     // Position consistency check, for debugging
     bool                            pos_is_ok() const;
     std::optional<PositionSetError> flip();
@@ -197,6 +201,9 @@ class Position {
     bool                  chase_legal(Move m) const;
     template<bool AfterMove = false>
     Key adjust_key60(Key k) const;
+
+    // Static rule setting
+    static Rule currentRule;
 
     // Data members
     std::array<Piece, SQUARE_NB>        board;
