@@ -1,0 +1,42 @@
+name: Pikafish
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  Pikafish-Windows:
+    name: Windows-x86-64-universal
+    runs-on: windows-latest
+    env:
+      ARCH: x86-64-universal
+      COMP: clang
+      EXE: Pikafish-Windows-x86-64-universal.exe
+    defaults:
+      run:
+        working-directory: src
+        shell: msys2 {0}
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup msys and install required packages
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: clang64
+          install: mingw-w64-clang-x86_64-clang make git
+
+      - name: Compile universal build
+        run: |
+          make -j4 build EXE=$EXE
+          make strip EXE=$EXE
+          cp $EXE ../
+
+      # Artifacts automatically get zipped.
+      # To avoid double-zipping, we use the unzipped directory
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ${{ env.EXE }}
+          path: ${{ env.EXE }}
+#（注：内容由AI生成）
