@@ -1,0 +1,27 @@
+#!/bin/sh
+#
+# Pikafish pre-commit hook.
+#
+# Formats C++ sources staged for commit so that a "Fix format" commit never
+# has to be made afterwards. Install with:
+#
+#     scripts/install-hooks.sh
+#
+# Fail-open if clang-format is missing (a missing tool must not block work),
+# but fail-closed if clang-format is present and cannot format the sources.
+
+set -eu
+
+root=$(git rev-parse --show-toplevel)
+script="$root/scripts/clang-format.sh"
+
+[ -x "$script" ] || exit 0
+
+if ! "$script" --version >/dev/null 2>&1; then
+    printf 'pre-commit: clang-format not found, skipping format check.\n' >&2
+    printf 'pre-commit: install LLVM %s, or set CLANG_FORMAT to a binary.\n' \
+        "${CLANG_FORMAT_VERSION:-22}" >&2
+    exit 0
+fi
+
+exec "$script" --staged

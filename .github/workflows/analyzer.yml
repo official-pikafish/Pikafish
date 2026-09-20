@@ -1,13 +1,116 @@
 name: "Analyzer"
 
+# Both analyzer jobs used to only *report* a problem and leave the fix to a
+# human, which is where "Fix format" and "Fix includes" commits came from.
+# Reporting is still the gate; each job can now also write its own fix back as
+# a pull request.
+#
+#   Check format   gates push / pull_request, fails on misformatted sources
+#   Autofix format runs only when that gate fails, and opens a formatting PR
+#   Check includes weekly; opens a PR with the include changes IWYU suggests
+#
+# The clang-format version is pinned once, in CLANG_FORMAT_VERSION below.
+# scripts/clang-format.sh honours the same variable, so a local run and CI
+# agree by construction.
+
 on:
   schedule:
     - cron: '17 18 * * 1'
+  push:
+    paths:
+      - 'src/**.cpp'
+      - 'src/**.h'
+      - 'src/**.S'
+      - '.clang-format'
+      - 'scripts/**'
+      - '.github/workflows/analyzer.yml'
+  pull_request:
+    paths:
+      - 'src/**.cpp'
+      - 'src/**.h'
+      - 'src/**.S'
+      - '.clang-format'
+      - 'scripts/**'
+  workflow_dispatch:
+
+env:
+  CLANG_FORMAT_VERSION: '22'
+
+permissions:
+  contents: read
 
 jobs:
+  Format-Check:
+    name: Check format
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Pikafish
+        uses: actions/checkout@v6
+
+      - name: Install clang-format ${{ env.CLANG_FORMAT_VERSION }}
+        run: pip install "clang-format==$CLANG_FORMAT_VERSION.*"
+
+      - name: Show resolved version
+        run: clang-format --version
+
+      - name: Verify formatting
+        run: sh scripts/clang-format.sh --check
+
+      - name: Explain what to do next
+        if: failure()
+        run: |
+          echo "::error::Source files under src/ are not clang-format clean."
+          echo "Prevent it locally: sh scripts/install-hooks.sh"
+          echo "Fix it in one go:   sh scripts/clang-format.sh --all"
+
+  Format-Autofix:
+    name: Autofix format
+    # The write-back half. Skipped on pull requests, where the token is
+    # not allowed to push.
+    needs: Format-Check
+    if: failure() && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Checkout Pikafish
+        uses: actions/checkout@v6
+
+      - name: Install clang-format ${{ env.CLANG_FORMAT_VERSION }}
+        run: pip install "clang-format==$CLANG_FORMAT_VERSION.*"
+
+      - name: Apply formatting
+        run: sh scripts/clang-format.sh --all
+
+      - name: Show what changed
+        run: git --no-pager diff --stat
+
+      - name: Open or update pull request
+        uses: peter-evans/create-pull-request@v7
+        with:
+          commit-message: 'Format C++ sources with clang-format'
+          title: 'Format C++ sources with clang-format'
+          branch: automated/clang-format
+          delete-branch: true
+          body: |
+            The `Check format` job found misformatted files under `src/`.
+
+            This pull request contains only what `clang-format ${{ env.CLANG_FORMAT_VERSION }}`
+            produced from the repository's own `.clang-format`. No manual edits.
+
+            Merging it should leave `Check format` green.
+
   IWYU:
     name: Check includes
+    # Weekly, not per-push: building LLVM-pinned IWYU from source is far too
+    # slow to sit in front of every commit. The write-back is what makes the
+    # weekly cadence useful rather than just noisy.
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+      pull-requests: write
     defaults:
       run:
         working-directory: Pikafish/src
@@ -26,16 +129,37 @@ jobs:
           path: include-what-you-use
           persist-credentials: false
 
+      - name: Add the LLVM apt repository
+        # The previous form used "add-apt-repository" plus "apt-key add", which
+        # is deprecated and, in practice, left the repository untrusted: apt
+        # then skipped it with nothing worse than a "W: GPG error" line, which
+        # looks exactly like success. Pin the key to this one repository with
+        # signed-by instead, as the official LLVM instructions do.
+        run: |
+          keyring=/etc/apt/keyrings/llvm-snapshot.asc
+          sudo mkdir -p /etc/apt/keyrings
+          curl -fsSL https://apt.llvm.org/llvm-snapshot.gpg.key | sudo tee "$keyring" >/dev/null
+          test -s "$keyring" || { echo "::error::the LLVM signing key did not download"; exit 1; }
+          echo "deb [signed-by=$keyring] http://apt.llvm.org/jammy/ llvm-toolchain-jammy-17 main" \
+            | sudo tee /etc/apt/sources.list.d/llvm-toolchain.list >/dev/null
+
       - name: Download required linux packages
         run: |
-          sudo add-apt-repository 'deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-17 main'
-          wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
-          sudo apt update
-          sudo apt install -y libclang-17-dev clang-17 libc++-17-dev
+          sudo apt-get update
+          sudo apt-get install -y libclang-17-dev clang-17 libc++-17-dev
+
+      - name: Confirm LLVM 17 really is present
+        # Without this, silently falling back to whatever LLVM the runner image
+        # happens to ship looks identical to a correct setup until the build
+        # fails on something unrelated.
+        run: |
+          clang-17 --version
+          test -d /usr/lib/llvm-17 || { echo "::error::/usr/lib/llvm-17 is missing"; exit 1; }
+          apt-cache policy libclang-17-dev | sed -n '1,3p'
 
       - name: Set up include-what-you-use
         run: |
-          mkdir build && cd build
+          mkdir -p build && cd build
           cmake -G "Unix Makefiles" -DCMAKE_PREFIX_PATH="/usr/lib/llvm-17" ..
           sudo make install
         working-directory: include-what-you-use
@@ -43,22 +167,79 @@ jobs:
       - name: Check include-what-you-use
         run: include-what-you-use --version
 
-      - name: Check includes
+      - name: Collect IWYU suggestions
+        # Serial make, so the per-file blocks in the log stay in order for
+        # fix_includes.py. IWYU writes its suggestions to stderr.
         run: >
           make analyze
           COMP=clang
           CXX=include-what-you-use
-          CXXFLAGS="-DIS_64BIT -stdlib=libc++ -Xiwyu --comment_style=long -Xiwyu --mapping='${{ github.workspace }}/Pikafish/.github/workflows/libcxx17.imp' -Xiwyu --error"
+          CXXFLAGS="-DIS_64BIT -stdlib=libc++ -Xiwyu --comment_style=long -Xiwyu --mapping='${{ github.workspace }}/Pikafish/.github/workflows/libcxx17.imp'"
+          >"$RUNNER_TEMP/iwyu.log" 2>&1 || true
 
-  Clang-Format:
-    name: Check format
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Pikafish
-        uses: actions/checkout@v6
+      - name: Verify IWYU actually analysed the sources
+        # The collect step redirects IWYU's output to a file, so the job log
+        # never shows it; without this the run is unobservable. For each
+        # translation unit IWYU prints either
+        #   (<file> has correct #includes/fwd-decls)     -- nothing to change
+        #   <file> should add/remove these lines         -- a suggestion
+        # so both forms count as "this file was analysed".
+        run: |
+          log="$RUNNER_TEMP/iwyu.log"
+          commands=$(grep -c -- "-c -o .*\.o " "$log" || true)
+          clean=$(grep -c "has correct #includes/fwd-decls" "$log" || true)
+          add=$(grep -c "should add these lines" "$log" || true)
+          rem=$(grep -c "should remove these lines" "$log" || true)
+          echo "compile commands issued : ${commands:-0}"
+          echo "files reported clean    : ${clean:-0}"
+          echo "files wanting additions : ${add:-0}"
+          echo "files wanting removals  : ${rem:-0}"
+          total=$(( ${clean:-0} + ${add:-0} + ${rem:-0} ))
+          echo "files analysed in total : ${total}"
+          if [ "${commands:-0}" -eq 0 ] || [ "${total}" -eq 0 ]; then
+            echo "::error::IWYU analysed nothing, so the analyze step did not run."
+            echo "---- tail of the log ----"
+            tail -40 "$log" || true
+            exit 1
+          fi
 
-      - name: Run clang-format style check
-        uses: jidicula/clang-format-action@v4.18.0
-        id: clang-format
+      - name: Upload the IWYU log
+        if: always()
+        uses: actions/upload-artifact@v4
         with:
-          clang-format-version: '22'
+          name: iwyu-log
+          path: ${{ runner.temp }}/iwyu.log
+          if-no-files-found: ignore
+
+      - name: Apply suggested include changes
+        run: python3 "${{ github.workspace }}/include-what-you-use/fix_includes.py" < "$RUNNER_TEMP/iwyu.log"
+
+      - name: Verify the tree still compiles
+        # A suggested include change that breaks the build must never reach
+        # the pull request.
+        run: |
+          make objclean
+          make -j build ARCH=x86-64 COMP=gcc
+
+      - name: Show what changed
+        run: git --no-pager diff --stat
+
+      - name: Open or update pull request
+        uses: peter-evans/create-pull-request@v7
+        with:
+          # The repository lives in a subdirectory here, because the IWYU
+          # checkout shares the workspace. Point the action at it explicitly.
+          path: Pikafish
+          commit-message: 'Apply include-what-you-use suggestions'
+          title: 'Apply include-what-you-use suggestions'
+          branch: automated/iwyu
+          delete-branch: true
+          body: |
+            Generated by the weekly `Check includes` job.
+
+            The sources are verified to still compile before this pull request
+            is opened, so a failure would point at a genuine behavioural
+            difference rather than a missing include.
+
+            If a suggestion is wrong for a platform IWYU did not see, drop
+            that hunk before merging.
