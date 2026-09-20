@@ -156,16 +156,39 @@ jobs:
           CXXFLAGS="-DIS_64BIT -stdlib=libc++ -Xiwyu --comment_style=long -Xiwyu --mapping='${{ github.workspace }}/Pikafish/.github/workflows/libcxx17.imp'"
           >"$RUNNER_TEMP/iwyu.log" 2>&1 || true
 
-      - name: Summarize suggestions
+      - name: Verify IWYU actually analysed the sources
+        # The collect step redirects IWYU's output to a file, so the job log
+        # never shows it; without this the run is unobservable. For each
+        # translation unit IWYU prints either
+        #   (<file> has correct #includes/fwd-decls)     -- nothing to change
+        #   <file> should add/remove these lines         -- a suggestion
+        # so both forms count as "this file was analysed".
         run: |
           log="$RUNNER_TEMP/iwyu.log"
-          if [ ! -s "$log" ]; then
-            echo "::warning::IWYU produced no output; the analyze step probably failed."
-          elif grep -q "should add these lines" "$log"; then
-            echo "::notice::IWYU has suggestions."
-          else
-            echo "::notice::IWYU is clean, nothing to write back."
+          commands=$(grep -c -- "-c -o .*\.o " "$log" || true)
+          clean=$(grep -c "has correct #includes/fwd-decls" "$log" || true)
+          add=$(grep -c "should add these lines" "$log" || true)
+          rem=$(grep -c "should remove these lines" "$log" || true)
+          echo "compile commands issued : ${commands:-0}"
+          echo "files reported clean    : ${clean:-0}"
+          echo "files wanting additions : ${add:-0}"
+          echo "files wanting removals  : ${rem:-0}"
+          total=$(( ${clean:-0} + ${add:-0} + ${rem:-0} ))
+          echo "files analysed in total : ${total}"
+          if [ "${commands:-0}" -eq 0 ] || [ "${total}" -eq 0 ]; then
+            echo "::error::IWYU analysed nothing, so the analyze step did not run."
+            echo "---- tail of the log ----"
+            tail -40 "$log" || true
+            exit 1
           fi
+
+      - name: Upload the IWYU log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: iwyu-log
+          path: ${{ runner.temp }}/iwyu.log
+          if-no-files-found: ignore
 
       - name: Apply suggested include changes
         run: python3 "${{ github.workspace }}/include-what-you-use/fix_includes.py" < "$RUNNER_TEMP/iwyu.log"
