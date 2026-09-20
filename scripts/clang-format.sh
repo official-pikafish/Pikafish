@@ -42,6 +42,11 @@ die() {
     exit 1
 }
 
+# True when a binary reports the major version CI pins.
+matches_pin() {
+    "$1" --version 2>/dev/null | grep -qE "version ${CLANG_FORMAT_VERSION}([. ]|$)"
+}
+
 find_clang_format() {
     if [ -n "${CLANG_FORMAT:-}" ]; then
         command -v "$CLANG_FORMAT" >/dev/null 2>&1 \
@@ -50,24 +55,35 @@ find_clang_format() {
         return 0
     fi
 
-    if command -v "clang-format-$CLANG_FORMAT_VERSION" >/dev/null 2>&1; then
-        printf 'clang-format-%s\n' "$CLANG_FORMAT_VERSION"
-        return 0
-    fi
-
-    # Newest versioned binary first. A newer clang-format reading the same
-    # .clang-format is a safe fallback for everything this style enables.
+    # Order matters. "clang-format" comes before the versioned names on purpose:
+    # a machine may ship an unrelated clang-format-<N> on PATH (CI runner images
+    # do), and picking that one silently would mean using a style engine that
+    # differs from the pinned version -- a newer clang-format drops options this
+    # repository's .clang-format still sets, so every file then looks
+    # misformatted. Prefer whichever candidate actually reports the pinned
+    # version, and only fall back to a mismatched one with a warning.
+    candidates="clang-format-$CLANG_FORMAT_VERSION clang-format"
     i=30
     while [ "$i" -ge 14 ]; do
-        if command -v "clang-format-$i" >/dev/null 2>&1; then
-            printf 'clang-format-%s\n' "$i"
-            return 0
-        fi
+        candidates="$candidates clang-format-$i"
         i=$((i - 1))
     done
 
-    if command -v clang-format >/dev/null 2>&1; then
-        printf 'clang-format\n'
+    fallback=''
+    for c in $candidates; do
+        command -v "$c" >/dev/null 2>&1 || continue
+        if matches_pin "$c"; then
+            printf '%s\n' "$c"
+            return 0
+        fi
+        [ -n "$fallback" ] || fallback=$c
+    done
+
+    if [ -n "$fallback" ]; then
+        printf 'clang-format: %s does not match the version CI pins (%s);\n' \
+            "$("$fallback" --version 2>/dev/null)" "$CLANG_FORMAT_VERSION" >&2
+        printf 'clang-format: results may differ from CI. Set CLANG_FORMAT to override.\n' >&2
+        printf '%s\n' "$fallback"
         return 0
     fi
 
@@ -139,6 +155,7 @@ case "$mode" in
     bad=${result#* }
     if [ "$bad" -ne 0 ]; then
         printf '\nclang-format: %s of %s files need formatting.\n' "$bad" "$total" >&2
+        printf 'clang-format: using %s (%s)\n' "$CF" "$("$CF" --version)" >&2
         printf 'Fix with "scripts/clang-format.sh --all".\n' >&2
         exit 1
     fi
