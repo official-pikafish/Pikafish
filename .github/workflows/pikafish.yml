@@ -6,78 +6,30 @@ on:
       - master
 
 jobs:
-  Pikafish-x86-64:
-    name: ${{ matrix.config.name }}-x86-64-universal
-    runs-on: ${{ matrix.config.os }}
+  Pikafish-Windows:
+    name: Windows-x86-64-universal
+    runs-on: windows-latest
     env:
       ARCH: x86-64-universal
       COMP: clang
-      EXE: Pikafish-${{ matrix.config.name }}-x86-64-universal${{ matrix.config.ext }}
-    strategy:
-      matrix:
-        config:
-          - name: Linux
-            os: ubuntu-24.04
-            shell: bash
-          - name: Windows
-            os: windows-latest
-            shell: msys2 {0}
-            ext: .exe
+      EXE: Pikafish-Windows-x86-64-universal.exe
     defaults:
       run:
         working-directory: src
-        shell: ${{ matrix.config.shell }}
+        shell: msys2 {0}
 
     steps:
       - uses: actions/checkout@v6
 
       - name: Setup msys and install required packages
-        if: runner.os == 'Windows'
         uses: msys2/setup-msys2@v2
         with:
           msystem: clang64
           install: mingw-w64-clang-x86_64-clang make git
 
-      - name: Set up LLVM
-        if: runner.os == 'Linux'
-        run: |
-          LLVM_VERSION=22
-          curl -s https://apt.llvm.org/llvm.sh | sudo bash -s -- $LLVM_VERSION
-          sudo apt install -y libc++-$LLVM_VERSION-dev libc++abi-$LLVM_VERSION-dev libunwind-$LLVM_VERSION-dev
-          echo "EXTRACXXFLAGS=-stdlib=libc++" >> $GITHUB_ENV
-          echo "EXTRALDFLAGS=-stdlib=libc++" >> $GITHUB_ENV
-          echo "/usr/lib/llvm-$LLVM_VERSION/bin" >> $GITHUB_PATH
-
       - name: Compile universal build
         run: |
           make -j4 build EXE=$EXE
-          make strip EXE=$EXE
-          cp $EXE ../
-
-      # Artifacts automatically get zipped.
-      # To avoid double-zipping, we use the unzipped directory
-      - uses: actions/upload-artifact@v7
-        with:	
-          name: ${{ env.EXE }}
-          path: ${{ env.EXE }}
-
-  Pikafish-MacOS:
-    name: MacOS-universal
-    runs-on: macos-latest
-    env:
-      COMP: clang
-      EXE: Pikafish-MacOS-universal
-    defaults:
-      run:
-        working-directory: src
-        shell: bash
-
-    steps:
-      - uses: actions/checkout@v6
-
-      - name: Compile universal build
-        run: |
-          make -j3 macos-lipo EXE=$EXE
           make strip EXE=$EXE
           cp $EXE ../
 
@@ -85,53 +37,13 @@ jobs:
       # To avoid double-zipping, we use the unzipped directory
       - uses: actions/upload-artifact@v7
         with:
-          name: ${{ env.EXE }}
-          path: ${{ env.EXE }}
-
-  Pikafish-Android:
-    name: Android-arm64-universal
-    runs-on: ubuntu-latest
-    env:
-      ARCH: arm64-universal
-      COMP: ndk
-      EXE: Pikafish-Android-arm64-universal
-      LDFLAGS: "-static -Wno-unused-command-line-argument"
-    defaults:
-      run:
-        working-directory: src
-
-    steps:
-      - uses: actions/checkout@v6
-
-      - name: Install NDK
-        run: |
-          NDKV="27.2.12479018"
-          ANDROID_ROOT=/usr/local/lib/android
-          ANDROID_SDK_ROOT=$ANDROID_ROOT/sdk
-          SDKMANAGER=$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager
-          echo "y" | $SDKMANAGER "ndk;$NDKV"
-          ANDROID_NDK_ROOT=$ANDROID_SDK_ROOT/ndk/$NDKV
-          ANDROID_NDK_BIN=$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin
-          echo "ANDROID_NDK_BIN=$ANDROID_NDK_BIN" >> $GITHUB_ENV
-
-      - name: Compile universal build
-        run: |
-          export PATH=${{ env.ANDROID_NDK_BIN }}:$PATH
-          make -j4 build EXE=$EXE
-          make strip EXE=$EXE
-          cp $EXE ../
-
-      # Artifacts automatically get zipped.
-      # To avoid double-zipping, we use the unzipped directory
-      - uses: actions/upload-artifact@v7
-        with:	
           name: ${{ env.EXE }}
           path: ${{ env.EXE }}
 
   Pikafish:
     name: Pikafish
     runs-on: ubuntu-slim
-    needs: [Pikafish-x86-64, Pikafish-MacOS, Pikafish-Android]
+    needs: [Pikafish-Windows]
 
     steps:
       - uses: actions/checkout@v6
@@ -163,3 +75,4 @@ jobs:
             Copying.txt
             README.md
             Top CPU Contributors.txt
+#（注：内容由AI生成）
