@@ -109,7 +109,7 @@ Engine::Engine(std::optional<std::filesystem::path> path) :
     options.add("UCI_ShowWDL", Option(false));
 
     options.add(  //
-      "Rule", Option("SkyRule", "AsianRule ChineseRule SkyRule ComputerRule", [](const Option& o) {
+      "Rule", Option("AsianRule ChineseRule SkyRule ComputerRule", "SkyRule", [](const Option& o) {
           if (o == "AsianRule")
               Position::set_rule(ASIAN_RULE);
           else if (o == "ChineseRule")
