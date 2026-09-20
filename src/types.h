@@ -1,6 +1,6 @@
 /*
   Stockfish, a UCI chess playing engine derived from Glaurung 2.1
-  Copyright (C) 2004-2025 The Stockfish developers (see AUTHORS file)
+  Copyright (C) 2004-2026 The Stockfish developers (see AUTHORS file)
 
   Stockfish is free software: you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -39,7 +39,7 @@
     #include <cassert>
     #include <cstddef>
     #include <cstdint>
-    #include <type_traits>
+    #include "misc.h"
 
     #if defined(_MSC_VER)
         // Disable some silly and noisy warnings from MSVC compiler
@@ -64,23 +64,18 @@
     #endif
 
     // Enforce minimum Clang version
-    #if defined(__clang__) && (__clang_major__ < 10)
-        #error "Pikafish requires Clang 10.0 or later for correct compilation"
+    #if defined(__clang__) && (__clang_major__ < 11)
+        #error "Pikafish requires Clang 11.0 or later for correct compilation"
     #endif
 
     #define ASSERT_ALIGNED(ptr, alignment) assert(reinterpret_cast<uintptr_t>(ptr) % alignment == 0)
-
-    #if defined(_MSC_VER) && !defined(__clang__)
-        #include <__msvc_int128.hpp>  // Microsoft header for std::_Unsigned128
-using __uint128_t = std::_Unsigned128;
-    #endif
 
     #if defined(_WIN64) && defined(_MSC_VER)  // No Makefile used
         #include <intrin.h>                   // Microsoft header for _BitScanForward64()
         #define IS_64BIT
     #endif
 
-    #if defined(USE_POPCNT) && defined(_MSC_VER)
+    #if defined(_MSC_VER)
         #include <nmmintrin.h>  // Microsoft header for _mm_popcnt_u64()
     #endif
 
@@ -90,14 +85,18 @@ using __uint128_t = std::_Unsigned128;
 
     #if defined(USE_PEXT)
         #include <immintrin.h>  // Header for _pext_u64() intrinsic
-        #if defined(_MSC_VER) && !defined(__clang__)
+        #if defined(_MSC_VER)
             #define pext(b, m, s) \
                 ((_pext_u64(b._Word[1], m._Word[1]) << s) | _pext_u64(b._Word[0], m._Word[0]))
+            #define pdep(b, m) \
+                ((u128(_pdep_u64(b >> 16, m._Word[1])) << 64) | _pdep_u64(b, m._Word[0]))
         #else
             #define pext(b, m, s) ((_pext_u64(b >> 64, m >> 64) << s) | _pext_u64(b, m))
+            #define pdep(b, m) ((u128(_pdep_u64(b >> 16, m >> 64)) << 64) | _pdep_u64(b, m))
         #endif
     #else
         #define pext(b, m, s) 0
+        #define pdep(b, m) 0
     #endif
 
 namespace Stockfish {
@@ -120,19 +119,19 @@ constexpr bool Is64Bit = true;
 constexpr bool Is64Bit = false;
     #endif
 
-using Key      = uint64_t;
-using Bitboard = __uint128_t;
+using Key      = u64;
+using Bitboard = u128;
 
 constexpr int MAX_MOVES = 128;
 constexpr int MAX_PLY   = 246;
 
-enum Color : int8_t {
+enum Color : u8 {
     WHITE,
     BLACK,
     COLOR_NB = 2
 };
 
-enum Bound : int8_t {
+enum Bound : u8 {
     BOUND_NONE,
     BOUND_UPPER,
     BOUND_LOWER,
@@ -167,6 +166,13 @@ constexpr bool is_loss(Value value) {
 
 constexpr bool is_decisive(Value value) { return is_win(value) || is_loss(value); }
 
+constexpr Value mate_in(int ply) { return VALUE_MATE - ply; }
+
+constexpr Value mated_in(int ply) { return -VALUE_MATE + ply; }
+
+// In the code, we make the assumption that these values
+// are such that major_material() can be used to uniquely
+// identify the material on the board.
 constexpr Value RookValue    = 1305;
 constexpr Value AdvisorValue = 219;
 constexpr Value CannonValue  = 773;
@@ -175,13 +181,13 @@ constexpr Value KnightValue  = 720;
 constexpr Value BishopValue  = 187;
 
 // clang-format off
-enum PieceType : std::int8_t {
+enum PieceType : u8 {
     NO_PIECE_TYPE, ROOK, ADVISOR, CANNON, PAWN, KNIGHT, BISHOP, KING, KNIGHT_TO, PAWN_TO,
     ALL_PIECES = 0,
     PIECE_TYPE_NB = 8
 };
 
-enum Piece : std::int8_t {
+enum Piece : u8 {
     NO_PIECE,
     W_ROOK           , W_ADVISOR, W_CANNON, W_PAWN, W_KNIGHT, W_BISHOP, W_KING,
     B_ROOK = ROOK + 8, B_ADVISOR, B_CANNON, B_PAWN, B_KNIGHT, B_BISHOP, B_KING,
@@ -206,14 +212,14 @@ using Depth = int;
 constexpr Depth DEPTH_QS = 0;
 // For transposition table entries where no searching at all was done
 // (whether regular or qsearch) we use DEPTH_UNSEARCHED, which should thus
-// compare lower than any quiescence or regular depth. DEPTH_ENTRY_OFFSET
-// is used only for the transposition table entry occupancy check (see tt.cpp),
-// and should thus be lower than DEPTH_UNSEARCHED.
-constexpr Depth DEPTH_UNSEARCHED   = -2;
-constexpr Depth DEPTH_ENTRY_OFFSET = -3;
+// compare lower than any quiescence or regular depth. DEPTH_NONE is used
+// for the transposition table entry occupancy check (see tt.cpp), and
+// should thus be lower than DEPTH_UNSEARCHED.
+constexpr Depth DEPTH_UNSEARCHED = -2;
+constexpr Depth DEPTH_NONE       = -3;
 
 // clang-format off
-enum Square : int8_t {
+enum Square : u8 {
     SQ_A0, SQ_B0, SQ_C0, SQ_D0, SQ_E0, SQ_F0, SQ_G0, SQ_H0, SQ_I0,
     SQ_A1, SQ_B1, SQ_C1, SQ_D1, SQ_E1, SQ_F1, SQ_G1, SQ_H1, SQ_I1,
     SQ_A2, SQ_B2, SQ_C2, SQ_D2, SQ_E2, SQ_F2, SQ_G2, SQ_H2, SQ_I2,
@@ -231,7 +237,7 @@ enum Square : int8_t {
 };
 // clang-format on
 
-enum Direction : int8_t {
+enum Direction : i8 {
     NORTH = 9,
     EAST  = 1,
     SOUTH = -NORTH,
@@ -243,7 +249,7 @@ enum Direction : int8_t {
     NORTH_WEST = NORTH + WEST
 };
 
-enum File : int8_t {
+enum File : u8 {
     FILE_A,
     FILE_B,
     FILE_C,
@@ -256,7 +262,7 @@ enum File : int8_t {
     FILE_NB
 };
 
-enum Rank : int8_t {
+enum Rank : u8 {
     RANK_0,
     RANK_1,
     RANK_2,
@@ -272,12 +278,12 @@ enum Rank : int8_t {
 
 // For fast repetition checks
 struct BloomFilter {
-    constexpr static uint64_t FILTER_SIZE = 1 << 14;
-    uint8_t                   operator[](Key key) const { return table[key & (FILTER_SIZE - 1)]; }
-    uint8_t&                  operator[](Key key) { return table[key & (FILTER_SIZE - 1)]; }
+    constexpr static u64 FILTER_SIZE = 1 << 14;
+    u8                   operator[](Key key) const { return table[key & (FILTER_SIZE - 1)]; }
+    u8&                  operator[](Key key) { return table[key & (FILTER_SIZE - 1)]; }
 
    private:
-    uint8_t table[1 << 14];
+    u8 table[1 << 14];
 };
 
 // Keep track of what a move changes on the board (used by NNUE)
@@ -290,6 +296,35 @@ struct DirtyPiece {
     Piece  remove_pc;
 
     bool requires_refresh[2];
+};
+
+// Keep track of what threats change on the board (used by NNUE)
+struct DirtyThreat {
+    DirtyThreat() { /* don't initialize data */ }
+    DirtyThreat(Piece pc, Piece threatened_pc, Square pc_sq, Square threatened_sq, bool add) {
+        data =
+          (u32(add) << 31) | (pc << 20) | (threatened_pc << 16) | (threatened_sq << 8) | (pc_sq);
+    }
+
+    Piece  pc() const { return static_cast<Piece>(data >> 20 & 0xf); }
+    Piece  threatened_pc() const { return static_cast<Piece>(data >> 16 & 0xf); }
+    Square threatened_sq() const { return static_cast<Square>(data >> 8 & 0xff); }
+    Square pc_sq() const { return static_cast<Square>(data & 0xff); }
+    bool   add() const { return data >> 31; }
+
+   private:
+    u32 data;
+};
+
+using DirtyThreatList = ValueList<DirtyThreat, 64>;
+
+struct DirtyThreats {
+    DirtyThreatList list;
+};
+
+struct Dirties {
+    DirtyPiece   dirtyPiece;
+    DirtyThreats dirtyThreats;
 };
 
     #define ENABLE_INCR_OPERATORS_ON(T) \
@@ -319,10 +354,6 @@ constexpr Color operator~(Color c) { return Color(c ^ BLACK); }
 // Swap color of piece B_KNIGHT <-> W_KNIGHT
 constexpr Piece operator~(Piece pc) { return Piece(pc ^ 8); }
 
-constexpr Value mate_in(int ply) { return VALUE_MATE - ply; }
-
-constexpr Value mated_in(int ply) { return -VALUE_MATE + ply; }
-
 constexpr Square make_square(File f, Rank r) { return Square(r * FILE_NB + f); }
 
 constexpr Piece make_piece(Color c, PieceType pt) { return Piece((c << 3) + pt); }
@@ -347,9 +378,7 @@ constexpr Square flip_rank(Square s) { return make_square(file_of(s), Rank(RANK_
 constexpr Square flip_file(Square s) { return make_square(File(FILE_I - file_of(s)), rank_of(s)); }
 
 // Based on a congruential pseudo-random number generator
-constexpr Key make_key(uint64_t seed) {
-    return seed * 6364136223846793005ULL + 1442695040888963407ULL;
-}
+constexpr Key make_key(u64 seed) { return seed * 6364136223846793005ULL + 1442695040888963407ULL; }
 
 // A move needs 16 bits to be stored
 //
@@ -363,7 +392,7 @@ constexpr Key make_key(uint64_t seed) {
 class Move {
    public:
     Move() = default;
-    constexpr explicit Move(std::uint16_t d) :
+    constexpr explicit Move(u16 d) :
         data(d) {}
 
     constexpr Move(Square from, Square to) :
@@ -381,8 +410,6 @@ class Move {
         return Square(data & 0x7F);
     }
 
-    constexpr int from_to() const { return data & 0x3FFF; }
-
     constexpr bool is_ok() const { return none().data != data && null().data != data; }
 
     static constexpr Move null() { return Move(129); }
@@ -393,23 +420,15 @@ class Move {
 
     constexpr explicit operator bool() const { return data != 0; }
 
-    constexpr std::uint16_t raw() const { return data; }
+    constexpr u16 raw() const { return data; }
 
     struct MoveHash {
-        std::size_t operator()(const Move& m) const { return make_key(m.data); }
+        usize operator()(const Move& m) const { return make_key(m.data); }
     };
 
    protected:
-    std::uint16_t data;
+    u16 data;
 };
-
-template<typename T, typename... Ts>
-struct is_all_same {
-    static constexpr bool value = (std::is_same_v<T, Ts> && ...);
-};
-
-template<typename... Ts>
-constexpr auto is_all_same_v = is_all_same<Ts...>::value;
 
 }  // namespace Stockfish
 

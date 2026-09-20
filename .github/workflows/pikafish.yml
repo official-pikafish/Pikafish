@@ -7,30 +7,29 @@ on:
 
 jobs:
   Pikafish-x86-64:
-    name: ${{ matrix.config.name }}${{ matrix.arch }}
+    name: ${{ matrix.config.name }}-x86-64-universal
     runs-on: ${{ matrix.config.os }}
     env:
-      ARCH: x86-64${{ matrix.arch }}
+      ARCH: x86-64-universal
       COMP: clang
-      EXE: pikafish${{ matrix.arch }}${{ matrix.config.ext }}
+      EXE: Pikafish-${{ matrix.config.name }}-x86-64-universal${{ matrix.config.ext }}
     strategy:
       matrix:
         config:
           - name: Linux
-            os: ubuntu-22.04 
+            os: ubuntu-24.04
             shell: bash
           - name: Windows
             os: windows-latest
             shell: msys2 {0}
             ext: .exe
-        arch: ["-avx512icl", "-vnni512", "-avx512bw", "-avx512", "-avxvnni", "-bmi2", "-avx2", "-sse41-popcnt"]
     defaults:
       run:
         working-directory: src
         shell: ${{ matrix.config.shell }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Setup msys and install required packages
         if: runner.os == 'Windows'
@@ -39,64 +38,70 @@ jobs:
           msystem: clang64
           install: mingw-w64-clang-x86_64-clang make git
 
-      - name: Compile ${{ matrix.arch }} build
+      - name: Set up LLVM
+        if: runner.os == 'Linux'
         run: |
-          make -j build EXE=$EXE
+          LLVM_VERSION=22
+          curl -s https://apt.llvm.org/llvm.sh | sudo bash -s -- $LLVM_VERSION
+          sudo apt install -y libc++-$LLVM_VERSION-dev libc++abi-$LLVM_VERSION-dev libunwind-$LLVM_VERSION-dev
+          echo "EXTRACXXFLAGS=-stdlib=libc++" >> $GITHUB_ENV
+          echo "EXTRALDFLAGS=-stdlib=libc++" >> $GITHUB_ENV
+          echo "/usr/lib/llvm-$LLVM_VERSION/bin" >> $GITHUB_PATH
+
+      - name: Compile universal build
+        run: |
+          make -j4 build EXE=$EXE
           make strip EXE=$EXE
           cp $EXE ../
 
       # Artifacts automatically get zipped.
       # To avoid double-zipping, we use the unzipped directory
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:	
-          name: Pikafish-${{ matrix.config.name }}${{ matrix.arch }}
+          name: ${{ env.EXE }}
           path: ${{ env.EXE }}
 
   Pikafish-MacOS:
-    name: MacOS-apple-silicon
+    name: MacOS-universal
     runs-on: macos-latest
     env:
-      ARCH: apple-silicon
       COMP: clang
-      EXE: pikafish-apple-silicon
+      EXE: Pikafish-MacOS-universal
     defaults:
       run:
         working-directory: src
         shell: bash
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - name: Compile apple-silicon build
+      - name: Compile universal build
         run: |
-          make -j build EXE=$EXE
+          make -j3 macos-lipo EXE=$EXE
           make strip EXE=$EXE
           cp $EXE ../
 
       # Artifacts automatically get zipped.
       # To avoid double-zipping, we use the unzipped directory
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
-          name: Pikafish-MacOS-apple-silicon
+          name: ${{ env.EXE }}
           path: ${{ env.EXE }}
 
   Pikafish-Android:
-    name: Android-${{ matrix.arch }}
+    name: Android-arm64-universal
     runs-on: ubuntu-latest
     env:
-      ARCH: ${{ matrix.arch }}
+      ARCH: arm64-universal
       COMP: ndk
-      EXE: pikafish-${{ matrix.arch }}
+      EXE: Pikafish-Android-arm64-universal
       LDFLAGS: "-static -Wno-unused-command-line-argument"
-    strategy:
-      matrix:
-        arch: ["armv8-dotprod", "armv8"]
     defaults:
       run:
         working-directory: src
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install NDK
         run: |
@@ -109,40 +114,35 @@ jobs:
           ANDROID_NDK_BIN=$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin
           echo "ANDROID_NDK_BIN=$ANDROID_NDK_BIN" >> $GITHUB_ENV
 
-      - name: Compile ${{ matrix.arch }} build
+      - name: Compile universal build
         run: |
           export PATH=${{ env.ANDROID_NDK_BIN }}:$PATH
-          make -j build EXE=$EXE
+          make -j4 build EXE=$EXE
           make strip EXE=$EXE
           cp $EXE ../
 
       # Artifacts automatically get zipped.
       # To avoid double-zipping, we use the unzipped directory
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:	
-          name: Pikafish-Android-${{ matrix.arch }}
+          name: ${{ env.EXE }}
           path: ${{ env.EXE }}
 
   Pikafish:
     name: Pikafish
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     needs: [Pikafish-x86-64, Pikafish-MacOS, Pikafish-Android]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: actions/download-artifact@v4
-      
-      - name: Put binaries into OS-specific directories
-        run: |
-          mkdir Windows
-          mv Pikafish-Windows*/* Windows
-          mkdir Linux
-          mv Pikafish-Linux*/* Linux
-          mkdir MacOS
-          mv Pikafish-MacOS*/* MacOS
-          mkdir Android
-          mv Pikafish-Android*/* Android
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: Pikafish-*
+          path: Artifacts
+
+      - name: Put binaries into release root
+        run: cp Artifacts/Pikafish-*/* .
 
       - name: Download wiki
         run: |
@@ -152,14 +152,11 @@ jobs:
 
       # Artifacts automatically get zipped.
       # To avoid double-zipping, we use the unzipped directory
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: Pikafish
           path: |
-            Windows
-            Linux
-            MacOS
-            Android
+            Pikafish-*
             Wiki
             AUTHORS
             CONTRIBUTING.md

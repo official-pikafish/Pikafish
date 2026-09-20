@@ -1416,7 +1416,7 @@ size_t ZSTD_decompressContinue(
                 ZSTD_memcpy(dctx->headerBuffer, src, srcSize);
                 dctx->expected = ZSTD_SKIPPABLEHEADERSIZE
                                - srcSize; /* remaining to load to get full skippable frame header */
-                dctx->stage = ZSTDds_decodeSkippableHeader;
+                dctx->stage    = ZSTDds_decodeSkippableHeader;
                 return 0;
             }
         }
@@ -1591,7 +1591,7 @@ static size_t ZSTD_refDictContent(ZSTD_DCtx* dctx, const void* dict, size_t dict
     dctx->dictEnd      = dctx->previousDstEnd;
     dctx->virtualStart = (const char*) dict
                        - ((const char*) (dctx->previousDstEnd) - (const char*) (dctx->prefixStart));
-    dctx->prefixStart    = dict;
+    dctx->prefixStart  = dict;
     dctx->previousDstEnd = (const char*) dict + dictSize;
 #ifdef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
     dctx->dictContentBeginForFuzzing = dctx->prefixStart;
@@ -2387,10 +2387,10 @@ size_t ZSTD_decompressStream(ZSTD_DStream* zds, ZSTD_outBuffer* output, ZSTD_inB
                         return decompressedSize;
                     DEBUGLOG(4, "shortcut to single-pass ZSTD_decompress_usingDDict()");
                     assert(istart != NULL);
-                    ip               = istart + cSize;
-                    op               = op ? op + decompressedSize
-                                          : op; /* can occur if frameContentSize = 0 (empty frame) */
-                    zds->expected    = 0;
+                    ip            = istart + cSize;
+                    op            = op ? op + decompressedSize
+                                       : op; /* can occur if frameContentSize = 0 (empty frame) */
+                    zds->expected = 0;
                     zds->streamStage = zdss_init;
                     someMoreWork     = 0;
                     break;

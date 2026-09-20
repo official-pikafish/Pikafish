@@ -1,4 +1,23 @@
-1. Contributors for training data generation with >10,000,000 positions generated, as of 2023-02-16.
+1. Contributors to Fishtest with >10,000 CPU hours, as of 2024-09-16.
+Thank you!
+
+CPU Hours                     Username
+-----------------------------------------------
+13726710                      fsluobing
+7759854                       trivial
+5048466                       浮生若梦
+4349121                       橙
+1328575                       VinXiangQi
+401239                        kaka
+396855                        戒烟戒酒
+288301                        huorongrong
+277878                        长安
+96701                         bacl
+72836                         dblue
+56878                         以往
+39465                         qianbai
+
+2. Contributors for training data generation with >10,000,000,000 positions generated, as of 2024-02-17.
 Thank you!
 
 Positions                     Username
@@ -28,155 +47,6 @@ Positions                     Username
 11043809172                   ǧ  
 10674400782                   Wang
 10385894838                   滚石
-7721078599                    天天象棋8848手机
-7400273314                    a寒月
-5572130911                    LDZBG
-4510988876                    gykchessA
-4366000000                    flyforever
-4326449785                    XiaoZhang
-3467370327                    WuMing
-3178137384                    看看你的飞刀
-3126138553                    广东陈教练
-3062316420                    人生如弈
-3040583048                    linglei
-2774808804                    huaze
-2278946010                    taoran
-2019551632                    烟云
-1860711259                    rainbowm
-1720387893                    绵羊姐
-1473888640                    咸鱼加油
-1395000000                    扫地神僧
-1305000000                    张大仙
-1228000000                    麦片
-1195185718                    棋软大王屠龙库
-1102035798                    NewHorizons
-1077048480                    从心之怂
-906574409                     xiezhiyi
-873000000                     跑谱2亿领屠龙商业库
-800000000                     辽宁沈阳
-799353308                     qoo_charly_cai
-797988151                     约德尔大王
-782498240                     sodeep
-728000000                     Coach_Chen
-725000000                     loseyourself
-696000000                     T
-611000000                     屠龙库无敌
-564072890                     风满楼
-532000000                     qianyan
-513000000                     yangliucq
-509999999                     随风
-477766768                     abcde
-454000000                     棋软大王谷歌
-445416436                     达瓦里希
-424000000                     atay2022
-421000000                     棋软大王谷歌家里挂
-420000000                     喜气洋洋
-353000000                     蝴蝶飞
-342178600                     MEIBING
-342000000                     白羽
-301060240                     王文辉
-295934542                     笨笨
-282270530                     ldzbg
-258000000                     十二
-258000000                     颞颥孔
-250856964                     QQ348984539
-243000000                     huluobo321
-241283790                     。1
-241000000                     jinbozhang
-214000000                     小迷
-207689256                     xjYY
-171000000                     净念相继
-169327100                     J
-161000000                     666666
-159000000                     Vinchess
-153000000                     123
-152494942                     fisherfan
-150000000                     Small8
-141000000                     mshzy
-128548160                     北极以北
-127993836                         
-126000000                     asgh
-126000000                     zhizi-test
-122304415                     DanTaLian
-118000000                     sigmoid
-110000000                     。
-110000000                     kai小能手
-107055360                     华弈开局库
-99558300                      ellie
-92561800                      Arkhalis
-89548900                      阳光
-84702200                      yi
-84289275                      萨克丽芙
-70772472                      375398705
-67377924                      花天
-63343859                      Smawe
-63224700                      ya
-63174000                      SmartAss
-62447080                      ghh_蓝天
-56793022                      Gdhy
-55572948                      ouyangjian
-55339092                      buyunok
-51909700                      snow
-50005465                      金玉满堂
-47912800                      ZDX
-46944831                      无敌暴龙战士
-45693580                      若愚
-41140829                      菩提无数
-39421396                      EverGreen
-36678744                      Ӱ  
-36283120                      高士
-36070887                      福州第一深情
-35332232                      始于海
-34750846                      HeAng
-34620723                      饭盒
-29989540                      夏天
-29966960                      iezhiyi
-27734520                      星月
-27521280                      求短信轰炸求干
-26667000                      浠ュ線
-26568800                      无限
-26371552                      云涌昱宇
-25153966                      老厨尸
-24786080                      童年
-23817502                      zengsky
-23667900                      小何
-22810700                      youdaddy
-22693200                      奋斗的男人
-22200380                      少帅
-20073308                      LinkStart
-20027755                      悖
-20010300                      huluobo123
-18931980                      这不是说笑
-18788600                      佛爷
-17750200                      dblue
-15589780                      AyachiNene
-15548400                      小雨
-15062800                      KAIbai
-13295040                      Yuan
-13062786                      水木清华
-12534315                      修心养性
-12078180                      跑谱1亿领屠龙库
-12032080                      人生赢家
-11415160                      a寒月の手机
-11118200                      bouncybear
-10588500                      娴嬭瘯
-
-
-2. Contributors to Fishtest with >10,000 CPU hours, as of 2023-07-31.
-Thank you!
-
-CPU Hours                     Username
------------------------------------------------
-5029923                       浮生若梦
-1719666                       VinXiangQi
-624430                        fsluobing
-399621                        kaka
-396855                        戒烟戒酒
-276494                        长安
-96701                         bacl
-89853                         huorongrong
-59943                         dblue
-39465                         qianbai
 
 
 3. Stockfish Fishtest Contributors (https://github.com/official-stockfish/Stockfish/blob/master/Top CPU Contributors.txt)

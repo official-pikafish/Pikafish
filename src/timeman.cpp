@@ -1,6 +1,6 @@
 /*
   Stockfish, a UCI chess playing engine derived from Glaurung 2.1
-  Copyright (C) 2004-2025 The Stockfish developers (see AUTHORS file)
+  Copyright (C) 2004-2026 The Stockfish developers (see AUTHORS file)
 
   Stockfish is free software: you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -21,10 +21,9 @@
 #include <algorithm>
 #include <cassert>
 #include <cmath>
-#include <cstdint>
-#include <string>
 
 #include "search.h"
+#include "types.h"
 #include "ucioption.h"
 
 namespace Stockfish {
@@ -33,12 +32,13 @@ TimePoint TimeManagement::optimum() const { return optimumTime; }
 TimePoint TimeManagement::maximum() const { return maximumTime; }
 
 void TimeManagement::clear() {
-    availableNodes = -1;  // When in 'nodes as time' mode
+    availableNodes    = -1;  // When in 'nodes as time' mode
+    previousMovesToGo = 0;
 }
 
-void TimeManagement::advance_nodes_time(std::int64_t nodes) {
+void TimeManagement::advance_nodes_time(i64 nodes) {
     assert(useNodesTime);
-    availableNodes = std::max(int64_t(0), availableNodes - nodes);
+    availableNodes = std::max(i64(0), availableNodes - nodes);
 }
 
 // Called at the beginning of the search and calculates
@@ -57,8 +57,14 @@ void TimeManagement::init(Search::LimitsType& limits,
     startTime    = limits.startTime;
     useNodesTime = npmsec != 0;
 
+    if (useNodesTime)
+        limits.movetime *= npmsec;
+
     if (limits.time[us] == 0)
+    {
+        optimumTime = maximumTime = NoBound;
         return;
+    }
 
     TimePoint moveOverhead = TimePoint(options["Move Overhead"]);
 
@@ -72,8 +78,16 @@ void TimeManagement::init(Search::LimitsType& limits,
     // must be much lower than the real engine speed.
     if (useNodesTime)
     {
-        if (availableNodes == -1)                       // Only once at game start
-            availableNodes = npmsec * limits.time[us];  // Time is in msec
+        if (availableNodes == -1)  // Only once at game start
+        {
+            // First time limit includes increment (both are in milliseconds)
+            availableNodes = npmsec * limits.time[us];
+            cyclicBudget   = npmsec * (limits.time[us] - limits.inc[us]);
+        }
+        else if (limits.movestogo > 0 && limits.movestogo > previousMovesToGo && cyclicBudget > 0)
+            availableNodes += cyclicBudget;
+
+        previousMovesToGo = limits.movestogo;
 
         // Convert from milliseconds to nodes
         limits.time[us] = TimePoint(availableNodes);
@@ -82,23 +96,22 @@ void TimeManagement::init(Search::LimitsType& limits,
         moveOverhead *= npmsec;
     }
 
-    // These numbers are used where multiplications, divisions or comparisons
-    // with constants are involved.
-    const int64_t   scaleFactor = useNodesTime ? npmsec : 1;
-    const TimePoint scaledTime  = limits.time[us] / scaleFactor;
+    // These numbers are used where multiplications, divisions,
+    // or comparisons with constants are involved.
+    const i64       scaleFactor = useNodesTime ? npmsec : 1;
+    const TimePoint scaledTime  = std::max(TimePoint(1), limits.time[us] / scaleFactor);
 
     // Maximum move horizon
-    int centiMTG = limits.movestogo ? std::min(limits.movestogo * 100, 6000) : 6000;
+    int mtg = limits.movestogo ? std::min(limits.movestogo, 50) : 50;
 
-    // If less than one second, gradually reduce mtg
-    if (scaledTime < 1000)
-        centiMTG = scaledTime * 6.000;
+    // If less than one second, gradually reduce mtg.
+    // In cyclic time controls we keep the actual movestogo as horizon.
+    if (scaledTime < 1000 && limits.movestogo == 0)
+        mtg = int(scaledTime * 0.05);
 
     // Make sure timeLeft is > 0 since we may use it as a divisor
-    TimePoint timeLeft =
-      std::max(TimePoint(1),
-               limits.time[us]
-                 + (limits.inc[us] * (centiMTG - 100) - moveOverhead * (200 + centiMTG)) / 100);
+    TimePoint timeLeft = std::max(TimePoint(1), limits.time[us] + limits.inc[us] * (mtg - 1)
+                                                  - moveOverhead * (2 + mtg));
 
     // x basetime (+ z increment)
     // If there is a healthy increment, timeLeft can exceed the actual available
@@ -107,32 +120,46 @@ void TimeManagement::init(Search::LimitsType& limits,
     {
         // Extra time according to timeLeft
         if (originalTimeAdjust < 0)
-            originalTimeAdjust = 0.3285 * std::log10(timeLeft) - 0.4830;
+            originalTimeAdjust = 0.3356 * std::log10(timeLeft) - 0.4903;
 
         // Calculate time constants based on current time left.
         double logTimeInSec = std::log10(scaledTime / 1000.0);
-        double optConstant  = std::min(0.00344000 + 0.000200000 * logTimeInSec, 0.00450000);
-        double maxConstant  = std::max(3.9000 + 3.10000 * logTimeInSec, 2.50000);
+        double optConstant  = std::min(0.0034013 + 0.00020657 * logTimeInSec, 0.004536);
+        double maxConstant  = std::max(3.7803 + 2.8003 * logTimeInSec, 2.5470);
 
-        optScale = std::min(0.0155000 + std::pow(ply + 3.00000, 0.450000) * optConstant,
-                            0.200000 * limits.time[us] / timeLeft)
+        optScale = std::min(0.017244 + std::pow(ply + 2.71111, 0.43433) * optConstant,
+                            0.20577 * limits.time[us] / timeLeft)
                  * originalTimeAdjust;
 
-        maxScale = std::min(6.50000, maxConstant + ply / 13.6000);
+        maxScale = std::min(7.002, maxConstant + ply / 13.184);
     }
 
     // x moves in y seconds (+ z increment)
     else
     {
-        optScale =
-          std::min((0.88 + ply / 116.4) / (centiMTG / 100.0), 0.88 * limits.time[us] / timeLeft);
-        maxScale = 1.3 + 0.11 * (centiMTG / 100.0);
+        optScale = std::min((0.88 + ply / 116.4) / mtg, 0.88 * limits.time[us] / timeLeft);
+        maxScale = 1.3 + 0.11 * mtg;
+    }
+
+    // Decrease time usage if behind in time.
+    // This is skipped in two cases:
+    // - if the nodestime option is used we can't calculate the opponent nodes budget in a deterministic way.
+    // - if we use a cyclic time management (like 40/10) calculating time advantage for the last move (movestogo = 1)
+    //   can be vastly off, because if the opponent had done his last move before us his time budget includes already
+    //   the next cycle time increment but our not. This leads to a unnecessary big decrease in time usage which favors blunders.
+    // Warning: don't remove this conditions.
+    if (!useNodesTime && limits.movestogo != 1)
+    {
+        double timeAdvantage =
+          (limits.time[us] - limits.time[~us]) / (1.0 + limits.time[us] + limits.time[~us]);
+        optScale *= 1 + 0.9 * std::min(timeAdvantage, 0.0);
     }
 
     // Limit the maximum possible time for this move
-    optimumTime = TimePoint(optScale * timeLeft);
+    optimumTime = TimePoint(std::max(1.0, optScale * timeLeft));
     maximumTime =
-      TimePoint(std::min(0.810000 * limits.time[us] - moveOverhead, maxScale * optimumTime)) - 10;
+      TimePoint(std::max(double(optimumTime), std::min(0.8237 * limits.time[us] - moveOverhead,
+                                                       maxScale * optimumTime)));
 
     if (options["Ponder"])
         optimumTime += optimumTime / 4;

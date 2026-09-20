@@ -1,6 +1,6 @@
 /*
   Stockfish, a UCI chess playing engine derived from Glaurung 2.1
-  Copyright (C) 2004-2025 The Stockfish developers (see AUTHORS file)
+  Copyright (C) 2004-2026 The Stockfish developers (see AUTHORS file)
 
   Stockfish is free software: you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -20,12 +20,14 @@
 
 #include <algorithm>
 #include <cassert>
+#include <cmath>
 #include <cstdlib>
 #include <iomanip>
+#include <iostream>
 #include <memory>
 #include <sstream>
-#include <tuple>
 
+#include "misc.h"
 #include "nnue/network.h"
 #include "nnue/nnue_misc.h"
 #include "position.h"
@@ -37,7 +39,7 @@ namespace Stockfish {
 
 // Evaluate is the evaluator for the outer world. It returns a static evaluation
 // of the position from the point of view of the side to move.
-Value Eval::evaluate(const Eval::NNUE::Networks&    networks,
+Value Eval::evaluate(const Eval::NNUE::Network&     network,
                      const Position&                pos,
                      Eval::NNUE::AccumulatorStack&  accumulators,
                      Eval::NNUE::AccumulatorCaches& caches,
@@ -45,20 +47,20 @@ Value Eval::evaluate(const Eval::NNUE::Networks&    networks,
 
     assert(!pos.checkers());
 
-    auto [psqt, positional] = networks.big.evaluate(pos, accumulators, &caches.big);
+    auto [psqt, positional] = network.evaluate(pos, accumulators, caches);
 
     Value nnue = psqt + positional;
 
     // Blend optimism and eval with nnue complexity
     int nnueComplexity = std::abs(psqt - positional);
-    optimism += optimism * nnueComplexity / 485;
-    nnue -= nnue * nnueComplexity / 11683;
+    optimism += optimism * i64(nnueComplexity) / 467;
+    nnue -= nnue * i64(nnueComplexity) / 11698;
 
     int material = pos.major_material();
-    int v        = (nnue * (17720 + material) + optimism * (3040 + material)) / 20120;
+    int v        = nnue + (nnue * i64(material) + optimism * i64(13371)) / 36220;
 
     // Damp down the evaluation linearly when shuffling
-    v -= (v * pos.rule60_count()) / 267;
+    v -= (v * pos.rule60_count()) / 244;
 
     // Guarantee evaluation does not hit the mate range
     v = std::clamp(v, VALUE_MATED_IN_MAX_PLY + 1, VALUE_MATE_IN_MAX_PLY - 1);
@@ -70,30 +72,32 @@ Value Eval::evaluate(const Eval::NNUE::Networks&    networks,
 // a string (suitable for outputting to stdout) that contains the detailed
 // descriptions and values of each evaluation term. Useful for debugging.
 // Trace scores are from white's point of view
-std::string Eval::trace(Position& pos, const Eval::NNUE::Networks& networks) {
+std::string Eval::trace(Position& pos, const Eval::NNUE::Network& network) {
 
     if (pos.checkers())
         return "Final evaluation: none (in check)";
 
-    Eval::NNUE::AccumulatorStack accumulators;
-    auto                         caches = std::make_unique<Eval::NNUE::AccumulatorCaches>(networks);
+    auto accumulators = std::make_unique<Eval::NNUE::AccumulatorStack>();
+    auto caches       = std::make_unique<Eval::NNUE::AccumulatorCaches>(network);
 
     std::stringstream ss;
     ss << std::showpoint << std::noshowpos << std::fixed << std::setprecision(2);
-    ss << '\n' << NNUE::trace(pos, networks, *caches) << '\n';
+    ss << '\n' << NNUE::trace(pos, network, *caches) << '\n';
 
     ss << std::showpoint << std::showpos << std::fixed << std::setprecision(2) << std::setw(15);
 
-    auto [psqt, positional] = networks.big.evaluate(pos, accumulators, &caches->big);
+    auto [psqt, positional] = network.evaluate(pos, *accumulators, *caches);
     Value v                 = psqt + positional;
-    v                       = pos.side_to_move() == WHITE ? v : -v;
+    ss << "NNUE evaluation          " << v << " (side to move, internal units)\n";
+    v = pos.side_to_move() == WHITE ? v : -v;
     ss << "NNUE evaluation        " << 0.01 * UCIEngine::to_cp(v, pos) << " (white side)\n";
 
-    v = evaluate(networks, pos, accumulators, *caches, VALUE_ZERO);
+    v = evaluate(network, pos, *accumulators, *caches, VALUE_ZERO);
     v = pos.side_to_move() == WHITE ? v : -v;
-    ss << "Final evaluation       " << 0.01 * UCIEngine::to_cp(v, pos) << " (white side)";
-    ss << " [with scaled NNUE, ...]";
-    ss << "\n";
+
+    ss << "Final evaluation      ";
+    ss << 0.01 * UCIEngine::to_cp(v, pos) << " (white side)";
+    ss << " [with scaled NNUE, ...]\n";
 
     return ss.str();
 }

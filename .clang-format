@@ -40,5 +40,5 @@ SpaceAfterTemplateKeyword: false
 SpaceBeforeCaseColon: true
 SpaceBeforeCpp11BracedList: false
 SpaceBeforeInheritanceColon: false
-SpaceInEmptyBlock: false
+SpaceInEmptyBraces: Never
 SpacesBeforeTrailingComments: 2

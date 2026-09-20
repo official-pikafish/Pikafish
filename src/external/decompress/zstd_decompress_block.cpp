@@ -120,8 +120,8 @@ static void ZSTD_allocateLiteralsBuffer(ZSTD_DCtx*                dctx,
         if (splitImmediately)
         {
             /* won't fit in litExtraBuffer, so it will be split between end of dst and extra buffer */
-            dctx->litBuffer = (BYTE*) dst + expectedWriteSize - litSize + ZSTD_LITBUFFEREXTRASIZE
-                            - WILDCOPY_OVERLENGTH;
+            dctx->litBuffer    = (BYTE*) dst + expectedWriteSize - litSize + ZSTD_LITBUFFEREXTRASIZE
+                               - WILDCOPY_OVERLENGTH;
             dctx->litBufferEnd = dctx->litBuffer + litSize - ZSTD_LITBUFFEREXTRASIZE;
         }
         else
@@ -175,7 +175,7 @@ static size_t ZSTD_decodeLiteralsBlock(ZSTD_DCtx*  dctx,
                 size_t    hufSuccess;
                 size_t    expectedWriteSize = MIN(blockSizeMax, dstCapacity);
                 int const flags             = 0 | (ZSTD_DCtx_get_bmi2(dctx) ? HUF_flags_bmi2 : 0)
-                                | (dctx->disableHufAsm ? HUF_flags_disableAsm : 0);
+                                            | (dctx->disableHufAsm ? HUF_flags_disableAsm : 0);
                 switch (lhlCode)
                 {
                 case 0 :
@@ -1518,9 +1518,9 @@ FORCE_INLINE_TEMPLATE seq_t ZSTD_decodeSequence(seqState_t*             seqState
                 ZSTD_STATIC_ASSERT(STREAM_ACCUMULATOR_MIN_32 > LONG_OFFSETS_MAX_EXTRA_BITS_32);
                 ZSTD_STATIC_ASSERT(STREAM_ACCUMULATOR_MIN_32 - LONG_OFFSETS_MAX_EXTRA_BITS_32
                                    >= MaxMLBits);
-                offset = ofBase
-                       + BIT_readBitsFast(&seqState->DStream,
-                                          ofBits /*>0*/); /* <=  (ZSTD_WINDOWLOG_MAX-1) bits */
+                offset      = ofBase
+                            + BIT_readBitsFast(&seqState->DStream,
+                                               ofBits /*>0*/); /* <=  (ZSTD_WINDOWLOG_MAX-1) bits */
                 prevOffset2 = prevOffset1;
                 prevOffset1 = prevOffset0;
                 prevOffset0 = offset;

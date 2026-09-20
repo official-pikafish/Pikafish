@@ -1,6 +1,6 @@
 /*
   Stockfish, a UCI chess playing engine derived from Glaurung 2.1
-  Copyright (C) 2004-2025 The Stockfish developers (see AUTHORS file)
+  Copyright (C) 2004-2026 The Stockfish developers (see AUTHORS file)
 
   Stockfish is free software: you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -22,11 +22,11 @@
 #define NNUE_FEATURES_HALF_KA_V2_HM_H_INCLUDED
 
 #include <array>
-#include <cstddef>
-#include <cstdint>
 #include <initializer_list>
+#include <tuple>
 #include <utility>
 
+#include "../../bitboard.h"
 #include "../../misc.h"
 #include "../../types.h"
 #include "../nnue_common.h"
@@ -40,49 +40,47 @@ namespace Stockfish::Eval::NNUE::Features {
 // Feature HalfKAv2_hm: Combination of the position of own king and the
 // position of pieces. Position mirrored such that king is always on d..e files.
 class HalfKAv2_hm {
-
-    // Unique number for each piece type on each square
-    enum {
-        // clang-format off
-        PS_NONE     = 0,
-        PS_W_ROOK   = 0,
-        PS_B_ROOK   = 1 * SQUARE_NB,
-        PS_W_CANNON = 2 * SQUARE_NB,
-        PS_B_CANNON = 3 * SQUARE_NB,
-        PS_W_KNIGHT = 4 * SQUARE_NB,
-        PS_B_KNIGHT = 5 * SQUARE_NB,
-        PS_AB_W_KP  = 6 * SQUARE_NB,  // White King and Pawn are merged into one plane, also used for Advisor and Bishop
-        PS_B_KP     = 7 * SQUARE_NB,  // Black King and Pawn are merged into one plane
-        PS_NB       = 8 * SQUARE_NB
-        // clang-format on
-    };
-
-    static constexpr IndexType PieceSquareIndex[COLOR_NB][PIECE_NB] = {
-      // Convention: W - us, B - them
-      // Viewed from other side, W and B are reversed
-      // clang-format off
-      { PS_NONE, PS_W_ROOK, PS_AB_W_KP, PS_W_CANNON, PS_AB_W_KP, PS_W_KNIGHT, PS_AB_W_KP, PS_AB_W_KP,
-        PS_NONE, PS_B_ROOK, PS_AB_W_KP, PS_B_CANNON, PS_B_KP   , PS_B_KNIGHT, PS_AB_W_KP, PS_B_KP   , },
-      { PS_NONE, PS_B_ROOK, PS_AB_W_KP, PS_B_CANNON, PS_B_KP   , PS_B_KNIGHT, PS_AB_W_KP, PS_B_KP   ,
-        PS_NONE, PS_W_ROOK, PS_AB_W_KP, PS_W_CANNON, PS_AB_W_KP, PS_W_KNIGHT, PS_AB_W_KP, PS_AB_W_KP, }
-      // clang-format on
-    };
-
    public:
-    // Feature name
-    static constexpr const char* Name = "HalfKAv2_hm";
-
     // Hash value embedded in the evaluation file
-    static constexpr std::uint32_t HashValue = 0xd17b100;
+    static constexpr u32 HashValue = 0x7f234cb8u;
+
+    // Number of features per plane
+    static constexpr IndexType PS_NB = 689;
+
+    // Number of attack buckets
+    static constexpr IndexType AttackBucketNB = 4;
 
     // Number of feature dimensions
-    static constexpr IndexType Dimensions = 6 * 4 * static_cast<IndexType>(PS_NB);
+    static constexpr IndexType Dimensions = 6 * AttackBucketNB * PS_NB;
+
+    static constexpr Bitboard ValidBB[PIECE_NB]{
+      0,                                                                                        // _
+      HalfBB[WHITE] | HalfBB[BLACK],                                                            // R
+      ((Rank0BB | Rank2BB) & (FileDBB | FileFBB)) | (Rank1BB & FileEBB),                        // A
+      HalfBB[WHITE] | HalfBB[BLACK],                                                            // C
+      PawnBB[WHITE],                                                                            // P
+      HalfBB[WHITE] | HalfBB[BLACK],                                                            // N
+      ((Rank0BB | Rank4BB) & (FileCBB | FileGBB)) | (Rank2BB & (FileABB | FileEBB | FileIBB)),  // B
+      HalfBB[WHITE] & Palace & ~FileFBB,                                                        // K
+      0,                                                                                        // _
+      HalfBB[WHITE] | HalfBB[BLACK],                                                            // r
+      ((Rank7BB | Rank9BB) & (FileDBB | FileFBB)) | (Rank8BB & FileEBB),                        // a
+      HalfBB[WHITE] | HalfBB[BLACK],                                                            // c
+      PawnBB[BLACK],                                                                            // p
+      HalfBB[WHITE] | HalfBB[BLACK],                                                            // n
+      ((Rank5BB | Rank9BB) & (FileCBB | FileGBB)) | (Rank7BB & (FileABB | FileEBB | FileIBB)),  // b
+      HalfBB[BLACK] & Palace,                                                                   // k
+    };
+
+    static constexpr std::array<Piece, 14> AllPieces{
+      W_ROOK, W_ADVISOR, W_CANNON, W_PAWN, W_KNIGHT, W_BISHOP, W_KING,
+      B_ROOK, B_ADVISOR, B_CANNON, B_PAWN, B_KNIGHT, B_BISHOP, B_KING};
 
     // Get king_index and mirror information
     static constexpr auto KingBuckets = []() {
 #define M(s) ((1 << 3) | s)
         // Stored as (mirror << 3 | bucket)
-        constexpr uint8_t KingBuckets[SQUARE_NB] = {
+        constexpr u8 KingBuckets[SQUARE_NB] = {
           // clang-format off
           0,  0,  0,  0,  1, M(0),  0,  0,  0,
           0,  0,  0,  2,  3, M(2),  0,  0,  0,
@@ -97,15 +95,15 @@ class HalfKAv2_hm {
           // clang-format on
         };
 #undef M
-        std::array<std::array<std::array<std::pair<int, bool>, 2>, SQUARE_NB>, SQUARE_NB> v{};
-        for (uint8_t ksq = SQ_A0; ksq <= SQ_I9; ++ksq)
-            for (uint8_t oksq = SQ_A0; oksq <= SQ_I9; ++oksq)
-                for (uint8_t midm = 0; midm <= 1; ++midm)
+        MultiArray<std::pair<int, bool>, SQUARE_NB, SQUARE_NB, 2> v{};
+        for (u8 ksq = SQ_A0; ksq <= SQ_I9; ++ksq)
+            for (u8 oksq = SQ_A0; oksq <= SQ_I9; ++oksq)
+                for (u8 midm = 0; midm <= 1; ++midm)
                 {
-                    uint8_t king_bucket_ = KingBuckets[ksq];
-                    int     king_bucket  = king_bucket_ & 0x7;
-                    int     oking_bucket = KingBuckets[oksq] & 0x7;
-                    bool    mirror =
+                    u8   king_bucket_ = KingBuckets[ksq];
+                    int  king_bucket  = king_bucket_ & 0x7;
+                    int  oking_bucket = KingBuckets[oksq] & 0x7;
+                    bool mirror =
                       (king_bucket_ >> 3)
                       || ((king_bucket & 1)
                           && ((KingBuckets[oksq] >> 3) || (bool(oking_bucket & 1) && midm)));
@@ -115,69 +113,18 @@ class HalfKAv2_hm {
         return v;
     }();
 
-    // Get attack bucket based on attack feature
-    static constexpr auto AttackBucket = []() {
-        std::array<std::array<std::array<int, 3>, 3>, 3> v{};
-        for (uint8_t rook = 0; rook <= 2; ++rook)
-            for (uint8_t knight = 0; knight <= 2; ++knight)
-                for (uint8_t cannon = 0; cannon <= 2; ++cannon)
-                    v[rook][knight][cannon] = bool(rook) * 2 + bool(knight + cannon);
-        return v;
-    }();
-
-    // Square index mapping based on condition (Mirror, Rotate, ABMap)
+    // Square index mapping based on condition (Mirror, Rotate)
     static constexpr auto IndexMap = []() {
-        // Map advisor and bishop location into White King plane
-        constexpr uint8_t ABMap[SQUARE_NB] = {
-          // clang-format off
-           0,  0,  0,  1,  0,  2,  5,  0,  0,
-           0,  0,  0,  0,  6,  0,  0,  0,  0,
-           7,  0,  0,  8,  9, 10,  0,  0, 11,
-           0,  0,  0,  0,  0,  0,  0,  0,  0,
-           0,  0, 14,  0,  0,  0, 15,  0,  0,
-           0,  0, 16,  0,  0,  0, 17,  0,  0,
-           0,  0,  0,  0,  0,  0,  0,  0,  0,
-          18,  0,  0, 19, 20, 23,  0,  0, 24,
-           0,  0,  0,  0, 25,  0,  0,  0,  0,
-           0,  0, 26, 28,  0, 30, 32,  0,  0,
-          // clang-format on
-        };
-        std::array<std::array<std::array<std::array<std::uint8_t, SQUARE_NB>, 2>, 2>, 2> v{};
-        for (uint8_t m = 0; m < 2; ++m)
-            for (uint8_t r = 0; r < 2; ++r)
-                for (uint8_t ab = 0; ab < 2; ++ab)
-                    for (uint8_t s = 0; s < SQUARE_NB; ++s)
-                    {
-                        uint8_t ss     = s;
-                        ss             = m ? uint8_t(flip_file(Square(ss))) : ss;
-                        ss             = r ? uint8_t(flip_rank(Square(ss))) : ss;
-                        ss             = ab ? ABMap[ss] : ss;
-                        v[m][r][ab][s] = ss;
-                    }
-        return v;
-    }();
-
-    // LayerStack buckets
-    static constexpr auto LayerStackBuckets = [] {
-        std::array<std::array<std::array<std::array<uint8_t, 5>, 5>, 3>, 3> v{};
-        for (uint8_t us_rook = 0; us_rook <= 2; ++us_rook)
-            for (uint8_t opp_rook = 0; opp_rook <= 2; ++opp_rook)
-                for (uint8_t us_knight_cannon = 0; us_knight_cannon <= 4; ++us_knight_cannon)
-                    for (uint8_t opp_knight_cannon = 0; opp_knight_cannon <= 4; ++opp_knight_cannon)
-                        v[us_rook][opp_rook][us_knight_cannon][opp_knight_cannon] = [&] {
-                            if (us_rook == opp_rook)
-                                return us_rook * 4
-                                     + int(us_knight_cannon + opp_knight_cannon >= 4) * 2
-                                     + int(us_knight_cannon == opp_knight_cannon);
-                            else if (us_rook == 2 && opp_rook == 1)
-                                return 12;
-                            else if (us_rook == 1 && opp_rook == 2)
-                                return 13;
-                            else if (us_rook > 0 && opp_rook == 0)
-                                return 14;
-                            else  // us_rook == 0 && opp_rook > 0
-                                return 15;
-                        }();
+        MultiArray<u8, 2, 2, SQUARE_NB> v{};
+        for (u8 m = 0; m < 2; ++m)
+            for (u8 r = 0; r < 2; ++r)
+                for (u8 s = 0; s < SQUARE_NB; ++s)
+                {
+                    u8 ss      = s;
+                    ss         = m ? u8(flip_file(Square(ss))) : ss;
+                    ss         = r ? u8(flip_rank(Square(ss))) : ss;
+                    v[m][r][s] = ss;
+                }
         return v;
     }();
 
@@ -236,40 +183,39 @@ class HalfKAv2_hm {
     *    by the second part, and all overflows of the second part will be automatically resolved at this time.
     */
     static constexpr auto MidMirrorEncoding = [] {
-        std::array<std::array<uint64_t, static_cast<size_t>(SQUARE_NB)>,
-                   static_cast<size_t>(PIECE_NB)>
-                          encodings{};
-        constexpr uint8_t shifts[8][2]{{0, 0},   {44, 0},  {60, 36}, {47, 7},
-                                       {53, 21}, {50, 14}, {57, 29}, {0, 0}};
+        MultiArray<u64, PIECE_NB, SQUARE_NB> encodings{};
+        constexpr u8                         shifts[8][2]{{0, 0},   {44, 0},  {60, 36}, {47, 7},
+                                                          {53, 21}, {50, 14}, {57, 29}, {0, 0}};
         for (const auto& c : {WHITE, BLACK})
-            for (uint8_t pt = ROOK; pt <= KING; ++pt)
-                for (uint8_t r = RANK_0; r < RANK_NB; ++r)
-                    for (uint8_t f = FILE_A; f < FILE_NB; ++f)
+            for (u8 pt = ROOK; pt <= KING; ++pt)
+                for (u8 r = RANK_0; r < RANK_NB; ++r)
+                    for (u8 f = FILE_A; f < FILE_NB; ++f)
                     {
-                        uint64_t encoding = 0;
+                        u64 encoding = 0;
                         if (f != FILE_E && pt != KING)
                         {
-                            uint8_t r_           = c == WHITE ? r : RANK_9 - r;
-                            uint8_t f_           = f < FILE_E ? f : FILE_I - f;
+                            u8 r_                = c == WHITE ? r : RANK_9 - r;
+                            u8 f_                = f < FILE_E ? f : FILE_I - f;
                             const auto& [s1, s2] = shifts[pt];
-                            encoding             = (1ULL << s1)
-                                     | ((uint64_t(File::FILE_D - f_) * 10 + uint64_t(r_)) << s2);
-                            encoding = f < FILE_E ? encoding : uint64_t(-int64_t(encoding));
+                            encoding =
+                              (1ULL << s1) | ((u64(File::FILE_D - f_) * 10 + u64(r_)) << s2);
+                            encoding = f < FILE_E ? encoding : u64(-i64(encoding));
                         }
                         else if (f != FILE_E && pt == KING)
                             encoding = 1ULL << 63;
-                        uint8_t p        = static_cast<uint8_t>(make_piece(c, PieceType(pt)));
-                        uint8_t sq       = static_cast<uint8_t>(make_square(File(f), Rank(r)));
+                        u8 p             = static_cast<u8>(make_piece(c, PieceType(pt)));
+                        u8 sq            = static_cast<u8>(make_square(File(f), Rank(r)));
                         encodings[p][sq] = encoding;
                     }
         return encodings;
     }();
 
-    static constexpr uint64_t BalanceEncoding{0xa4a92a74e989d3a7};
+    static constexpr u64 BalanceEncoding{0xa4a92a74e989d3a7};
 
     // Maximum number of simultaneously active features.
     static constexpr IndexType MaxActiveDimensions = 32;
-    using IndexList                                = ValueList<IndexType, MaxActiveDimensions>;
+    using IndexList                                = ValueList<u16, MaxActiveDimensions>;
+    using DiffType                                 = DirtyPiece;
 
     // Returns whether the middle mirror is required.
     static bool requires_mid_mirror(const Position& pos, Color c);
@@ -277,21 +223,26 @@ class HalfKAv2_hm {
     // Get attack bucket
     static IndexType make_attack_bucket(const Position& pos, Color c);
 
+    // Get feature bucket
+    static std::tuple<int, bool, int> make_feature_bucket(Color perspective, const Position& pos);
+
     // Get layer stack bucket
     static IndexType make_layer_stack_bucket(const Position& pos);
 
     // Index of a feature for a given king position and another piece on some square
-    template<Color Perspective>
-    static IndexType make_index(Square s, Piece pc, int bucket, bool mirror);
+    static IndexType make_index(Color perspective, Square s, Piece pc, int bucket, bool mirror);
 
     // Get a list of indices for recently changed features
-    template<Color Perspective>
-    static void append_changed_indices(
-      int bucket, bool mirror, const DirtyPiece& dp, IndexList& removed, IndexList& added);
+    static void append_changed_indices(Color           perspective,
+                                       int             bucket,
+                                       bool            mirror,
+                                       const DiffType& diff,
+                                       IndexList&      removed,
+                                       IndexList&      added);
 
     // Returns whether the change stored in this DirtyPiece means
     // that a full accumulator refresh is required.
-    static bool requires_refresh(const DirtyPiece& dirtyPiece, Color perspective);
+    static bool requires_refresh(const DiffType& diff, Color perspective);
 };
 
 }  // namespace Stockfish::Eval::NNUE::Features
