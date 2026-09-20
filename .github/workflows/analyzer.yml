@@ -129,12 +129,33 @@ jobs:
           path: include-what-you-use
           persist-credentials: false
 
+      - name: Add the LLVM apt repository
+        # The previous form used "add-apt-repository" plus "apt-key add", which
+        # is deprecated and, in practice, left the repository untrusted: apt
+        # then skipped it with nothing worse than a "W: GPG error" line, which
+        # looks exactly like success. Pin the key to this one repository with
+        # signed-by instead, as the official LLVM instructions do.
+        run: |
+          keyring=/etc/apt/keyrings/llvm-snapshot.asc
+          sudo mkdir -p /etc/apt/keyrings
+          curl -fsSL https://apt.llvm.org/llvm-snapshot.gpg.key | sudo tee "$keyring" >/dev/null
+          test -s "$keyring" || { echo "::error::the LLVM signing key did not download"; exit 1; }
+          echo "deb [signed-by=$keyring] http://apt.llvm.org/jammy/ llvm-toolchain-jammy-17 main" \
+            | sudo tee /etc/apt/sources.list.d/llvm-toolchain.list >/dev/null
+
       - name: Download required linux packages
         run: |
-          sudo add-apt-repository 'deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-17 main'
-          wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
-          sudo apt update
-          sudo apt install -y libclang-17-dev clang-17 libc++-17-dev
+          sudo apt-get update
+          sudo apt-get install -y libclang-17-dev clang-17 libc++-17-dev
+
+      - name: Confirm LLVM 17 really is present
+        # Without this, silently falling back to whatever LLVM the runner image
+        # happens to ship looks identical to a correct setup until the build
+        # fails on something unrelated.
+        run: |
+          clang-17 --version
+          test -d /usr/lib/llvm-17 || { echo "::error::/usr/lib/llvm-17 is missing"; exit 1; }
+          apt-cache policy libclang-17-dev | sed -n '1,3p'
 
       - name: Set up include-what-you-use
         run: |
