@@ -200,7 +200,7 @@ class SharedMemoryBackend {
     static constexpr DWORD IS_INITIALIZED_VALUE = 1;
 
     SharedMemoryBackend() :
-        status(Status::NotInitialized) {};
+        status(Status::NotInitialized) {}
 
     SharedMemoryBackend(const std::string& shm_name, const T& value) :
         status(Status::NotInitialized) {
@@ -278,7 +278,7 @@ class SharedMemoryBackend {
         const usize total_size = sizeof(T) + sizeof(IS_INITIALIZED_VALUE);
 
         // Try allocating with large pages first.
-        hMapFile = windows_try_with_large_page_priviliges(
+        hMapFile = windows_try_with_large_page_privileges(
           [&](usize largePageSize) {
               const usize total_size_aligned =
                 (total_size + largePageSize - 1) / largePageSize * largePageSize;

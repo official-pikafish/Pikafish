@@ -36,8 +36,6 @@ class Position;
 
 namespace Stockfish::Eval::NNUE {
 
-struct alignas(CacheLineSize) Accumulator;
-
 class FeatureTransformer;
 
 // Class that holds the result of affine transformation of input features,

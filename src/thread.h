@@ -99,7 +99,7 @@ class Thread {
    private:
     std::mutex                mutex;
     std::condition_variable   cv;
-    usize                     idx, idxInNuma, totalNuma, nthreads;
+    usize                     idx, idxInNuma, totalNuma;
     bool                      exit = false, searching = true;  // Set before starting std::thread
     NativeThread              stdThread;
     NumaReplicatedAccessToken numaAccessToken;

@@ -52,13 +52,16 @@ struct TTData {
     bool  is_pv;
 
     TTData() = delete;
+
+    // clang-format off
     TTData(Move m, Value v, Value ev, Depth d, Bound b, bool pv) :
         move(m),
         value(v),
         eval(ev),
         depth(d),
         bound(b),
-        is_pv(pv) {};
+        is_pv(pv) {}
+    // clang-format on
 };
 
 

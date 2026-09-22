@@ -104,7 +104,7 @@ void std_aligned_free(void* ptr) {
 
 static void* aligned_large_pages_alloc_windows([[maybe_unused]] usize allocSize) {
 
-    return windows_try_with_large_page_priviliges(
+    return windows_try_with_large_page_privileges(
       [&](usize largePageSize) {
           // Round up size to full pages and allocate
           allocSize = (allocSize + largePageSize - 1) & ~usize(largePageSize - 1);

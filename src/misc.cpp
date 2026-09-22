@@ -609,7 +609,7 @@ bool is_whitespace(std::string_view s) {
 
 
 // Return the directory where our Stockfish binary sits. This is useful,
-// because when the NNUE network is not embeded in the binary, this directory
+// because when the NNUE network is not embedded in the binary, this directory
 // is one of the locations where we look for the NNUE file.
 fs::path CommandLine::get_binary_directory(fs::path argv0) {
 
@@ -630,9 +630,6 @@ fs::path CommandLine::get_binary_directory(fs::path argv0) {
         binaryDirectory = fs::path(".");
     return binaryDirectory;
 }
-
-// Return the working directory
-fs::path CommandLine::get_working_directory() { return std::filesystem::current_path(); }
 
 
 // On Windows, tell the console to use UTF8 encoding

@@ -73,8 +73,8 @@ constexpr int HiddenOneVal    = 128;
 // Size of cache line (in bytes)
 constexpr usize CacheLineSize = 64;
 
-constexpr const char  Leb128MagicString[]   = "COMPRESSED_LEB128";
-constexpr const usize Leb128MagicStringSize = sizeof(Leb128MagicString) - 1;
+constexpr char  Leb128MagicString[]   = "COMPRESSED_LEB128";
+constexpr usize Leb128MagicStringSize = sizeof(Leb128MagicString) - 1;
 
 // SIMD width (in bytes)
 #if defined(USE_AVX2)

@@ -37,6 +37,6 @@ struct BenchmarkSetup {
 
 BenchmarkSetup setup_benchmark(std::istream&);
 
-}  // namespace Stockfish
+}  // namespace Stockfish::Benchmark
 
 #endif  // #ifndef BENCHMARK_H_INCLUDED

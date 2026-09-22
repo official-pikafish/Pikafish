@@ -49,7 +49,7 @@ class TimeManagement {
     TimePoint elapsed(FUNC nodes) const {
         return useNodesTime ? TimePoint(nodes()) : elapsed_time();
     }
-    TimePoint elapsed_time() const { return now() - startTime; };
+    TimePoint elapsed_time() const { return now() - startTime; }
 
     void clear();
     void advance_nodes_time(i64 nodes);

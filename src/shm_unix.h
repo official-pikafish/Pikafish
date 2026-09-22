@@ -336,9 +336,9 @@ class SharedMemory {
         {
             struct msghdr   msg                = {};
             const usize     space              = CMSG_SPACE(sizeof(int));
-            constexpr usize alignement         = alignof(struct cmsghdr);
-            auto            v                  = std::make_unique<std::byte[]>(space + alignement);
-            std::byte*      control_msg_buffer = align_ptr_up<alignement>(v.get());
+            constexpr usize alignment          = alignof(struct cmsghdr);
+            auto            v                  = std::make_unique<std::byte[]>(space + alignment);
+            std::byte*      control_msg_buffer = align_ptr_up<alignment>(v.get());
 
             char         buf[1];
             struct iovec iov[1];
@@ -433,11 +433,11 @@ class SharedMemory {
                       if (!client_fd.is_valid())
                           continue;  // including EINTR
 
-                      struct msghdr   msg        = {};
-                      const usize     space      = CMSG_SPACE(sizeof(int));
-                      constexpr usize alignement = alignof(struct cmsghdr);
-                      auto            v = std::make_unique<std::byte[]>(space + alignement);
-                      std::byte*      control_msg_buffer = align_ptr_up<alignement>(v.get());
+                      struct msghdr   msg       = {};
+                      const usize     space     = CMSG_SPACE(sizeof(int));
+                      constexpr usize alignment = alignof(struct cmsghdr);
+                      auto            v         = std::make_unique<std::byte[]>(space + alignment);
+                      std::byte*      control_msg_buffer = align_ptr_up<alignment>(v.get());
 
 
                       char  buf[1] = {};

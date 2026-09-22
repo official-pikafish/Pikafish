@@ -310,7 +310,7 @@ inline void* mmap_huge_aligned(usize size, int flags, int fd = -1, off_t offset 
 #if defined(_WIN32)
 
 template<typename FuncYesT, typename FuncNoT>
-auto windows_try_with_large_page_priviliges([[maybe_unused]] FuncYesT&& fyes, FuncNoT&& fno) {
+auto windows_try_with_large_page_privileges([[maybe_unused]] FuncYesT&& fyes, FuncNoT&& fno) {
 
     #if !defined(_WIN64)
     return fno();
