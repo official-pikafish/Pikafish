@@ -76,10 +76,10 @@ auto ThreatOffsets = []() {
             {
                 Bitboard attacks = Bitboard(0);
                 if (pt == PAWN)
-                    attacks = Attacks::attacks_bb<PAWN>(from, color_of(attacker));
+                    attacks = Attacks::attacks_bb(PAWN, from, color_of(attacker));
                 else if (pt == CANNON)
                     attacks = Attacks::sliding_attack<CANNON>(
-                      from, Attacks::unconstrained_attacks_bb<KING>(from));
+                      from, Attacks::unconstrained_attacks_bb(KING, from));
                 else
                     attacks = Attacks::PseudoAttacks[pt][from];
 
@@ -140,7 +140,7 @@ void FullThreats::append_active_indices(Color perspective, const Position& pos, 
         Piece     attacker = pos.piece_on(from);
         PieceType pt       = type_of(attacker);
         Color     c        = color_of(attacker);
-        Bitboard  attacks  = (pt == PAWN ? Attacks::attacks_bb<PAWN>(from, c)
+        Bitboard  attacks  = (pt == PAWN ? Attacks::attacks_bb(PAWN, from, c)
                                          : Attacks::attacks_bb(pt, from, occupied))
                            & occupied;
 

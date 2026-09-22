@@ -66,10 +66,10 @@ void init() {
         {
             if (PseudoAttacks[ROOK][s1] & s2)
             {
-                LineBB[s1][s2] = (attacks_bb<ROOK>(s1) & attacks_bb<ROOK>(s2)) | s1 | s2;
+                LineBB[s1][s2] = (attacks_bb(ROOK, s1) & attacks_bb(ROOK, s2)) | s1 | s2;
                 BetweenBB[s1][s2] =
-                  (attacks_bb<ROOK>(s1, square_bb(s2)) & attacks_bb<ROOK>(s2, square_bb(s1)));
-                RayPassBB[s1][s2] = attacks_bb<CANNON>(s1, square_bb(s2));
+                  (attacks_bb(ROOK, s1, square_bb(s2)) & attacks_bb(ROOK, s2, square_bb(s1)));
+                RayPassBB[s1][s2] = attacks_bb(CANNON, s1, square_bb(s2));
             }
 
             if (PseudoAttacks[KNIGHT][s1] & s2)
@@ -83,12 +83,12 @@ void init() {
     {
         for (Square s2 = SQ_A0; s2 <= SQ_I9; ++s2)
         {
-            if (unconstrained_attacks_bb<KING>(s1) & s2)
+            if (unconstrained_attacks_bb(KING, s1) & s2)
                 LeaperPassBB[s1][s2] |=
-                  attacks_bb<KNIGHT>(s1) & unconstrained_attacks_bb<ADVISOR>(s2);
-            if (unconstrained_attacks_bb<ADVISOR>(s1) & s2)
+                  attacks_bb(KNIGHT, s1) & unconstrained_attacks_bb(ADVISOR, s2);
+            if (unconstrained_attacks_bb(ADVISOR, s1) & s2)
                 LeaperPassBB[s1][s2] |=
-                  attacks_bb<BISHOP>(s1) & unconstrained_attacks_bb<ADVISOR>(s2);
+                  attacks_bb(BISHOP, s1) & unconstrained_attacks_bb(ADVISOR, s2);
         }
     }
 }

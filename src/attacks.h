@@ -25,6 +25,7 @@
 #include <utility>
 
 #include "bitboard.h"
+#include "misc.h"
 #include "types.h"
 
 namespace Stockfish::Attacks {
@@ -263,74 +264,49 @@ inline constexpr auto PseudoAttacks = [] {
 
 // Returns the pseudo attacks of the given piece type
 // assuming an empty board.
-template<PieceType Pt>
-inline Bitboard attacks_bb(Square s, Color c = COLOR_NB) {
+sf_always_inline Bitboard attacks_bb(PieceType pt, Square s, Color c = COLOR_NB) {
 
-    assert(Pt != KNIGHT_TO && ((Pt != PAWN && Pt != PAWN_TO) || c < COLOR_NB) && is_ok(s));
-    if constexpr (Pt != PAWN && Pt != PAWN_TO)
-        return PseudoAttacks[Pt][s];
-    else if constexpr (Pt == PAWN)
+    assert(pt != KNIGHT_TO && ((pt != PAWN && pt != PAWN_TO) || c < COLOR_NB) && is_ok(s));
+    if (pt != PAWN && pt != PAWN_TO)
+        return PseudoAttacks[pt][s];
+    else if (pt == PAWN)
         return PseudoAttacks[c == WHITE ? NO_PIECE_TYPE : PAWN][s];
-    else  // if constexpr (Pt == PAWN_TO)
+    else  // if (pt == PAWN_TO)
         return PseudoAttacks[c == WHITE ? PAWN_TO - 1 : PAWN_TO][s];
 }
 
 // Returns the attacks by the given piece
 // assuming the board is occupied according to the passed Bitboard.
 // Sliding piece attacks do not continue passed an occupied square.
-template<PieceType Pt>
-inline Bitboard attacks_bb(Square s, Bitboard occupied) {
+sf_always_inline Bitboard attacks_bb(PieceType pt, Square s, Bitboard occupied) {
 
-    assert(Pt != PAWN && Pt != PAWN_TO && is_ok(s));
+    assert(pt != PAWN && pt != PAWN_TO && is_ok(s));
 
-    switch (Pt)
+    switch (pt)
     {
     case ROOK :
     case CANNON :
     case BISHOP :
     case KNIGHT :
     case KNIGHT_TO :
-        return magic(s, Pt).attack_bb(occupied);
-    default :
-        return PseudoAttacks[Pt][s];
-    }
-}
-
-// Returns the attacks by the given piece
-// assuming the board is occupied according to the passed Bitboard.
-// Sliding piece attacks do not continue passed an occupied square.
-inline Bitboard attacks_bb(PieceType pt, Square s, Bitboard occupied) {
-
-    assert(pt != PAWN && pt < KNIGHT_TO && is_ok(s));
-
-    switch (pt)
-    {
-    case ROOK :
-        return attacks_bb<ROOK>(s, occupied);
-    case CANNON :
-        return attacks_bb<CANNON>(s, occupied);
-    case BISHOP :
-        return attacks_bb<BISHOP>(s, occupied);
-    case KNIGHT :
-        return attacks_bb<KNIGHT>(s, occupied);
+        return magic(s, pt).attack_bb(occupied);
     default :
         return PseudoAttacks[pt][s];
     }
 }
 
-template<PieceType Pt>
-inline Bitboard unconstrained_attacks_bb(Square s) {
+sf_always_inline Bitboard unconstrained_attacks_bb(PieceType pt, Square s) {
 
-    assert((Pt == KING || Pt == ADVISOR) && is_ok(s));
+    assert((pt == KING || pt == ADVISOR) && is_ok(s));
 
-    switch (Pt)
+    switch (pt)
     {
     case KING :
         return PseudoAttacks[KING + 3][s];
     case ADVISOR :
         return PseudoAttacks[ADVISOR + 1][s];
     default :
-        return PseudoAttacks[Pt][s];
+        return PseudoAttacks[pt][s];
     }
 }
 

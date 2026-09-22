@@ -42,17 +42,17 @@ Move* generate_moves(const Position& pos, Move* moveList, Bitboard target) {
         Square   from = pop_lsb(bb);
         Bitboard b    = 0;
         if constexpr (Pt != CANNON)
-            b = (Pt != PAWN ? attacks_bb<Pt>(from, pos.pieces()) : attacks_bb<PAWN>(from, Us))
+            b = (Pt != PAWN ? attacks_bb(Pt, from, pos.pieces()) : attacks_bb(PAWN, from, Us))
               & target;
         else
         {
             // Generate cannon capture moves.
             if (Type != QUIETS)
-                b |= attacks_bb<CANNON>(from, pos.pieces()) & pos.pieces(~Us);
+                b |= attacks_bb(CANNON, from, pos.pieces()) & pos.pieces(~Us);
 
             // Generate cannon quiet moves.
             if (Type != CAPTURES)
-                b |= attacks_bb<ROOK>(from, pos.pieces()) & ~pos.pieces();
+                b |= attacks_bb(ROOK, from, pos.pieces()) & ~pos.pieces();
 
             // Restrict to target if in evasion generation
             if (Type == EVASIONS)
@@ -89,7 +89,7 @@ Move* generate_all(const Position& pos, Move* moveList) {
 
     if (Type != EVASIONS)
     {
-        Bitboard b = attacks_bb<KING>(ksq) & target;
+        Bitboard b = attacks_bb(KING, ksq) & target;
         while (b)
             *moveList++ = Move(ksq, pop_lsb(b));
     }
@@ -143,7 +143,7 @@ Move* generate<EVASIONS>(const Position& pos, Move* moveList) {
                                   : generate_moves<BLACK, EVASIONS>(pos, moveList, target);
 
     // Generate evasions for king, capture and non capture moves
-    Bitboard b = attacks_bb<KING>(ksq) & ~pos.pieces(us);
+    Bitboard b = attacks_bb(KING, ksq) & ~pos.pieces(us);
     // For all the squares attacked by slider checkers. We will remove them from
     // the king evasions in order to skip known illegal moves, which avoids any
     // useless legality checks later on.
@@ -161,11 +161,11 @@ Move* generate<EVASIONS>(const Position& pos, Move* moveList) {
             Square hurdleSq = pop_lsb(hurdle);
             pt              = type_of(pos.piece_on(hurdleSq));
             if (pt == PAWN)
-                b = attacks_bb<PAWN>(hurdleSq, us) & ~line_bb(checksq, hurdleSq) & ~pos.pieces(us);
+                b = attacks_bb(PAWN, hurdleSq, us) & ~line_bb(checksq, hurdleSq) & ~pos.pieces(us);
             else if (pt == CANNON)
-                b = (attacks_bb<ROOK>(hurdleSq, pos.pieces()) & ~line_bb(checksq, hurdleSq)
+                b = (attacks_bb(ROOK, hurdleSq, pos.pieces()) & ~line_bb(checksq, hurdleSq)
                      & ~pos.pieces())
-                  | (attacks_bb<CANNON>(hurdleSq, pos.pieces()) & pos.pieces(~us));
+                  | (attacks_bb(CANNON, hurdleSq, pos.pieces()) & pos.pieces(~us));
             else
                 b = attacks_bb(pt, hurdleSq, pos.pieces()) & ~line_bb(checksq, hurdleSq)
                   & ~pos.pieces(us);

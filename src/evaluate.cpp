@@ -41,8 +41,8 @@ static int simple_eval(const Position& pos) {
     const Color c = pos.side_to_move();
     return PawnValue * (pos.count<PAWN>(c) - pos.count<PAWN>(~c))
          + AdvisorValue * (pos.count<ADVISOR>(c) - pos.count<ADVISOR>(~c))
-         + BishopValue * (pos.count<BISHOP>(c) - pos.count<BISHOP>(~c))
-         + pos.major_material(c) - pos.major_material(~c);
+         + BishopValue * (pos.count<BISHOP>(c) - pos.count<BISHOP>(~c)) + pos.major_material(c)
+         - pos.major_material(~c);
 }
 
 Value scale_evaluation(Value nnue, int optimism, const Position& pos);

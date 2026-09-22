@@ -277,12 +277,12 @@ void Position::set_check_info() const {
 
     // We have to take special cares about the hollow cannons and checks
     st->needFullCheck =
-      checkers() || (attacks_bb<ROOK>(king_square(sideToMove)) & pieces(~sideToMove, CANNON));
+      checkers() || (attacks_bb(ROOK, king_square(sideToMove)) & pieces(~sideToMove, CANNON));
 
-    st->checkSquares[PAWN]   = attacks_bb<PAWN_TO>(ksq, sideToMove);
-    st->checkSquares[KNIGHT] = attacks_bb<KNIGHT_TO>(ksq, pieces());
-    st->checkSquares[CANNON] = attacks_bb<CANNON>(ksq, pieces());
-    st->checkSquares[ROOK]   = attacks_bb<ROOK>(ksq, pieces());
+    st->checkSquares[PAWN]   = attacks_bb(PAWN_TO, ksq, sideToMove);
+    st->checkSquares[KNIGHT] = attacks_bb(KNIGHT_TO, ksq, pieces());
+    st->checkSquares[CANNON] = attacks_bb(CANNON, ksq, pieces());
+    st->checkSquares[ROOK]   = attacks_bb(ROOK, ksq, pieces());
     st->checkSquares[KING] = st->checkSquares[ADVISOR] = st->checkSquares[BISHOP] = 0;
 
     Bitboard hollowCannons = st->checkSquares[ROOK] & pieces(sideToMove, CANNON);
@@ -386,8 +386,8 @@ void Position::update_blockers() const {
     st->pinners[~c]        = 0;
 
     // Snipers are pieces that attack 's' when a piece and other pieces are removed
-    Bitboard snipers   = ((attacks_bb<ROOK>(ksq) & (pieces(ROOK) | pieces(CANNON) | pieces(KING)))
-                          | (attacks_bb<KNIGHT>(ksq) & pieces(KNIGHT)))
+    Bitboard snipers   = ((attacks_bb(ROOK, ksq) & (pieces(ROOK) | pieces(CANNON) | pieces(KING)))
+                          | (attacks_bb(KNIGHT, ksq) & pieces(KNIGHT)))
                        & pieces(~c);
     Bitboard occupancy = pieces() ^ (snipers & ~pieces(CANNON));
 
@@ -411,13 +411,13 @@ void Position::update_blockers() const {
 // Slider attacks use the occupied bitboard to indicate occupancy.
 Bitboard Position::attackers_to(Square s, Bitboard occupied) const {
 
-    return (attacks_bb<PAWN_TO>(s, WHITE) & pieces(WHITE, PAWN))
-         | (attacks_bb<PAWN_TO>(s, BLACK) & pieces(BLACK, PAWN))
-         | (attacks_bb<KNIGHT_TO>(s, occupied) & pieces(KNIGHT))
-         | (attacks_bb<ROOK>(s, occupied) & pieces(ROOK))
-         | (attacks_bb<CANNON>(s, occupied) & pieces(CANNON))
-         | (attacks_bb<BISHOP>(s, occupied) & pieces(BISHOP))
-         | (attacks_bb<ADVISOR>(s) & pieces(ADVISOR)) | (attacks_bb<KING>(s) & pieces(KING));
+    return (attacks_bb(PAWN_TO, s, WHITE) & pieces(WHITE, PAWN))
+         | (attacks_bb(PAWN_TO, s, BLACK) & pieces(BLACK, PAWN))
+         | (attacks_bb(KNIGHT_TO, s, occupied) & pieces(KNIGHT))
+         | (attacks_bb(ROOK, s, occupied) & pieces(ROOK))
+         | (attacks_bb(CANNON, s, occupied) & pieces(CANNON))
+         | (attacks_bb(BISHOP, s, occupied) & pieces(BISHOP))
+         | (attacks_bb(ADVISOR, s) & pieces(ADVISOR)) | (attacks_bb(KING, s) & pieces(KING));
 }
 
 
@@ -426,10 +426,10 @@ Bitboard Position::attackers_to(Square s, Bitboard occupied) const {
 // to indicate occupancy.
 Bitboard Position::checkers_to(Color c, Square s, Bitboard occupied) const {
 
-    return ((attacks_bb<PAWN_TO>(s, c) & pieces(PAWN))
-            | (attacks_bb<KNIGHT_TO>(s, occupied) & pieces(KNIGHT))
-            | (attacks_bb<ROOK>(s, occupied) & pieces(KING, ROOK))
-            | (attacks_bb<CANNON>(s, occupied) & pieces(CANNON)))
+    return ((attacks_bb(PAWN_TO, s, c) & pieces(PAWN))
+            | (attacks_bb(KNIGHT_TO, s, occupied) & pieces(KNIGHT))
+            | (attacks_bb(ROOK, s, occupied) & pieces(KING, ROOK))
+            | (attacks_bb(CANNON, s, occupied) & pieces(CANNON)))
          & pieces(c);
 }
 
@@ -489,12 +489,12 @@ bool Position::pseudo_legal(const Move m) const {
     // Handle the special cases
     if (type_of(pc) == PAWN)
     {
-        if (!(attacks_bb<PAWN>(from, us) & to))
+        if (!(attacks_bb(PAWN, from, us) & to))
             return false;
     }
     else if (type_of(pc) == CANNON && !capture(m))
     {
-        if (!(attacks_bb<ROOK>(from, pieces()) & to))
+        if (!(attacks_bb(ROOK, from, pieces()) & to))
             return false;
     }
     else if (!(attacks_bb(type_of(pc), from, pieces()) & to))
@@ -757,8 +757,8 @@ template<bool ComputeRay>
 void Position::update_piece_threats(Piece pc, bool putPiece, Square s, DirtyThreats* const dts) {
     Bitboard occupied = pieces();
 
-    const Bitboard rAttacks = attacks_bb<ROOK>(s, occupied);
-    const Bitboard cAttacks = attacks_bb<CANNON>(s, occupied);
+    const Bitboard rAttacks = attacks_bb(ROOK, s, occupied);
+    const Bitboard cAttacks = attacks_bb(CANNON, s, occupied);
 
     // Outgoing threats
     Bitboard threatened;
@@ -766,7 +766,7 @@ void Position::update_piece_threats(Piece pc, bool putPiece, Square s, DirtyThre
     switch (type_of(pc))
     {
     case PAWN :
-        threatened = attacks_bb<PAWN>(s, color_of(pc));
+        threatened = attacks_bb(PAWN, s, color_of(pc));
         break;
     case ROOK :
         threatened = rAttacks;
@@ -793,12 +793,12 @@ void Position::update_piece_threats(Piece pc, bool putPiece, Square s, DirtyThre
     }
 
     // Incoming threats
-    Bitboard incoming_threats = (attacks_bb<PAWN_TO>(s, WHITE) & pieces(WHITE, PAWN))
-                              | (attacks_bb<PAWN_TO>(s, BLACK) & pieces(BLACK, PAWN))
-                              | (attacks_bb<KNIGHT_TO>(s, occupied) & pieces(KNIGHT))
-                              | (attacks_bb<BISHOP>(s, occupied) & pieces(BISHOP))
-                              | (attacks_bb<ADVISOR>(s) & pieces(ADVISOR))
-                              | (attacks_bb<KING>(s) & pieces(KING));
+    Bitboard incoming_threats = (attacks_bb(PAWN_TO, s, WHITE) & pieces(WHITE, PAWN))
+                              | (attacks_bb(PAWN_TO, s, BLACK) & pieces(BLACK, PAWN))
+                              | (attacks_bb(KNIGHT_TO, s, occupied) & pieces(KNIGHT))
+                              | (attacks_bb(BISHOP, s, occupied) & pieces(BISHOP))
+                              | (attacks_bb(ADVISOR, s) & pieces(ADVISOR))
+                              | (attacks_bb(KING, s) & pieces(KING));
 
     // Discovered threats
     if constexpr (ComputeRay)
@@ -873,8 +873,8 @@ void Position::update_piece_threats(Piece pc, bool putPiece, Square s, DirtyThre
 
         // Knights with 's' in between threat pieces on the other side
         // Bishops with 's' in between threat pieces on the other side
-        Bitboard leapers = (unconstrained_attacks_bb<KING>(s) & pieces(KNIGHT))
-                         | (unconstrained_attacks_bb<ADVISOR>(s) & pieces(BISHOP));
+        Bitboard leapers = (unconstrained_attacks_bb(KING, s) & pieces(KNIGHT))
+                         | (unconstrained_attacks_bb(ADVISOR, s) & pieces(BISHOP));
         while (leapers)
         {
             Square leaperSq = pop_lsb(leapers);
@@ -992,7 +992,7 @@ bool Position::see_ge(Move m, int threshold) const {
     // Flying general
     bool kingAttacks = attackers & pieces(KING);
     if (kingAttacks)
-        attackers |= attacks_bb<ROOK>(to, occupied) & pieces(KING);
+        attackers |= attacks_bb(ROOK, to, occupied) & pieces(KING);
 
     Bitboard nonCannons = attackers & ~pieces(CANNON);
     Bitboard cannons    = attackers & pieces(CANNON);
@@ -1029,8 +1029,8 @@ bool Position::see_ge(Move m, int threshold) const {
             occupied ^= least_significant_square_bb(bb);
 
             nonCannons |=
-              attacks_bb<ROOK>(to, occupied) & (kingAttacks ? pieces(KING, ROOK) : pieces(ROOK));
-            cannons   = attacks_bb<CANNON>(to, occupied) & pieces(CANNON);
+              attacks_bb(ROOK, to, occupied) & (kingAttacks ? pieces(KING, ROOK) : pieces(ROOK));
+            cannons   = attacks_bb(CANNON, to, occupied) & pieces(CANNON);
             attackers = nonCannons | cannons;
         }
 
@@ -1047,7 +1047,7 @@ bool Position::see_ge(Move m, int threshold) const {
                 break;
             occupied ^= least_significant_square_bb(bb);
 
-            nonCannons |= attacks_bb<KNIGHT_TO>(to, occupied) & pieces(KNIGHT);
+            nonCannons |= attacks_bb(KNIGHT_TO, to, occupied) & pieces(KNIGHT);
             attackers = nonCannons | cannons;
         }
 
@@ -1057,7 +1057,7 @@ bool Position::see_ge(Move m, int threshold) const {
                 break;
             occupied ^= least_significant_square_bb(bb);
 
-            cannons   = attacks_bb<CANNON>(to, occupied) & pieces(CANNON);
+            cannons   = attacks_bb(CANNON, to, occupied) & pieces(CANNON);
             attackers = nonCannons | cannons;
         }
 
@@ -1074,8 +1074,8 @@ bool Position::see_ge(Move m, int threshold) const {
             occupied ^= least_significant_square_bb(bb);
 
             nonCannons |=
-              attacks_bb<ROOK>(to, occupied) & (kingAttacks ? pieces(KING, ROOK) : pieces(ROOK));
-            cannons   = attacks_bb<CANNON>(to, occupied) & pieces(CANNON);
+              attacks_bb(ROOK, to, occupied) & (kingAttacks ? pieces(KING, ROOK) : pieces(ROOK));
+            cannons   = attacks_bb(CANNON, to, occupied) & pieces(CANNON);
             attackers = nonCannons | cannons;
         }
 
