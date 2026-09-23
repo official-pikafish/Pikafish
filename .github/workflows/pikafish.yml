@@ -29,7 +29,7 @@ jobs:
         shell: ${{ matrix.config.shell }}
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Setup msys and install required packages
         if: runner.os == 'Windows'
@@ -73,7 +73,7 @@ jobs:
         shell: bash
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Compile universal build
         run: |
@@ -101,7 +101,7 @@ jobs:
         working-directory: src
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Install NDK
         run: |
@@ -134,7 +134,7 @@ jobs:
     needs: [Pikafish-x86-64, Pikafish-MacOS, Pikafish-Android]
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - uses: actions/download-artifact@v8
         with:

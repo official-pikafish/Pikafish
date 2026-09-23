@@ -14,12 +14,12 @@ jobs:
         shell: bash
     steps:
       - name: Checkout Pikafish
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           path: Pikafish
 
       - name: Checkout include-what-you-use
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           repository: include-what-you-use/include-what-you-use
           ref: f25caa280dc3277c4086ec345ad279a2463fea0f
@@ -55,10 +55,41 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Pikafish
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Run clang-format style check
         uses: jidicula/clang-format-action@v4.18.0
         id: clang-format
         with:
           clang-format-version: '22'
+
+  CodeQL:
+    name: CodeQL
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+
+    strategy:
+      fail-fast: false
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          languages: cpp
+
+      - name: Build
+        working-directory: src
+        run: make -j4 build
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v4
+        with:
+          category: "/language:cpp"

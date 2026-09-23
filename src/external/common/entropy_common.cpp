@@ -15,6 +15,7 @@
 /* *************************************
 *  Dependencies
 ***************************************/
+#include "bmi2.h"
 #include "mem.h"
 #include "error_private.h"      /* ERR_*, ERROR */
 #define FSE_STATIC_LINKING_ONLY /* FSE_MIN_TABLELOG */
@@ -242,6 +243,8 @@ BMI2_TARGET_ATTRIBUTE static size_t FSE_readNCount_body_bmi2(short*      normali
                                                              size_t      hbSize) {
     return FSE_readNCount_body(normalizedCounter, maxSVPtr, tableLogPtr, headerBuffer, hbSize);
 }
+#else
+    #define FSE_readNCount_body_bmi2 FSE_readNCount_body_default
 #endif
 
 size_t FSE_readNCount_bmi2(short*      normalizedCounter,
@@ -250,13 +253,11 @@ size_t FSE_readNCount_bmi2(short*      normalizedCounter,
                            const void* headerBuffer,
                            size_t      hbSize,
                            int         bmi2) {
-#if DYNAMIC_BMI2
-    if (bmi2)
+    if (ZSTD_USE_BMI2(bmi2))
     {
         return FSE_readNCount_body_bmi2(normalizedCounter, maxSVPtr, tableLogPtr, headerBuffer,
                                         hbSize);
     }
-#endif
     (void) bmi2;
     return FSE_readNCount_body_default(normalizedCounter, maxSVPtr, tableLogPtr, headerBuffer,
                                        hbSize);
@@ -412,6 +413,8 @@ static BMI2_TARGET_ATTRIBUTE size_t HUF_readStats_body_bmi2(BYTE*       huffWeig
     return HUF_readStats_body(huffWeight, hwSize, rankStats, nbSymbolsPtr, tableLogPtr, src,
                               srcSize, workSpace, wkspSize, 1);
 }
+#else
+    #define HUF_readStats_body_bmi2 HUF_readStats_body_default
 #endif
 
 size_t HUF_readStats_wksp(BYTE*       huffWeight,
@@ -424,13 +427,11 @@ size_t HUF_readStats_wksp(BYTE*       huffWeight,
                           void*       workSpace,
                           size_t      wkspSize,
                           int         flags) {
-#if DYNAMIC_BMI2
-    if (flags & HUF_flags_bmi2)
+    if (ZSTD_USE_BMI2(flags & HUF_flags_bmi2))
     {
         return HUF_readStats_body_bmi2(huffWeight, hwSize, rankStats, nbSymbolsPtr, tableLogPtr,
                                        src, srcSize, workSpace, wkspSize);
     }
-#endif
     (void) flags;
     return HUF_readStats_body_default(huffWeight, hwSize, rankStats, nbSymbolsPtr, tableLogPtr, src,
                                       srcSize, workSpace, wkspSize);
