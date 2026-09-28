@@ -173,11 +173,11 @@ constexpr Value mated_in(int ply) { return -VALUE_MATE + ply; }
 // In the code, we make the assumption that these values
 // are such that major_material() can be used to uniquely
 // identify the material on the board.
-constexpr Value RookValue    = 1305;
+constexpr Value RookValue    = 1316;
 constexpr Value AdvisorValue = 219;
-constexpr Value CannonValue  = 773;
+constexpr Value CannonValue  = 770;
 constexpr Value PawnValue    = 144;
-constexpr Value KnightValue  = 720;
+constexpr Value KnightValue  = 721;
 constexpr Value BishopValue  = 187;
 
 // clang-format off
