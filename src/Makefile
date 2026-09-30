@@ -1479,12 +1479,7 @@ $(TEMP_DIR)/%/.setup: | $(TEMP_DIR)
 $(TEMP_DIR)/%/pikafish.o: $(TEMP_DIR)/%/.setup $(NET_SENTINEL)
 	+ENV_CXXFLAGS='$(ENV_CXXFLAGS) $(call arch-cxxflags,$*)' \
 	    $(MAKE) -C $(TEMP_DIR)/$* $(UOBJ_TGT) \
-<<<<<<< HEAD
-	        ARCH=$* CXX=$(CXX) COMP=$(COMP)
-=======
-		        ARCH=$* CXX=$(CXX) COMP=$(COMP) UNIVERSAL_SLICE=true \
-	        NNUE_EMBED_OBJ=$(NNUE_EMBED_OBJ)
->>>>>>> e5c99a89 (Balanced lto for gcc > 13)
+		        ARCH=$* CXX=$(CXX) COMP=$(COMP) UNIVERSAL_SLICE=true
 ifeq ($(TARGET_KERNEL),Darwin)
 # Rename the initializer section
 	ld -r -rename_section __DATA __mod_init_func __DATA $(call arch-mac-section,$*) $@ -o $@.tmp
