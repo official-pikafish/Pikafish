@@ -44,15 +44,7 @@ constexpr IndexType L1 = 1024;
 constexpr int       L2 = 32;
 constexpr int       L3 = 32;
 
-constexpr IndexType PSQTBuckets = 16;
 constexpr IndexType LayerStacks = 16;
-
-// If vector instructions are enabled, we update and refresh the
-// accumulator tile by tile such that each tile fits in the CPU's
-// vector registers.
-static_assert(
-  PSQTBuckets % 16 == 0,
-  "Per feature PSQT values cannot be processed at granularity lower than 16 at a time.");
 
 struct NetworkArchitecture {
     static constexpr IndexType TransformedFeatureDimensions = L1;
