@@ -1940,11 +1940,11 @@ void update_all_stats(const Position& pos,
 // Updates the continuation histories for the move pairs formed by
 // the current move and the moves played in previous plies.
 void update_continuation_histories(Stack* ss, Piece pc, Square to, int bonus) {
-    static constexpr std::array<ConthistBonus, 6> conthist_bonuses = {
-      {{1, 538}, {2, 319}, {3, 146}, {4, 260}, {5, 64}, {6, 221}}};
+    static constexpr std::array<ConthistBonus, 5> conthist_bonuses = {
+      {{1, 538}, {2, 319}, {3, 146}, {4, 260}, {6, 221}}};
 
     // Multipliers for positive history consistency
-    constexpr int CMHCMultipliers[] = {98, 100, 101, 100, 116, 119, 129};
+    constexpr int CMHCMultipliers[] = {98, 100, 101, 100, 116, 119};
     int           positiveCount     = 0;
 
     for (const auto [i, weight] : conthist_bonuses)
