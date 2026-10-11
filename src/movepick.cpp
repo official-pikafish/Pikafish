@@ -170,9 +170,9 @@ MovePicker::MovePicker(const Position&              p,
     ply(pl) {
 
     if (pos.checkers())
-        stage = EVASION_TT + !(ttm && pos.pseudo_legal(ttm));
+        stage = EVASION_TT + !(ttm && pos.legal(ttm));
     else
-        stage = (depth > 0 ? MAIN_TT : QSEARCH_TT) + !(ttm && pos.pseudo_legal(ttm));
+        stage = (depth > 0 ? MAIN_TT : QSEARCH_TT) + !(ttm && pos.legal(ttm));
 }
 
 // MovePicker constructor for ProbCut: we generate captures with Static Exchange
@@ -184,7 +184,7 @@ MovePicker::MovePicker(const Position& p, Move ttm, int th, const CapturePieceTo
     threshold(th) {
     assert(!pos.checkers());
 
-    stage = PROBCUT_TT + !(ttm && pos.capture(ttm) && pos.pseudo_legal(ttm));
+    stage = PROBCUT_TT + !(ttm && pos.capture(ttm) && pos.legal(ttm));
 }
 
 // Assigns a numerical value to each move in a list, used for sorting.
@@ -201,11 +201,11 @@ ExtMove* MovePicker::score(const MoveList<Type>& ml) {
     if constexpr (Type == QUIETS)
     {
         threatByLesser[PAWN]    = 0;
-        threatByLesser[ADVISOR] = threatByLesser[BISHOP] = pos.attacks_by<PAWN>(~us);
+        threatByLesser[ADVISOR] = threatByLesser[BISHOP] = pos.threats_by(PAWN);
         threatByLesser[KNIGHT]                           = threatByLesser[CANNON] =
-          pos.attacks_by<ADVISOR>(~us) | pos.attacks_by<BISHOP>(~us) | threatByLesser[ADVISOR];
-        threatByLesser[ROOK] =
-          pos.attacks_by<KNIGHT>(~us) | pos.attacks_by<CANNON>(~us) | threatByLesser[KNIGHT];
+          pos.threats_by(ADVISOR) | pos.threats_by(BISHOP) | threatByLesser[ADVISOR];
+        threatByLesser[ROOK] = pos.threats_by(KNIGHT) | pos.xattacks_by(CANNON, ~us, pos.pieces())
+                             | threatByLesser[KNIGHT];
         threatByLesser[KING] = 0;
     }
 
@@ -281,7 +281,7 @@ Move MovePicker::select(Pred filter) {
 }
 
 // This is the most important method of the MovePicker class. We emit one
-// new pseudo-legal move on every call until there are no more moves left,
+// new legal move on every call until there are no more moves left,
 // picking the move with the highest score from a list of generated moves.
 Move MovePicker::next_move() {
 

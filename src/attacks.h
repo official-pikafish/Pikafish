@@ -73,25 +73,27 @@ const Magic& magic(Square s, PieceType pt);
 
 extern Bitboard LineBB[SQUARE_NB][SQUARE_NB];
 extern Bitboard BetweenBB[SQUARE_NB][SQUARE_NB];
-extern Bitboard RayPassBB[SQUARE_NB][SQUARE_NB];
+extern Bitboard inverse_RayPassBB[SQUARE_NB][SQUARE_NB];
 extern Bitboard LeaperPassBB[SQUARE_NB][SQUARE_NB];
 
+// horizontal/vertical line passing through s1 and s2
 inline Bitboard line_bb(Square s1, Square s2) {
-
     assert(is_ok(s1) && is_ok(s2));
     return LineBB[s1][s2];
 }
 
+// horizontal/vertical line segment or knight blocking square
+// between s1 and s2, excluding s1 but including s2
 inline Bitboard between_bb(Square s1, Square s2) {
-
     assert(is_ok(s1) && is_ok(s2));
     return BetweenBB[s1][s2];
 }
 
+// horizontal/vertical ray beyond s2 in the direction from s1 to s2,
+// excluding both s1 and s2
 inline Bitboard ray_pass_bb(Square s1, Square s2) {
-
     assert(is_ok(s1) && is_ok(s2));
-    return RayPassBB[s1][s2];
+    return inverse_RayPassBB[s2][s1];
 }
 
 inline Bitboard leaper_pass_bb(Square s1, Square s2) {

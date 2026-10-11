@@ -30,33 +30,67 @@ using namespace Attacks;
 
 namespace {
 
-template<Color Us, PieceType Pt, GenType Type>
-Move* generate_moves(const Position& pos, Move* moveList, Bitboard target) {
+Bitboard legal_targets(const Position& pos, Bitboard occupied, Bitboard checkers) {
+    Color    us     = pos.side_to_move();
+    Square   ksq    = pos.king_square(us);
+    Bitboard target = ~pos.pieces(us);
+
+    // Every remaining check must be blocked or captured.
+    while (checkers)
+    {
+        Square s = pop_lsb(checkers);
+        target &= type_of(pos.piece_on(s)) == CANNON ? (between_bb(ksq, s) & ~occupied) | s
+                                                     : between_bb(ksq, s);
+    }
+
+    // Placing a piece between an unobstructed cannon and our king creates a check.
+    Bitboard cannons = attacks_bb(ROOK, ksq, occupied) & pos.pieces(~us, CANNON);
+    while (cannons)
+    {
+        Square s = pop_lsb(cannons);
+        target &= ~(between_bb(ksq, s) ^ square_bb(s));
+    }
+
+    return target;
+}
+
+template<PieceType Pt, GenType Type>
+Move* generate_moves(const Position& pos,
+                     Move*           moveList,
+                     Bitboard        target,
+                     Color           us,
+                     Bitboard        constrained,
+                     Bitboard        safeTarget) {
 
     static_assert(Pt != KING, "Unsupported piece type in generate_moves()");
 
-    Bitboard bb = pos.pieces(Us, Pt);
+    Bitboard bb = pos.pieces(us, Pt);
 
     while (bb)
     {
-        Square   from = pop_lsb(bb);
-        Bitboard b    = 0;
+        Square   from       = pop_lsb(bb);
+        Bitboard b          = 0;
+        Bitboard moveTarget = constrained & from ? target : safeTarget;
         if constexpr (Pt != CANNON)
-            b = (Pt != PAWN ? attacks_bb(Pt, from, pos.pieces()) : attacks_bb(PAWN, from, Us))
-              & target;
+            b = (Pt != PAWN ? attacks_bb(Pt, from, pos.pieces()) : attacks_bb(PAWN, from, us))
+              & moveTarget;
         else
         {
             // Generate cannon capture moves.
             if (Type != QUIETS)
-                b |= attacks_bb(CANNON, from, pos.pieces()) & pos.pieces(~Us);
+                b |= attacks_bb(CANNON, from, pos.pieces()) & pos.pieces(~us);
 
             // Generate cannon quiet moves.
             if (Type != CAPTURES)
                 b |= attacks_bb(ROOK, from, pos.pieces()) & ~pos.pieces();
 
-            // Restrict to target if in evasion generation
-            if (Type == EVASIONS)
-                b &= target;
+            b &= moveTarget;
+        }
+
+        if (b && (constrained & from))
+        {
+            Bitboard occupied = pos.pieces() ^ from;
+            b &= legal_targets(pos, occupied, pos.checkers_to(~us, pos.king_square(us), occupied));
         }
 
         while (b)
@@ -66,33 +100,36 @@ Move* generate_moves(const Position& pos, Move* moveList, Bitboard target) {
     return moveList;
 }
 
-template<Color Us, GenType Type>
-Move* generate_moves(const Position& pos, Move* moveList, Bitboard target) {
-    moveList = generate_moves<Us, PAWN, Type>(pos, moveList, target);
-    moveList = generate_moves<Us, BISHOP, Type>(pos, moveList, target);
-    moveList = generate_moves<Us, ADVISOR, Type>(pos, moveList, target);
-    moveList = generate_moves<Us, KNIGHT, Type>(pos, moveList, target);
-    moveList = generate_moves<Us, CANNON, Type>(pos, moveList, target);
-    moveList = generate_moves<Us, ROOK, Type>(pos, moveList, target);
-    return moveList;
-}
+template<GenType Type>
+Move* generate_all(const Position& pos, Move* moveList, Color us) {
 
-template<Color Us, GenType Type>
-Move* generate_all(const Position& pos, Move* moveList) {
+    static_assert(Type != ALL, "Unsupported type in generate_all()");
 
-    const Square ksq    = pos.king_square(Us);
-    Bitboard     target = Type == PSEUDO_LEGAL ? ~pos.pieces(Us)
-                        : Type == CAPTURES     ? pos.pieces(~Us)
-                                               : ~pos.pieces();  // QUIETS
+    const Square ksq    = pos.king_square(us);
+    Bitboard     target = Type == EVASIONS ? ~pos.pieces(us)
+                        : Type == CAPTURES ? pos.pieces(~us)
+                                           : ~pos.pieces();  // QUIETS
 
-    moveList = generate_moves<Us, Type>(pos, moveList, target);
+    Bitboard constrained = pos.blockers_for_king(us);
+    // Moving a checking cannon's screen also changes the set of legal targets.
+    Bitboard checkers = pos.checkers() & pos.pieces(~us, CANNON);
+    while (checkers)
+        constrained |= between_bb(ksq, pop_lsb(checkers)) & pos.pieces(us);
 
-    if (Type != EVASIONS)
-    {
-        Bitboard b = attacks_bb(KING, ksq) & target;
-        while (b)
-            *moveList++ = Move(ksq, pop_lsb(b));
-    }
+    Bitboard safeTarget = target & legal_targets(pos, pos.pieces(), pos.checkers());
+
+    moveList = generate_moves<PAWN, Type>(pos, moveList, target, us, constrained, safeTarget);
+    moveList = generate_moves<BISHOP, Type>(pos, moveList, target, us, constrained, safeTarget);
+    moveList = generate_moves<ADVISOR, Type>(pos, moveList, target, us, constrained, safeTarget);
+    moveList = generate_moves<KNIGHT, Type>(pos, moveList, target, us, constrained, safeTarget);
+    moveList = generate_moves<CANNON, Type>(pos, moveList, target, us, constrained, safeTarget);
+    moveList = generate_moves<ROOK, Type>(pos, moveList, target, us, constrained, safeTarget);
+
+    Bitboard b = attacks_bb(KING, ksq) & target;
+    if (b)
+        b &= ~pos.threats_by(ALL_PIECES);
+    while (b)
+        *moveList++ = Move(ksq, pop_lsb(b));
 
     return moveList;
 }
@@ -100,101 +137,32 @@ Move* generate_all(const Position& pos, Move* moveList) {
 }  // namespace
 
 
-// <CAPTURES>     Generates all pseudo-legal captures
-// <QUIETS>       Generates all pseudo-legal non-captures
-// <PSEUDO_LEGAL> Generates all pseudo-legal captures and non-captures
+// <CAPTURES> Generates all legal captures
+// <QUIETS>   Generates all legal non-captures
+// <EVASIONS> Generates all legal check evasions
 //
 // Returns a pointer to the end of the move list.
 template<GenType Type>
 Move* generate(const Position& pos, Move* moveList) {
 
-    static_assert(Type != LEGAL && Type != EVASIONS, "Unsupported type in generate()");
+    static_assert(Type != ALL, "Unsupported type in generate()");
+    assert((Type == EVASIONS) == bool(pos.checkers()));
 
-    return pos.side_to_move() == WHITE ? generate_all<WHITE, Type>(pos, moveList)
-                                       : generate_all<BLACK, Type>(pos, moveList);
+    Color us = pos.side_to_move();
+
+    return generate_all<Type>(pos, moveList, us);
 }
 
 // Explicit template instantiations
 template Move* generate<CAPTURES>(const Position&, Move*);
 template Move* generate<QUIETS>(const Position&, Move*);
-template Move* generate<PSEUDO_LEGAL>(const Position&, Move*);
+template Move* generate<EVASIONS>(const Position&, Move*);
 
-
-// generate<EVASIONS> generates all pseudo-legal check evasions when the side
-// to move is in check. Returns a pointer to the end of the move list.
-
+// generate<ALL> generates all the legal moves in the given position
 template<>
-Move* generate<EVASIONS>(const Position& pos, Move* moveList) {
-
-    assert(bool(pos.checkers()));
-
-    // If there are more than one checker, use slow version
-    if (more_than_one(pos.checkers()))
-        return generate<PSEUDO_LEGAL>(pos, moveList);
-
-    Color     us      = pos.side_to_move();
-    Square    ksq     = pos.king_square(us);
-    Square    checksq = lsb(pos.checkers());
-    PieceType pt      = type_of(pos.piece_on(checksq));
-
-    // Generate blocking evasions or captures of the checking piece
-    Bitboard target = (between_bb(ksq, checksq)) & ~pos.pieces(us);
-    moveList        = us == WHITE ? generate_moves<WHITE, EVASIONS>(pos, moveList, target)
-                                  : generate_moves<BLACK, EVASIONS>(pos, moveList, target);
-
-    // Generate evasions for king, capture and non capture moves
-    Bitboard b = attacks_bb(KING, ksq) & ~pos.pieces(us);
-    // For all the squares attacked by slider checkers. We will remove them from
-    // the king evasions in order to skip known illegal moves, which avoids any
-    // useless legality checks later on.
-    if (pt == ROOK || pt == CANNON)
-        b &= ~line_bb(checksq, ksq) | pos.pieces(~us);
-    while (b)
-        *moveList++ = Move(ksq, pop_lsb(b));
-
-    // Generate move away hurdle piece evasions for cannon
-    if (pt == CANNON)
-    {
-        Bitboard hurdle = between_bb(ksq, checksq) & pos.pieces(us);
-        if (hurdle)
-        {
-            Square hurdleSq = pop_lsb(hurdle);
-            pt              = type_of(pos.piece_on(hurdleSq));
-            if (pt == PAWN)
-                b = attacks_bb(PAWN, hurdleSq, us) & ~line_bb(checksq, hurdleSq) & ~pos.pieces(us);
-            else if (pt == CANNON)
-                b = (attacks_bb(ROOK, hurdleSq, pos.pieces()) & ~line_bb(checksq, hurdleSq)
-                     & ~pos.pieces())
-                  | (attacks_bb(CANNON, hurdleSq, pos.pieces()) & pos.pieces(~us));
-            else
-                b = attacks_bb(pt, hurdleSq, pos.pieces()) & ~line_bb(checksq, hurdleSq)
-                  & ~pos.pieces(us);
-            while (b)
-                *moveList++ = Move(hurdleSq, pop_lsb(b));
-        }
-    }
-
-    return moveList;
-}
-
-
-// generate<LEGAL> generates all the legal moves in the given position
-
-template<>
-Move* generate<LEGAL>(const Position& pos, Move* moveList) {
-
-    Move* cur = moveList;
-
-    moveList =
-      pos.checkers() ? generate<EVASIONS>(pos, moveList) : generate<PSEUDO_LEGAL>(pos, moveList);
-
-    while (cur != moveList)
-        if (!pos.legal(*cur))
-            *cur = *(--moveList);
-        else
-            ++cur;
-
-    return moveList;
+Move* generate<ALL>(const Position& pos, Move* moveList) {
+    return pos.checkers() ? generate<EVASIONS>(pos, moveList)
+                          : generate<QUIETS>(pos, generate<CAPTURES>(pos, moveList));
 }
 
 }  // namespace Stockfish

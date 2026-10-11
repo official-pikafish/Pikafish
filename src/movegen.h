@@ -32,8 +32,7 @@ enum GenType {
     CAPTURES,
     QUIETS,
     EVASIONS,
-    PSEUDO_LEGAL,
-    LEGAL
+    ALL
 };
 
 struct ExtMove: public Move {

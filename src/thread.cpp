@@ -308,7 +308,7 @@ void ThreadPool::start_thinking(Position& pos, StateListPtr& states, Search::Lim
     }
 
     if (rootMoves.empty())
-        for (const auto& m : MoveList<LEGAL>(pos))
+        for (const auto& m : MoveList<ALL>(pos))
             rootMoves.emplace_back(m);
 
     // After ownership transfer 'states' becomes empty, so if we stop the search

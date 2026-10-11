@@ -267,8 +267,8 @@ std::optional<PositionSetError> Position::set(const string& fenStr, StateInfo* s
 }
 
 
-// Sets king attacks to detect if a move gives check
-void Position::set_check_info() const {
+// Sets pinners, where stm can give check and invalidates the threat cache.
+void Position::set_extra_bitboards() const {
 
     update_blockers<WHITE>();
     update_blockers<BLACK>();
@@ -285,6 +285,8 @@ void Position::set_check_info() const {
     st->checkSquares[ROOK]   = attacks_bb(ROOK, ksq, pieces());
     st->checkSquares[KING] = st->checkSquares[ADVISOR] = st->checkSquares[BISHOP] = 0;
 
+    st->threatsComputed = false;
+
     Bitboard hollowCannons = st->checkSquares[ROOK] & pieces(sideToMove, CANNON);
     if (hollowCannons)
     {
@@ -294,6 +296,21 @@ void Position::set_check_info() const {
         for (PieceType pt = ROOK; pt < KING; ++pt)
             st->checkSquares[pt] |= hollowCannonDiscover;
     }
+}
+
+
+// Computes the threat cache only when move generation or scoring needs it.
+void Position::set_threats() const {
+
+    Bitboard occ            = pieces() ^ king_square(sideToMove);
+    st->threats[ALL_PIECES] = st->threats[PAWN]     = xattacks_by(PAWN, ~sideToMove, occ);
+    st->threats[ALL_PIECES] |= st->threats[BISHOP]  = xattacks_by(BISHOP, ~sideToMove, occ);
+    st->threats[ALL_PIECES] |= st->threats[ADVISOR] = xattacks_by(ADVISOR, ~sideToMove, occ);
+    st->threats[ALL_PIECES] |= st->threats[KNIGHT]  = xattacks_by(KNIGHT, ~sideToMove, occ);
+    st->threats[ALL_PIECES] |= st->threats[CANNON]  = xattacks_by(CANNON, ~sideToMove, occ);
+    st->threats[ALL_PIECES] |= st->threats[ROOK]    = xattacks_by(ROOK, ~sideToMove, occ);
+    st->threats[ALL_PIECES] |= st->threats[KING]    = xattacks_by(KING, ~sideToMove, occ);
+    st->threatsComputed                             = true;
 }
 
 
@@ -310,7 +327,7 @@ void Position::set_state() const {
     st->checkersBB = checkers_to(~sideToMove, king_square(sideToMove));
     st->move       = Move::none();
 
-    set_check_info();
+    set_extra_bitboards();
 
     for (Bitboard b = pieces(); b;)
     {
@@ -434,43 +451,12 @@ Bitboard Position::checkers_to(Color c, Square s, Bitboard occupied) const {
 }
 
 
-// Tests whether a pseudo-legal move is legal
+// Takes a random move and tests whether the move is legal. It is used to validate moves
+// from TT that can be corrupted due to SMP concurrent access or hash position key aliasing.
 bool Position::legal(Move m) const {
 
-    assert(m.is_ok());
-
-    Color    us       = sideToMove;
-    Square   from     = m.from_sq();
-    Square   to       = m.to_sq();
-    Bitboard occupied = (pieces() ^ from) | to;
-
-    assert(color_of(moved_piece(m)) == us);
-    assert(piece_on(king_square(us)) == make_piece(us, KING));
-
-    // If the moving piece is a king, check whether the destination square is
-    // attacked by the opponent.
-    if (type_of(piece_on(from)) == KING)
-        return !(checkers_to(~us, to, occupied));
-
-    // If we don't need full check. A non-king move is always legal when either:
-    // 1. Not moving a pinned piece.
-    // 2. Moving a pinned non-cannon piece and aligned with king.
-    // 3. Moving a pinned cannon and aligned with king but it's not a capture move.
-    if (!st->needFullCheck
-        && (!(blockers_for_king(us) & from)
-            || (((type_of(piece_on(from)) != CANNON) || !capture(m))
-                && aligned(from, to, king_square(us)))))
-        return true;
-
-    // A non-king move is legal if the king is not under attack after the move.
-    return !(checkers_to(~us, king_square(us), occupied) & ~square_bb(to));
-}
-
-
-// Takes a random move and tests whether the move is
-// pseudo-legal. It is used to validate moves from TT that can be corrupted
-// due to SMP concurrent access or hash position key aliasing.
-bool Position::pseudo_legal(const Move m) const {
+    if (!m.is_ok() || !is_ok(m.from_sq()) || !is_ok(m.to_sq()))
+        return false;
 
     Color  us   = sideToMove;
     Square from = m.from_sq();
@@ -500,14 +486,29 @@ bool Position::pseudo_legal(const Move m) const {
     else if (!(attacks_bb(type_of(pc), from, pieces()) & to))
         return false;
 
-    if (checkers())
-        return MoveList<EVASIONS>(*this).contains(m);
+    Bitboard occupied = (pieces() ^ from) | to;
 
-    return true;
+    // If the moving piece is a king, check whether the destination square is
+    // attacked by the opponent.
+    if (type_of(piece_on(from)) == KING)
+        return !(to & threats_by(ALL_PIECES));
+
+    // If we don't need full check. A non-king move is always legal when either:
+    // 1. Not moving a pinned piece.
+    // 2. Moving a pinned non-cannon piece and aligned with king.
+    // 3. Moving a pinned cannon and aligned with king but it's not a capture move.
+    if (!st->needFullCheck
+        && (!(blockers_for_king(us) & from)
+            || (((type_of(piece_on(from)) != CANNON) || !capture(m))
+                && aligned(from, to, king_square(us)))))
+        return true;
+
+    // A non-king move is legal if the king is not under attack after the move.
+    return !(checkers_to(~us, king_square(us), occupied) & ~square_bb(to));
 }
 
 
-// Tests whether a pseudo-legal move gives a check
+// Tests whether a legal move gives a check
 bool Position::gives_check(Move m) const {
 
     assert(m.is_ok());
@@ -700,7 +701,7 @@ void Position::do_move(Move                      m,
     sideToMove = ~sideToMove;
 
     // Update king attacks used for fast check detection
-    set_check_info();
+    set_extra_bitboards();
 
     assert(pos_is_ok());
 
@@ -946,7 +947,7 @@ void Position::do_null_move(StateInfo& newSt) {
 
     sideToMove = ~sideToMove;
 
-    set_check_info();
+    set_extra_bitboards();
 
     assert(pos_is_ok());
 }
@@ -1132,7 +1133,7 @@ void Position::undo_move(Move m, Piece captured, int id) {
 }
 
 
-// Tests whether a pseudo-legal move is chase legal
+// Tests whether a move is legal for chase detection.
 bool Position::chase_legal(Move m) const {
 
     assert(m.is_ok());
@@ -1342,7 +1343,7 @@ bool Position::rule_judge(Value& result, int ply) {
     // 60 move rule
     if (st->rule60 >= 120)
     {
-        result = MoveList<LEGAL>(*this).size() ? VALUE_DRAW : mated_in(ply);
+        result = MoveList<ALL>(*this).size() ? VALUE_DRAW : mated_in(ply);
         return true;
     }
 
@@ -1393,7 +1394,7 @@ bool Position::rule_judge(Value& result, int ply) {
         {
             if (level == MATE_DRAW)
             {
-                MoveList<LEGAL> moves(*this);
+                MoveList<ALL> moves(*this);
                 if (moves.size() == 0)
                 {
                     result = mated_in(ply);
@@ -1403,7 +1404,7 @@ bool Position::rule_judge(Value& result, int ply) {
                 {
                     StateInfo tempSt;
                     do_move(move, tempSt);
-                    bool mate = MoveList<LEGAL>(*this).size() == 0;
+                    bool mate = MoveList<ALL>(*this).size() == 0;
                     undo_move(move);
                     if (mate)
                         return false;

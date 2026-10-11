@@ -30,7 +30,7 @@ namespace Stockfish::Attacks {
 
 Bitboard LineBB[SQUARE_NB][SQUARE_NB];
 Bitboard BetweenBB[SQUARE_NB][SQUARE_NB];
-Bitboard RayPassBB[SQUARE_NB][SQUARE_NB];
+Bitboard inverse_RayPassBB[SQUARE_NB][SQUARE_NB];
 Bitboard LeaperPassBB[SQUARE_NB][SQUARE_NB];
 
 namespace {
@@ -69,7 +69,7 @@ void init() {
                 LineBB[s1][s2] = (attacks_bb(ROOK, s1) & attacks_bb(ROOK, s2)) | s1 | s2;
                 BetweenBB[s1][s2] =
                   (attacks_bb(ROOK, s1, square_bb(s2)) & attacks_bb(ROOK, s2, square_bb(s1)));
-                RayPassBB[s1][s2] = attacks_bb(CANNON, s1, square_bb(s2));
+                inverse_RayPassBB[s2][s1] = attacks_bb(CANNON, s1, square_bb(s2));
             }
 
             if (PseudoAttacks[KNIGHT][s1] & s2)

@@ -623,7 +623,7 @@ std::string UCIEngine::to_lower(std::string str) {
 }
 
 Move UCIEngine::to_move(const Position& pos, std::string str) {
-    for (const auto& m : MoveList<LEGAL>(pos))
+    for (const auto& m : MoveList<ALL>(pos))
         if (str == move(m))
             return m;
 
