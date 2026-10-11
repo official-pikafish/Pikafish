@@ -82,17 +82,16 @@ IndexType HalfKAv2_hm::make_layer_stack_bucket(const Position& pos) {
                     for (u8 opp_knight_cannon = 0; opp_knight_cannon <= 4; ++opp_knight_cannon)
                         v[us_rook][opp_rook][us_knight_cannon][opp_knight_cannon] = [&] {
                             if (us_rook == opp_rook)
-                                return us_rook * 4
-                                     + int(us_knight_cannon + opp_knight_cannon >= 4) * 2
-                                     + int(us_knight_cannon == opp_knight_cannon);
+                                return us_rook * 8 + int(us_knight_cannon == opp_knight_cannon) * 4
+                                     + std::min((us_knight_cannon + opp_knight_cannon) / 2, 3);
                             else if (us_rook == 2 && opp_rook == 1)
-                                return 12;
+                                return 24 + int(us_knight_cannon + opp_knight_cannon >= 4);
                             else if (us_rook == 1 && opp_rook == 2)
-                                return 13;
+                                return 26 + int(us_knight_cannon + opp_knight_cannon >= 4);
                             else if (us_rook > 0 && opp_rook == 0)
-                                return 14;
+                                return 28 + int(us_knight_cannon + opp_knight_cannon >= 4);
                             else  // us_rook == 0 && opp_rook > 0
-                                return 15;
+                                return 30 + int(us_knight_cannon + opp_knight_cannon >= 4);
                         }();
         return v;
     }();
