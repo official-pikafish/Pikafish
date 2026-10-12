@@ -65,7 +65,10 @@ class UCIEngine {
     void go(std::istringstream& is);
     void bench(std::istream& args);
     void benchmark(std::istream& args);
-    void position(std::istringstream& is);
+    // Parses and applies a `position` command. When batch is true (bench
+    // replaying a file of positions) an invalid FEN is fatal; interactive
+    // commands fail soft and keep the previous position.
+    void position(std::istringstream& is, bool batch = false);
     void setoption(std::istringstream& is);
     u64  perft(const Search::LimitsType&);
 

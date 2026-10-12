@@ -605,25 +605,60 @@ class TestInvalidFEN(metaclass=OrderedClassMembers):
         assert postfix_check(self.stockfish.get_output()) == True
         self.stockfish.clear_output()
 
-    def _expect_critical(self, fen):
-        self.stockfish = Stockfish(f"position fen {fen}".split(" "), True, expect_failure=True)
-        assert self.stockfish.process.returncode != 0
-        assert "CRITICAL ERROR" in self.stockfish.process.stdout
+    # An invalid FEN passed to the interactive `position` command must not kill
+    # the engine: it reports a warning and keeps the previous position instead.
+    def _expect_warning(self, fen):
+        self.stockfish = Stockfish(f"position fen {fen}".split(" "), True)
+        assert self.stockfish.process.returncode == 0
+        assert "WARNING" in self.stockfish.process.stdout
 
     def test_no_kings(self):
-        self._expect_critical("8/8/8/8/8/8/8/8 w - - 0 1")
+        self._expect_warning("8/8/8/8/8/8/8/8 w - - 0 1")
 
     def test_invalid_piece(self):
-        self._expect_critical("rnbqkbnr/pppXpppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
+        self._expect_warning("rnbqkbnr/pppXpppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
 
     def test_invalid_side_to_move(self):
-        self._expect_critical("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR x KQkq - 0 1")
+        self._expect_warning("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR x KQkq - 0 1")
 
     def test_pawns_on_back_rank(self):
-        self._expect_critical("pppppppp/8/8/8/8/8/8/4K2k w - - 0 1")
+        self._expect_warning("pppppppp/8/8/8/8/8/8/4K2k w - - 0 1")
 
     def test_invalid_skip_count(self):
-        self._expect_critical("9/8/8/8/8/8/8/8 w - - 0 1")
+        self._expect_warning("9/8/8/8/8/8/8/8 w - - 0 1")
+
+
+class TestPositionFailSoft(metaclass=OrderedClassMembers):
+    # A rejected `position` command must leave the engine alive and searching the
+    # last good position, so a long-lived session is not killed by one bad command.
+    def beforeAll(self):
+        self.stockfish = Stockfish()
+
+    def afterAll(self):
+        self.stockfish.quit()
+        assert self.stockfish.close() == 0
+
+    def afterEach(self):
+        assert postfix_check(self.stockfish.get_output()) == True
+        self.stockfish.clear_output()
+
+    def test_invalid_fen_keeps_previous_position(self):
+        self.stockfish.send_command("position fen 4k4/9/9/9/9/9/9/9/9/K3K4 w - - 0 1")
+        self.stockfish.expect("*WARNING:*")
+
+        # Engine still answers and still holds the previous (start) position.
+        self.stockfish.send_command("d")
+        self.stockfish.expect_for_line_matching("Fen*", "*rnbakabnr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C5C1/9/RNBAKABNR w - - 0 1*")
+
+    def test_engine_usable_after_invalid_fen(self):
+        self.stockfish.send_command("position fen 4k4/9/9/9/9/9/9/9/9/K3K4 w - - 0 1")
+        self.stockfish.expect("*WARNING:*")
+
+        self.stockfish.send_command("isready")
+        self.stockfish.equals("readyok")
+
+        self.stockfish.send_command("go depth 5")
+        self.stockfish.expect("bestmove *")
 
 
 class TestInvalidOptions(metaclass=OrderedClassMembers):
@@ -745,6 +780,7 @@ if __name__ == "__main__":
             TestSyzygy,
             TestEnPassantSanitization,
             TestInvalidFEN,
+            TestPositionFailSoft,
             TestInvalidOptions,
             TestBenchFile,
         ]

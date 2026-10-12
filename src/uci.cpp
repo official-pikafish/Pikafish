@@ -293,7 +293,7 @@ void UCIEngine::bench(std::istream& args) {
         else if (token == "setoption")
             setoption(is);
         else if (token == "position")
-            position(is);
+            position(is, /*batch=*/true);
         else if (token == "ucinewgame")
         {
             engine.search_clear();  // search_clear may take a while
@@ -357,7 +357,7 @@ void UCIEngine::benchmark(std::istream& args) {
             engine.wait_for_search_finished();
         }
         else if (token == "position")
-            position(is);
+            position(is, /*batch=*/true);
         else if (token == "ucinewgame")
         {
             engine.search_clear();  // search_clear may take a while
@@ -427,7 +427,7 @@ void UCIEngine::benchmark(std::istream& args) {
             updateHashfullReadings();
         }
         else if (token == "position")
-            position(is);
+            position(is, /*batch=*/true);
         else if (token == "ucinewgame")
         {
             engine.search_clear();  // search_clear may take a while
@@ -493,7 +493,7 @@ u64 UCIEngine::perft(const Search::LimitsType& limits) {
     return nodes;
 }
 
-void UCIEngine::position(std::istringstream& is) {
+void UCIEngine::position(std::istringstream& is, bool batch) {
     std::string token, fen;
 
     is >> token;
@@ -516,10 +516,31 @@ void UCIEngine::position(std::istringstream& is) {
         moves.push_back(token);
     }
 
+    // Remember the current, well-defined position before attempting the new one.
+    const std::string previousFen = engine.fen();
+
     auto err = engine.set_position(fen, moves);
     if (err.has_value())
     {
-        terminate_on_critical_error(err->what());
+        // In a batch context (bench driving a file of positions) a bad FEN means
+        // the input itself is broken, so abort loudly as before.
+        if (batch)
+            terminate_on_critical_error(err->what());
+
+        // An interactive `position` command, however, carries user/GUI input and
+        // must not terminate the session: a single malformed command (common with
+        // sloppy GUIs, scripts and analysis pipelines) used to kill the process
+        // via std::exit(). Report it and keep the engine alive and usable.
+        sync_cout << "info string WARNING: Command `" << currentCmd
+                  << "` failed. Reason: " << err->what() << ". Keeping previous position."
+                  << sync_endl;
+
+        // Position::set() clears the board before validating, so after a failure
+        // the position is left partially initialized and is not safe to search.
+        // Restore the last known-good position to keep the engine in a
+        // well-defined state (this replaces the UB that the hard exit prevented).
+        engine.set_position(previousFen, {});
+        return;
     }
 }
 
