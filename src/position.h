@@ -34,7 +34,7 @@
 #include "attacks.h"
 #include "bitboard.h"
 #include "misc.h"
-#include "nnue/features/half_ka_v2_hm.h"
+#include "nnue/features/k6r2nc2.h"
 #include "types.h"
 
 namespace Stockfish {
@@ -342,7 +342,7 @@ inline void Position::put_piece(Piece pc, Square s, DirtyThreats* const dts) {
     byColorBB[color_of(pc)] |= s;
     pieceCount[pc]++;
     pieceCount[make_piece(color_of(pc), ALL_PIECES)]++;
-    midEncoding[color_of(pc)] += Eval::NNUE::Features::HalfKAv2_hm::MidMirrorEncoding[pc][s];
+    midEncoding[color_of(pc)] += Eval::NNUE::Features::K6R2NC2::MidMirrorEncoding[pc][s];
 
     if (dts)
         update_piece_threats(pc, true, s, dts);
@@ -361,7 +361,7 @@ inline void Position::remove_piece(Square s, DirtyThreats* const dts) {
     board[s] = NO_PIECE;
     pieceCount[pc]--;
     pieceCount[make_piece(color_of(pc), ALL_PIECES)]--;
-    midEncoding[color_of(pc)] -= Eval::NNUE::Features::HalfKAv2_hm::MidMirrorEncoding[pc][s];
+    midEncoding[color_of(pc)] -= Eval::NNUE::Features::K6R2NC2::MidMirrorEncoding[pc][s];
 }
 
 inline void Position::move_piece(Square from, Square to, DirtyThreats* const dts) {
@@ -377,8 +377,8 @@ inline void Position::move_piece(Square from, Square to, DirtyThreats* const dts
     byColorBB[color_of(pc)] ^= fromTo;
     board[from] = NO_PIECE;
     board[to]   = pc;
-    midEncoding[color_of(pc)] -= Eval::NNUE::Features::HalfKAv2_hm::MidMirrorEncoding[pc][from];
-    midEncoding[color_of(pc)] += Eval::NNUE::Features::HalfKAv2_hm::MidMirrorEncoding[pc][to];
+    midEncoding[color_of(pc)] -= Eval::NNUE::Features::K6R2NC2::MidMirrorEncoding[pc][from];
+    midEncoding[color_of(pc)] += Eval::NNUE::Features::K6R2NC2::MidMirrorEncoding[pc][to];
 
     if (dts)
         update_piece_threats(pc, true, to, dts);

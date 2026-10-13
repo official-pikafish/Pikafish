@@ -137,7 +137,7 @@ std::optional<PositionSetError> Position::set(const string& fenStr, StateInfo* s
     std::memset(si, 0, sizeof(StateInfo));
     st = si;
 
-    midEncoding[WHITE] = midEncoding[BLACK] = Eval::NNUE::Features::HalfKAv2_hm::BalanceEncoding;
+    midEncoding[WHITE] = midEncoding[BLACK] = Eval::NNUE::Features::K6R2NC2::BalanceEncoding;
 
     ss >> std::noskipws;
 
@@ -216,7 +216,7 @@ std::optional<PositionSetError> Position::set(const string& fenStr, StateInfo* s
 
         for (PieceType pt : {ADVISOR, PAWN, BISHOP, KING})
         {
-            Bitboard valid = Eval::NNUE::Features::HalfKAv2_hm::ValidBB[make_piece(c, pt)];
+            Bitboard valid = Eval::NNUE::Features::K6R2NC2::ValidBB[make_piece(c, pt)];
             // NNUE mirroring feature does not allow white king on the right flank, we allow here.
             if (c == WHITE && pt == KING)
                 valid = HalfBB[WHITE] & Palace;

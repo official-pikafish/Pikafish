@@ -16,10 +16,10 @@
   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-//Definition of input features HalfKAv2_hm of NNUE evaluation function
+//Definition of input features K6R2NC2 of NNUE evaluation function
 
-#ifndef NNUE_FEATURES_HALF_KA_V2_HM_H_INCLUDED
-#define NNUE_FEATURES_HALF_KA_V2_HM_H_INCLUDED
+#ifndef NNUE_FEATURES_K6R2NC2_H_INCLUDED
+#define NNUE_FEATURES_K6R2NC2_H_INCLUDED
 
 #include <array>
 #include <initializer_list>
@@ -37,12 +37,13 @@ class Position;
 
 namespace Stockfish::Eval::NNUE::Features {
 
-// Feature HalfKAv2_hm: Combination of the position of own king and the
-// position of pieces. Position mirrored such that king is always on d..e files.
-class HalfKAv2_hm {
+// Feature K6R2NC2: Combination of own king position (6 buckets), own rook presence (2 states),
+// own knight or cannon presence (2 states), and piece-square positions.
+// Position mirrored such that king is always on d..e files.
+class K6R2NC2 {
    public:
     // Hash value embedded in the evaluation file
-    static constexpr u32 HashValue = 0x7f234cb8u;
+    static constexpr u32 HashValue = 0x32b5e284u;
 
     // Number of features per plane
     static constexpr IndexType PS_NB = 689;
@@ -247,4 +248,4 @@ class HalfKAv2_hm {
 
 }  // namespace Stockfish::Eval::NNUE::Features
 
-#endif  // #ifndef NNUE_FEATURES_HALF_KA_V2_HM_H_INCLUDED
+#endif  // #ifndef NNUE_FEATURES_K6R2NC2_H_INCLUDED

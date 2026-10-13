@@ -39,7 +39,7 @@ namespace Stockfish::Eval::NNUE {
 class FeatureTransformer;
 
 // Class that holds the result of affine transformation of input features,
-// combined HalfKA + Threats
+// combined K6R2NC2 + Threats
 struct alignas(CacheLineSize) Accumulator {
     std::array<std::array<i16, L1>, COLOR_NB> accumulation;
     std::array<bool, COLOR_NB>                computed = {};

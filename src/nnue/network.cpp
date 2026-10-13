@@ -188,10 +188,10 @@ NnueEvalTrace Network::trace_evaluate(const Position&    pos,
     NNZInfo<L1> nnzInfo;
     featureTransformer.transform(pos, accumulatorStack, cache, transformedFeatures, nnzInfo);
 
-    for (IndexType bucket = 0; bucket < LayerStacks; ++bucket)
+    for (IndexType b = 0; b < LayerStacks; ++b)
     {
-        const auto positional = network[bucket].propagate(transformedFeatures, nnzInfo);
-        t.positional[bucket]  = static_cast<Value>(positional / OutputScale);
+        const auto positional = network[b].propagate(transformedFeatures, nnzInfo);
+        t.positional[b]       = static_cast<Value>(positional / OutputScale);
     }
 
     return t;

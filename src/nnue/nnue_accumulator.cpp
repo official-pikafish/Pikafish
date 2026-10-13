@@ -127,7 +127,7 @@ usize AccumulatorStack::find_last_usable_accumulator(Color perspective) const no
             return curr_idx;
 
         // Threat feature set refreshes require a king move across the center, i.e.,
-        // a subset of halfka refreshes
+        // a subset of K6R2NC2 refreshes
         if (PSQFeatureSet::requires_refresh(accumulators[curr_idx].dirtyPiece, perspective))
             return curr_idx;
     }
@@ -226,14 +226,14 @@ sf_always_inline void store_tile(IndexType j, i16* dest, Tile acc) {
 sf_always_inline void increment_index(IndexType& j) { j += __riscv_vsetvl_e16m8(Dimensions - j); }
 
 template<int sign>
-sf_always_inline Tile apply(IndexType j, Tile acc, const i8* data) {
+sf_always_inline Tile apply_feature_single(IndexType j, Tile acc, const i8* data) {
     static_assert(sign == 1 || sign == -1);
-    usize     vl       = __riscv_vsetvl_e16m8(Dimensions - j);
-    vint8m4_t data_vec = __riscv_vle8_v_i8m4(data + j, vl);
+    usize     vl         = __riscv_vsetvl_e16m8(Dimensions - j);
+    vint8m4_t weight_vec = __riscv_vle8_v_i8m4(data + j, vl);
     if constexpr (sign == +1)
-        acc = __riscv_vwadd_wv_i16m8(acc, data_vec, vl);
+        acc = __riscv_vwadd_wv_i16m8(acc, weight_vec, vl);
     else
-        acc = __riscv_vwsub_wv_i16m8(acc, data_vec, vl);
+        acc = __riscv_vwsub_wv_i16m8(acc, weight_vec, vl);
     return acc;
 }
 
@@ -282,9 +282,9 @@ sf_always_inline void store_tile(IndexType j, i16* dest, Tile acc) {
 sf_always_inline void increment_index(IndexType& j) { j += Tiling::TileHeight; }
 
 template<int sign>
-sf_always_inline Tile apply(IndexType j, Tile acc, const i8* data) {
+sf_always_inline Tile apply_feature_single(IndexType j, Tile acc, const i8* data) {
     static_assert(sign == 1 || sign == -1);
-    const auto* column = reinterpret_cast<const vec_i8_t*>(data + j);
+    auto* column = reinterpret_cast<const vec_i8_t*>(data + j);
     #ifdef USE_NEON
     for (IndexType k = 0; k < Tiling::NumRegs; k += 2)
     {
@@ -302,16 +302,17 @@ sf_always_inline Tile apply(IndexType j, Tile acc, const i8* data) {
     #elif defined(USE_LSX) && !defined(USE_LASX)
     for (IndexType k = 0; k < Tiling::NumRegs; k += 2)
     {
-        const __m128i weight = __lsx_vld(reinterpret_cast<const void*>(&column[k]), 0);
         if constexpr (sign == +1)
         {
-            acc[k]     = vec_add_16(acc[k], __lsx_vsllwil_h_b(weight, 0));
-            acc[k + 1] = vec_add_16(acc[k + 1], __lsx_vexth_h_b(weight));
+            const __m128i weight = __lsx_vld(reinterpret_cast<const void*>(&column[k]), 0);
+            acc[k]               = vec_add_16(acc[k], __lsx_vsllwil_h_b(weight, 0));
+            acc[k + 1]           = vec_add_16(acc[k + 1], __lsx_vexth_h_b(weight));
         }
         else
         {
-            acc[k]     = vec_sub_16(acc[k], __lsx_vsllwil_h_b(weight, 0));
-            acc[k + 1] = vec_sub_16(acc[k + 1], __lsx_vexth_h_b(weight));
+            const __m128i weight = __lsx_vld(reinterpret_cast<const void*>(&column[k]), 0);
+            acc[k]               = vec_sub_16(acc[k], __lsx_vsllwil_h_b(weight, 0));
+            acc[k + 1]           = vec_sub_16(acc[k + 1], __lsx_vexth_h_b(weight));
         }
     }
     #else
@@ -337,14 +338,14 @@ sf_always_inline Tile apply_psq_features(IndexType                       j,
         assert(list.size() == 1 || list.size() == 2);
         // Use the loop below for scalar builds to avoid spurious GCC uninitialized warnings.
 #if defined(VECTOR) || defined(USE_RVV)
-        acc = apply<sign>(j, acc, &ft.weights[list[0] * Dimensions]);
+        acc = apply_feature_single<sign>(j, acc, &ft.weights[list[0] * Dimensions]);
         if (list.size() > 1)
-            acc = apply<sign>(j, acc, &ft.weights[list[1] * Dimensions]);
+            acc = apply_feature_single<sign>(j, acc, &ft.weights[list[1] * Dimensions]);
         return acc;
 #endif
     }
     for (int i = 0; i < list.ssize(); ++i)
-        acc = apply<sign>(j, acc, &ft.weights[list[i] * Dimensions]);
+        acc = apply_feature_single<sign>(j, acc, &ft.weights[list[i] * Dimensions]);
     return acc;
 }
 
@@ -355,7 +356,8 @@ sf_always_inline Tile apply_threat_features(IndexType                          j
                                             const FeatureTransformer&          ft) {
     static_assert(sign == 1 || sign == -1);
     for (int i = 0; i < list.ssize(); ++i)
-        acc = apply<sign>(j, acc, &ft.threatWeights[list[i] * Dimensions]);
+        acc = apply_feature_single<sign>(
+          j, acc, reinterpret_cast<const i8*>(&ft.threatWeights[list[i] * Dimensions]));
     return acc;
 }
 
@@ -588,7 +590,7 @@ Bitboard get_changed_pieces(const std::array<Piece, SQUARE_NB>& oldPieces,
 #endif
 }
 
-// HalfKA data comes from the Finny table entry, while the threats are built
+// K6R2NC2 data comes from the Finny table entry, while the threats are built
 // from the active threat features
 void update_accumulator_refresh_cache(Color                     perspective,
                                       const FeatureTransformer& featureTransformer,

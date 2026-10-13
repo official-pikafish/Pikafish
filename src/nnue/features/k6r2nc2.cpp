@@ -16,9 +16,11 @@
   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-// Definition of input features HalfKAv2_hm of NNUE evaluation function
+// Definition of input features K6R2NC2 of NNUE evaluation function
 
-#include "half_ka_v2_hm.h"
+#include "k6r2nc2.h"
+
+#include <algorithm>
 
 #include "../../bitboard.h"
 #include "../../misc.h"
@@ -33,21 +35,21 @@ constexpr auto PSQOffsets = [] {
     int cumulativeOffset = 0;
 
     MultiArray<u16, PIECE_NB, SQUARE_NB> PSQOffsets{};
-    for (Piece pc : HalfKAv2_hm::AllPieces)
+    for (Piece pc : K6R2NC2::AllPieces)
         for (Square sq = SQ_A0; sq <= SQ_I9; ++sq)
-            if (HalfKAv2_hm::ValidBB[pc] & sq)
+            if (K6R2NC2::ValidBB[pc] & sq)
                 PSQOffsets[pc][sq] = cumulativeOffset++;
     return PSQOffsets;
 }();
 
-bool HalfKAv2_hm::requires_mid_mirror(const Position& pos, Color c) {
+bool K6R2NC2::requires_mid_mirror(const Position& pos, Color c) {
     return ((1ULL << 63) & pos.mid_encoding(c) & pos.mid_encoding(~c))
         && (pos.mid_encoding(c) < BalanceEncoding
             || (pos.mid_encoding(c) == BalanceEncoding && pos.mid_encoding(~c) < BalanceEncoding));
 }
 
 // Get attack bucket based on attack feature
-IndexType HalfKAv2_hm::make_attack_bucket(const Position& pos, Color c) {
+IndexType K6R2NC2::make_attack_bucket(const Position& pos, Color c) {
     static constexpr auto AttackBucket = []() {
         MultiArray<int, 3, 3, 3> v{};
         for (u8 rook = 0; rook <= 2; ++rook)
@@ -61,19 +63,18 @@ IndexType HalfKAv2_hm::make_attack_bucket(const Position& pos, Color c) {
 }
 
 // Get feature bucket
-std::tuple<int, bool, int> HalfKAv2_hm::make_feature_bucket(Color           perspective,
-                                                            const Position& pos) {
+std::tuple<int, bool, int> K6R2NC2::make_feature_bucket(Color perspective, const Position& pos) {
     const Square ksq           = pos.king_square(perspective);
     const Square oksq          = pos.king_square(~perspective);
     auto [king_bucket, mirror] = KingBuckets[ksq][oksq][requires_mid_mirror(pos, perspective)];
     auto attack_bucket         = make_attack_bucket(pos, perspective);
-    auto bucket                = king_bucket * 4 + attack_bucket;
+    auto bucket                = king_bucket * AttackBucketNB + attack_bucket;
 
     return {bucket, mirror, attack_bucket};
 }
 
 // Get layer stack bucket
-IndexType HalfKAv2_hm::make_layer_stack_bucket(const Position& pos) {
+IndexType K6R2NC2::make_layer_stack_bucket(const Position& pos) {
     static constexpr auto LayerStackBuckets = [] {
         MultiArray<u8, 3, 3, 5, 5> v{};
         for (u8 us_rook = 0; us_rook <= 2; ++us_rook)
@@ -103,8 +104,8 @@ IndexType HalfKAv2_hm::make_layer_stack_bucket(const Position& pos) {
 }
 
 // Index of a feature for a given king position and another piece on some square
-IndexType HalfKAv2_hm::make_index(Color perspective, Square s, Piece pc, int bucket, bool mirror) {
-    s = (Square) HalfKAv2_hm::IndexMap[mirror][perspective == BLACK][s];
+IndexType K6R2NC2::make_index(Color perspective, Square s, Piece pc, int bucket, bool mirror) {
+    s = (Square) K6R2NC2::IndexMap[mirror][perspective == BLACK][s];
 
     if (perspective == BLACK)
         pc = ~pc;
@@ -113,12 +114,12 @@ IndexType HalfKAv2_hm::make_index(Color perspective, Square s, Piece pc, int buc
 }
 
 // Get a list of indices for recently changed features
-void HalfKAv2_hm::append_changed_indices(Color           perspective,
-                                         int             bucket,
-                                         bool            mirror,
-                                         const DiffType& diff,
-                                         IndexList&      removed,
-                                         IndexList&      added) {
+void K6R2NC2::append_changed_indices(Color           perspective,
+                                     int             bucket,
+                                     bool            mirror,
+                                     const DiffType& diff,
+                                     IndexList&      removed,
+                                     IndexList&      added) {
     removed.push_back(make_index(perspective, diff.from, diff.pc, bucket, mirror));
 
     if (diff.to != SQ_NONE)
@@ -128,7 +129,7 @@ void HalfKAv2_hm::append_changed_indices(Color           perspective,
         removed.push_back(make_index(perspective, diff.remove_sq, diff.remove_pc, bucket, mirror));
 }
 
-bool HalfKAv2_hm::requires_refresh(const DiffType& diff, Color perspective) {
+bool K6R2NC2::requires_refresh(const DiffType& diff, Color perspective) {
     return diff.requires_refresh[perspective];
 }
 
