@@ -65,7 +65,6 @@ struct StateInfo {
     Bitboard   pinners[COLOR_NB];
     Bitboard   checkSquares[PIECE_TYPE_NB];
     Bitboard   threats[PIECE_TYPE_NB];
-    bool       threatsComputed;
     bool       needFullCheck;
     Piece      capturedPiece;
     Move       move;
@@ -187,7 +186,7 @@ class Position {
     // Initialization helpers (used while setting up a position)
     void set_state() const;
     void set_extra_bitboards() const;
-    void set_threats() const;
+    void compute_threats() const;
 
     // Other helpers
     template<bool ComputeRay = true>
@@ -291,8 +290,8 @@ inline Bitboard Position::xattacks_by(PieceType pt, Color c, Bitboard occupied) 
 }
 
 inline Bitboard Position::threats_by(PieceType pt) const {
-    if (!st->threatsComputed)
-        set_threats();
+    if (!st->threats[ALL_PIECES])
+        compute_threats();
     return st->threats[pt];
 }
 

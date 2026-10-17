@@ -267,7 +267,8 @@ std::optional<PositionSetError> Position::set(const string& fenStr, StateInfo* s
 }
 
 
-// Sets pinners, where stm can give check and invalidates the threat cache.
+// Sets pinners and where stm can give check. Squares threatened by ~stm are
+// computed lazily by compute_threats().
 void Position::set_extra_bitboards() const {
 
     update_blockers<WHITE>();
@@ -285,7 +286,7 @@ void Position::set_extra_bitboards() const {
     st->checkSquares[ROOK]   = attacks_bb(ROOK, ksq, pieces());
     st->checkSquares[KING] = st->checkSquares[ADVISOR] = st->checkSquares[BISHOP] = 0;
 
-    st->threatsComputed = false;
+    st->threats[ALL_PIECES] = 0;
 
     Bitboard hollowCannons = st->checkSquares[ROOK] & pieces(sideToMove, CANNON);
     if (hollowCannons)
@@ -299,8 +300,7 @@ void Position::set_extra_bitboards() const {
 }
 
 
-// Computes the threat cache only when move generation or scoring needs it.
-void Position::set_threats() const {
+void Position::compute_threats() const {
 
     Bitboard occ            = pieces() ^ king_square(sideToMove);
     st->threats[ALL_PIECES] = st->threats[PAWN]     = xattacks_by(PAWN, ~sideToMove, occ);
@@ -310,7 +310,6 @@ void Position::set_threats() const {
     st->threats[ALL_PIECES] |= st->threats[CANNON]  = xattacks_by(CANNON, ~sideToMove, occ);
     st->threats[ALL_PIECES] |= st->threats[ROOK]    = xattacks_by(ROOK, ~sideToMove, occ);
     st->threats[ALL_PIECES] |= st->threats[KING]    = xattacks_by(KING, ~sideToMove, occ);
-    st->threatsComputed                             = true;
 }
 
 
