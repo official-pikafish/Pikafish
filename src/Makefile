@@ -666,7 +666,7 @@ ifeq ($(COMP),gcc)
 		profile_make = clang-profile-make
 		profile_use = clang-profile-use
 	else
-		gccmajorv := $(shell $(CXX) -dumpversion 2>/dev/null)
+		gccmajorv := $(shell $(CXX) -dumpversion 2>/dev/null | cut -f1 -d.)
 		CXXFLAGS += -Wstack-usage=128000 -fno-ipa-cp-clone
 	endif
 else ifeq ($(COMP),mingw)
