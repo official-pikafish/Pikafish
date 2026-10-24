@@ -681,6 +681,38 @@ Bitboard get_changed_pieces(const std::array<Piece, SQUARE_NB>& oldPieces,
 #endif
 }
 
+// Append the PSQ feature indices that differ between two piece arrays, given
+// the bitboards of the pieces present before and after the change.
+sf_always_inline void append_changed_psq_indices(Color perspective,
+                                                 int   bucket,
+                                                 bool  mirror,
+                                                 const std::array<Piece, SQUARE_NB>& oldPieces,
+                                                 Bitboard                            oldBB,
+                                                 const std::array<Piece, SQUARE_NB>& newPieces,
+                                                 Bitboard                            newBB,
+                                                 PSQFeatureSet::IndexList&           removed,
+                                                 PSQFeatureSet::IndexList&           added) {
+    const Bitboard changedBB = get_changed_pieces(oldPieces, newPieces);
+    const Bitboard removedBB = changedBB & oldBB;
+    const Bitboard addedBB   = changedBB & newBB;
+
+    Bitboard r = removedBB;
+    while (r)
+    {
+        const Square sq = pop_lsb(r);
+        removed.push_back(
+          PSQFeatureSet::make_index(perspective, sq, oldPieces[sq], bucket, mirror));
+    }
+
+    Bitboard a = addedBB;
+    while (a)
+    {
+        const Square sq = pop_lsb(a);
+        added.push_back(
+          PSQFeatureSet::make_index(perspective, sq, newPieces[sq], bucket, mirror));
+    }
+}
+
 // K6R2NC2 data comes from the Finny table entry, while the threats are built
 // from the active threat features
 void update_accumulator_refresh_cache(Color                     perspective,
@@ -702,22 +734,8 @@ void update_accumulator_refresh_cache(Color                     perspective,
     auto& entry = cache[cache_index * PSQFeatureSet::AttackBucketNB + attack_bucket][perspective];
     PSQFeatureSet::IndexList removed, added;
 
-    const Bitboard changedBB = get_changed_pieces(entry.pieces, pos.piece_array());
-    Bitboard       removedBB = changedBB & entry.pieceBB;
-    Bitboard       addedBB   = changedBB & pos.pieces();
-
-    while (removedBB)
-    {
-        Square sq = pop_lsb(removedBB);
-        removed.push_back(
-          PSQFeatureSet::make_index(perspective, sq, entry.pieces[sq], bucket, mirror));
-    }
-    while (addedBB)
-    {
-        Square sq = pop_lsb(addedBB);
-        added.push_back(
-          PSQFeatureSet::make_index(perspective, sq, pos.piece_on(sq), bucket, mirror));
-    }
+    append_changed_psq_indices(perspective, bucket, mirror, entry.pieces, entry.pieceBB,
+                               pos.piece_array(), pos.pieces(), removed, added);
 
     entry.pieceBB = pos.pieces();
     entry.pieces  = pos.piece_array();
