@@ -1211,8 +1211,8 @@ profileclean:
 universalclean:
 # On Windows "ln -s" to a directory makes a native directory symlink that rm
 # cannot unlink; rmdir unlinks it without following it. No-op elsewhere.
-	@find $(TEMP_DIR) -type l -exec rmdir {} + 2>/dev/null || true
-	@rm -rf $(TEMP_DIR)
+	@find "$(TEMP_DIR)" -type l -exec rmdir {} + 2>/dev/null || true
+	@rm -rf "$(TEMP_DIR)"
 
 # evaluation network (nnue)
 net:
@@ -1296,8 +1296,10 @@ config-sanity: net
 	 test "$(comp)" = "clang" || test "$(comp)" = "armv7a-linux-androideabi16-clang" || \
 	 test "$(comp)" = "aarch64-linux-android21-clang")
 
+ifeq ($(UNIVERSAL_BUILD),false)
 $(EXE): $(OBJS)
 	+$(CXX) -o $@ $(OBJS) $(LDFLAGS)
+endif
 
 %.o: %.S
 	$(strip $(CXX) $(CPPFLAGS) $(CXXFLAGS)) -c -o $@ $<
@@ -1367,12 +1369,12 @@ endif
 #   make -j ARCH=x86-64-universal profile-build  # PGO (use RUN_PREFIX for intel SDE)
 #   make -j ARCH=arm64-universal build
 
-TEMP_DIR             := $(CURDIR)/temp_builds
-UNIVERSAL_EXE        := $(CURDIR)/$(EXE)
+TEMP_DIR             := temp_builds
+UNIVERSAL_EXE        := $(EXE)
 
 ifeq ($(UNIVERSAL_BUILD),true)
 
-UNIVERSAL_SRC_DIR    := $(CURDIR)/universal
+UNIVERSAL_SRC_DIR    := universal
 NET_SENTINEL         := $(TEMP_DIR)/.net-done
 
 ifeq ($(arch),x86_64)
@@ -1460,7 +1462,7 @@ $(TEMP_DIR):
 
 # Download nnue files once in src/ (reused by every sub-arch via --embed-dir).
 $(NET_SENTINEL): | $(TEMP_DIR)
-	@cd $(CURDIR) && $(SHELL) ../scripts/net.sh
+	@cd "$(CURDIR)" && $(SHELL) ../scripts/net.sh
 	@touch $@
 
 $(UNIVERSAL_ENTRY_OBJ): $(UNIVERSAL_ENTRY_SRC) | $(TEMP_DIR)
@@ -1470,7 +1472,7 @@ $(UNIVERSAL_ENTRY_OBJ): $(UNIVERSAL_ENTRY_SRC) | $(TEMP_DIR)
 $(TEMP_DIR)/%/.setup: | $(TEMP_DIR)
 	@rm -rf $(TEMP_DIR)/$*
 	@mkdir -p $(TEMP_DIR)/$*
-	@$(foreach f,$(TRACKED_TOP),ln -s $(CURDIR)/$(f) $(TEMP_DIR)/$*/$(f);)
+	@$(foreach f,$(TRACKED_TOP),ln -s ../../$(f) $(TEMP_DIR)/$*/$(f);)
 	@touch $@
 
 # Per-arch pikafish.o
@@ -1478,8 +1480,8 @@ $(TEMP_DIR)/%/.setup: | $(TEMP_DIR)
 
 $(TEMP_DIR)/%/pikafish.o: $(TEMP_DIR)/%/.setup $(NET_SENTINEL)
 	+ENV_CXXFLAGS='$(ENV_CXXFLAGS) $(call arch-cxxflags,$*)' \
-	    $(MAKE) -C $(TEMP_DIR)/$* $(UOBJ_TGT) \
-		        ARCH=$* CXX=$(CXX) COMP=$(COMP) UNIVERSAL_SLICE=true
+	    $(MAKE) -C "$(TEMP_DIR)/$*" $(UOBJ_TGT) \
+		        ARCH=$* CXX="$(CXX)" COMP=$(COMP) UNIVERSAL_SLICE=true
 ifeq ($(TARGET_KERNEL),Darwin)
 # Rename the initializer section
 	ld -r -rename_section __DATA __mod_init_func __DATA $(call arch-mac-section,$*) $@ -o $@.tmp
