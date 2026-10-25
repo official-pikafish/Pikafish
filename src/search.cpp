@@ -365,7 +365,7 @@ bool Search::Worker::iterative_deepening() {
               seekMateScore != -VALUE_INFINITE && std::abs(seekMateScore) >= seekMateThreshold;
 
             // Adjust optimism based on root move's averageScore
-            optimism[us]  = 92 * avg / (std::abs(avg) + 96);
+            optimism[us]  = 368 * avg / (std::abs(avg) + 96);
             optimism[~us] = -optimism[us];
 
             // Start with a small aspiration window and, in the case of a fail
