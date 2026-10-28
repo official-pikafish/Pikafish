@@ -136,7 +136,7 @@ std::optional<PositionSetError> Position::set(const string& fenStr, StateInfo* s
     std::memset(si, 0, sizeof(StateInfo));
     st = si;
 
-    midEncoding[WHITE] = midEncoding[BLACK] = Eval::NNUE::Features::K6R2NC2::BalanceEncoding;
+    midEncoding[WHITE] = midEncoding[BLACK] = Eval::NNUE::Features::K6H4::BalanceEncoding;
 
     ss >> std::noskipws;
 
@@ -215,7 +215,7 @@ std::optional<PositionSetError> Position::set(const string& fenStr, StateInfo* s
 
         for (PieceType pt : {ADVISOR, PAWN, BISHOP, KING})
         {
-            Bitboard valid = Eval::NNUE::Features::K6R2NC2::ValidBB[make_piece(c, pt)];
+            Bitboard valid = Eval::NNUE::Features::K6H4::ValidBB[make_piece(c, pt)];
             // NNUE mirroring feature does not allow white king on the right flank, we allow here.
             if (c == WHITE && pt == KING)
                 valid = HalfBB[WHITE] & Palace;
@@ -645,39 +645,13 @@ void Position::do_move(
         prefetch(&history->nonpawn_correction_entry<BLACK>(*this));
     }
 
-    bool mirror_before[2] = {
-      PSQFeatureSet::KingBuckets[king_square(us)][king_square(them)]
-                                [PSQFeatureSet::requires_mid_mirror(*this, us)]
-                                  .second,
-      PSQFeatureSet::KingBuckets[king_square(them)][king_square(us)]
-                                [PSQFeatureSet::requires_mid_mirror(*this, them)]
-                                  .second};
-    dp.requires_refresh[them] = false;
-    dp.requires_refresh[us]   = pc == make_piece(us, KING);
-
     if (captured)
     {
-        auto attack_bucket_before = PSQFeatureSet::make_attack_bucket(*this, them);
-
         remove_piece(from, &dts);
         swap_piece(to, pc, &dts);
-
-        auto attack_bucket_after = PSQFeatureSet::make_attack_bucket(*this, them);
-
-        dp.requires_refresh[them] |= (attack_bucket_before != attack_bucket_after);
     }
     else
         move_piece(from, to, &dts);
-
-    bool mirror_after[2] = {
-      PSQFeatureSet::KingBuckets[king_square(us)][king_square(them)]
-                                [PSQFeatureSet::requires_mid_mirror(*this, us)]
-                                  .second,
-      PSQFeatureSet::KingBuckets[king_square(them)][king_square(us)]
-                                [PSQFeatureSet::requires_mid_mirror(*this, them)]
-                                  .second};
-    dp.requires_refresh[us] |= (mirror_before[0] != mirror_after[0]);
-    dp.requires_refresh[them] |= (mirror_before[1] != mirror_after[1]);
 
     // Set capture piece
     st->capturedPiece = captured;

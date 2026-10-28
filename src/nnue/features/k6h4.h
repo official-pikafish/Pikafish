@@ -16,14 +16,13 @@
   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-//Definition of input features K6R2NC2 of NNUE evaluation function
+//Definition of input features K6H4 of NNUE evaluation function
 
-#ifndef NNUE_FEATURES_K6R2NC2_H_INCLUDED
-#define NNUE_FEATURES_K6R2NC2_H_INCLUDED
+#ifndef NNUE_FEATURES_K6H4_H_INCLUDED
+#define NNUE_FEATURES_K6H4_H_INCLUDED
 
 #include <array>
 #include <initializer_list>
-#include <tuple>
 #include <utility>
 
 #include "../../bitboard.h"
@@ -37,22 +36,40 @@ class Position;
 
 namespace Stockfish::Eval::NNUE::Features {
 
-// Feature K6R2NC2: Combination of own king position (6 buckets), own rook presence (2 states),
+// Feature K6H4: Combination of own king position (6 buckets), own rook presence (2 states),
 // own knight or cannon presence (2 states), and piece-square positions.
 // Position mirrored such that king is always on d..e files.
-class K6R2NC2 {
+class K6H4 {
    public:
     // Hash value embedded in the evaluation file
-    static constexpr u32 HashValue = 0x32b5e284u;
+    static constexpr u32 HashValue = 0xab005cefu;
 
     // Number of features per plane
     static constexpr IndexType PS_NB = 689;
 
-    // Number of attack buckets
-    static constexpr IndexType AttackBucketNB = 4;
+    // Piece-square block: own rook presence * 2 + own knight or cannon presence.
+    static constexpr int NumBlocks = 4;
+
+    struct BlockState {
+        int  attackBucket[COLOR_NB];
+        bool mirror[COLOR_NB];
+    };
+
+    static constexpr int block(const BlockState& m, Color perspective) {
+        return m.attackBucket[perspective];
+    }
+    static int        block(const Position& pos, Color perspective);
+    static BlockState block_state(const Position& pos);
+
+    // Number of features per block (six king buckets).
+    static constexpr IndexType BlockDimensions = 6 * PS_NB;
+
+    static constexpr IndexType block_offset(int block) {
+        return IndexType(block) * BlockDimensions;
+    }
 
     // Number of feature dimensions
-    static constexpr IndexType Dimensions = 6 * AttackBucketNB * PS_NB;
+    static constexpr IndexType Dimensions = NumBlocks * BlockDimensions;
 
     static constexpr Bitboard ValidBB[PIECE_NB]{
       0,                                                                                        // _
@@ -221,16 +238,14 @@ class K6R2NC2 {
     // Returns whether the middle mirror is required.
     static bool requires_mid_mirror(const Position& pos, Color c);
 
-    // Get attack bucket
-    static IndexType make_attack_bucket(const Position& pos, Color c);
-
-    // Get feature bucket
-    static std::tuple<int, bool, int> make_feature_bucket(Color perspective, const Position& pos);
+    // Get king bucket and mirror
+    static std::pair<int, bool> make_king_bucket(Color perspective, const Position& pos);
 
     // Get layer stack bucket
     static IndexType make_layer_stack_bucket(const Position& pos);
 
-    // Index of a feature for a given king position and another piece on some square
+    // Index of a feature within its block for a given king position and another piece
+    // on some square
     static IndexType make_index(Color perspective, Square s, Piece pc, int bucket, bool mirror);
 
     // Get a list of indices for recently changed features
@@ -243,9 +258,12 @@ class K6R2NC2 {
 
     // Returns whether the change stored in this DirtyPiece means
     // that a full accumulator refresh is required.
-    static bool requires_refresh(const DiffType& diff, Color perspective);
+    static bool requires_refresh(const DiffType&   diff,
+                                 Color             perspective,
+                                 const BlockState& before,
+                                 const BlockState& after);
 };
 
 }  // namespace Stockfish::Eval::NNUE::Features
 
-#endif  // #ifndef NNUE_FEATURES_K6R2NC2_H_INCLUDED
+#endif  // #ifndef NNUE_FEATURES_K6H4_H_INCLUDED

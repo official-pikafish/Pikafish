@@ -31,7 +31,7 @@ namespace Stockfish::Eval::NNUE::Features {
 class FullThreats {
    public:
     // Hash value embedded in the evaluation file
-    static constexpr u32 HashValue = 0x2e6b9d04u;
+    static constexpr u32 HashValue = 0x2c41eaeau;
 
     // Number of feature dimensions
     static constexpr IndexType Dimensions = 45547;

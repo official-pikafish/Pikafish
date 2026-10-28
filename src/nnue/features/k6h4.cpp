@@ -16,9 +16,9 @@
   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-// Definition of input features K6R2NC2 of NNUE evaluation function
+// Definition of input features K6H4 of NNUE evaluation function
 
-#include "k6r2nc2.h"
+#include "k6h4.h"
 
 #include <algorithm>
 
@@ -35,46 +35,28 @@ constexpr auto PSQOffsets = [] {
     int cumulativeOffset = 0;
 
     MultiArray<u16, PIECE_NB, SQUARE_NB> PSQOffsets{};
-    for (Piece pc : K6R2NC2::AllPieces)
+    for (Piece pc : K6H4::AllPieces)
         for (Square sq = SQ_A0; sq <= SQ_I9; ++sq)
-            if (K6R2NC2::ValidBB[pc] & sq)
+            if (K6H4::ValidBB[pc] & sq)
                 PSQOffsets[pc][sq] = cumulativeOffset++;
     return PSQOffsets;
 }();
 
-bool K6R2NC2::requires_mid_mirror(const Position& pos, Color c) {
+bool K6H4::requires_mid_mirror(const Position& pos, Color c) {
     return ((1ULL << 63) & pos.mid_encoding(c) & pos.mid_encoding(~c))
         && (pos.mid_encoding(c) < BalanceEncoding
             || (pos.mid_encoding(c) == BalanceEncoding && pos.mid_encoding(~c) < BalanceEncoding));
 }
 
-// Get attack bucket based on attack feature
-IndexType K6R2NC2::make_attack_bucket(const Position& pos, Color c) {
-    static constexpr auto AttackBucket = []() {
-        MultiArray<int, 3, 3, 3> v{};
-        for (u8 rook = 0; rook <= 2; ++rook)
-            for (u8 knight = 0; knight <= 2; ++knight)
-                for (u8 cannon = 0; cannon <= 2; ++cannon)
-                    v[rook][knight][cannon] = bool(rook) * 2 + bool(knight + cannon);
-        return v;
-    }();
-
-    return AttackBucket[pos.count<ROOK>(c)][pos.count<KNIGHT>(c)][pos.count<CANNON>(c)];
-}
-
-// Get feature bucket
-std::tuple<int, bool, int> K6R2NC2::make_feature_bucket(Color perspective, const Position& pos) {
-    const Square ksq           = pos.king_square(perspective);
-    const Square oksq          = pos.king_square(~perspective);
-    auto [king_bucket, mirror] = KingBuckets[ksq][oksq][requires_mid_mirror(pos, perspective)];
-    auto attack_bucket         = make_attack_bucket(pos, perspective);
-    auto bucket                = king_bucket * AttackBucketNB + attack_bucket;
-
-    return {bucket, mirror, attack_bucket};
+// Get king bucket and mirror
+std::pair<int, bool> K6H4::make_king_bucket(Color perspective, const Position& pos) {
+    const Square ksq  = pos.king_square(perspective);
+    const Square oksq = pos.king_square(~perspective);
+    return KingBuckets[ksq][oksq][requires_mid_mirror(pos, perspective)];
 }
 
 // Get layer stack bucket
-IndexType K6R2NC2::make_layer_stack_bucket(const Position& pos) {
+IndexType K6H4::make_layer_stack_bucket(const Position& pos) {
     static constexpr auto LayerStackBuckets = [] {
         MultiArray<u8, 3, 3, 5, 5> v{};
         for (u8 us_rook = 0; us_rook <= 2; ++us_rook)
@@ -103,9 +85,10 @@ IndexType K6R2NC2::make_layer_stack_bucket(const Position& pos) {
                             [pos.count<KNIGHT>(~us) + pos.count<CANNON>(~us)];
 }
 
-// Index of a feature for a given king position and another piece on some square
-IndexType K6R2NC2::make_index(Color perspective, Square s, Piece pc, int bucket, bool mirror) {
-    s = (Square) K6R2NC2::IndexMap[mirror][perspective == BLACK][s];
+// Index of a feature within its block for a given king position and another piece on
+// some square
+IndexType K6H4::make_index(Color perspective, Square s, Piece pc, int bucket, bool mirror) {
+    s = (Square) K6H4::IndexMap[mirror][perspective == BLACK][s];
 
     if (perspective == BLACK)
         pc = ~pc;
@@ -114,12 +97,12 @@ IndexType K6R2NC2::make_index(Color perspective, Square s, Piece pc, int bucket,
 }
 
 // Get a list of indices for recently changed features
-void K6R2NC2::append_changed_indices(Color           perspective,
-                                     int             bucket,
-                                     bool            mirror,
-                                     const DiffType& diff,
-                                     IndexList&      removed,
-                                     IndexList&      added) {
+void K6H4::append_changed_indices(Color           perspective,
+                                  int             bucket,
+                                  bool            mirror,
+                                  const DiffType& diff,
+                                  IndexList&      removed,
+                                  IndexList&      added) {
     removed.push_back(make_index(perspective, diff.from, diff.pc, bucket, mirror));
 
     if (diff.to != SQ_NONE)
@@ -129,8 +112,37 @@ void K6R2NC2::append_changed_indices(Color           perspective,
         removed.push_back(make_index(perspective, diff.remove_sq, diff.remove_pc, bucket, mirror));
 }
 
-bool K6R2NC2::requires_refresh(const DiffType& diff, Color perspective) {
-    return diff.requires_refresh[perspective];
+int K6H4::block(const Position& pos, Color perspective) {
+    static constexpr auto AttackBucket = []() {
+        MultiArray<int, 3, 3, 3> v{};
+        for (u8 rook = 0; rook <= 2; ++rook)
+            for (u8 knight = 0; knight <= 2; ++knight)
+                for (u8 cannon = 0; cannon <= 2; ++cannon)
+                    v[rook][knight][cannon] = bool(rook) * 2 + bool(knight + cannon);
+        return v;
+    }();
+
+    return AttackBucket[pos.count<ROOK>(perspective)][pos.count<KNIGHT>(perspective)]
+                       [pos.count<CANNON>(perspective)];
+}
+
+K6H4::BlockState K6H4::block_state(const Position& pos) {
+    BlockState state;
+    for (Color c : {WHITE, BLACK})
+    {
+        state.attackBucket[c] = block(pos, c);
+        state.mirror[c]       = make_king_bucket(c, pos).second;
+    }
+    return state;
+}
+
+bool K6H4::requires_refresh(const DiffType&   diff,
+                            Color             perspective,
+                            const BlockState& before,
+                            const BlockState& after) {
+    return diff.pc == make_piece(perspective, KING)
+        || block(before, perspective) != block(after, perspective)
+        || before.mirror[perspective] != after.mirror[perspective];
 }
 
 }  // namespace Stockfish::Eval::NNUE::Features

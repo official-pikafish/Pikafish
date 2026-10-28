@@ -296,8 +296,6 @@ struct DirtyPiece {
     // if remove_sq is SQ_NONE, remove_pc is allowed to be uninitialized
     Square remove_sq;
     Piece  remove_pc;
-
-    bool requires_refresh[2];
 };
 
 // Keep track of what threats change on the board (used by NNUE)

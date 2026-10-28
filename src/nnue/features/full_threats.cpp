@@ -30,7 +30,7 @@
 #include "../../position.h"
 #include "../../types.h"
 #include "../nnue_common.h"
-#include "k6r2nc2.h"
+#include "k6h4.h"
 
 namespace Stockfish::Eval::NNUE::Features {
 
@@ -67,12 +67,12 @@ auto ThreatOffsets = []() {
                     ThreatOffsets[i][j][k][l] = FullThreats::Dimensions;
 
     int cumulativeOffset = 0;
-    for (Piece attacker : K6R2NC2::AllPieces)
+    for (Piece attacker : K6H4::AllPieces)
     {
         PieceType pt = type_of(attacker);
 
         for (Square from = SQ_A0; from <= SQ_I9; ++from)
-            if (K6R2NC2::ValidBB[attacker] & from)
+            if (K6H4::ValidBB[attacker] & from)
             {
                 Bitboard attacks = Bitboard(0);
                 if (pt == PAWN)
@@ -83,10 +83,10 @@ auto ThreatOffsets = []() {
                 else
                     attacks = Attacks::PseudoAttacks[pt][from];
 
-                for (Piece attacked : K6R2NC2::AllPieces)
+                for (Piece attacked : K6H4::AllPieces)
                     if (ValidPairs[attacker][attacked])
                     {
-                        Bitboard targets = attacks & K6R2NC2::ValidBB[attacked];
+                        Bitboard targets = attacks & K6H4::ValidBB[attacked];
                         while (targets)
                         {
                             Square to = pop_lsb(targets);
@@ -113,8 +113,8 @@ auto ThreatOffsets = []() {
 // Index of a feature for a given king position and another piece on some square
 sf_always_inline IndexType FullThreats::make_index(
   Color perspective, Piece attacker, Square from, Square to, Piece attacked, bool mirror) {
-    from = (Square) K6R2NC2::IndexMap[mirror][perspective == BLACK][from];
-    to   = (Square) K6R2NC2::IndexMap[mirror][perspective == BLACK][to];
+    from = (Square) K6H4::IndexMap[mirror][perspective == BLACK][from];
+    to   = (Square) K6H4::IndexMap[mirror][perspective == BLACK][to];
 
     if (perspective == BLACK)
     {
@@ -129,8 +129,7 @@ sf_always_inline IndexType FullThreats::make_index(
 void FullThreats::append_active_indices(Color perspective, const Position& pos, IndexList& active) {
     const Square ksq  = pos.king_square(perspective);
     const Square oksq = pos.king_square(~perspective);
-    auto& [_, mirror] =
-      K6R2NC2::KingBuckets[ksq][oksq][K6R2NC2::requires_mid_mirror(pos, perspective)];
+    auto& [_, mirror] = K6H4::KingBuckets[ksq][oksq][K6H4::requires_mid_mirror(pos, perspective)];
     Bitboard occupied = pos.pieces();
 
     Bitboard bb = occupied;
