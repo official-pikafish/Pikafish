@@ -762,11 +762,7 @@ void update_accumulator_refresh_cache(Color                     perspective,
 
     auto cache_index = AccumulatorCaches::KingCacheMaps[pos.king_square(perspective)];
     if (cache_index < 3 && mirror)
-    {
         cache_index += 9;
-        if (PSQFeatureSet::requires_mid_mirror(pos, perspective))
-            cache_index += 3;
-    }
 
     const int                psqBlock   = PSQFeatureSet::block(pos, perspective);
     auto&                    entry      = cache[psqBlock][cache_index][perspective];

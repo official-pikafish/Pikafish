@@ -100,7 +100,7 @@ struct AccumulatorCaches {
     auto&       operator[](int psqBlock) { return entries[psqBlock]; }
     const auto& operator[](int psqBlock) const { return entries[psqBlock]; }
 
-    std::array<std::array<std::array<Entry, COLOR_NB>, 9 + 6>, PSQFeatureSet::NumBlocks> entries;
+    std::array<std::array<std::array<Entry, COLOR_NB>, 9 + 3>, PSQFeatureSet::NumBlocks> entries;
 };
 
 
