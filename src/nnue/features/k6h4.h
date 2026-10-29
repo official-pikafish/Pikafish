@@ -153,14 +153,19 @@ class K6H4 {
     *    Piece types   : |advisor|bishop| pawn |knight|cannon| rook |
     *    Piece counts  : | 3 bits|3 bits|4 bits|3 bits|3 bits|3 bits| -> 19 bits
     *    Guarding bit  : | 1 bit | -> Set to one to prevent overflow from piece squares part into piece counts part
-    *    Piece squares : | 7 bits|7 bits|8 bits|7 bits|7 bits|7 bits| -> 43 bits
+    *    Padding       : | 3 bits|
+    *    Piece squares : | 2 bits|3 bits|14 bits|7 bits|7 bits|7 bits| -> 40 bits
     *
     *  Piece counts for the left flank (i.e. FILE_A to FILE_D) of the board are 1, for the right flank (i.e. FILE_F to
     *  FILE_I) are -1, mirroring that of the left flank but with a negative sign, and for the center is 0.
     *
-    *  Piece squares for the left flank of the board are positive, counting from 0 to 39, for the right flank are
-    *  negative, counting from -39 to 0, mirroring that of the left flank but with a negative sign, and for the center
-    *  is 0. For black pieces, the encoding is vertically flipped.
+    *  The base square index on the left flank ranges from 0 to 39. After the transformations below, the right
+    *  flank uses the negated encoding of its mirrored square, and the center uses 0. For black pieces, the encoding
+    *  is vertically flipped. Rook, knight and cannon squares use the base index unchanged.
+    *  Advisor squares use rank / 2, and bishop squares C0, C4, A2 use 0, 1, 2, preserving their order.
+    *  Pawn squares use 82 * x + x * x % 41, where x is the original square encoding. With balanced
+    *  counts, each flank has at most two pawns. The first term preserves the order of square sums,
+    *  while the quadratic residues distinguish pairs with the same sum, since 41 is prime and x < 41.
     *
     *  Encoding for piece at the left flank of the board is positive, for example, encoding for a single piece 'rook'
     *  at square 'A3' (assuming A3 is 33) is:
@@ -188,9 +193,10 @@ class K6H4 {
     *    Middle king   : | 1|
     *    Piece counts  : | 2| 2| 5| 2| 2| 2|
     *    Guarding bits : | 1|
-    *    Piece squares : |39|39|76|39|39|39|
-    *  Where 39 can account for subtraction of 0 - 39 for non-pawn pieces and 76 can account for subtraction of two pawns
-    *  (0 + 1) - (38 + 39) at most in a balanced position.
+    *    Padding       : | 0|
+    *    Piece squares : | 1| 2|6327|39|39|39|
+    *  These offsets cover subtraction when piece counts are balanced. The pawn offset is the sum of the
+    *  two largest encoded squares, 3202 + 3125, and fits together with its positive counterpart in 14 bits.
     *
     *  Each piece placed will add its encoding to the overall representation, and removing a piece will do a subtraction.
     *
@@ -202,8 +208,8 @@ class K6H4 {
     */
     static constexpr auto MidMirrorEncoding = [] {
         MultiArray<u64, PIECE_NB, SQUARE_NB> encodings{};
-        constexpr u8                         shifts[8][2]{{0, 0},   {44, 0},  {60, 36}, {47, 7},
-                                                          {53, 21}, {50, 14}, {57, 29}, {0, 0}};
+        constexpr u8                         shifts[8][2]{{0, 0},   {44, 0},  {60, 38}, {47, 7},
+                                                          {53, 21}, {50, 14}, {57, 35}, {0, 0}};
         for (const auto& c : {WHITE, BLACK})
             for (u8 pt = ROOK; pt <= KING; ++pt)
                 for (u8 r = RANK_0; r < RANK_NB; ++r)
@@ -215,8 +221,14 @@ class K6H4 {
                             u8 r_                = c == WHITE ? r : RANK_9 - r;
                             u8 f_                = f < FILE_E ? f : FILE_I - f;
                             const auto& [s1, s2] = shifts[pt];
-                            encoding =
-                              (1ULL << s1) | ((u64(File::FILE_D - f_) * 10 + u64(r_)) << s2);
+                            u64 square           = u64(File::FILE_D - f_) * 10 + u64(r_);
+                            if (pt == ADVISOR)
+                                square = r_ / 2;
+                            else if (pt == BISHOP)
+                                square = f_ == FILE_A ? 2 : r_ / 4;
+                            else if (pt == PAWN)
+                                square = 82 * square + square * square % 41;
+                            encoding = (1ULL << s1) | (square << s2);
                             encoding = f < FILE_E ? encoding : u64(-i64(encoding));
                         }
                         else if (f != FILE_E && pt == KING)
@@ -228,7 +240,7 @@ class K6H4 {
         return encodings;
     }();
 
-    static constexpr u64 BalanceEncoding{0xa4a92a74e989d3a7};
+    static constexpr u64 BalanceEncoding{0xa4a9285316e9d3a7};
 
     // Maximum number of simultaneously active features.
     static constexpr IndexType MaxActiveDimensions = 32;
