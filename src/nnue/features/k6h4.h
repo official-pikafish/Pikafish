@@ -36,8 +36,8 @@ class Position;
 
 namespace Stockfish::Eval::NNUE::Features {
 
-// Feature K6H4: Combination of own king position (6 buckets), own rook presence (2 states),
-// own knight or cannon presence (2 states), and piece-square positions.
+// Feature K6H4: Combination of own king position (6 buckets), own material (3 states),
+// and piece-square positions.
 // Position mirrored such that king is always on d..e files.
 class K6H4 {
    public:
@@ -47,8 +47,8 @@ class K6H4 {
     // Number of features per plane
     static constexpr IndexType PS_NB = 689;
 
-    // Piece-square block: own rook presence * 2 + own knight or cannon presence.
-    static constexpr int NumBlocks = 4;
+    // Piece-square blocks: rook with knight/cannon, rook without knight/cannon, no rook.
+    static constexpr int NumBlocks = 3;
 
     struct BlockState {
         int  attackBucket[COLOR_NB];

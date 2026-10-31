@@ -118,7 +118,7 @@ int K6H4::block(const Position& pos, Color perspective) {
         for (u8 rook = 0; rook <= 2; ++rook)
             for (u8 knight = 0; knight <= 2; ++knight)
                 for (u8 cannon = 0; cannon <= 2; ++cannon)
-                    v[rook][knight][cannon] = bool(rook) * 2 + bool(knight + cannon);
+                    v[rook][knight][cannon] = rook ? (knight + cannon ? 0 : 1) : 2;
         return v;
     }();
 
