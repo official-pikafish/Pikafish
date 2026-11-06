@@ -896,7 +896,9 @@ void Position::do_null_move(StateInfo& newSt) {
     // Update the bloom filter
     ++filter[st->key];
 
-    std::memcpy(&newSt, st, sizeof(StateInfo));
+    // Remaining fields are recomputed, invalidated or overwritten below.
+    std::memcpy(&newSt, st, offsetof(StateInfo, blockersForKing));
+    newSt.move = st->move;
 
     newSt.previous = st;
     st             = &newSt;
@@ -1438,8 +1440,8 @@ bool Position::pos_is_ok() const {
         assert(0 && "pos_is_ok: Bitboards");
 
     for (PieceType p1 = PAWN; p1 <= KING; ++p1)
-        for (PieceType p2 = PAWN; p2 <= KING; ++p2)
-            if (p1 != p2 && (pieces(p1) & pieces(p2)))
+        for (PieceType p2 = PieceType(p1 + 1); p2 <= KING; ++p2)
+            if (pieces(p1) & pieces(p2))
                 assert(0 && "pos_is_ok: Bitboards");
 
     for (Piece pc : Pieces)

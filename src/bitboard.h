@@ -108,7 +108,7 @@ constexpr Bitboard file_bb(File f) { return FileABB << u8(f); }
 constexpr Bitboard file_bb(Square s) { return file_bb(file_of(s)); }
 
 
-// Moves a bitboard one or two steps as specified by the direction dir
+// Moves a bitboard one or two steps as specified by dir
 inline constexpr Bitboard shift(Bitboard b, Direction dir) {
     return dir == NORTH         ? (b & ~Rank9BB) << u8(NORTH)
          : dir == SOUTH         ? b >> u8(NORTH)
@@ -182,11 +182,9 @@ inline Square lsb(Bitboard b) {
         _BitScanForward64(&idx, b._Word[0]);
         return Square(idx);
     }
-    else
-    {
-        _BitScanForward64(&idx, b._Word[1]);
-        return Square(idx + 64);
-    }
+
+    _BitScanForward64(&idx, b._Word[1]);
+    return Square(idx + 64);
 
 #else  // Assumed gcc or compatible compiler
 
@@ -216,7 +214,7 @@ inline int msb(u64 b) {
 
 // Returns the bitboard of the least significant
 // square of a non-zero bitboard. It is equivalent to square_bb(lsb(bb)).
-inline Bitboard least_significant_square_bb(Bitboard b) {
+constexpr Bitboard least_significant_square_bb(Bitboard b) {
     assert(b);
     return b & -b;
 }

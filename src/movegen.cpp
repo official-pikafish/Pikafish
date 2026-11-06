@@ -100,11 +100,21 @@ Move* generate_moves(const Position& pos,
     return moveList;
 }
 
+}  // namespace
+
+
+// <CAPTURES> Generates all legal captures
+// <QUIETS>   Generates all legal non-captures
+// <EVASIONS> Generates all legal check evasions
+//
+// Returns a pointer to the end of the move list.
 template<GenType Type>
-Move* generate_all(const Position& pos, Move* moveList, Color us) {
+Move* generate(const Position& pos, Move* moveList) {
 
-    static_assert(Type != ALL, "Unsupported type in generate_all()");
+    static_assert(Type != ALL, "Unsupported type in generate()");
+    assert((Type == EVASIONS) == bool(pos.checkers()));
 
+    const Color  us     = pos.side_to_move();
     const Square ksq    = pos.king_square(us);
     Bitboard     target = Type == EVASIONS ? ~pos.pieces(us)
                         : Type == CAPTURES ? pos.pieces(~us)
@@ -132,25 +142,6 @@ Move* generate_all(const Position& pos, Move* moveList, Color us) {
         *moveList++ = Move(ksq, pop_lsb(b));
 
     return moveList;
-}
-
-}  // namespace
-
-
-// <CAPTURES> Generates all legal captures
-// <QUIETS>   Generates all legal non-captures
-// <EVASIONS> Generates all legal check evasions
-//
-// Returns a pointer to the end of the move list.
-template<GenType Type>
-Move* generate(const Position& pos, Move* moveList) {
-
-    static_assert(Type != ALL, "Unsupported type in generate()");
-    assert((Type == EVASIONS) == bool(pos.checkers()));
-
-    Color us = pos.side_to_move();
-
-    return generate_all<Type>(pos, moveList, us);
 }
 
 // Explicit template instantiations

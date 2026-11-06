@@ -39,6 +39,7 @@
     #include <cassert>
     #include <cstddef>
     #include <cstdint>
+    #include <type_traits>
     #include "misc.h"
 
     #if defined(_MSC_VER)
@@ -70,17 +71,13 @@
 
     #define ASSERT_ALIGNED(ptr, alignment) assert(reinterpret_cast<uintptr_t>(ptr) % alignment == 0)
 
-    #if defined(_WIN64) && defined(_MSC_VER)  // No Makefile used
-        #include <intrin.h>                   // Microsoft header for _BitScanForward64()
-        #define IS_64BIT
-    #endif
-
     #if defined(_MSC_VER)
-        #include <nmmintrin.h>  // Microsoft header for _mm_popcnt_u64()
-    #endif
+        #if defined(_WIN64)      // No Makefile used
+            #include <intrin.h>  // Microsoft header for _BitScanForward64()
+            #define IS_64BIT
+        #endif
 
-    #if !defined(NO_PREFETCH) && defined(_MSC_VER)
-        #include <xmmintrin.h>  // Microsoft header for _mm_prefetch()
+        #include <nmmintrin.h>  // Microsoft header for _mm_popcnt_u64()
     #endif
 
     #if defined(USE_PEXT)
@@ -237,6 +234,8 @@ enum Square : u8 {
 };
 // clang-format on
 
+static_assert(std::is_unsigned_v<std::underlying_type_t<Square>>);
+
 enum Direction : i8 {
     NORTH = 9,
     EAST  = 1,
@@ -301,10 +300,9 @@ struct DirtyPiece {
 // Keep track of what threats change on the board (used by NNUE)
 struct DirtyThreat {
     DirtyThreat() { /* don't initialize data */ }
-    DirtyThreat(Piece pc, Piece threatened_pc, Square pc_sq, Square threatened_sq, bool add) {
-        data =
-          (u32(add) << 31) | (pc << 20) | (threatened_pc << 16) | (threatened_sq << 8) | (pc_sq);
-    }
+    DirtyThreat(Piece pc, Piece threatened_pc, Square pc_sq, Square threatened_sq, bool add) :
+        data((u32(add) << 31) | (pc << 20) | (threatened_pc << 16) | (threatened_sq << 8)
+             | (pc_sq)) {}
 
     Piece  pc() const { return static_cast<Piece>(data >> 20 & 0xf); }
     Piece  threatened_pc() const { return static_cast<Piece>(data >> 16 & 0xf); }
@@ -364,7 +362,7 @@ constexpr Color color_of(Piece pc) {
     return Color(pc >> 3);
 }
 
-constexpr bool is_ok(Square s) { return s >= SQ_A0 && s <= SQ_I9; }
+constexpr bool is_ok(Square s) { return s <= SQ_I9; }
 
 constexpr File file_of(Square s) { return File(s % FILE_NB); }
 
