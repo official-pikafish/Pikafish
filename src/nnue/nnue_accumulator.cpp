@@ -122,12 +122,14 @@ void AccumulatorStack::evaluate_side(Color                     perspective,
 }
 
 // Find the earliest usable accumulator, this can either be a computed accumulator or the accumulator
-// state just before a change that requires full refresh.
+// state just after a change that requires full refresh.
 usize AccumulatorStack::find_last_usable_accumulator(Color           perspective,
                                                      const Position& pos) const noexcept {
 
-    // Backtrack psq block changes
-    auto after = PSQFeatureSet::block_state(pos);
+    // All traversed states must use the current block and mirror orientation.
+    const PSQFeatureSet::Block psqBlock = {
+      u8(PSQFeatureSet::block(pos, perspective)),
+      PSQFeatureSet::make_king_bucket(perspective, pos).second};
 
     for (usize curr_idx = size - 1; curr_idx > 0; curr_idx--)
     {
@@ -135,14 +137,12 @@ usize AccumulatorStack::find_last_usable_accumulator(Color           perspective
             return curr_idx;
 
         const auto& dirtyPiece = accumulators[curr_idx].dirtyPiece;
-        const auto& before     = accumulators[curr_idx].blockBefore;
+        const auto& before     = accumulators[curr_idx].blockBefore[perspective];
 
         // Threat feature set refreshes require a change in mirror orientation, i.e.,
         // a subset of K6H4 refreshes
-        if (PSQFeatureSet::requires_refresh(dirtyPiece, perspective, before, after))
+        if (PSQFeatureSet::requires_refresh(dirtyPiece, perspective, before, psqBlock))
             return curr_idx;
-
-        after = before;
     }
 
     return 0;
@@ -568,11 +568,9 @@ void apply_combined(Color                              perspective,
     const auto& fromAcc = from.accumulation[perspective];
     auto&       toAcc   = to.accumulation[perspective];
 
-    Tile acc;
-
     for (IndexType j = 0; j < Dimensions; increment_index(j))
     {
-        acc = load_tile(j, fromAcc.data());
+        Tile acc = load_tile(j, fromAcc.data());
 
         acc = apply_combined_features<true>(j, acc, psqRemoved, thrRemoved, psqAdded, thrAdded,
                                             featureTransformer, psqWeights);
@@ -848,11 +846,9 @@ void update_accumulator_refresh_cache(Color                     perspective,
 
     accumulator.computed[perspective] = true;
 
-    Tile acc;
-
     for (IndexType j = 0; j < Dimensions; increment_index(j))
     {
-        acc = load_tile(j, entry.accumulation.data());
+        Tile acc = load_tile(j, entry.accumulation.data());
 
         acc = apply_psq_features(j, acc, removed, added, featureTransformer, psqWeights);
 

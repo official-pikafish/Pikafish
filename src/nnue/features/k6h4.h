@@ -50,14 +50,18 @@ class K6H4 {
     // Piece-square block: own rook presence * 2 + own knight or cannon presence.
     static constexpr int NumBlocks = 4;
 
-    struct BlockState {
-        int  attackBucket[COLOR_NB];
-        bool mirror[COLOR_NB];
+    struct Block {
+        u8   attackBucket;
+        bool mirror;
+
+        bool operator!=(const Block& other) const {
+            return attackBucket != other.attackBucket || mirror != other.mirror;
+        }
     };
 
-    static constexpr int block(const BlockState& m, Color perspective) {
-        return m.attackBucket[perspective];
-    }
+    // Block of each perspective
+    using BlockState = std::array<Block, COLOR_NB>;
+
     static int        block(const Position& pos, Color perspective);
     static BlockState block_state(const Position& pos);
 
@@ -270,10 +274,8 @@ class K6H4 {
 
     // Returns whether the change stored in this DirtyPiece means
     // that a full accumulator refresh is required.
-    static bool requires_refresh(const DiffType&   diff,
-                                 Color             perspective,
-                                 const BlockState& before,
-                                 const BlockState& after);
+    static bool
+    requires_refresh(const DiffType& diff, Color perspective, Block blockBefore, Block blockAfter);
 };
 
 }  // namespace Stockfish::Eval::NNUE::Features

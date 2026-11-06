@@ -129,20 +129,15 @@ int K6H4::block(const Position& pos, Color perspective) {
 K6H4::BlockState K6H4::block_state(const Position& pos) {
     BlockState state;
     for (Color c : {WHITE, BLACK})
-    {
-        state.attackBucket[c] = block(pos, c);
-        state.mirror[c]       = make_king_bucket(c, pos).second;
-    }
+        state[c] = {u8(block(pos, c)), make_king_bucket(c, pos).second};
     return state;
 }
 
-bool K6H4::requires_refresh(const DiffType&   diff,
-                            Color             perspective,
-                            const BlockState& before,
-                            const BlockState& after) {
-    return diff.pc == make_piece(perspective, KING)
-        || block(before, perspective) != block(after, perspective)
-        || before.mirror[perspective] != after.mirror[perspective];
+bool K6H4::requires_refresh(const DiffType& diff,
+                            Color           perspective,
+                            Block           blockBefore,
+                            Block           blockAfter) {
+    return diff.pc == make_piece(perspective, KING) || blockBefore != blockAfter;
 }
 
 }  // namespace Stockfish::Eval::NNUE::Features
