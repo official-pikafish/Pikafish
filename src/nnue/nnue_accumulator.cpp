@@ -289,14 +289,14 @@ struct Tile {
 sf_always_inline Tile load_tile(IndexType j, const i16* data) {
     Tile  acc;
     auto* column = reinterpret_cast<const vec_t*>(&data[j]);
-    for (IndexType k = 0; k < Tiling::NumRegs; ++k)
+    UNROLLED_FOR (IndexType k = 0; k < Tiling::NumRegs; ++k)
         acc[k] = column[k];
     return acc;
 }
 
 sf_always_inline void store_tile(IndexType j, i16* dest, Tile acc) {
     auto* column = reinterpret_cast<vec_t*>(&dest[j]);
-    for (IndexType k = 0; k < Tiling::NumRegs; ++k)
+    UNROLLED_FOR (IndexType k = 0; k < Tiling::NumRegs; ++k)
         column[k] = acc[k];
 }
 
@@ -307,7 +307,7 @@ sf_always_inline Tile apply_feature_single([[maybe_unused]] IndexType j, Tile ac
     static_assert(sign == +1 || sign == -1);
     [[maybe_unused]] auto* column = reinterpret_cast<const vec_i8_t*>(data);
     #ifdef USE_NEON
-    for (IndexType k = 0; k < Tiling::NumRegs; k += 2)
+    UNROLLED_FOR (IndexType k = 0; k < Tiling::NumRegs; k += 2)
     {
         if constexpr (sign == +1)
         {
@@ -321,7 +321,7 @@ sf_always_inline Tile apply_feature_single([[maybe_unused]] IndexType j, Tile ac
         }
     }
     #elif defined(USE_LSX) && !defined(USE_LASX)
-    for (IndexType k = 0; k < Tiling::NumRegs; k += 2)
+    UNROLLED_FOR (IndexType k = 0; k < Tiling::NumRegs; k += 2)
     {
         if constexpr (sign == +1)
         {
@@ -339,12 +339,7 @@ sf_always_inline Tile apply_feature_single([[maybe_unused]] IndexType j, Tile ac
     #elif defined(USE_PAIRED_WIDENING_ADD)
     static_assert(Tiling::NumRegs % 2 == 0);
     const vec_t zero = vec_zero();
-        #if defined(__clang__)
-            #pragma clang loop unroll(full)
-        #elif defined(__GNUC__)
-            #pragma GCC unroll(Tiling::NumRegs / 2)
-        #endif
-    for (IndexType k = 0; k < Tiling::NumRegs; k += 2)
+    UNROLLED_FOR (IndexType k = 0; k < Tiling::NumRegs; k += 2)
     {
         const vec_t weight = vec_load(reinterpret_cast<const vec_t*>(data) + k / 2);
         const vec_t lo     = vec_srai_16(vec_unpacklo_8(zero, weight), 8);
@@ -361,7 +356,7 @@ sf_always_inline Tile apply_feature_single([[maybe_unused]] IndexType j, Tile ac
         }
     }
     #else
-    for (IndexType k = 0; k < Tiling::NumRegs; ++k)
+    UNROLLED_FOR (IndexType k = 0; k < Tiling::NumRegs; ++k)
         if constexpr (sign == +1)
             acc[k] = vec_add_16(acc[k], vec_convert_8_16(column[k]));
         else
@@ -377,12 +372,7 @@ sf_always_inline Tile apply_feature_pair(Tile acc, const i8* data0, const i8* da
     static_assert(sign == +1 || sign == -1);
     static_assert(Tiling::NumRegs % 2 == 0);
     const vec_t ones = vec_set_8(1);
-        #if defined(__clang__)
-            #pragma clang loop unroll(full)
-        #elif defined(__GNUC__)
-            #pragma GCC unroll(Tiling::NumRegs / 2)
-        #endif
-    for (IndexType k = 0; k < Tiling::NumRegs; k += 2)
+    UNROLLED_FOR (IndexType k = 0; k < Tiling::NumRegs; k += 2)
     {
         const vec_t w0 = vec_load(reinterpret_cast<const vec_t*>(data0) + k / 2);
         const vec_t w1 = vec_load(reinterpret_cast<const vec_t*>(data1) + k / 2);
@@ -408,12 +398,7 @@ sf_always_inline Tile apply_feature_diff(Tile acc, const i8* add, const i8* sub)
     static_assert(Tiling::NumRegs % 2 == 0);
     const vec_t bias  = vec_set_8(-128);
     const vec_t signs = vec_set_16(-255);  // i8 pairs (+1, -1)
-        #if defined(__clang__)
-            #pragma clang loop unroll(full)
-        #elif defined(__GNUC__)
-            #pragma GCC unroll(Tiling::NumRegs / 2)
-        #endif
-    for (IndexType k = 0; k < Tiling::NumRegs; k += 2)
+    UNROLLED_FOR (IndexType k = 0; k < Tiling::NumRegs; k += 2)
     {
         const vec_t ua = vec_xor(vec_load(reinterpret_cast<const vec_t*>(add) + k / 2), bias);
         const vec_t us = vec_xor(vec_load(reinterpret_cast<const vec_t*>(sub) + k / 2), bias);
