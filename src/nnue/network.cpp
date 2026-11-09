@@ -74,10 +74,8 @@ void Network::load(const fs::path& rootDirectory, fs::path evalfilePath, EvalFil
         evalfilePath = evalFile.defaultName;
 
     for (const auto& directory : dirs)
-    {
         if (evalFile.current != evalfilePath)
             load_external(directory, evalfilePath, evalFile);
-    }
 }
 
 bool Network::save(const EvalFile& evalFile, const std::optional<fs::path>& filename) const {
