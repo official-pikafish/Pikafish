@@ -257,9 +257,6 @@ class K6H4 {
     // Get king bucket and mirror
     static std::pair<int, bool> make_king_bucket(Color perspective, const Position& pos);
 
-    // Get layer stack bucket
-    static IndexType make_layer_stack_bucket(const Position& pos);
-
     // Index of a feature within its block for a given king position and another piece
     // on some square
     static IndexType make_index(Color perspective, Square s, Piece pc, int bucket, bool mirror);

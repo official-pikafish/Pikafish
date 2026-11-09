@@ -20,8 +20,6 @@
 
 #include "k6h4.h"
 
-#include <algorithm>
-
 #include "../../bitboard.h"
 #include "../../misc.h"
 #include "../../position.h"
@@ -53,36 +51,6 @@ std::pair<int, bool> K6H4::make_king_bucket(Color perspective, const Position& p
     const Square ksq  = pos.king_square(perspective);
     const Square oksq = pos.king_square(~perspective);
     return KingBuckets[ksq][oksq][requires_mid_mirror(pos, perspective)];
-}
-
-// Get layer stack bucket
-IndexType K6H4::make_layer_stack_bucket(const Position& pos) {
-    static constexpr auto LayerStackBuckets = [] {
-        MultiArray<u8, 3, 3, 5, 5> v{};
-        for (u8 us_rook = 0; us_rook <= 2; ++us_rook)
-            for (u8 opp_rook = 0; opp_rook <= 2; ++opp_rook)
-                for (u8 us_knight_cannon = 0; us_knight_cannon <= 4; ++us_knight_cannon)
-                    for (u8 opp_knight_cannon = 0; opp_knight_cannon <= 4; ++opp_knight_cannon)
-                        v[us_rook][opp_rook][us_knight_cannon][opp_knight_cannon] = [&] {
-                            if (us_rook == opp_rook)
-                                return us_rook * 8 + int(us_knight_cannon == opp_knight_cannon) * 4
-                                     + std::min((us_knight_cannon + opp_knight_cannon) / 2, 3);
-                            else if (us_rook == 2 && opp_rook == 1)
-                                return 24 + int(us_knight_cannon + opp_knight_cannon >= 4);
-                            else if (us_rook == 1 && opp_rook == 2)
-                                return 26 + int(us_knight_cannon + opp_knight_cannon >= 4);
-                            else if (us_rook > 0 && opp_rook == 0)
-                                return 28 + int(us_knight_cannon + opp_knight_cannon >= 4);
-                            else  // us_rook == 0 && opp_rook > 0
-                                return 30 + int(us_knight_cannon + opp_knight_cannon >= 4);
-                        }();
-        return v;
-    }();
-
-    Color us = pos.side_to_move();
-    return LayerStackBuckets[pos.count<ROOK>(us)][pos.count<ROOK>(~us)]
-                            [pos.count<KNIGHT>(us) + pos.count<CANNON>(us)]
-                            [pos.count<KNIGHT>(~us) + pos.count<CANNON>(~us)];
 }
 
 // Index of a feature within its block for a given king position and another piece on

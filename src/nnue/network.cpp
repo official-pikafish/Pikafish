@@ -29,6 +29,7 @@
 #include <filesystem>
 
 #include "../misc.h"
+#include "../position.h"
 #include "../types.h"
 #include "nnue_architecture.h"
 #include "nnue_common.h"
@@ -107,6 +108,36 @@ bool Network::save(const EvalFile& evalFile, const std::optional<fs::path>& file
     return saved;
 }
 
+int Network::layer_stack(const Position& pos) const {
+    static constexpr auto LayerStackBuckets = [] {
+        MultiArray<u8, 3, 3, 5, 5> v{};
+        for (u8 us_rook = 0; us_rook <= 2; ++us_rook)
+            for (u8 opp_rook = 0; opp_rook <= 2; ++opp_rook)
+                for (u8 us_knight_cannon = 0; us_knight_cannon <= 4; ++us_knight_cannon)
+                    for (u8 opp_knight_cannon = 0; opp_knight_cannon <= 4; ++opp_knight_cannon)
+                        v[us_rook][opp_rook][us_knight_cannon][opp_knight_cannon] = [&] {
+                            if (us_rook == opp_rook)
+                                return us_rook * 8 + int(us_knight_cannon == opp_knight_cannon) * 4
+                                     + std::min((us_knight_cannon + opp_knight_cannon) / 2, 3);
+                            else if (us_rook == 2 && opp_rook == 1)
+                                return 24 + int(us_knight_cannon + opp_knight_cannon >= 4);
+                            else if (us_rook == 1 && opp_rook == 2)
+                                return 26 + int(us_knight_cannon + opp_knight_cannon >= 4);
+                            else if (us_rook > 0 && opp_rook == 0)
+                                return 28 + int(us_knight_cannon + opp_knight_cannon >= 4);
+                            else  // us_rook == 0 && opp_rook > 0
+                                return 30 + int(us_knight_cannon + opp_knight_cannon >= 4);
+                        }();
+        return v;
+    }();
+
+    Color     us     = pos.side_to_move();
+    const int bucket = LayerStackBuckets[pos.count<ROOK>(us)][pos.count<ROOK>(~us)]
+                                        [pos.count<KNIGHT>(us) + pos.count<CANNON>(us)]
+                                        [pos.count<KNIGHT>(~us) + pos.count<CANNON>(~us)];
+    return layerStackIndex[bucket];
+}
+
 Value Network::evaluate(const Position&    pos,
                         AccumulatorStack&  accumulatorStack,
                         AccumulatorCaches& cache) const {
@@ -119,7 +150,8 @@ Value Network::evaluate(const Position&    pos,
 
     NNZInfo<L1> nnzInfo;
 
-    const int bucket = PSQFeatureSet::make_layer_stack_bucket(pos);
+    const int bucket = layer_stack(pos);
+
     featureTransformer.transform(pos, accumulatorStack, cache, transformedFeatures, nnzInfo);
     const auto positional = network[bucket].propagate(transformedFeatures, nnzInfo);
     return static_cast<Value>(positional / OutputScale);
@@ -159,7 +191,7 @@ void Network::verify(const std::function<void(std::string_view)>& f,
 
     if (f)
     {
-        usize size = sizeof(featureTransformer) + sizeof(NetworkArchitecture) * LayerStacks;
+        usize size = sizeof(featureTransformer) + sizeof(NetworkArchitecture) * storedLayerStacks;
         f("NNUE evaluation using " + evalfilePath.string() + " ("
           + std::to_string(size / (1024 * 1024)) + "MiB, ("
           + std::to_string(featureTransformer.InputDimensions) + ", "
@@ -180,13 +212,16 @@ NnueEvalTrace Network::trace_evaluate(const Position&    pos,
 
     ASSERT_ALIGNED(transformedFeatures, alignment);
 
+    const int bucket = layer_stack(pos);
+
     NnueEvalTrace t{};
-    t.correctBucket = PSQFeatureSet::make_layer_stack_bucket(pos);
+    t.correctBucket = bucket;
+    t.layerStacks   = storedLayerStacks;
 
     NNZInfo<L1> nnzInfo;
     featureTransformer.transform(pos, accumulatorStack, cache, transformedFeatures, nnzInfo);
 
-    for (IndexType b = 0; b < LayerStacks; ++b)
+    for (IndexType b = 0; b < storedLayerStacks; ++b)
     {
         const auto positional = network[b].propagate(transformedFeatures, nnzInfo);
         t.positional[b]       = static_cast<Value>(positional / OutputScale);
@@ -230,8 +265,10 @@ usize Network::get_content_hash() const {
 
     usize h = 0;
     hash_combine(h, featureTransformer);
-    for (auto&& layerstack : network)
-        hash_combine(h, layerstack);
+    for (const u16 f : layerStackFallback)
+        hash_combine(h, f);
+    for (usize i = 0; i < storedLayerStacks; ++i)
+        hash_combine(h, network[i]);
     return h;
 }
 
@@ -279,9 +316,31 @@ bool Network::read_parameters(std::istream& stream, std::string& netDescription)
         return false;
     if (hashValue != Network::hash)
         return false;
+    if (read_little_endian<u32>(stream) != LayerStackTableHash
+        || read_little_endian<u32>(stream) != RawLayerStacks)
+        return false;
+    storedLayerStacks = read_little_endian<u32>(stream);
+    if (storedLayerStacks == 0 || storedLayerStacks > LayerStacks)
+        return false;
+    for (u16& f : layerStackFallback)
+        if ((f = read_little_endian<u16>(stream)) >= RawLayerStacks)
+            return false;
+    IndexType stored = 0;
+    for (IndexType s = 0; s < RawLayerStacks; ++s)
+        if (layerStackFallback[s] == s)
+            layerStackIndex[s] = u16(stored++);
+    if (stored != storedLayerStacks)
+        return false;
+    for (IndexType s = 0; s < RawLayerStacks; ++s)
+    {
+        const u16 f = layerStackFallback[s];
+        if (layerStackFallback[f] != f)
+            return false;
+        layerStackIndex[s] = layerStackIndex[f];
+    }
     if (!Detail::read_parameters(stream, featureTransformer))
         return false;
-    for (usize i = 0; i < LayerStacks; ++i)
+    for (usize i = 0; i < storedLayerStacks; ++i)
     {
         if (!Detail::read_parameters(stream, network[i]))
             return false;
@@ -293,9 +352,14 @@ bool Network::read_parameters(std::istream& stream, std::string& netDescription)
 bool Network::write_parameters(std::ostream& stream, const std::string& netDescription) const {
     if (!write_header(stream, Network::hash, netDescription))
         return false;
+    write_little_endian<u32>(stream, LayerStackTableHash);
+    write_little_endian<u32>(stream, RawLayerStacks);
+    write_little_endian<u32>(stream, storedLayerStacks);
+    for (const u16 f : layerStackFallback)
+        write_little_endian<u16>(stream, f);
     if (!Detail::write_parameters(stream, featureTransformer))
         return false;
-    for (usize i = 0; i < LayerStacks; ++i)
+    for (usize i = 0; i < storedLayerStacks; ++i)
     {
         if (!Detail::write_parameters(stream, network[i]))
             return false;
