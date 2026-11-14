@@ -40,7 +40,6 @@ int main(int argc, char* argv[]) {
     std::cout << engine_info() << std::endl;
 
     Attacks::init();
-    Position::init();
 
     auto cli = CommandLine(argc, argv);
     auto uci = std::make_unique<UCIEngine>(std::move(cli));

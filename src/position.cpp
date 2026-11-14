@@ -48,8 +48,38 @@ using namespace Attacks;
 
 namespace Zobrist {
 
-Key psq[PIECE_NB][SQUARE_NB];
-Key side, noPawns;
+// constexpr-generated Zobrist constants
+struct Keys {
+    Key psq[PIECE_NB][SQUARE_NB];
+    Key side, noPawns;
+};
+
+constexpr Keys generate_keys() {
+    Keys k{};
+    u64  s    = 1070372;
+    auto next = [&s] {
+        s ^= s >> 12;
+        s ^= (s << 25) & 0xFFFFFFFFFFFFFFFFULL;
+        s ^= s >> 27;
+        return Key((s * 2685821657736338717ULL) & 0xFFFFFFFFFFFFFFFFULL);
+    };
+    for (Piece pc : {W_ROOK, W_ADVISOR, W_CANNON, W_PAWN, W_KNIGHT, W_BISHOP, W_KING, B_ROOK,
+                     B_ADVISOR, B_CANNON, B_PAWN, B_KNIGHT, B_BISHOP, B_KING})
+        for (Square sq = SQ_A0; sq <= SQ_I9; ++sq)
+            k.psq[pc][sq] = next();
+    k.side    = next();
+    k.noPawns = next();
+    return k;
+}
+
+constexpr Keys keys = generate_keys();
+
+constexpr auto& psq     = keys.psq;
+constexpr auto& side    = keys.side;
+constexpr auto& noPawns = keys.noPawns;
+
+// Matching piecePlacement and key must also imply the same side to move.
+static_assert(side != 0, "Zobrist side key must not be zero");
 }
 
 namespace {
@@ -58,6 +88,23 @@ constexpr std::string_view PieceToChar(" RACPNBK racpnbk");
 
 static constexpr Piece Pieces[] = {W_ROOK, W_ADVISOR, W_CANNON, W_PAWN, W_KNIGHT, W_BISHOP, W_KING,
                                    B_ROOK, B_ADVISOR, B_CANNON, B_PAWN, B_KNIGHT, B_BISHOP, B_KING};
+
+// Pack pieces into nibbles: lower half of the board to even nibbles, upper half to odd nibbles
+inline std::array<u8, SQUARE_NB / 2> pack_pieces(const std::array<Piece, SQUARE_NB>& arr) {
+    std::array<u8, SQUARE_NB / 2> p;
+    int                           k = 0;
+    for (; k + 8 <= SQUARE_NB / 2; k += 8)
+    {
+        u64 a, b;
+        memcpy(&a, &arr[k], 8);
+        memcpy(&b, &arr[k + SQUARE_NB / 2], 8);
+        a |= b << 4;
+        memcpy(&p[k], &a, 8);
+    }
+    for (; k < SQUARE_NB / 2; ++k)
+        p[k] = u8(arr[k]) | (u8(arr[k + SQUARE_NB / 2]) << 4);
+    return p;
+}
 }  // namespace
 
 // Returns an ASCII representation of the position
@@ -84,20 +131,6 @@ std::ostream& operator<<(std::ostream& os, const Position& pos) {
         os << UCIEngine::square(pop_lsb(b)) << " ";
 
     return os;
-}
-
-
-// Initializes at startup the various arrays used to compute hash keys
-void Position::init() {
-
-    PRNG rng(1070372);
-
-    for (Piece pc : Pieces)
-        for (Square s = SQ_A0; s <= SQ_I9; ++s)
-            Zobrist::psq[pc][s] = rng.rand<Key>();
-
-    Zobrist::side    = rng.rand<Key>();
-    Zobrist::noPawns = rng.rand<Key>();
 }
 
 
@@ -348,6 +381,8 @@ void Position::set_state() const {
 
     if (sideToMove == BLACK)
         st->key ^= Zobrist::side;
+
+    st->piecePlacement = pack_pieces(board);
 }
 
 
@@ -665,6 +700,8 @@ void Position::do_move(
     // Update king attacks used for fast check detection
     set_extra_bitboards();
 
+    st->piecePlacement = pack_pieces(board);
+
     assert(pos_is_ok());
 
     assert(dp.pc != NO_PIECE);
@@ -898,7 +935,8 @@ void Position::do_null_move(StateInfo& newSt) {
 
     // Remaining fields are recomputed, invalidated or overwritten below.
     std::memcpy(&newSt, st, offsetof(StateInfo, blockersForKing));
-    newSt.move = st->move;
+    newSt.piecePlacement = st->piecePlacement;
+    newSt.move           = st->move;
 
     newSt.previous = st;
     st             = &newSt;
@@ -1261,7 +1299,8 @@ bool Position::rule_judge(Value& result, int ply) {
 
             // Return a score if a position repeats once earlier but strictly
             // after the root, or repeats twice before or at the root.
-            if (stp->key == st->key && (++cnt == 2 || ply > i))
+            if (stp->key == st->key && stp->piecePlacement == st->piecePlacement
+                && (++cnt == 2 || ply > i))
             {
                 if (!checkThem && !checkUs)
                 {
@@ -1284,7 +1323,8 @@ bool Position::rule_judge(Value& result, int ply) {
                 if (filter[st->key] <= 1)
                 {
                     // Not exceeding rule 60 and have the same previous step
-                    if (st->rule60 < 120 && st->previous->key == stp->previous->key)
+                    if (st->rule60 < 120 && st->previous->key == stp->previous->key
+                        && st->previous->piecePlacement == stp->previous->piecePlacement)
                     {
                         // Even if we entering this loop again, it will not lead to a 3 fold repetition
                         StateInfo* prev = st->previous;
