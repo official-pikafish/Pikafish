@@ -51,7 +51,6 @@ namespace Zobrist {
 // constexpr-generated Zobrist constants
 struct Keys {
     Key psq[PIECE_NB][SQUARE_NB];
-    Key side, noPawns;
 };
 
 constexpr Keys generate_keys() {
@@ -66,20 +65,25 @@ constexpr Keys generate_keys() {
     for (Piece pc : {W_ROOK, W_ADVISOR, W_CANNON, W_PAWN, W_KNIGHT, W_BISHOP, W_KING, B_ROOK,
                      B_ADVISOR, B_CANNON, B_PAWN, B_KNIGHT, B_BISHOP, B_KING})
         for (Square sq = SQ_A0; sq <= SQ_I9; ++sq)
-            k.psq[pc][sq] = next();
-    k.side    = next();
-    k.noPawns = next();
+            k.psq[pc][sq] = next() << 1;
     return k;
 }
 
 constexpr Keys keys = generate_keys();
 
-constexpr auto& psq     = keys.psq;
-constexpr auto& side    = keys.side;
-constexpr auto& noPawns = keys.noPawns;
+constexpr auto& psq = keys.psq;
+// The least significant bit of keys is used to store the side to move.
+constexpr Key side = 1ULL;
 
-// Matching piecePlacement and key must also imply the same side to move.
-static_assert(side != 0, "Zobrist side key must not be zero");
+static_assert(
+  [] {
+      bool any = false;
+      for (auto& row : psq)
+          for (Key e : row)
+              any |= (e & 1ULL);
+      return !any;
+  }(),
+  "Least significant bit of psq keys must be zero");
 }
 
 namespace {
@@ -346,10 +350,10 @@ void Position::compute_threats() const {
 // The function is only used when a new position is set up
 void Position::set_state() const {
 
-    st->key               = 0;
-    st->minorPieceKey     = 0;
-    st->nonPawnKey[WHITE] = st->nonPawnKey[BLACK] = 0;
-    st->pawnKey                                   = Zobrist::noPawns;
+    st->key               = sideToMove;
+    st->minorPieceKey     = 0ULL;
+    st->nonPawnKey[WHITE] = st->nonPawnKey[BLACK] = 0ULL;
+    st->pawnKey                                   = 0ULL;
     st->majorMaterial[WHITE] = st->majorMaterial[BLACK] = VALUE_ZERO;
     st->checkersBB = checkers_to(~sideToMove, king_square(sideToMove));
     st->move       = Move::none();
@@ -378,9 +382,6 @@ void Position::set_state() const {
             }
         }
     }
-
-    if (sideToMove == BLACK)
-        st->key ^= Zobrist::side;
 
     st->piecePlacement = pack_pieces(board);
 }
