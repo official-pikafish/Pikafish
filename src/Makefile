@@ -136,7 +136,7 @@ ifeq ($(ARCH),)
 endif
 
 ifeq ($(ARCH), native)
-   override ARCH := $(shell $(SHELL) ../scripts/get_native_properties.sh | cut -d " " -f 1)
+   override ARCH := $(shell "$(SHELL)" ../scripts/get_native_properties.sh | cut -d " " -f 1)
 endif
 
 # explicitly check for the list of supported architectures (as listed with make help),
@@ -1216,7 +1216,7 @@ universalclean:
 
 # evaluation network (nnue)
 net:
-	@$(SHELL) ../scripts/net.sh
+	@"$(SHELL)" ../scripts/net.sh
 
 format:
 	$(CLANG-FORMAT) -i $(filter %.cpp,$(SRCS)) $(HEADERS) -style=file
@@ -1462,7 +1462,7 @@ $(TEMP_DIR):
 
 # Download nnue files once in src/ (reused by every sub-arch via --embed-dir).
 $(NET_SENTINEL): | $(TEMP_DIR)
-	@cd "$(CURDIR)" && $(SHELL) ../scripts/net.sh
+	@cd "$(CURDIR)" && "$(SHELL)" ../scripts/net.sh
 	@touch $@
 
 $(UNIVERSAL_ENTRY_OBJ): $(UNIVERSAL_ENTRY_SRC) | $(TEMP_DIR)
