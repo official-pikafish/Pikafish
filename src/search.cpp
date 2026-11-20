@@ -308,6 +308,7 @@ bool Search::Worker::iterative_deepening() {
 
     int  searchAgainCounter = 0;
     int  failHighRecovery   = 0;
+    u64  totalEffort        = 0;
     bool uciPvSent          = false;
 
     lowPlyHistory.fill(99);
@@ -486,6 +487,9 @@ bool Search::Worker::iterative_deepening() {
                 uciPvSent = (pvIdx + 1 == multiPV);
             }
 
+            if (mainThread && !pvIdx)
+                totalEffort = u64(nodes);
+
             if (threads.stop)
                 break;
         }
@@ -545,12 +549,13 @@ bool Search::Worker::iterative_deepening() {
         // Do we have time for the next iteration? Can we stop searching now?
         if (limits.use_time_management() && !threads.stop && !mainThread->stopOnPonderhit)
         {
-            u64 nodesEffort = rootMoves[0].effort * 100000 / std::max(u64(1), u64(nodes));
+            u64 nodesEffort = rootMoves[0].effort * 100000 / std::max(u64(1), totalEffort);
 
-            double fallingEval = (16.93 + 2.73 * (mainThread->bestPreviousAverageScore - bestValue)
-                                  + 0.8 * (mainThread->iterValue[iterIdx] - bestValue))
-                               / 100.0;
-            fallingEval        = std::clamp(fallingEval, 0.610, 1.860);
+            double fallingEval =
+              (16.93 + 2.73 * (mainThread->bestPreviousAverageScore - rootMoves[0].score)
+               + 0.8 * (mainThread->iterValue[iterIdx] - rootMoves[0].score))
+              / 100.0;
+            fallingEval = std::clamp(fallingEval, 0.610, 1.860);
 
             // If the bestMove is stable over several iterations, reduce time accordingly
             timeReduction = std::clamp(
@@ -597,7 +602,7 @@ bool Search::Worker::iterative_deepening() {
                 threads.increaseDepth = mainThread->ponder || elapsedTime <= totalTime * 0.26;
         }
 
-        mainThread->iterValue[iterIdx] = bestValue;
+        mainThread->iterValue[iterIdx] = rootMoves[0].score;
         iterIdx                        = (iterIdx + 1) & 3;
     }
 
