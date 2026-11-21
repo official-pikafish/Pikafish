@@ -21,7 +21,6 @@
 #include <algorithm>
 #include <cassert>
 #include <filesystem>
-#include <deque>
 #include <iostream>
 #include <memory>
 #include <sstream>
@@ -57,12 +56,11 @@ constexpr NumaAutoPolicy DefaultNumaPolicy = BundledL3Policy{32};
 Engine::Engine(std::optional<std::filesystem::path> path) :
     binaryDirectory(path ? CommandLine::get_binary_directory(*path) : std::filesystem::path{}),
     numaContext(NumaConfig::from_system(DefaultNumaPolicy)),
-    states(new std::deque<StateInfo>(1)),
     threads(),
     networkFile{std::nullopt, ""},
     network(numaContext, get_default_network()) {
 
-    pos.set(StartFEN, &states->back());
+    pos.set(StartFEN);
 
     options.add(  //
       "Debug Log File", Option("", [](const Option& o) {
@@ -129,7 +127,7 @@ void Engine::go(Search::LimitsType& limits) {
     assert(limits.perft == 0);
     verify_network();
 
-    threads.start_thinking(pos, states, limits);
+    threads.start_thinking(pos, limits);
 }
 void Engine::stop() { threads.stop = true; }
 
@@ -166,9 +164,7 @@ void Engine::wait_for_search_finished() { threads.main_thread()->wait_for_search
 
 std::optional<PositionSetError> Engine::set_position(const std::string&              fen,
                                                      const std::vector<std::string>& moves) {
-    // Drop the old state and create a new one
-    states   = StateListPtr(new std::deque<StateInfo>(1));
-    auto err = pos.set(fen, &states->back());
+    auto err = pos.set(fen);
     if (err.has_value())
         return err;
 
@@ -179,8 +175,7 @@ std::optional<PositionSetError> Engine::set_position(const std::string&         
         if (m == Move::none())
             return PositionSetError("Illegal move: " + move);
 
-        states->emplace_back();
-        pos.do_move(m, states->back());
+        pos.do_move(m);
     }
 
     return std::nullopt;
@@ -278,13 +273,12 @@ void Engine::save_network(const std::optional<std::filesystem::path>& file) {
 // utility functions
 
 void Engine::trace_eval() const {
-    StateListPtr trace_states(new std::deque<StateInfo>(1));
-    Position     p;
-    p.set(pos.fen(), &trace_states->back());
+    std::unique_ptr<Position> p = std::make_unique<Position>();
+    p->set(pos.fen());
 
     verify_network();
 
-    sync_cout << "\n" << Eval::trace(p, *network) << sync_endl;
+    sync_cout << "\n" << Eval::trace(*p, *network) << sync_endl;
 }
 
 const OptionsMap& Engine::get_options() const { return options; }

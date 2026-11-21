@@ -22,7 +22,6 @@
 #include <cassert>
 #include <cmath>
 #include <cstdlib>
-#include <deque>
 #include <iostream>
 #include <map>
 #include <memory>
@@ -35,6 +34,7 @@
 #include "history.h"
 #include "memory.h"
 #include "movegen.h"
+#include "position.h"
 #include "search.h"
 #include "timeman.h"
 #include "types.h"
@@ -286,7 +286,7 @@ usize ThreadPool::num_threads() const { return threads.size(); }
 
 // Wakes up main thread waiting in idle_loop() and returns immediately.
 // Main thread will wake up other threads and start the search.
-void ThreadPool::start_thinking(Position& pos, StateListPtr& states, Search::LimitsType limits) {
+void ThreadPool::start_thinking(Position& pos, Search::LimitsType limits) {
 
     main_thread()->wait_for_search_finished();
 
@@ -309,18 +309,6 @@ void ThreadPool::start_thinking(Position& pos, StateListPtr& states, Search::Lim
         for (const auto& m : MoveList<ALL>(pos))
             rootMoves.emplace_back(m);
 
-    // After ownership transfer 'states' becomes empty, so if we stop the search
-    // and call 'go' again without setting a new position states.get() == nullptr.
-    assert(states.get() || setupStates.get());
-
-    if (states.get())
-        setupStates = std::move(states);  // Ownership transfer, states is now empty
-
-    // We use Position::set() to set root position across threads. But there are
-    // some StateInfo fields (previous, pliesFromNull, capturedPiece) that cannot
-    // be deduced from a fen string, so set() clears them and they are set from
-    // setupStates->back() later. The rootState is per thread, earlier states are
-    // shared since they are read-only.
     for (auto&& th : threads)
     {
         th->run_custom_job([&]() {
@@ -329,8 +317,8 @@ void ThreadPool::start_thinking(Position& pos, StateListPtr& states, Search::Lim
             th->worker->nmpMinPly                           = 0;
             th->worker->rootDepth                           = 0;
             th->worker->rootMoves                           = rootMoves;
-            th->worker->rootPos.set(pos, &th->worker->rootState);
-            th->worker->rootState = setupStates->back();
+            th->worker->rootPos.set(pos);
+            th->worker->rootPos.copy_state_infos(pos);
         });
     }
 

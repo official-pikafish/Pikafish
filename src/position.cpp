@@ -141,7 +141,7 @@ std::ostream& operator<<(std::ostream& os, const Position& pos) {
 // Initializes the position object with the given FEN string.
 // The FEN string is strictly validated; if it is invalid or inconsistent,
 // a PositionSetError describing the problem is returned, otherwise std::nullopt.
-std::optional<PositionSetError> Position::set(const string& fenStr, StateInfo* si) {
+std::optional<PositionSetError> Position::set(const string& fenStr) {
     /*
    A FEN string defines a particular position using only the ASCII character set.
 
@@ -168,10 +168,9 @@ std::optional<PositionSetError> Position::set(const string& fenStr, StateInfo* s
 
     unsigned char      token;
     std::istringstream ss(fenStr);
-
     std::memset(reinterpret_cast<char*>(this), 0, sizeof(Position));
-    std::memset(si, 0, sizeof(StateInfo));
-    st = si;
+
+    st = &stateInfos[stateIdx];
 
     midEncoding[WHITE] = midEncoding[BLACK] = Eval::NNUE::Features::K6H4::BalanceEncoding;
 
@@ -572,33 +571,32 @@ bool Position::gives_check(Move m) const {
 // moves should be filtered out before this function is called.
 // If a pointer to the shared histories is passed, their entries for the
 // new position will be prefetched.
-void Position::do_move(
-  Move m, StateInfo& newSt, bool givesCheck, Dirties& dirties, const SharedHistories* history) {
+void Position::do_move(Move m, bool givesCheck, Dirties& dirties, const SharedHistories* history) {
 
     using namespace Eval::NNUE;
 
     assert(m.is_ok());
-    assert(&newSt != st);
 
     // Update the bloom filter
     ++filter[st->key];
 
-    Key k = st->key ^ Zobrist::side;
+    StateInfo* previousSt = st;
+    stateIdx              = (stateIdx + 1) & (MAX_HIST - 1);
+    st                    = &stateInfos[stateIdx];
 
     // Copy some fields of the old state to our new StateInfo object except the
-    // ones which are going to be recalculated from scratch anyway and then switch
-    // our state pointer to point to the new (ready to be updated) state.
-    std::memcpy(&newSt, st, offsetof(StateInfo, key));
-    newSt.previous = st;
-    st             = &newSt;
-    st->move       = m;
+    // ones which are going to be recalculated from scratch anyway
+    std::memcpy(st, previousSt, offsetof(StateInfo, key));
+    st->move = m;
+
+    Key k = previousSt->key ^ Zobrist::side;
 
     // Increment ply counters. Clamp to 10 checks for each side in rule 60
     // In particular, rule60 will be reset to zero later on in case of a capture.
     ++gamePly;
     if (!givesCheck || ++st->check10[sideToMove] <= 10)
     {
-        if (st->check10[~sideToMove] > 10 && st->previous->checkersBB)
+        if (st->check10[~sideToMove] > 10 && previousSt->checkersBB)
             ++st->check10[~sideToMove];
         else
             ++st->rule60;
@@ -735,7 +733,8 @@ void Position::undo_move(Move m) {
     }
 
     // Finally point our state pointer back to the previous state
-    st = st->previous;
+    stateIdx = (stateIdx - 1) & (MAX_HIST - 1);
+    st       = &stateInfos[stateIdx];
     --gamePly;
 
     // Update the bloom filter
@@ -926,21 +925,21 @@ Key Position::prefetch_key(Move m) const {
 
 // Used to do a "null move": it flips
 // the side to move without executing any move on the board.
-void Position::do_null_move(StateInfo& newSt) {
+void Position::do_null_move() {
 
     assert(!checkers());
-    assert(&newSt != st);
 
     // Update the bloom filter
     ++filter[st->key];
 
-    // Remaining fields are recomputed, invalidated or overwritten below.
-    std::memcpy(&newSt, st, offsetof(StateInfo, blockersForKing));
-    newSt.piecePlacement = st->piecePlacement;
-    newSt.move           = st->move;
+    StateInfo* previousSt = st;
+    stateIdx              = (stateIdx + 1) & (MAX_HIST - 1);
+    st                    = &stateInfos[stateIdx];
 
-    newSt.previous = st;
-    st             = &newSt;
+    // Remaining fields are recomputed, invalidated or overwritten below.
+    std::memcpy(st, previousSt, offsetof(StateInfo, blockersForKing));
+    st->piecePlacement = previousSt->piecePlacement;
+    st->move           = previousSt->move;
 
     st->key ^= Zobrist::side;
 
@@ -961,7 +960,8 @@ void Position::undo_null_move() {
 
     assert(!checkers());
 
-    st         = st->previous;
+    stateIdx   = (stateIdx - 1) & (MAX_HIST - 1);
+    st         = &stateInfos[stateIdx];
     sideToMove = ~sideToMove;
 
     // Update the bloom filter
@@ -1094,16 +1094,16 @@ bool Position::see_ge(Move m, int threshold) const {
 
 
 // A lighter version of do_move(), used in chasing detection
-std::pair<Piece, int> Position::do_move(Move m) {
+Piece Position::do_move(Move m, int& id) {
 
     assert(capture(m));
 
     Square from     = m.from_sq();
     Square to       = m.to_sq();
     Piece  captured = piece_on(to);
-    int    id       = idBoard[to];
 
     // Update id board
+    id            = idBoard[to];
     idBoard[to]   = idBoard[from];
     idBoard[from] = 0;
 
@@ -1113,7 +1113,7 @@ std::pair<Piece, int> Position::do_move(Move m) {
 
     sideToMove = ~sideToMove;
 
-    return {captured, id};
+    return captured;
 }
 
 
@@ -1198,9 +1198,10 @@ u16 Position::chased(Color c) {
                 // Attacks against potentially unprotected pieces
                 else
                 {
-                    bool trueChase             = true;
-                    const auto& [captured, id] = do_move(m);
-                    Bitboard recaptures        = attackers_to(to) & pieces(sideToMove);
+                    int      id;
+                    bool     trueChase  = true;
+                    Piece    captured   = do_move(m, id);
+                    Bitboard recaptures = attackers_to(to) & pieces(sideToMove);
                     while (recaptures)
                     {
                         Square s = pop_lsb(recaptures);
@@ -1260,13 +1261,13 @@ Value Position::detect_chases(int d, int ply) {
             if (!chase[sideToMove])
                 break;
             undo_move(st->move, st->capturedPiece);
-            st = st->previous;
+            st = &stateInfos[(stateIdx - i - 1) & (MAX_HIST - 1)];
         }
         else
         {
             u16 after = chased(~sideToMove);
             undo_move(st->move, st->capturedPiece);
-            st = st->previous;
+            st = &stateInfos[(stateIdx - i - 1) & (MAX_HIST - 1)];
             // Take the exact diff to detect the chase
             chase[sideToMove] &= after & ~chased(sideToMove);
         }
@@ -1281,21 +1282,25 @@ Value Position::detect_chases(int d, int ply) {
 // perpetual check repetition or perpetual chase repetition that allows a player to claim a game result.
 bool Position::rule_judge(Value& result, int ply) {
 
-    // Restore rule 60 by adding back the checks
-    int end = std::min(st->rule60 + std::max(0, st->check10[WHITE] - 10)
-                         + std::max(0, st->check10[BLACK] - 10),
-                       st->pliesFromNull);
+    const auto previous = [this](int d) -> const StateInfo& {
+        return stateInfos[(stateIdx - d) & (MAX_HIST - 1)];
+    };
+
+    // Restore rule 60 by adding back the checks. States further back may have
+    // been overwritten by a deeper search.
+    int end = std::min(
+      {st->rule60 + std::max(0, st->check10[WHITE] - 10) + std::max(0, st->check10[BLACK] - 10),
+       st->pliesFromNull, MAX_HIST - MAX_PLY - 10 - 1});
 
     if (end >= 4 && filter[st->key] >= 1)
     {
-        int        cnt       = 0;
-        StateInfo* stp       = st->previous->previous;
-        bool       checkThem = st->checkersBB && stp->checkersBB;
-        bool       checkUs   = st->previous->checkersBB && stp->previous->checkersBB;
+        int  cnt       = 0;
+        bool checkThem = st->checkersBB && previous(2).checkersBB;
+        bool checkUs   = previous(1).checkersBB && previous(3).checkersBB;
 
         for (int i = 4; i <= end; i += 2)
         {
-            stp = stp->previous->previous;
+            const StateInfo* stp = &previous(i);
             checkThem &= bool(stp->checkersBB);
 
             // Return a score if a position repeats once earlier but strictly
@@ -1305,12 +1310,15 @@ bool Position::rule_judge(Value& result, int ply) {
             {
                 if (!checkThem && !checkUs)
                 {
-                    // Copy the current position to a rollback struct, so we don't need to do those moves again
-                    Position rollback;
-                    memcpy((void*) &rollback, (const void*) this, offsetof(Position, filter));
+                    // Save the board which is going to be rolled back, so we don't need to do those moves again
+                    std::byte saved[offsetof(Position, filter)];
+                    std::memcpy(saved, (const void*) this, sizeof(saved));
 
                     // Chasing detection
-                    result = rollback.detect_chases(i, ply);
+                    result = detect_chases(i, ply);
+
+                    std::memcpy((void*) this, saved, sizeof(saved));
+                    st = &stateInfos[stateIdx];
                 }
                 else
                     // Checking detection
@@ -1324,15 +1332,14 @@ bool Position::rule_judge(Value& result, int ply) {
                 if (filter[st->key] <= 1)
                 {
                     // Not exceeding rule 60 and have the same previous step
-                    if (st->rule60 < 120 && st->previous->key == stp->previous->key
-                        && st->previous->piecePlacement == stp->previous->piecePlacement)
+                    if (st->rule60 < 120 && previous(1).key == previous(i + 1).key
+                        && previous(1).piecePlacement == previous(i + 1).piecePlacement)
                     {
                         // Even if we entering this loop again, it will not lead to a 3 fold repetition
-                        StateInfo* prev = st->previous;
-                        while ((prev = prev->previous) != stp)
-                            if (filter[prev->key] > 1)
-                                break;
-                        if (prev == stp)
+                        int j = 2;
+                        while (j < i && filter[previous(j).key] <= 1)
+                            ++j;
+                        if (j == i)
                             return true;
                     }
                     // We know there can't be another fold
@@ -1341,7 +1348,7 @@ bool Position::rule_judge(Value& result, int ply) {
             }
 
             if (i + 1 <= end)
-                checkUs &= bool(stp->previous->checkersBB);
+                checkUs &= bool(previous(i + 1).checkersBB);
         }
     }
 
@@ -1407,8 +1414,7 @@ bool Position::rule_judge(Value& result, int ply) {
                 }
                 for (const auto& move : moves)
                 {
-                    StateInfo tempSt;
-                    do_move(move, tempSt);
+                    do_move(move);
                     bool mate = MoveList<ALL>(*this).size() == 0;
                     undo_move(move);
                     if (mate)
@@ -1455,7 +1461,13 @@ std::optional<PositionSetError> Position::flip() {
     std::getline(ss, token);  // Half and full moves
     f += token;
 
-    return set(f, st);
+    return set(f);
+}
+
+void Position::copy_state_infos(const Position& other) {
+    std::memcpy(stateInfos, other.stateInfos, sizeof(stateInfos));
+    stateIdx = other.stateIdx;
+    st       = &stateInfos[stateIdx];
 }
 
 

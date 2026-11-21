@@ -147,7 +147,7 @@ void update_all_stats(const Position& pos,
 bool is_shuffling(Move move, Stack* const ss, const Position& pos) {
     if (pos.capture(move) || pos.rule60_count() < 10)
         return false;
-    if (pos.state()->pliesFromNull < 6 || ss->ply < 20)
+    if (pos.plies_from_null() < 6 || ss->ply < 20)
         return false;
     return move.from_sq() == (ss - 2)->currentMove.to_sq()
         && (ss - 2)->currentMove.from_sq() == (ss - 4)->currentMove.to_sq();
@@ -606,12 +606,8 @@ bool Search::Worker::iterative_deepening() {
     return uciPvSent;
 }
 
-void Search::Worker::do_move(Position&    pos,
-                             const Move   move,
-                             StateInfo&   st,
-                             const bool   givesCheck,
-                             const bool   capture,
-                             Stack* const ss) {
+void Search::Worker::do_move(
+  Position& pos, const Move move, const bool givesCheck, const bool capture, Stack* const ss) {
     // prefetch_key() does not model castling, en passant or promotion exactly.
     // The correction-history prefetches also approximate castling and promotion.
     // For these rare moves the prefetches land on unused lines.
@@ -630,7 +626,7 @@ void Search::Worker::do_move(Position&    pos,
     ++nodes;
 
     Dirties& dirties = accumulatorStack.push(pos);
-    pos.do_move(move, st, givesCheck, dirties, &sharedHistory);
+    pos.do_move(move, givesCheck, dirties, &sharedHistory);
 
     if (ss != nullptr)
     {
@@ -643,8 +639,8 @@ void Search::Worker::do_move(Position&    pos,
     }
 }
 
-void Search::Worker::do_null_move(Position& pos, StateInfo& st, Stack* const ss) {
-    pos.do_null_move(st);
+void Search::Worker::do_null_move(Position& pos, Stack* const ss) {
+    pos.do_null_move();
     ss->currentMove                   = Move::null();
     ss->continuationHistory           = &continuationHistory[0][0][NO_PIECE][0];
     ss->continuationCorrectionHistory = &continuationCorrectionHistory[NO_PIECE][0];
@@ -706,8 +702,7 @@ Value Search::Worker::search(
     assert(0 < depth && depth < MAX_PLY);
     assert(!(PvNode && cutNode));
 
-    PVMoves   pv;
-    StateInfo st;
+    PVMoves pv;
 
     Key   posKey;
     Move  move, excludedMove, bestMove;
@@ -874,7 +869,7 @@ Value Search::Worker::search(
                 if (depth >= 7 && ttData.move && pos.legal(ttData.move)
                     && !is_decisive(ttData.value))
                 {
-                    pos.do_move(ttData.move, st);
+                    pos.do_move(ttData.move);
                     Key nextPosKey                             = pos.key();
                     auto [ttHitNext, ttDataNext, ttWriterNext] = tt.probe(nextPosKey);
                     pos.undo_move(ttData.move);
@@ -947,7 +942,7 @@ Value Search::Worker::search(
         Depth R = 8 + depth / 3 + std::clamp((ss->staticEval - beta) / 256, 0, ss->ply / 2)
                 - int(threadIdx & 1);
         R -= seekMate * R / 2;
-        do_null_move(pos, st, ss);
+        do_null_move(pos, ss);
 
         Value nullValue = -search<NonPV>(pos, ss + 1, -beta, -beta + 1, depth - R, false);
 
@@ -1010,7 +1005,7 @@ Value Search::Worker::search(
             capture = pos.capture(move);
             assert(capture);
 
-            do_move(pos, move, st, pos.gives_check(move), capture, ss);
+            do_move(pos, move, pos.gives_check(move), capture, ss);
             // Perform a preliminary qsearch to verify that the move holds
             value = -qsearch<NonPV>(pos, ss + 1, -probCutBeta, -probCutBeta + 1);
 
@@ -1233,7 +1228,7 @@ moves_loop:  // When in check, search starts here
         u64 nodeCount = rootNode ? u64(nodes) : 0;
 
         // Step 17. Make the move
-        do_move(pos, move, st, givesCheck, capture, ss);
+        do_move(pos, move, givesCheck, capture, ss);
 
         // Add extension to new depth
         newDepth += extension;
@@ -1587,8 +1582,7 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
     assert(alpha >= -VALUE_INFINITE && alpha < beta && beta <= VALUE_INFINITE);
     assert(PvNode || (alpha == beta - 1));
 
-    PVMoves   pv;
-    StateInfo st;
+    PVMoves pv;
 
     Key   posKey;
     Move  move, bestMove;
@@ -1758,7 +1752,7 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
         }
 
         // Step 7. Make and search the move
-        do_move(pos, move, st, givesCheck, capture, ss);
+        do_move(pos, move, givesCheck, capture, ss);
 
         value = -qsearch<nodeType>(pos, ss + 1, -beta, -alpha);
         undo_move(pos, move);
@@ -2066,8 +2060,7 @@ bool RootMove::extract_ponder_from_tt(const TranspositionTable& tt, Position& po
 
     assert(pv.size() == 1 && pv[0] != Move::none());
 
-    StateInfo st;
-    pos.do_move(pv[0], st);
+    pos.do_move(pv[0]);
 
     Value _;
     if (!pos.rule_judge(_, 1))

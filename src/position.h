@@ -22,9 +22,7 @@
 #include <array>
 #include <cassert>
 #include <cstring>
-#include <deque>
 #include <iosfwd>
-#include <memory>
 #include <new>
 #include <optional>
 #include <stdexcept>
@@ -59,7 +57,6 @@ struct StateInfo {
     // Not copied when making a move (will be recomputed anyhow)
     Key                           key;
     Bitboard                      checkersBB;
-    StateInfo*                    previous;
     Bitboard                      blockersForKing[COLOR_NB];
     Bitboard                      pinners[COLOR_NB];
     Bitboard                      checkSquares[PIECE_TYPE_NB];
@@ -68,13 +65,6 @@ struct StateInfo {
     Move                          move;
     std::array<u8, SQUARE_NB / 2> piecePlacement;
 };
-
-
-// A list to keep track of the position states along the setup moves (from the
-// start position to the position just before the search starts). Needed by
-// 'draw by repetition' detection. Use a std::deque because pointers to
-// elements are not invalidated upon list resizing.
-using StateListPtr = std::unique_ptr<std::deque<StateInfo>>;
 
 // This error should be used whenever a position is suspected to be unsupported
 // by the engine. In particular positions that may cause hard errors like segmentation fault.
@@ -93,8 +83,8 @@ class Position {
     Position& operator=(const Position&) = delete;
 
     // FEN string input/output
-    std::optional<PositionSetError> set(const std::string& fenStr, StateInfo* si);
-    std::optional<PositionSetError> set(const Position& pos, StateInfo* si);
+    std::optional<PositionSetError> set(const std::string& fenStr);
+    std::optional<PositionSetError> set(const Position& pos);
     std::string                     fen() const;
 
     // Position representation
@@ -138,14 +128,11 @@ class Position {
     Piece captured_piece() const;
 
     // Doing and undoing moves
-    void do_move(Move m, StateInfo& newSt);
-    void do_move(Move                   m,
-                 StateInfo&             newSt,
-                 bool                   givesCheck,
-                 Dirties&               dirties,
-                 const SharedHistories* worker = nullptr);
+    void do_move(Move m);
+    void
+    do_move(Move m, bool givesCheck, Dirties& dirties, const SharedHistories* worker = nullptr);
     void undo_move(Move m);
-    void do_null_move(StateInfo& newSt);
+    void do_null_move();
     void undo_null_move();
 
     // Static Exchange Evaluation
@@ -167,12 +154,13 @@ class Position {
     u16   chased(Color c);
     Value major_material(Color c) const;
     Value major_material() const;
+    int   plies_from_null() const;
 
     // Position consistency check, for debugging
     bool                            pos_is_ok() const;
     std::optional<PositionSetError> flip();
 
-    StateInfo* state() const;
+    void copy_state_infos(const Position& other);
 
     void put_piece(Piece pc, Square s, DirtyThreats* const dts = nullptr);
     void remove_piece(Square s, DirtyThreats* const dts = nullptr);
@@ -188,10 +176,11 @@ class Position {
     template<bool ComputeRay = true>
     void update_piece_threats(Piece pc, bool putPiece, Square s, DirtyThreats* const dts);
     void move_piece(Square from, Square to, DirtyThreats* const dts = nullptr);
-    std::pair<Piece, int> do_move(Move m);
-    void                  undo_move(Move m, Piece captured, int id = 0);
-    Value                 detect_chases(int d, int ply = 0);
-    bool                  chase_legal(Move m) const;
+
+    Piece do_move(Move m, int& id);
+    void  undo_move(Move m, Piece captured, int id = 0);
+    Value detect_chases(int d, int ply = 0);
+    bool  chase_legal(Move m) const;
     template<bool AfterMove = false>
     Key adjust_key60(Key k) const;
 
@@ -200,11 +189,10 @@ class Position {
     std::array<Bitboard, PIECE_TYPE_NB> byTypeBB;
     std::array<Bitboard, COLOR_NB>      byColorBB;
 
-    int        pieceCount[PIECE_NB];
-    u64        midEncoding[COLOR_NB];
-    StateInfo* st;
-    int        gamePly;
-    Color      sideToMove;
+    int   pieceCount[PIECE_NB];
+    u64   midEncoding[COLOR_NB];
+    int   gamePly;
+    Color sideToMove;
 
     // Bloom filter for fast repetition filtering
     BloomFilter filter;
@@ -212,7 +200,10 @@ class Position {
     // Board for chasing detection
     int idBoard[SQUARE_NB];
 
-    Dirties scratchDirties;
+    Dirties    scratchDirties;
+    u16        stateIdx;
+    StateInfo* st;
+    StateInfo  stateInfos[MAX_HIST];
 };
 
 std::ostream& operator<<(std::ostream& os, const Position& pos);
@@ -316,6 +307,8 @@ inline Key Position::non_pawn_key(Color c) const { return st->nonPawnKey[c] ^ si
 
 inline Value Position::major_material(Color c) const { return st->majorMaterial[c]; }
 
+inline int Position::plies_from_null() const { return st->pliesFromNull; }
+
 inline Value Position::major_material() const {
     return major_material(WHITE) + major_material(BLACK);
 }
@@ -394,16 +387,14 @@ inline void Position::swap_piece(Square s, Piece pc, DirtyThreats* const dts) {
         update_piece_threats<false>(pc, true, s, dts);
 }
 
-inline void Position::do_move(Move m, StateInfo& newSt) {
+inline void Position::do_move(Move m) {
     new (&scratchDirties.dirtyThreats) DirtyThreats;
-    do_move(m, newSt, gives_check(m), scratchDirties);
+    do_move(m, gives_check(m), scratchDirties);
 }
 
-inline StateInfo* Position::state() const { return st; }
+inline std::optional<PositionSetError> Position::set(const Position& pos) {
 
-inline std::optional<PositionSetError> Position::set(const Position& pos, StateInfo* si) {
-
-    auto err = set(pos.fen(), si);
+    auto err = set(pos.fen());
 
     // Special cares for bloom filter
     std::memcpy(&filter, &pos.filter, sizeof(BloomFilter));
