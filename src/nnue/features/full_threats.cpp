@@ -81,7 +81,7 @@ auto ThreatOffsets = []() {
                     attacks = Attacks::sliding_attack<CANNON>(
                       from, Attacks::unconstrained_attacks_bb(KING, from));
                 else
-                    attacks = Attacks::PseudoAttacks[pt][from];
+                    attacks = Attacks::attacks_bb(pt, from);
 
                 for (Piece attacked : K6H4::AllPieces)
                     if (ValidPairs[attacker][attacked])

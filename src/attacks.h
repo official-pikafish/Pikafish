@@ -68,13 +68,15 @@ struct Magic {
     }
 };
 
-void         init();
 const Magic& magic(Square s, PieceType pt);
 
-extern Bitboard LineBB[SQUARE_NB][SQUARE_NB];
-extern Bitboard BetweenBB[SQUARE_NB][SQUARE_NB];
-extern Bitboard inverse_RayPassBB[SQUARE_NB][SQUARE_NB];
-extern Bitboard LeaperPassBB[SQUARE_NB][SQUARE_NB];
+using SquareBB     = std::array<Bitboard, SQUARE_NB>;
+using SquarePairBB = std::array<SquareBB, SQUARE_NB>;
+
+extern const SquarePairBB LineBB;
+extern const SquarePairBB BetweenBB;
+extern const SquarePairBB inverse_RayPassBB;
+extern const SquarePairBB LeaperPassBB;
 
 // horizontal/vertical line passing through s1 and s2
 inline Bitboard line_bb(Square s1, Square s2) {
@@ -266,7 +268,7 @@ inline constexpr auto PseudoAttacks = [] {
 
 // Returns the pseudo attacks of the given piece type
 // assuming an empty board.
-sf_always_inline Bitboard attacks_bb(PieceType pt, Square s, Color c = COLOR_NB) {
+sf_always_inline constexpr Bitboard attacks_bb(PieceType pt, Square s, Color c = COLOR_NB) {
 
     assert(pt != KNIGHT_TO && ((pt != PAWN && pt != PAWN_TO) || c < COLOR_NB) && is_ok(s));
     if (pt != PAWN && pt != PAWN_TO)
@@ -297,7 +299,7 @@ sf_always_inline Bitboard attacks_bb(PieceType pt, Square s, Bitboard occupied) 
     }
 }
 
-sf_always_inline Bitboard unconstrained_attacks_bb(PieceType pt, Square s) {
+sf_always_inline constexpr Bitboard unconstrained_attacks_bb(PieceType pt, Square s) {
 
     assert((pt == KING || pt == ADVISOR) && is_ok(s));
 

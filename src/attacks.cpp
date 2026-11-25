@@ -28,18 +28,7 @@
 
 namespace Stockfish::Attacks {
 
-Bitboard LineBB[SQUARE_NB][SQUARE_NB];
-Bitboard BetweenBB[SQUARE_NB][SQUARE_NB];
-Bitboard inverse_RayPassBB[SQUARE_NB][SQUARE_NB];
-Bitboard LeaperPassBB[SQUARE_NB][SQUARE_NB];
-
 namespace {
-
-Magic RookMagics[SQUARE_NB];
-Magic CannonMagics[SQUARE_NB];
-Magic BishopMagics[SQUARE_NB];
-Magic KnightMagics[SQUARE_NB];
-Magic KnightToMagics[SQUARE_NB];
 
 std::array<MagicMask, 0x108000> RookTable;      // To store rook attacks
 std::array<MagicMask, 0x108000> CannonTable;    // To store cannon attacks
@@ -48,50 +37,70 @@ std::array<MagicMask, 0x380>    KnightTable;    // To store knight attacks
 std::array<MagicMask, 0x3E0>    KnightToTable;  // To store by knight attacks
 
 template<PieceType pt>
-void init_magics(MagicMask table[], Magic magics[] IF_NOT_PEXT(, const Bitboard magicsInit[]));
+std::array<Magic, SQUARE_NB>
+init_magics(MagicMask table[] IF_NOT_PEXT(, const Bitboard magicsInit[]));
+
+// Initialized at startup in declaration order, the cannon magics reuse the rook masks
+const std::array<Magic, SQUARE_NB> RookMagics =
+  init_magics<ROOK>(RookTable.data() IF_NOT_PEXT(, RookMagicsInit));
+const std::array<Magic, SQUARE_NB> CannonMagics =
+  init_magics<CANNON>(CannonTable.data() IF_NOT_PEXT(, RookMagicsInit));
+const std::array<Magic, SQUARE_NB> BishopMagics =
+  init_magics<BISHOP>(BishopTable.data() IF_NOT_PEXT(, BishopMagicsInit));
+const std::array<Magic, SQUARE_NB> KnightMagics =
+  init_magics<KNIGHT>(KnightTable.data() IF_NOT_PEXT(, KnightMagicsInit));
+const std::array<Magic, SQUARE_NB> KnightToMagics =
+  init_magics<KNIGHT_TO>(KnightToTable.data() IF_NOT_PEXT(, KnightToMagicsInit));
 
 }
 
-void init() {
-
-    init_magics<ROOK>(RookTable.data(), RookMagics IF_NOT_PEXT(, RookMagicsInit));
-    init_magics<CANNON>(CannonTable.data(), CannonMagics IF_NOT_PEXT(, RookMagicsInit));
-    init_magics<BISHOP>(BishopTable.data(), BishopMagics IF_NOT_PEXT(, BishopMagicsInit));
-    init_magics<KNIGHT>(KnightTable.data(), KnightMagics IF_NOT_PEXT(, KnightMagicsInit));
-    init_magics<KNIGHT_TO>(KnightToTable.data(), KnightToMagics IF_NOT_PEXT(, KnightToMagicsInit));
-
+alignas(64) extern const SquarePairBB LineBB = []() {
+    SquarePairBB t{};
     for (Square s1 = SQ_A0; s1 <= SQ_I9; ++s1)
-    {
+        for (Square s2 = SQ_A0; s2 <= SQ_I9; ++s2)
+            if (attacks_bb(ROOK, s1) & s2)
+                t[s1][s2] = (attacks_bb(ROOK, s1) & attacks_bb(ROOK, s2)) | s1 | s2;
+    return t;
+}();
+
+alignas(64) extern const SquarePairBB BetweenBB = []() {
+    SquarePairBB t{};
+    for (Square s1 = SQ_A0; s1 <= SQ_I9; ++s1)
         for (Square s2 = SQ_A0; s2 <= SQ_I9; ++s2)
         {
-            if (PseudoAttacks[ROOK][s1] & s2)
-            {
-                LineBB[s1][s2] = (attacks_bb(ROOK, s1) & attacks_bb(ROOK, s2)) | s1 | s2;
-                BetweenBB[s1][s2] =
+            if (attacks_bb(ROOK, s1) & s2)
+                t[s1][s2] =
                   (attacks_bb(ROOK, s1, square_bb(s2)) & attacks_bb(ROOK, s2, square_bb(s1)));
-                inverse_RayPassBB[s2][s1] = attacks_bb(CANNON, s1, square_bb(s2));
-            }
 
-            if (PseudoAttacks[KNIGHT][s1] & s2)
-                BetweenBB[s1][s2] |= lame_leaper_path<KNIGHT_TO>(Direction(s2 - s1), s1);
+            if (attacks_bb(KNIGHT, s1) & s2)
+                t[s1][s2] |= lame_leaper_path<KNIGHT_TO>(Direction(s2 - s1), s1);
 
-            BetweenBB[s1][s2] |= s2;
+            t[s1][s2] |= s2;
         }
-    }
+    return t;
+}();
 
+alignas(64) extern const SquarePairBB inverse_RayPassBB = []() {
+    SquarePairBB t{};
     for (Square s1 = SQ_A0; s1 <= SQ_I9; ++s1)
-    {
+        for (Square s2 = SQ_A0; s2 <= SQ_I9; ++s2)
+            if (attacks_bb(ROOK, s1) & s2)
+                t[s2][s1] = attacks_bb(CANNON, s1, square_bb(s2));
+    return t;
+}();
+
+alignas(64) extern const SquarePairBB LeaperPassBB = []() {
+    SquarePairBB t{};
+    for (Square s1 = SQ_A0; s1 <= SQ_I9; ++s1)
         for (Square s2 = SQ_A0; s2 <= SQ_I9; ++s2)
         {
             if (unconstrained_attacks_bb(KING, s1) & s2)
-                LeaperPassBB[s1][s2] |=
-                  attacks_bb(KNIGHT, s1) & unconstrained_attacks_bb(ADVISOR, s2);
+                t[s1][s2] |= attacks_bb(KNIGHT, s1) & unconstrained_attacks_bb(ADVISOR, s2);
             if (unconstrained_attacks_bb(ADVISOR, s1) & s2)
-                LeaperPassBB[s1][s2] |=
-                  attacks_bb(BISHOP, s1) & unconstrained_attacks_bb(ADVISOR, s2);
+                t[s1][s2] |= attacks_bb(BISHOP, s1) & unconstrained_attacks_bb(ADVISOR, s2);
         }
-    }
-}
+    return t;
+}();
 
 const Magic& magic(Square s, PieceType pt) {
 
@@ -118,10 +127,12 @@ namespace {
 
 // Computes all rook, cannon, bishop and knight attacks at startup.
 template<PieceType pt>
-void init_magics(MagicMask table[], Magic magics[] IF_NOT_PEXT(, const Bitboard magicsInit[])) {
+std::array<Magic, SQUARE_NB>
+init_magics(MagicMask table[] IF_NOT_PEXT(, const Bitboard magicsInit[])) {
 
-    Bitboard edges, b;
-    u64      size = 0;
+    std::array<Magic, SQUARE_NB> magics{};
+    Bitboard                     edges, b;
+    u64                          size = 0;
 
     for (Square s = SQ_A0; s <= SQ_I9; ++s)
     {
@@ -173,6 +184,8 @@ void init_magics(MagicMask table[], Magic magics[] IF_NOT_PEXT(, const Bitboard 
             b = (b - m.mask) & m.mask;
         } while (b);
     }
+
+    return magics;
 }
 
 }
