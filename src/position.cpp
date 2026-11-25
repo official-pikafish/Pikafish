@@ -601,7 +601,8 @@ void Position::do_move(Move m, bool givesCheck, Dirties& dirties, const SharedHi
         else
             ++st->rule60;
     }
-    ++st->pliesFromNull;
+    // States further back may have been overwritten by a deeper search
+    st->repWindow = std::min(st->repWindow + 1, MAX_HIST - MAX_PLY - 10 - 1);
 
     auto& dts = dirties.dirtyThreats;
     auto& dp  = dirties.dirtyPiece;
@@ -649,7 +650,7 @@ void Position::do_move(Move m, bool givesCheck, Dirties& dirties, const SharedHi
         k ^= Zobrist::psq[captured][capsq];
 
         // Reset rule 60 counter
-        st->check10[WHITE] = st->check10[BLACK] = st->rule60 = 0;
+        st->check10[WHITE] = st->check10[BLACK] = st->rule60 = st->repWindow = 0;
     }
     else
         dp.remove_sq = SQ_NONE;
@@ -943,7 +944,7 @@ void Position::do_null_move() {
 
     st->key ^= Zobrist::side;
 
-    st->pliesFromNull = 0;
+    st->repWindow = 0;
 
     st->capturedPiece = NO_PIECE;
 
@@ -1286,19 +1287,13 @@ bool Position::rule_judge(Value& result, int ply) {
         return stateInfos[(stateIdx - d) & (MAX_HIST - 1)];
     };
 
-    // Restore rule 60 by adding back the checks. States further back may have
-    // been overwritten by a deeper search.
-    int end = std::min(
-      {st->rule60 + std::max(0, st->check10[WHITE] - 10) + std::max(0, st->check10[BLACK] - 10),
-       st->pliesFromNull, MAX_HIST - MAX_PLY - 10 - 1});
-
-    if (end >= 4 && filter[st->key] >= 1)
+    if (st->repWindow >= 4 && filter[st->key] >= 1)
     {
         int  cnt       = 0;
         bool checkThem = st->checkersBB && previous(2).checkersBB;
         bool checkUs   = previous(1).checkersBB && previous(3).checkersBB;
 
-        for (int i = 4; i <= end; i += 2)
+        for (int i = 4; i <= st->repWindow; i += 2)
         {
             const StateInfo* stp = &previous(i);
             checkThem &= bool(stp->checkersBB);
@@ -1347,7 +1342,7 @@ bool Position::rule_judge(Value& result, int ply) {
                 }
             }
 
-            if (i + 1 <= end)
+            if (i + 1 <= st->repWindow)
                 checkUs &= bool(previous(i + 1).checkersBB);
         }
     }

@@ -52,7 +52,7 @@ struct StateInfo {
     Value majorMaterial[COLOR_NB];
     i16   check10[COLOR_NB];
     int   rule60;
-    int   pliesFromNull;
+    u16   repWindow;
 
     // Not copied when making a move (will be recomputed anyhow)
     Key                           key;
@@ -154,7 +154,7 @@ class Position {
     u16   chased(Color c);
     Value major_material(Color c) const;
     Value major_material() const;
-    int   plies_from_null() const;
+    int   rep_window() const;
 
     // Position consistency check, for debugging
     bool                            pos_is_ok() const;
@@ -307,7 +307,7 @@ inline Key Position::non_pawn_key(Color c) const { return st->nonPawnKey[c] ^ si
 
 inline Value Position::major_material(Color c) const { return st->majorMaterial[c]; }
 
-inline int Position::plies_from_null() const { return st->pliesFromNull; }
+inline int Position::rep_window() const { return st->repWindow; }
 
 inline Value Position::major_material() const {
     return major_material(WHITE) + major_material(BLACK);
