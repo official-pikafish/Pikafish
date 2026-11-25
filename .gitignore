@@ -1,11 +1,12 @@
 # Files from build
 **/*.o
 **/*.s
+src/**/.*.o.cmd
+src/**/.*.o.cmd.tmp
+src/.pikafish*.cmd
+src/.pikafish*.cmd.tmp
 src/.depend
 src/temp_builds
-.build_sha.txt
-.build_date.txt
-.build_diffindex.txt
 
 # Built binary
 src/pikafish*
