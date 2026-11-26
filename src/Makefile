@@ -1144,7 +1144,7 @@ universal-object-pgo: objclean profileclean universalclean
 	@echo ""
 	@echo "Step 3/4. Building optimized object files ..."
 	$(MAKE) ARCH=$(ARCH) COMP=$(COMP) objclean
-	$(MAKE) ARCH=$(ARCH) COMP=$(COMP) $(profile_use)
+	$(MAKE) ARCH=$(ARCH) COMP=$(COMP) ENV_LDFLAGS='$(SAVE_TEMPS)' $(profile_use)
 	@echo ""
 ifeq ($(use_lto_emit_asm),yes)
 	@echo "Step 4/4. Renaming ctors and extracting LTO-optimized relocatable object ..."
@@ -1437,7 +1437,7 @@ icx-profile-use:
 ifeq ($(UNIVERSAL_BUILD),true)
 
 # Top-level tracked items in src/ (directories and files)
-TRACKED_TOP := $(sort $(foreach f,$(SRCS) $(HEADERS) Makefile,$(firstword $(subst /, ,$(f)))))
+TRACKED_TOP := $(sort $(foreach f,$(SRCS) $(HEADERS) Makefile pikafish.nnue,$(firstword $(subst /, ,$(f)))))
 
 UNIVERSAL_COMMON_OBJ := $(patsubst %,$(TEMP_DIR)/$(BASELINE_ARCH)/%,$(notdir $(patsubst %.S,%.o,$(filter %.S,$(SRCS)))))
 
@@ -1507,7 +1507,7 @@ $(UNIVERSAL_ENTRY_OBJ): $(UNIVERSAL_ENTRY_SRC) $$(call check_force,$$(call cmd_r
 # Symlink tracked top-level items from src/ into temp_builds/<arch>/.
 slice_links = $(addprefix $(@D)/,$(TRACKED_TOP))
 missing_slice_links = $(filter-out $(wildcard $(slice_links)),$(slice_links))
-$(TEMP_DIR)/%/.setup: Makefile $$(if $$(missing_slice_links),FORCE) | $(TEMP_DIR)
+$(TEMP_DIR)/%/.setup: Makefile $$(if $$(missing_slice_links),FORCE) | $(TEMP_DIR) $(NET_SENTINEL)
 	@if [ -d "$(@D)" ]; then \
 		find "$(@D)" -type l -exec rmdir {} + 2>/dev/null || true; \
 		rm -rf "$(@D)"; \
